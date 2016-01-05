@@ -6,6 +6,7 @@ import org.change.v2.analysis.expression.concrete.nonprimitive.:@
 import org.change.v2.analysis.processingmodels.instructions._
 import org.change.v2.analysis.processingmodels.{Instruction, LocationId}
 import org.change.v2.util.conversion.RepresentationConversion._
+import org.change.v2.analysis.expression.concrete.SymbolicValue
 
 class Template(name: String,
                    elementType: String,
@@ -37,8 +38,11 @@ class Template(name: String,
    */
   override def instructions: Map[LocationId, Instruction] = Map(
     inputPortName(0) -> InstructionBlock(
-      Assign("IPAddr", ConstantValue( ipToNumber( configParams(0).value ) )),
-      Forward(outputPortName(0))
+      Assign("IPAddr22", ConstantValue( ipToNumber( configParams(0).value ) )),
+      Assign("Ceva", ConstantValue( ipToNumber( configParams(1).value))),
+      If (Constrain("IPAddr22", :<:(ConstantValue( ipToNumber( configParams(1).value)))),
+          Forward(outputPortName(0)), 
+          Forward(outputPortName(1)))
     )
   )
   override def outputPortName(which: Int = 0): String = s"$name-$which-out"

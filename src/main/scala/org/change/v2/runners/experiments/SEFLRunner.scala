@@ -17,7 +17,7 @@ object SEFLRunner {
 
   def main (args: Array[String]){
 
-    val (successful, failed) = ex0
+    val (successful, failed) = ex1
 
     output.println(s"OK States (${successful.length}}):\n" + ClickExecutionContext.verboselyStringifyStates(successful))
     output.println(s"\nFailed States (${failed.length}}):\n" + ClickExecutionContext.verboselyStringifyStates(failed))
@@ -56,7 +56,7 @@ object SEFLRunner {
       )
     )
 
-    code(State.clean, true)
+    code(State.clean, false)
   }
 
   /**

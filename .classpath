@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="src" output="target/scala-2.11/classes" path="src/main/scala"/>
+	<classpathentry kind="src" output="target/scala-2.11/classes" path="src/main/java"/>
+	<classpathentry kind="src" output="target/scala-2.11/test-classes" path="src/test/scala"/>
+	<classpathentry kind="src" output="target/scala-2.11/test-classes" path="src/test/java"/>
+	<classpathentry kind="lib" path="lib/scalaz3_2.10-2.1.jar"/>
+	<classpathentry kind="lib" path="lib/nettylearn.jar"/>
+	<classpathentry kind="lib" path="/root/.ivy2/cache/org.antlr/antlr4/jars/antlr4-4.3.jar"/>
+	<classpathentry kind="lib" path="/root/.ivy2/cache/org.antlr/antlr4-runtime/jars/antlr4-runtime-4.3.jar"/>
+	<classpathentry kind="lib" path="/root/.ivy2/cache/org.abego.treelayout/org.abego.treelayout.core/jars/org.abego.treelayout.core-1.0.1.jar"/>
+	<classpathentry kind="lib" path="/root/.ivy2/cache/org.antlr/antlr4-annotations/jars/antlr4-annotations-4.3.jar"/>
+	<classpathentry kind="lib" path="/root/.ivy2/cache/org.antlr/antlr-runtime/jars/antlr-runtime-3.5.2.jar"/>
+	<classpathentry kind="lib" path="/root/.ivy2/cache/org.antlr/ST4/jars/ST4-4.0.8.jar"/>
+	<classpathentry kind="lib" path="/root/.ivy2/cache/commons-io/commons-io/jars/commons-io-2.4.jar"/>
+	<classpathentry kind="lib" path="/root/.ivy2/cache/io.spray/spray-json_2.11/bundles/spray-json_2.11-1.3.2.jar"/>
+	<classpathentry kind="lib" path="/root/.ivy2/cache/org.scalatest/scalatest_2.11/bundles/scalatest_2.11-2.2.4.jar"/>
+	<classpathentry kind="lib" path="/root/.ivy2/cache/org.scala-lang.modules/scala-xml_2.11/bundles/scala-xml_2.11-1.0.2.jar"/>
+	<classpathentry kind="con" path="org.scala-ide.sdt.launching.SCALA_CONTAINER"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry kind="output" path="bin"/>
+</classpath>
