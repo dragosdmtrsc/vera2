@@ -12,6 +12,10 @@ import org.openstack4j.model.network.ext.FirewallRule;
 
 public class NeutronWrapper {
 	private OSClient os;
+	public OSClient getOs() {
+		return os;
+	}
+
 	private Map<String, FirewallPolicy> policies = new HashMap<String, FirewallPolicy>();
 	private Map<String, FirewallRule> rules = new HashMap<String, FirewallRule>();
 

@@ -16,4 +16,8 @@ case class Fail(errMsg: String = "Fail op executed")  extends Instruction {
    */
   override def apply(s: State, v: Boolean): (List[State], List[State]) =
     stateToError(if (v) s.addInstructionToHistory(this) else s, errMsg)
+    
+  override def toString = {
+    "Fail(" + errMsg + ")"
+  }
 }
