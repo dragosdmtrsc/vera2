@@ -88,7 +88,21 @@ class NetRouter(wrapper : NeutronWrapper, router : NeutronRouter, already : List
           }
         },
         checkRoutingTable(tail))
-    case Nil => Fail("No route to host")
+    case Nil => checkExternalGateway
+  }
+  
+  private def checkExternalGateway() : Instruction = {
+    Fail("No route to host")
+
+//    if (this.router.getExternalGatewayInfo != null)
+//    {
+//      // TBD : what to do when external router is there
+//      NoOp
+//    }
+//    else
+//    {
+//      Fail("No route to host")
+//    }
   }
   
   private def checkRoutingTable() : Instruction = {
@@ -111,24 +125,6 @@ class NetRouter(wrapper : NeutronWrapper, router : NeutronRouter, already : List
   }
 }
 
-class NetAddress(fullCidr : String) {
-  def mask = {
-    val sp = split
-    Integer.parseInt(sp(1))
-  }
-  
-  def addressRange = {
-     ipAndMaskToInterval(split(0), split(1))
-  }
-  
-  override def toString = {
-    addressRange.toString() + "/" + mask
-  }
-  
-  private def split = {
-    fullCidr.split("/")
-  }
-}
 
 
 object NetRouter {

@@ -1,5 +1,6 @@
 package org.change.v2.abstractnet.neutron.elements
 import scala.collection.JavaConversions._
+import org.change.v2.util.conversion.RepresentationConversion._
 import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.abstractnet.neutron.NeutronWrapper
 import collection.JavaConversions._
@@ -40,6 +41,15 @@ abstract class BaseNetElement(wrapper : NeutronWrapper) extends NetAbsElement {
     } else {
       null
     }
+  }
+  
+  def portsByCidr(cidr : String) : List[Port] = {
+    ports.filter { x => x.getFixedIps.toSet.filter { y =>  
+        val ipNum = ipToNumber(y.getIpAddress)
+        val range = NetAddress(cidr).addressRange
+        range._1 < ipNum && range._2 > ipNum
+      }.size > 0
+    }.toList
   }
   
   def routerByIp(ip : String) : Router = {
