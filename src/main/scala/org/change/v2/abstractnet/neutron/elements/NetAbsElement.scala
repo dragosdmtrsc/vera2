@@ -22,18 +22,6 @@ abstract class BaseNetElement(wrapper : NeutronWrapper) extends NetAbsElement {
   def ports = os.networking.port.list
   def subnet = os.networking.subnet
   
-//  def machineByIp(ip : String) = {
-//    val thePort = portByIp(ip)
-//    if (thePort != null)
-//    {
-//      os.compute().thePort.getDeviceId
-//    }
-//    else
-//    {
-//      null
-//    }
-//  }
-  
   def portByIp(ip : String) : Port = {
     val thePorts = ports.filter { x => x.getFixedIps.toSet.filter { x => x.getIpAddress == ip }.size != 0 }
     if (thePorts.size > 0) {

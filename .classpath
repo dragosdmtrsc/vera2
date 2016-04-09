@@ -15,7 +15,7 @@
 	<classpathentry kind="lib" path="C:/Users/Dragos/.ivy2/cache/commons-io/commons-io/jars/commons-io-2.4.jar"/>
 	<classpathentry kind="lib" path="C:/Users/Dragos/.ivy2/cache/io.spray/spray-json_2.11/bundles/spray-json_2.11-1.3.2.jar"/>
 	<classpathentry kind="con" path="org.scala-ide.sdt.launching.SCALA_CONTAINER"/>
-	<classpathentry kind="lib" path="C:/Users/Dragos/.ivy2/cache/org.pacesys/openstack4j-core/jars/openstack4j-core-2.0.9.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Dragos/.ivy2/cache/org.pacesys/openstack4j-core/jars/openstack4j-core-2.0.9.jar" sourcepath="C:/Users/Dragos/.m2/repository/org/pacesys/openstack4j-core/2.0.9/openstack4j-core-2.0.9-sources.jar"/>
 	<classpathentry kind="lib" path="C:/Users/Dragos/.ivy2/cache/com.google.guava/guava/bundles/guava-17.0.jar"/>
 	<classpathentry kind="lib" path="C:/Users/Dragos/.ivy2/cache/com.fasterxml.jackson.core/jackson-databind/bundles/jackson-databind-2.4.1.3.jar"/>
 	<classpathentry kind="lib" path="C:/Users/Dragos/.ivy2/cache/com.fasterxml.jackson.core/jackson-annotations/bundles/jackson-annotations-2.4.0.jar"/>

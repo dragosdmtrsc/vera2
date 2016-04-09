@@ -40,13 +40,7 @@ object NeutronRunner {
   
 
   
-  def main(argv : Array[String]) {
-    val bReader = new BufferedReader(new InputStreamReader(System.in));
-//    System.out.println("Input password");
-//    val passWord = bReader.readLine();
-    
-    val breader = new BufferedReader(new InputStreamReader(new BufferedInputStream(new FileInputStream("credentials.txt"))));
-    
+  def main(argv : Array[String]) {    
     val (apiAddr, userName, password, project) = readCredentials()
     
     val wrapper = new NeutronWrapper(apiAddr,

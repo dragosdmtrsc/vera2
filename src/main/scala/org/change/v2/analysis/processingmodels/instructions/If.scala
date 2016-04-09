@@ -42,4 +42,9 @@ case class If(testInstr: Instruction, thenWhat: Instruction, elseWhat:Instructio
     }
     case _ => stateToError(s.addInstructionToHistory(this), "Bad test instruction")
   }
+  
+  override def toString = {
+    "If(" + testInstr + ") {\n" + thenWhat.toString() + "\n}\nelse {\n" + elseWhat + "\n}\n"
+  }
+  
 }

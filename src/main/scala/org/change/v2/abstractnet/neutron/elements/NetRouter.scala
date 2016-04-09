@@ -49,7 +49,7 @@ class NetRouter(wrapper : NeutronWrapper, router : NeutronRouter, already : List
   
   private def checkMyDestination(list : List[(String, NetAddress, Subnet)]) : Instruction = 
   list match {
-    case h :: tail => If (Constrain(Tag("IPDst"),  :==:(ConstantValue(ipToNumber(h._1)))),
+    case h :: tail => If (Constrain(Tag("IPDst"),  :==:(ConstantValue(ipToNumber(h._1), true))),
         NoOp,
         checkMyDestination(tail))
     case Nil => checkConnectedSubnet
@@ -61,8 +61,8 @@ class NetRouter(wrapper : NeutronWrapper, router : NeutronRouter, already : List
   
   private def checkConnectedSubnet(list :  List[(String, NetAddress, Subnet)]) : Instruction = 
   list match {
-    case h :: tail => If (Constrain(Tag("IPDst"), :&:(:>:(ConstantValue(h._2.addressRange._1)),
-        :<:(ConstantValue(h._2.addressRange._2)))),
+    case h :: tail => If (Constrain(Tag("IPDst"), :&:(:>:(ConstantValue(h._2.addressRange._1, true)),
+        :<:(ConstantValue(h._2.addressRange._2, true)))),
         NetSubnet(wrapper, h._3),
         checkConnectedSubnet(tail))
     case Nil => checkRoutingTable
@@ -74,8 +74,8 @@ class NetRouter(wrapper : NeutronWrapper, router : NeutronRouter, already : List
   
   private def checkRoutingTable(list : List[(NetAddress, String)]) : Instruction = 
   list match {
-    case h :: tail => If (Constrain(Tag("IPDst"), :&:(:>:(ConstantValue(h._1.addressRange._1)),
-        :<:(ConstantValue(h._1.addressRange._2)))),
+    case h :: tail => If (Constrain(Tag("IPDst"), :&:(:>:(ConstantValue(h._1.addressRange._1, true)),
+        :<:(ConstantValue(h._1.addressRange._2, true)))),
         {
           val rip = routerByIp(h._2)
           if (rip != null)
@@ -92,17 +92,17 @@ class NetRouter(wrapper : NeutronWrapper, router : NeutronRouter, already : List
   }
   
   private def checkExternalGateway() : Instruction = {
-    Fail("No route to host")
+//    Fail("No route to host")
 
-//    if (this.router.getExternalGatewayInfo != null)
-//    {
-//      // TBD : what to do when external router is there
-//      NoOp
-//    }
-//    else
-//    {
-//      Fail("No route to host")
-//    }
+    if (this.router.getExternalGatewayInfo != null)
+    {
+      // TBD : what to do when external router is there
+      NoOp
+    }
+    else
+    {
+      Fail("No route to host")
+    }
   }
   
   private def checkRoutingTable() : Instruction = {
@@ -112,6 +112,7 @@ class NetRouter(wrapper : NeutronWrapper, router : NeutronRouter, already : List
     
   }
   
+
   
   def symnetCode() : Instruction = {
     if (already.contains(router.getId))
@@ -141,7 +142,6 @@ object NetRouter {
         "dragos.dumitrescu92",
         "Oximoron_16092", "dragos.dumitrescu92_prj");
    val r = wrapper.getOs.networking.router.list.get(0).asInstanceOf[NeutronRouter]
-//     val nr = new NetRouter(wrapper, r)
    System.out.println(NetRouter(wrapper, r))    
   }
   

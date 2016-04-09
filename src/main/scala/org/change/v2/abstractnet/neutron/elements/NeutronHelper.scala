@@ -18,7 +18,7 @@ object NeutronHelper {
     }
     
     def neutronWrapperFromFile(file : String = "credentials.txt") = {
-       val (apiAddr, userName, password, project) = NeutronHelper.readCredentials()
+       val (apiAddr, userName, password, project) = NeutronHelper.readCredentials(file)
     
       new NeutronWrapper(apiAddr,
           userName,

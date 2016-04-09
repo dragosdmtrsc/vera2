@@ -4,11 +4,12 @@ import org.change.v2.analysis.expression.abst.{FloatingExpression, Expression}
 import org.change.v2.analysis.processingmodels.State
 import org.change.v2.analysis.z3.Z3Util
 import z3.scala.{Z3Solver, Z3AST}
+import org.change.utils.RepresentationConversion._
 
 /**
  * Created by radu on 3/24/15.
  */
-case class ConstantValue(value: Long) extends Expression with FloatingExpression {
+case class ConstantValue(value: Long, isIp : Boolean  = false) extends Expression with FloatingExpression {
   lazy val ast = Z3Util.z3Context.mkInt(value.asInstanceOf[Int], Z3Util.defaultSort)
 
   override def toZ3(solver: Option[Z3Solver] = None): (Z3AST, Option[Z3Solver]) = (ast, solver)
@@ -22,5 +23,10 @@ case class ConstantValue(value: Long) extends Expression with FloatingExpression
    */
   override def instantiate(s: State): Either[Expression, String] = Left(this)
 
-  override def toString = s"[Constant $value]"
+  override def toString = {
+    if (!isIp)
+      s"[Constant $value]"
+    else
+      "[Constant " + numberToIp(value) +  "]"
+  }
 }

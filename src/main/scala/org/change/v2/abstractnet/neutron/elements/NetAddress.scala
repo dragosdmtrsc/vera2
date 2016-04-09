@@ -63,6 +63,8 @@ object NetAddress {
       ((bytes       ) & 0xff).asInstanceOf[Byte]
     )
   }
+  
+  
   def addressAsString(ar : (Long, Long)) = {
     val (start, end) = (unpack(ar._1.asInstanceOf[Int]), unpack(ar._2.asInstanceOf[Int]))
     var startStr = ""

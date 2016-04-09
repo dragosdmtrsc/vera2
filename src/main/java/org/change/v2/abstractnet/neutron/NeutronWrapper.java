@@ -10,7 +10,7 @@ import org.openstack4j.model.network.ext.Firewall;
 import org.openstack4j.model.network.ext.FirewallPolicy;
 import org.openstack4j.model.network.ext.FirewallRule;
 
-public class NeutronWrapper {
+public class NeutronWrapper extends Creator {
 	private OSClient os;
 	public OSClient getOs() {
 		return os;
@@ -20,11 +20,12 @@ public class NeutronWrapper {
 	private Map<String, FirewallRule> rules = new HashMap<String, FirewallRule>();
 
 	public NeutronWrapper(String host, String userName, String password, String project) {
-		this.os = org.openstack4j.openstack.OSFactory.builder()
+		super(org.openstack4j.openstack.OSFactory.builder()
                 .endpoint(host)
                 .credentials(userName, password)
                 .tenantName(project)
-                .authenticate();
+                .authenticate());
+		this.os = super.getOsClient();		
 	}
 	public NeutronWrapper(String host, String userName, String password) {
 		this(host, userName, password, userName + "_prj");

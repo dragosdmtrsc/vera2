@@ -79,7 +79,7 @@ object IpFilter {
   def filterIp(tag : String, ip : String) = {
     val (ipAddr, ipMask) = IpHelpers.parseIpAddress(ip)
     val (rangeStart, rangeEnd) = ipAndMaskToInterval(ipAddr, ipMask)
-    Constrain(Tag(tag), :&:(:<:(ConstantValue(rangeEnd)), :>:(ConstantValue(rangeStart))))
+    Constrain(Tag(tag), :&:(:<:(ConstantValue(rangeEnd, true)), :>:(ConstantValue(rangeStart, true))))
   }
   
   def filterPort(tag : String, port : String) = {

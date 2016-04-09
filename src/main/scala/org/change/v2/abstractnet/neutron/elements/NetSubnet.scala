@@ -16,6 +16,7 @@ import org.change.v2.util.conversion.RepresentationConversion.ipToNumber
 import org.openstack4j.model.network.IP
 import org.openstack4j.model.network.Port
 import org.openstack4j.model.network.Subnet
+
 class NetSubnet(wrapper : NeutronWrapper, subnet : Subnet) extends BaseNetElement(wrapper) {
   def symnetCode : Instruction = {
     val netPorts = this.portsByCidr(subnet.getCidr).filter { x => x.getNetworkId == subnet.getNetworkId }
@@ -24,7 +25,7 @@ class NetSubnet(wrapper : NeutronWrapper, subnet : Subnet) extends BaseNetElemen
   
   private def symnetCode(list : List[IP], tail2 : List[Port]) : Instruction = list match {
     case h :: tail => {
-          If (Constrain(Tag("IPDst"), :==:(ConstantValue(ipToNumber(h.getIpAddress)))),
+          If (Constrain(Tag("IPDst"), :==:(ConstantValue(ipToNumber(h.getIpAddress), true))),
               NoOp,
               symnetCode(tail, tail2))
     }

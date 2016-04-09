@@ -1,7 +1,24 @@
 package org.change.utils
 
 object RepresentationConversion {
-
+  def unpack(bytes : Int) = {
+    List[Byte] (
+      ((bytes >>> 24) & 0xff).asInstanceOf[Byte],
+      ((bytes >>> 16) & 0xff).asInstanceOf[Byte],
+      ((bytes >>>  8) & 0xff).asInstanceOf[Byte],
+      ((bytes       ) & 0xff).asInstanceOf[Byte]
+    )
+  }
+  def numberToIp(ip : Long) = {
+    var startStr = ""
+    val start = unpack(ip.asInstanceOf[Int])
+    for (b <- start) {
+      startStr += ((b & 0xFF).asInstanceOf[Int]).toString + "."
+    }
+    startStr = startStr.substring(0, startStr.length() - 1)
+    startStr
+  }
+  
   def ipToNumber(ip: String): Long = {
     ip.split("\\.").map(Integer.parseInt(_)).foldLeft(0L)((a:Long, g:Int)=> a * 256 + g)
   }
