@@ -35,4 +35,8 @@ lazy val mc = taskKey[Unit]("Running multiple VMs")
 
 fullRunTask(mc, Compile, "org.change.v2.runners.experiments.MultipleVms")
 
+lazy val neutron = taskKey[Unit]("Neutron")
+
+fullRunTask(neutron, Compile, "org.change.v2.runners.experiments.NeutronFullRunner")
+
 seq(Revolver.settings: _*)
