@@ -9,3 +9,9 @@ class NetFirewall(fWall : Firewall, wrapper : NeutronWrapper) extends NetAbsElem
     new NetFirewallPolicy(wrapper.getPolicy(fWall.getPolicy), wrapper).symnetCode()
   }
 }
+
+object NetFirewall {
+  def apply(fWall : Firewall, wrapper : NeutronWrapper) = {
+    new NetFirewall(fWall, wrapper).symnetCode()
+  }
+}

@@ -15,7 +15,11 @@ libraryDependencies ++= {
     "org.scalatest" % "scalatest_2.11" % "2.2.4" % "test",
     "io.spray" %%  "spray-json" % "1.3.2",
     "org.pacesys" % "openstack4j-core" % "2.0.9",
-    "org.pacesys.openstack4j.connectors" % "openstack4j-httpclient" % "2.0.9"
+    "org.pacesys.openstack4j.connectors" % "openstack4j-httpclient" % "2.0.9",
+    "org.apache.commons" % "commons-lang3" % "3.5",
+    "com.fasterxml.jackson.core" % "jackson-databind" % "2.8.3",
+    "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.8.3",
+    "com.regblanc" %% "scala-smtlib" % "0.2"
   )
 }
 

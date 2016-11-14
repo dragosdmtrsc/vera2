@@ -42,7 +42,8 @@ case class MemorySpace(val symbols: Map[String, MemoryObject] = Map.empty,
       rawObjects.forall(kv => ! IntervalOps.intervalIntersectionIsInterval(a, a+size, kv._1, kv._1 + kv._2.size))
   }
 
-  def canModify(a: Int, size: Int): Boolean = doesNotOverlap(a, size) ||
+  def canModify(a: Int, size: Int): Boolean = 
+    doesNotOverlap(a, size) ||
     (rawObjects.contains(a) && rawObjects(a).size == size)
 
   def canModifyExisting(a: Int, size: Int): Boolean = rawObjects.contains(a) && rawObjects(a).size == size
@@ -62,12 +63,20 @@ case class MemorySpace(val symbols: Map[String, MemoryObject] = Map.empty,
    */
   def Allocate(id: String): Option[MemorySpace] =
     Some(MemorySpace(
-      symbols + ( id -> (if (! symbolIsDefined(id)) MemoryObject() else symbols(id).allocateNewStack)),
+      symbols + ( 
+      id -> (
+          if (! symbolIsDefined(id)) 
+            MemoryObject() 
+          else 
+            symbols(id).allocateNewStack
+         )
+      ),
       rawObjects,
       memTags
     ))
 
-  def Allocate(a: Int, size: Int): Option[MemorySpace] = if (canModifyExisting(a, size))
+  def Allocate(a: Int, size: Int): Option[MemorySpace] = 
+  if (canModifyExisting(a, size))
     Some(MemorySpace(
       symbols,
       rawObjects + ( a -> rawObjects(a).allocateNewStack),
@@ -114,7 +123,8 @@ case class MemorySpace(val symbols: Map[String, MemoryObject] = Map.empty,
    */
   def Assign(id: String, exp: Expression, eType: NumericType): Option[MemorySpace] = { assignNewValue(id, exp, eType) }
   def Assign(id: String, exp: Expression): Option[MemorySpace] = Assign(id, exp, TypeUtils.canonicalForSymbol(id))
-  def Assign(a: Int, exp: Expression): Option[MemorySpace] = if (isAllocated(a))
+  def Assign(a: Int, exp: Expression): Option[MemorySpace] = 
+    if (isAllocated(a))
     {
       val nm = Some(MemorySpace(
         symbols,
@@ -123,7 +133,6 @@ case class MemorySpace(val symbols: Map[String, MemoryObject] = Map.empty,
       ))
       nm
     }
-
   else
     None
 

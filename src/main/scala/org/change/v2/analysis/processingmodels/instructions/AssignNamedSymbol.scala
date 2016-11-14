@@ -1,9 +1,17 @@
 package org.change.v2.analysis.processingmodels.instructions
 
-import org.change.v2.analysis.expression.abst.{FloatingExpression, Expression}
-import org.change.v2.analysis.processingmodels.{State, Instruction}
-import org.change.v2.analysis.types.{LongType, NumericType}
-import org.change.v2.analysis.memory.{TagExp, Intable}
+import org.change.v2.analysis.expression.abst.Expression
+import org.change.v2.analysis.expression.abst.FloatingExpression
+import org.change.v2.analysis.memory.Intable
+import org.change.v2.analysis.memory.TagExp
+import org.change.v2.analysis.processingmodels.Instruction
+import org.change.v2.analysis.processingmodels.State
+import org.change.v2.analysis.types.LongType
+import org.change.v2.analysis.types.NumericType
+import org.change.v2.analysis.types.IP4Type
+import org.change.v2.util.conversion.RepresentationConversion._
+import org.change.v2.analysis.expression.concrete.ConstantValue
+
 
 /**
  * Author: Radu Stoenescu
@@ -48,7 +56,16 @@ case class AssignRaw(a: Intable, exp: FloatingExpression, t: NumericType = LongT
 
 object Assign {
   def apply(a: Intable, exp: FloatingExpression): Instruction =
-    AssignRaw(a, exp, LongType)
+    apply(a, exp, LongType)
+  def apply(a : Intable, exp : FloatingExpression, kind : NumericType) : Instruction = 
+    AssignRaw(a, exp, kind)
+  def apply(a : Intable, ip : String) : Instruction = 
+    apply(a, ConstantValue(ipToNumber(ip)), IP4Type)
+    
+  def apply(id : String, exp : FloatingExpression, kind : NumericType) : Instruction = 
+    AssignNamedSymbol(id, exp, kind)
   def apply(id: String, exp: FloatingExpression): Instruction =
-    AssignNamedSymbol(id, exp, LongType)
+    apply(id, exp, LongType)
+  def apply(id: String, ip : String) : Instruction = 
+    apply(id, ConstantValue(ipToNumber(ip)), IP4Type)
 }

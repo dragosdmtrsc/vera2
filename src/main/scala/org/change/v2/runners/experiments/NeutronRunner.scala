@@ -51,13 +51,6 @@ object NeutronRunner {
     val listOfFwalls = wrapper.getFirewalls;
     val it = listOfFwalls.iterator
     val setOfRules = List[FirewallRule]();
-    // test policies
-//    while (it.hasNext) {
-//      val x = it.next;
-//      val policy = wrapper.getPolicy(x.getPolicy);
-//      testPolicy(policy, wrapper)
-//    }
-
     // test routers
      val r = wrapper.getOs.networking.router.list
      r.foreach { x => testRouter(x.asInstanceOf[NeutronRouter], wrapper) }

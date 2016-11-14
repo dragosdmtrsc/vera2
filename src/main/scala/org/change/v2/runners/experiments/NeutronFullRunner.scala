@@ -51,7 +51,7 @@ import org.change.v2.runners.experiments.NeutronRunner._
 object NeutronFullRunner {
 
    def main(argv : Array[String]) {    
-    val (apiAddr, userName, password, project) = readCredentials("credentials2.txt")
+    val (apiAddr, userName, password, project) = readCredentials("credentials3.txt")
     
     val wrapper = new NeutronWrapper(apiAddr,
           userName,

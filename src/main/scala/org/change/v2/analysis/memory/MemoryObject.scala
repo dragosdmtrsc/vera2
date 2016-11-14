@@ -10,7 +10,8 @@ case class MemoryObject(valueStack: List[ValueStack] = List(ValueStack.empty),
   def value: Option[Value] = valueStack.headOption.flatMap(_.value)
   def initialValue: Option[Value] = valueStack.lastOption.flatMap(_.initialValue)
 
-  def addValue(v: Value): MemoryObject = if (isVoid)
+  def addValue(v: Value): MemoryObject = 
+    if (isVoid)
       MemoryObject(List(ValueStack.empty.addDefinition(v)), size)
     else
       MemoryObject(valueStack.head.addDefinition(v) :: valueStack.tail, size)

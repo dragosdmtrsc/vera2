@@ -6,6 +6,7 @@ lib_managed/
 src_managed/
 test-output/
 *.iml
+*.json
 vms
 *.log
 *.sc
@@ -19,3 +20,4 @@ out
 src/main/scala/org/change/v2/runners/Run.scala
 *.output
 /bin/
+outputs/

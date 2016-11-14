@@ -11,7 +11,8 @@ case class CreateTag(name: String, value: Intable)extends Instruction {
   /**
    *
    * A state processing block produces a set of new states based on a previous one.
-   *
+   * After applying this instruction, one gets a new memory with the new tag in place
+   * and a mapping created inside the memory
    * @param s
    * @return
    */

@@ -5,6 +5,7 @@ import org.change.v2.analysis.processingmodels.{State, Instruction}
 import org.change.v2.analysis.z3.Z3Able
 
 import scala.util.Random
+import com.fasterxml.jackson.annotation.JsonTypeInfo
 
 /**
  * Created by radu on 3/24/15.
@@ -13,6 +14,10 @@ import scala.util.Random
  *
  * These bindings are made according to the context of a state.
  */
+@JsonTypeInfo(
+  use = JsonTypeInfo.Id.NAME, 
+  include = JsonTypeInfo.As.PROPERTY, 
+  property = "type")
 trait FloatingExpression {
   /**
    * A floating expression may include unbounded references (e.g. symbol ids)
@@ -28,6 +33,10 @@ trait FloatingExpression {
  * An expression without dangling references.
  * @param id Every expression has an id for an easy equality check.
  */
+@JsonTypeInfo(
+  use = JsonTypeInfo.Id.NAME, 
+  include = JsonTypeInfo.As.PROPERTY, 
+  property = "type")
 abstract class Expression(val id: Long = Expression.randomId) extends Z3Able
 
 object Expression {

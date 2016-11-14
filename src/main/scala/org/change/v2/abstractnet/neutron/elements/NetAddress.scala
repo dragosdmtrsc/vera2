@@ -25,7 +25,11 @@ class NetAddress(fullCidr : String) {
   def addressRange = {
      ipAndMaskToInterval(split(0), split(1))
   }
-  
+  def contains(ip : String) = {
+    val ar = addressRange
+    val ipp = ipToNumber(ip)
+    ar._1 <= ipp && ar._2 >= ipp
+  }
   
   def addressRangeAsString = {
     val ar = addressRange
