@@ -15,7 +15,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo
  * These bindings are made according to the context of a state.
  */
 @JsonTypeInfo(
-  use = JsonTypeInfo.Id.NAME, 
+  use = JsonTypeInfo.Id.CLASS, 
   include = JsonTypeInfo.As.PROPERTY, 
   property = "type")
 trait FloatingExpression {

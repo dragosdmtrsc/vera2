@@ -4,6 +4,7 @@ import org.change.v2.analysis.constraint._
 import org.change.v2.analysis.expression.abst.FloatingExpression
 import org.change.v2.analysis.processingmodels.{State, Instruction}
 import org.change.v2.analysis.memory.{TagExp, Intable}
+import com.fasterxml.jackson.annotation.JsonTypeInfo
 
 /**
  * Author: Radu Stoenescu
@@ -53,6 +54,10 @@ object Constrain {
     ConstrainRaw(a, dc, None)
 }
 
+@JsonTypeInfo(
+  use = JsonTypeInfo.Id.CLASS, 
+  include = JsonTypeInfo.As.PROPERTY, 
+  property = "type")
 trait FloatingConstraint {
   def instantiate(s: State): Either[Constraint, String]
 }

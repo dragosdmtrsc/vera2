@@ -213,35 +213,34 @@ class StatePrettifier {
   }
 }
 
-
-import com.fasterxml.jackson.databind.{DeserializationFeature, ObjectMapper}
-import com.fasterxml.jackson.module.scala.experimental.ScalaObjectMapper
+import com.fasterxml.jackson.databind.jsontype.NamedType
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
-import org.change.symbolicexec.types.NumericType
-import org.change.v2.analysis.types.NumericType
-import org.change.v2.analysis.types.NumericType
-import org.change.v2.analysis.types.NumericType
-import org.change.v2.analysis.types.NumericType
-import org.change.v2.analysis.types.LongType
-import org.change.v2.analysis.types.NumericType
-import org.change.v2.analysis.types.LongType
-import org.change.v2.analysis.types.NumericType
-import org.change.v2.analysis.types.LongType
-import org.change.v2.analysis.types.NumericType
-import org.change.v2.analysis.types.LongType
+import com.fasterxml.jackson.databind.DeserializationFeature
+import com.fasterxml.jackson.module.scala.experimental.ScalaObjectMapper
+import com.fasterxml.jackson.databind.ObjectMapper
 import org.change.v2.analysis.types.IP4Type
 import org.change.v2.analysis.types.LongType
-import org.change.v2.analysis.types.IP4Type
-import org.change.v2.analysis.types.LongType
-import org.change.v2.analysis.types.IP4Type
-import org.change.v2.analysis.types.LongType
-import org.change.v2.analysis.types.IP4Type
-import org.change.v2.analysis.types.LongType
+
+
 
 object JsonUtil {
   val mapper = new ObjectMapper() with ScalaObjectMapper
   mapper.registerModule(DefaultScalaModule)
   mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+  mapper.registerSubtypes(
+            new NamedType(classOf[Minus], "Minus"),
+            new NamedType(classOf[Plus], "Plus"),
+            new NamedType(classOf[Reference], "Reference"),
+            new NamedType(classOf[SymbolicValue], "SymbolicValue"),
+            new NamedType(classOf[ConstantValue], "ConstantValue")
+            )
+  mapper.registerSubtypes(classOf[AND], classOf[OR],
+      classOf[E], classOf[GT], classOf[GTE], classOf[LT],
+      classOf[LTE], classOf[NOT], classOf[OR], classOf[Range],
+      classOf[EQ_E], classOf[GT_E], classOf[GTE_E], classOf[LT_E],
+      classOf[LTE_E], 
+      LongType.getClass, IP4Type.getClass, MACType.getClass,
+      PortType.getClass, ProtoType.getClass, VLANType.getClass)
   def toJson(value: Map[Symbol, Any]): String = {
     toJson(value map { case (k,v) => k.name -> v})
   }

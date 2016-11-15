@@ -45,13 +45,27 @@ import org.smtlib.command.C_declare_fun
 import org.smtlib.command.C_define_fun
 import org.smtlib.command.C_set_logic
 import org.change.v2.util.StringIt
+import org.change.utils.prettifier.SomeWriter
+import java.io.PrintStream
+import com.fasterxml.jackson.dataformat.yaml.snakeyaml.reader.StreamReader
+import java.nio.file.Paths
+import java.nio.file.Files
+import java.io.File
+import java.io.BufferedReader
+import java.io.FileInputStream
+import java.io.InputStreamReader
+import org.change.utils.prettifier.JsonUtil
 
 
 object SMTRunner {
 
+ 
+  
+  
   
   def main(args : Array[String]) = {
-    val (successful, failed) = SEFLRunner.ex3
+    val (successful, failed) = SEFLRunner.ex3    
+    
     val smt = new SMT()
     val factory = smt.smtConfig.exprFactory
     val printer = smt.smtConfig.defaultPrinter

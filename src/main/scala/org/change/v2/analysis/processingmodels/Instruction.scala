@@ -10,7 +10,7 @@ import org.change.v2.analysis.processingmodels.instructions._
  */
 
 @JsonTypeInfo(
-  use = JsonTypeInfo.Id.NAME, 
+  use = JsonTypeInfo.Id.CLASS, 
   include = JsonTypeInfo.As.PROPERTY, 
   property = "type")
 abstract class Instruction(id: String = "", rewriteMappings: Map[String, String]= Map()) {
