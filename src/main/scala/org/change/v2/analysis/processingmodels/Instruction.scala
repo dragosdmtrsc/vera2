@@ -1,5 +1,7 @@
 package org.change.v2.analysis.processingmodels
 
+import org.change.v2.analysis.memory.State
+
 import com.fasterxml.jackson.annotation.JsonTypeInfo
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonSubTypes.Type

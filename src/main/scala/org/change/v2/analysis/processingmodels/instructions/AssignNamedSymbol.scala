@@ -11,6 +11,9 @@ import org.change.v2.analysis.types.NumericType
 import org.change.v2.analysis.types.IP4Type
 import org.change.v2.util.conversion.RepresentationConversion._
 import org.change.v2.analysis.expression.concrete.ConstantValue
+import org.change.v2.analysis.expression.abst.{FloatingExpression, Expression}
+import org.change.v2.analysis.processingmodels.Instruction
+import org.change.v2.analysis.memory.{State, TagExp, Intable}
 
 
 /**

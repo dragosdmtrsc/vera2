@@ -1,3 +1,4 @@
+/.vagrant
 /.idea/
 /project/boot/
 /project/plugins/project
@@ -22,3 +23,4 @@ src/main/scala/org/change/v2/runners/Run.scala
 /bin/
 outputs/
 .settings/
+*.json

@@ -4,6 +4,7 @@ import java.io.{File, FileOutputStream, PrintStream}
 
 import org.change.parser.clickfile.ClickToAbstractNetwork
 import org.change.v2.executor.clickabstractnetwork.ClickExecutionContext
+import org.change.v2.executor.clickabstractnetwork.executionlogging.{ModelValidation, JsonLogger, OldStringifier}
 
 /**
  * Author: Radu Stoenescu
@@ -14,17 +15,24 @@ object TemplateRunner {
   def main (args: Array[String]) {
     val clickConfig = "src/main/resources/click_test_files/Template.click"
     val absNet = ClickToAbstractNetwork.buildConfig(clickConfig)
-    val executor = ClickExecutionContext.fromSingle(absNet, initialIsClean = true)
+    val executor = ClickExecutionContext.fromSingle(absNet).setLogger(JsonLogger)
 
     var crtExecutor = executor
     while (!crtExecutor.isDone) {
       crtExecutor = crtExecutor.execute(verbose = true)
     }
 
-    val outputFileName = "template.output"
-    val output = new PrintStream(new FileOutputStream(new File(outputFileName)))
-    output.println(crtExecutor.stringifyStates())
+    val output = new PrintStream(new FileOutputStream(new File("template.output")))
+    val (successful, failed) = (crtExecutor.stuckStates, crtExecutor.failedStates)
+
+    output.println(
+      successful.map(_.jsonString).mkString("Successful: {\n", "\n", "}\n") +
+        failed.map(_.jsonString).mkString("Failed: {\n", "\n", "}\n")
+    )
+
     output.close()
-    println("Done. Output @ " + outputFileName)
+
+    println("Check output @ sefl.output")
+    println("Done, check template.output")
   }
 }

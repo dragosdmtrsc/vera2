@@ -43,4 +43,8 @@ lazy val neutron = taskKey[Unit]("Neutron")
 
 fullRunTask(neutron, Compile, "org.change.v2.runners.experiments.NeutronFullRunner")
 
+lazy val sefl = taskKey[Unit]("SEFL execution")
+
+fullRunTask(sefl, Compile, "org.change.v2.runners.sefl.SEFLExecutor")
+
 seq(Revolver.settings: _*)
