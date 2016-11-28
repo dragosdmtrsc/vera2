@@ -18,7 +18,7 @@ import org.change.v2.analysis.processingmodels.instructions.Assign
 import org.change.v2.abstractnet.neutron.elements.NetFirewallRule
 import org.change.v2.abstractnet.neutron.elements.NetFirewallRule
 import org.change.v2.abstractnet.neutron.elements.NetFirewallRule
-import org.change.v2.analysis.processingmodels.State
+import org.change.v2.analysis.memory.State
 import java.io.PrintStream
 import java.io.FileOutputStream
 import java.io.File

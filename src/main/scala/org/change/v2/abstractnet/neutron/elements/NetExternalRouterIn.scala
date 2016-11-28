@@ -13,7 +13,7 @@ import org.change.v2.util.conversion.RepresentationConversion._
 import org.change.v2.util.conversion.RepresentationConversion._
 import org.openstack4j.model.network.Router
 import org.openstack4j.openstack.networking.domain.NeutronRouter
-import org.change.v2.analysis.processingmodels.State
+import org.change.v2.analysis.memory.State
 
 class NetExternalRouterIn(wrapper : NeutronWrapper, router : NeutronRouter, already : List[String] = Nil) 
     extends NetRouter(wrapper, router, already) {

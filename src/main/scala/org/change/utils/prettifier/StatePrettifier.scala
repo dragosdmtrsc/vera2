@@ -25,7 +25,7 @@ import org.change.v2.analysis.memory.MemoryObject
 import org.change.v2.analysis.memory.MemorySpace
 import org.change.v2.analysis.memory.Value
 import org.change.v2.analysis.memory.ValueStack
-import org.change.v2.analysis.processingmodels.State
+import org.change.v2.analysis.memory.State
 import org.change.v2.analysis.types.NumericType
 import org.change.v2.analysis.types._
 

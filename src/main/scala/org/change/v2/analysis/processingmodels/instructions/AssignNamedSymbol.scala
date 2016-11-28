@@ -5,7 +5,7 @@ import org.change.v2.analysis.expression.abst.FloatingExpression
 import org.change.v2.analysis.memory.Intable
 import org.change.v2.analysis.memory.TagExp
 import org.change.v2.analysis.processingmodels.Instruction
-import org.change.v2.analysis.processingmodels.State
+import org.change.v2.analysis.memory.State
 import org.change.v2.analysis.types.LongType
 import org.change.v2.analysis.types.NumericType
 import org.change.v2.analysis.types.IP4Type

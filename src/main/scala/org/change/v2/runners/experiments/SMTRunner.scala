@@ -32,7 +32,7 @@ import org.change.v2.analysis.expression.concrete.nonprimitive.Plus
 import org.change.v2.analysis.expression.concrete.nonprimitive.Reference
 import org.change.v2.analysis.memory.MemorySpace
 import org.change.v2.analysis.memory.Value
-import org.change.v2.analysis.processingmodels.State
+import org.change.v2.analysis.memory.State
 import org.change.v2.smt.RenameVisitor
 import org.smtlib.ICommand
 import org.smtlib.IExpr
@@ -72,7 +72,7 @@ object SMTRunner {
     failed.foreach ( state => {
       val v = toSmtScript(state, smt)
       
-      val solver = new org.smtlib.solvers.Solver_z3_4_3(smt.smtConfig, "C:/Users/Dragos/Documents/GitHub/jSMTLIB/SMT/solvers/windows/z3-4.4.0.exe")
+      val solver = new org.smtlib.solvers.Solver_z3_4_3(smt.smtConfig, "/home/dragos/GitHub/jSMTLIB/SMT/solvers/linux/z3-4.4.0")
       solver.start()
       val iresp = v.execute(solver)
       println(iresp)
@@ -84,7 +84,7 @@ object SMTRunner {
     
     successful.foreach ( state => {
       val v = toSmtScript(state, smt)
-      val solver = new org.smtlib.solvers.Solver_z3_4_3(smt.smtConfig, "C:/Users/Dragos/Documents/GitHub/jSMTLIB/SMT/solvers/windows/z3-4.4.0.exe")
+      val solver = new org.smtlib.solvers.Solver_z3_4_3(smt.smtConfig, "/home/dragos/GitHub/jSMTLIB/SMT/solvers/linux/z3-4.4.0")
       solver.start()
       val iresp = v.execute(solver)
       println(iresp)
@@ -94,7 +94,7 @@ object SMTRunner {
     
   }
 
-  def toSmtScript(state: org.change.v2.analysis.processingmodels.State,
+  def toSmtScript(state: State,
       smt: org.smtlib.SMT) = {
     val factory = smt.smtConfig.exprFactory
     val v = visit(state.memory, smt)

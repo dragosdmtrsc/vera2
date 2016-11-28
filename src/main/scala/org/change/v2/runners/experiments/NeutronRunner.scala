@@ -18,7 +18,7 @@ import org.change.v2.analysis.processingmodels.instructions.Assign
 import org.change.v2.abstractnet.neutron.elements.NetFirewallRule
 import org.change.v2.abstractnet.neutron.elements.NetFirewallRule
 import org.change.v2.abstractnet.neutron.elements.NetFirewallRule
-import org.change.v2.analysis.processingmodels.State
+import org.change.v2.analysis.memory.State
 import java.io.PrintStream
 import java.io.FileOutputStream
 import java.io.File
@@ -33,6 +33,8 @@ import org.openstack4j.openstack.networking.domain.NeutronRouter
 import org.change.v2.abstractnet.neutron.elements.NetRouter
 import java.io.BufferedInputStream
 import java.io.FileInputStream
+import org.change.v2.executor.clickabstractnetwork.executionlogging.OldStringifier._
+
 
 import org.change.v2.abstractnet.neutron.elements.NeutronHelper._
 
@@ -61,8 +63,8 @@ object NeutronRunner {
     val output = new PrintStream(new FileOutputStream(new File("neutron_router_" + router.getName + ".output")))
      output.println(router.getName)
      val (successful, failed) = genericTest(NetRouter(wrapper, router))(State.clean, true);
-     output.println(s"OK States (${successful.length}}):\n" + ClickExecutionContext.verboselyStringifyStates(successful))
-     output.println(s"\nFailed States (${failed.length}}):\n" + ClickExecutionContext.verboselyStringifyStates(failed))
+     output.println(s"OK States (${successful.length}}):\n" + verboselyStringifyStates(successful))
+     output.println(s"\nFailed States (${failed.length}}):\n" + verboselyStringifyStates(failed))
      output.close()
   }
   
@@ -70,16 +72,16 @@ object NeutronRunner {
      val output = new PrintStream(new FileOutputStream(new File("neutron_policy_" + policy.getName + ".output")))
      output.println(policy.getName)
      val (successful, failed) = genericTest(new NetFirewallPolicy(policy, wrapper).symnetCode())(State.clean, true);
-     output.println(s"OK States (${successful.length}}):\n" + ClickExecutionContext.verboselyStringifyStates(successful))
-     output.println(s"\nFailed States (${failed.length}}):\n" + ClickExecutionContext.verboselyStringifyStates(failed))
+     output.println(s"OK States (${successful.length}}):\n" + verboselyStringifyStates(successful))
+     output.println(s"\nFailed States (${failed.length}}):\n" + verboselyStringifyStates(failed))
      output.close()
   }
   
   def testRule(y : FirewallRule) = {
     val output = new PrintStream(new FileOutputStream(new File("neutron_rule_" + y.getName + ".output")))
     val (successful, failed) = genericEx(y)(State.clean, true)
-    output.println(s"OK States (${successful.length}}):\n" + ClickExecutionContext.verboselyStringifyStates(successful))
-    output.println(s"\nFailed States (${failed.length}}):\n" + ClickExecutionContext.verboselyStringifyStates(failed))
+    output.println(s"OK States (${successful.length}}):\n" + verboselyStringifyStates(successful))
+    output.println(s"\nFailed States (${failed.length}}):\n" + verboselyStringifyStates(failed))
   }
   
   def genericTest(instr : Instruction) = {

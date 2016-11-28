@@ -7,7 +7,7 @@ import org.change.utils.prettifier.SomeWriter
 import java.io.InputStreamReader
 import org.change.utils.prettifier.JsonUtil
 import java.io.File
-import org.change.v2.analysis.processingmodels.State
+import org.change.v2.analysis.memory.State
 
 object JSONTests {
    

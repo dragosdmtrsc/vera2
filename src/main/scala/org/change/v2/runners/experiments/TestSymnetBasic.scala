@@ -5,7 +5,7 @@ import org.change.parser.clickfile.ClickToAbstractNetwork
 import java.io.PrintStream
 import java.io.FileOutputStream
 import java.io.File
-
+import org.change.v2.executor.clickabstractnetwork.executionlogging.OldStringifier._
 object TestSymnetBasic {
 
 def main (args: Array[String]) {
@@ -20,7 +20,7 @@ def main (args: Array[String]) {
 
     val outputFileName = "template2.output"
     val output = new PrintStream(new FileOutputStream(new File(outputFileName)))
-    output.println(crtExecutor.verboselyStringifyStates(true, true, true))
+//    output.println(verboselyStringifyStates(true, true, true))
     output.close()
     println("Done. Output @ " + outputFileName)
   }
