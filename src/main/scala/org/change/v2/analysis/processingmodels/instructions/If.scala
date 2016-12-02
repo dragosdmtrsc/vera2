@@ -43,6 +43,28 @@ case class If(testInstr: Instruction, thenWhat: Instruction, elseWhat:Instructio
     case _ => stateToError(s.addInstructionToHistory(this), "Bad test instruction")
   }
   
+  def branch() : (Instruction, Instruction) = {
+    testInstr match {
+    // This is quite inappropriate
+      case i @ ConstrainNamedSymbol(what, withWhat, c) => {
+        (ConstrainNamedSymbol(what, withWhat, c),
+         ConstrainNamedSymbol(what, :~:(withWhat), c match {
+           case Some(cc) => Some(NOT(cc))
+           case None     => None
+             }))
+      }
+      case rawi @ ConstrainRaw(what, withWhat, c) => {
+        (ConstrainRaw(what, withWhat, c),
+         ConstrainRaw(what, :~:(withWhat), c match {
+           case Some(cc) => Some(NOT(cc))
+           case None     => None
+             }))
+      }
+      case _ => (Fail("Some wrong stuff"), Fail("Some wrong stuff"))
+    }
+  }
+  
+  
   override def toString = {
     "If(" + testInstr + ") {\n" + thenWhat.toString() + "\n}\nelse {\n" + elseWhat + "\n}\n"
   }

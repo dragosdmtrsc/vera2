@@ -1,6 +1,7 @@
 package org.change.v2.analysis.z3
 
-import z3.scala.{Z3Context, Z3Config}
+import z3.scala.Z3Config
+import z3.scala.Z3Context
 
 /**
  * Author: Radu Stoenescu
@@ -8,9 +9,16 @@ import z3.scala.{Z3Context, Z3Config}
  */
 object Z3Util {
 
-	lazy val z3Context = new Z3Context(new Z3Config("MODEL" -> true))
+  
+  private var threadLocalContext = new ThreadLocal[Z3Context]() {
+    override def initialValue() : Z3Context = {
+      new Z3Context(new Z3Config("MODEL" -> true))
+    }
+  }
+  
+	def z3Context = threadLocalContext.get
 
-  private lazy val intSort = z3Context.mkIntSort()
+  private def intSort = z3Context.mkIntSort()
 
   /**
    * OPTIMIZE
@@ -18,6 +26,6 @@ object Z3Util {
    */
   def solver = z3Context.mkSolver()
 
-  lazy val defaultSort = intSort
+  def defaultSort = intSort
 
 }

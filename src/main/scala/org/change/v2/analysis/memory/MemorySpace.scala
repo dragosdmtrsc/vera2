@@ -142,6 +142,38 @@ case class MemorySpace(val symbols: Map[String, MemoryObject] = Map.empty,
     }
   else
     None
+    
+    
+  def addConstraint(id : String, c : Constraint) : Option[MemorySpace] = eval(id).flatMap(smb => {
+    val newSmb = smb.constrain(c)
+    val newMem = replaceValue(id, newSmb).get
+    val subject = newMem.eval(id).get
+
+    c match {
+      case EQ_E(someE) if someE.id == subject.e.id => Some(newMem)
+      case GT_E(someE) if someE.id == subject.e.id => None
+      case GTE_E(someE) if someE.id == subject.e.id => Some(newMem)
+      case LT_E(someE) if someE.id == subject.e.id => None
+      case LTE_E(someE) if someE.id == subject.e.id => Some(newMem)
+      case _ => Some(newMem)
+    }
+  })
+  
+  def addConstraint(a : Int, c : Constraint) : Option[MemorySpace] = eval(a).flatMap(smb => {
+    val newSmb = smb.constrain(c)
+    val newMem = replaceValue(a, newSmb).get
+    val subject = newMem.eval(a).get
+
+    c match {
+      case EQ_E(someE) if someE.id == subject.e.id => Some(newMem)
+      case GT_E(someE) if someE.id == subject.e.id => None
+      case GTE_E(someE) if someE.id == subject.e.id => Some(newMem)
+      case LT_E(someE) if someE.id == subject.e.id => None
+      case LTE_E(someE) if someE.id == subject.e.id => Some(newMem)
+      case _ => Some(newMem)
+    }
+  })
+  
 
   def Constrain(id: String, c: Constraint): Option[MemorySpace] = eval(id).flatMap(smb => {
     val newSmb = smb.constrain(c)
@@ -241,7 +273,8 @@ case class MemorySpace(val symbols: Map[String, MemoryObject] = Map.empty,
 
   def valid: Boolean = isZ3Valid
 
-  def buildSolver: Z3Solver = if (isZ3SolverCacheValid)
+  def buildSolver: Z3Solver = 
+  if (false)
     solverCache
   else {
     solverCache = (symbols.values ++ rawObjects.values).foldLeft(Z3Util.solver) { (slv, mo) =>

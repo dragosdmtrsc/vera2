@@ -32,7 +32,7 @@ object State {
 
  def clean = State(MemorySpace.clean)
 
- def bigBang: State = {
+ def bigBang(verbose : Boolean): State = {
    val bigBang = State(MemorySpace.clean)
 
    val afterBigBang = InstructionBlock (
@@ -112,8 +112,13 @@ object State {
      //Allocate(Tag("PAYLOAD"),12000),
      //Assign(Tag("PAYLOAD"),SymbolicValue()),
      CreateTag("END", L4Tag + 12000)
-   )(bigBang, true)
+   )(bigBang, verbose)
 
    afterBigBang._1.head
+ }
+ 
+ 
+ def bigBang: State = {
+   bigBang(false)
  }
 }

@@ -8,6 +8,8 @@ import org.change.v2.analysis.processingmodels.{LocationId, Instruction}
 import org.change.v2.executor.clickabstractnetwork.executionlogging.{NoLogging, ExecutionLogger}
 import org.change.v2.executor.clickabstractnetwork.verificator.PathLocation
 import org.change.utils.abstractions._
+import org.change.v2.analysis.executor.InstructionExecutor
+import org.change.v2.analysis.executor.SpeculativeExecutor
 
 /**
  * Author: Radu Stoenescu
@@ -25,10 +27,13 @@ case class ClickExecutionContext(
                            failedStates: List[State],
                            stuckStates: List[State],
                            checkInstructions: Map[LocationId, Instruction] = Map.empty,
-                           logger: ExecutionLogger = NoLogging
+                           logger: ExecutionLogger = NoLogging, 
+                           executor : InstructionExecutor = InstructionExecutor()
 ) {
   def setLogger(newLogger: ExecutionLogger): ClickExecutionContext = copy(logger = newLogger)
 
+  def setExecutor(instructionExecutor : InstructionExecutor) = copy(executor = instructionExecutor)
+  
   /**
    * Merges two execution contexts.
    * @param that
@@ -66,11 +71,9 @@ case class ClickExecutionContext(
       stateLocation = s.location
     } yield {
         if (instructions contains stateLocation) {
-//          Apply instructions
-          val r1 = instructions(stateLocation)(s, verbose)
-//          Apply check instructions on output ports
+          val r1 = executor.execute(instructions(stateLocation), s, verbose)
           val (toCheck, r2) = r1._1.partition(s => checkInstructions.contains(s.location))
-          val r3 = toCheck.map(s => checkInstructions(s.location)(s,verbose)).unzip
+          val r3 = toCheck.map(s => executor.execute(checkInstructions(s.location), s,verbose)).unzip
           (r2 ++ r3._1.flatten, r1._2 ++ r3._2.flatten, Nil)
         } else
           (Nil, Nil, List(s))

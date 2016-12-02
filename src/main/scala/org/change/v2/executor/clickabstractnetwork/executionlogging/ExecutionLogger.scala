@@ -10,6 +10,7 @@ import org.change.v2.analysis.memory.jsonformatters.StateToJson._
 import org.change.v2.validation.RunConfig
 import spray.json._
 import java.io.File
+import java.io.OutputStream
 
 /**
  * A small gift from radu to symnetic.
@@ -19,6 +20,34 @@ trait ExecutionLogger {
 }
 
 object NoLogging extends ExecutionLogger
+
+class JsonLogger(stream : OutputStream) extends ExecutionLogger {
+  override def log(ctx : ClickExecutionContext) : Unit = {
+    if (ctx.isDone) {
+      import org.change.v2.analysis.memory.jsonformatters.ExecutionContextToJson._
+      val output = new PrintWriter(stream)
+      output.println(ctx.toJson.prettyPrint)
+      output.close()
+    }
+  }
+  
+  def log(state : State) : Unit = {
+    import org.change.v2.analysis.memory.jsonformatters.StateToJson._
+    val output = new PrintWriter(stream)
+    output.println(state.toJson.prettyPrint)
+    output.close()
+  }
+  
+  
+  def log(state : List[State]) : Unit = {
+    import org.change.v2.analysis.memory.jsonformatters.StateToJson._
+    val output = new PrintWriter(stream)
+    output.println("count : " + state.size + ",")
+    output.println(state.toJson.prettyPrint)
+    output.close()
+  }
+  
+}
 
 object JsonLogger extends ExecutionLogger {
   override def log(ctx: ClickExecutionContext): Unit = if (ctx.isDone) {

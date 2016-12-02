@@ -21,7 +21,8 @@ case class LTE_E(e: Expression) extends Constraint {
 }
 case class GTE_E(e: Expression)extends Constraint {
   override def z3Constrain(ast: Z3AST): Z3AST =
-    Z3Util.z3Context.mkGE(ast, e.toZ3()._1)
+    Z3Util.z3Context.mkOr(Z3Util.z3Context.mkGT(ast, e.toZ3()._1),
+        Z3Util.z3Context.mkEq(ast, e.toZ3()._1))
   override def toString = s">=($e)"
 }
 case class GT_E(e: Expression)extends Constraint {

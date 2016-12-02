@@ -30,4 +30,4 @@ outputs/
 .cache-main
 .cache-tests
 .gitignore.swp
-
+nohup.out
