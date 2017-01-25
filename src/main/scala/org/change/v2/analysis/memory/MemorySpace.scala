@@ -174,7 +174,7 @@ case class MemorySpace(val symbols: Map[String, MemoryObject] = Map.empty,
     }
   })
   
-
+// FOR TESTING purposes ONLY
   def Constrain(id: String, c: Constraint): Option[MemorySpace] = eval(id).flatMap(smb => {
     val newSmb = smb.constrain(c)
     val newMem = replaceValue(id, newSmb).get
@@ -190,7 +190,7 @@ case class MemorySpace(val symbols: Map[String, MemoryObject] = Map.empty,
       case _ => memoryToOption(newMem)
     }
   })
-
+// FOR TESTING purposes ONLY
   def Constrain(a: Int, c: Constraint): Option[MemorySpace] = eval(a).flatMap(smb => {
     val newSmb = smb.constrain(c)
     val newMem = replaceValue(a, newSmb).get
@@ -206,7 +206,8 @@ case class MemorySpace(val symbols: Map[String, MemoryObject] = Map.empty,
       case _ => memoryToOption(newMem)
     }
   })
-
+  
+// FOR TESTING purposes ONLY
   private[this] def memoryToOption(m: MemorySpace): Option[MemorySpace] =
     if (m.isZ3Valid)
       Some(m)

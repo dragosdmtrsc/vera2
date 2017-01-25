@@ -10,6 +10,11 @@ import org.change.v2.executor.clickabstractnetwork.ClickExecutionContext
 import org.change.v2.executor.clickabstractnetwork.executionlogging.JsonLogger
 import org.change.v2.analysis.executor.ClickAsyncExecutor
 import org.change.v2.analysis.memory.State
+import org.change.v2.analysis.executor.DecoratedInstructionExecutor
+import org.change.v2.analysis.executor.solvers.SMTSolver
+import org.change.v2.analysis.executor.DecoratedInstructionExecutor
+import org.change.v2.analysis.executor.solvers.Solver
+import org.change.v2.analysis.executor.solvers.Z3Solver
 
 /**
  * Author: Radu Stoenescu
@@ -18,6 +23,29 @@ import org.change.v2.analysis.memory.State
 object MultipleVmsFacultatea {
 
   def main(args: Array[String]) = {
+    var solver : Solver = null
+    if (args.length < 1)
+    {
+      System.err.println("USAGE: [smt|z3] {path_to_smt_exec}")
+      System.exit(1)
+    }
+    else
+    {
+      if (args(0) == "smt")
+      {
+        if (args.length < 2)
+        {
+          System.err.println("USAGE: [smt|z3] {path_to_smt_exec}")
+          System.exit(1)
+        }
+        solver = new SMTSolver(args(1))
+      }
+      else
+      {
+        solver = new Z3Solver()
+      }
+    }
+    
     val clicksFolder = new File("src/main/resources/facultatea")
 
     val clicks = clicksFolder.list(new FilenameFilter {
@@ -33,7 +61,9 @@ object MultipleVmsFacultatea {
     val (exec, start) = ClickAsyncExecutor.buildAggregated(
         clicks.map(ClickToAbstractNetwork.buildConfig(_, prefixedElements = true)), 
         rawLinks, 
-        startElems)
+        startElems,
+        4, 
+        instrExec = new DecoratedInstructionExecutor(solver))
 
     val startOfExec = System.currentTimeMillis()
 

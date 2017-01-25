@@ -73,7 +73,8 @@ object ClickAsyncExecutor {
             configs: Iterable[NetworkConfig],
             interClickLinks: Iterable[(String, String, Int, String, String, Int)],
             startElems: Option[Iterable[(String, String, Int)]] = None,
-            nrThreads : Int = 4): 
+            nrThreads : Int = 1,
+            instrExec : InstructionExecutor = InstructionExecutor()): 
             (ClickAsyncExecutor, List[State]) = {
     // Create a context for every network config.
     val ctxes = configs.map(networkModel => networkModel.elements.values.
@@ -106,7 +107,7 @@ object ClickAsyncExecutor {
     }
     val instrs = ctxes.foldLeft(Map[String, Instruction]())(_ ++ _)
     
-    val executor = new ClickAsyncExecutor(instrs, links, nr = nrThreads)
+    val executor = new ClickAsyncExecutor(instrs, links, executor=instrExec, nr = nrThreads)
     (executor, startStates.toList)
   }
 }

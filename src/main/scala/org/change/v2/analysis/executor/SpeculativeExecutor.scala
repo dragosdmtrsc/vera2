@@ -27,6 +27,8 @@ import org.change.v2.analysis.processingmodels.instructions.stateToError
 import org.change.v2.analysis.processingmodels.instructions.:~:
 import org.change.v2.analysis.memory.MemorySpace
 import org.change.v2.analysis.memory.Value
+import org.change.v2.analysis.executor.solvers.Solver
+import org.change.v2.analysis.executor.solvers.Z3Solver
 
 
 object SpeculativeExecutor {
@@ -35,7 +37,8 @@ object SpeculativeExecutor {
   }
 }
 
-class SpeculativeExecutor extends DefaultInstructionExecutor {
+class SpeculativeExecutor(solver : Solver = new Z3Solver)
+  extends DecoratedInstructionExecutor(solver) {
   
   
   def constrainMemory(memory : MemorySpace, id : Int, c : Constraint) = {
@@ -79,7 +82,7 @@ class SpeculativeExecutor extends DefaultInstructionExecutor {
   override def executeForward(instruction : Forward, s : State, v : Boolean = false)
   : (List[State], List[State])= {
     optionToStatePair(s.forwardTo(instruction.place), "Failed dramatically")(s => {
-       if (s.memory.isZ3Valid)
+       if (this.isSat(s.memory))
           Some(s.memory)
        else
           None

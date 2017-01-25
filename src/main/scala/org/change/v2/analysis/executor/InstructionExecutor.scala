@@ -27,17 +27,17 @@ import org.change.v2.analysis.processingmodels.instructions.stateToError
 import org.change.v2.analysis.processingmodels.instructions.:~:
 import System.out._
 import org.change.v2.analysis.memory.MemorySpace
+import org.change.v2.analysis.executor.solvers.Solver 
+import org.change.v2.analysis.executor.solvers.Z3Solver
+import org.change.v2.analysis.executor.solvers.Z3SolverEnhanced
 
-object InstructionExecutor {
-  def apply() 
-    : InstructionExecutor = {
-    new DefaultInstructionExecutor()
-  }
+trait IExecutor[T] {
+  def execute(instruction : Instruction, 
+      state : State, verbose : Boolean) : T;
 }
 
-
-abstract class Executor[T] {
-  def execute(instruction : Instruction, 
+abstract class Executor[T] extends IExecutor[T] {
+  override def execute(instruction : Instruction, 
       state : State, verbose : Boolean) : T = {
     val s = if (verbose && 
           !instruction.isInstanceOf[If] && 
@@ -174,6 +174,16 @@ abstract class Executor[T] {
     T;
 }
 
+
+object InstructionExecutor {
+  def apply() : InstructionExecutor = {
+    new DecoratedInstructionExecutor(new Z3SolverEnhanced())
+  }
+}
+
+// thread unsafe thing. Beware! All 
+// implementing classes should and must be bound to 1 thread
+// and 1 thread only
 abstract class InstructionExecutor extends Executor[(List[State], List[State])] {
   def executeInstructionBlock(instruction : InstructionBlock, 
       s : State, 
@@ -251,9 +261,7 @@ abstract class InstructionExecutor extends Executor[(List[State], List[State])] 
   
 }
 
-
-class DefaultInstructionExecutor extends InstructionExecutor {
-  
+abstract class AbstractInstructionExecutor extends InstructionExecutor {
   override def executeInstructionBlock(instruction : InstructionBlock, 
       s : State, 
       v : Boolean = false) : 
@@ -322,10 +330,7 @@ class DefaultInstructionExecutor extends InstructionExecutor {
   }
   
   
-  protected def isSat(memory : MemorySpace) : Boolean = {
-    memory.isZ3Valid
-  }
-  
+  protected def isSat(memory : MemorySpace) : Boolean;
   
   override def executeConstrainRaw(instruction : ConstrainRaw, s : State, v : Boolean = false): 
     (List[State], List[State]) = { 
@@ -481,3 +486,11 @@ class DefaultInstructionExecutor extends InstructionExecutor {
     }
   }
 }
+
+
+class DecoratedInstructionExecutor(solver : Solver) extends AbstractInstructionExecutor {  
+  override protected def isSat(memory : MemorySpace) : Boolean = {
+    return solver.solve(memory)
+  }
+}
+

@@ -17,12 +17,12 @@ case class ConstrainNamedSymbol (id: String, dc: FloatingConstraint, c: Option[C
   override def apply(s: State, v: Boolean): (List[State], List[State]) = c match {
     case None => dc instantiate s match {
       case Left(c) => optionToStatePair(if (v) s.addInstructionToHistory(this) else s, s"Symbol $id cannot $dc") (s => {
-        s.memory.Constrain(id, c)
+        s.memory.addConstraint(id, c)
       })
       case Right(err) => Fail(err)(s, v)
     }
     case Some(c) => optionToStatePair(if (v) s.addInstructionToHistory(this) else s, s"Symbol $id cannot $dc") (s => {
-      s.memory.Constrain(id, c)
+      s.memory.addConstraint(id, c)
     })
   }
 }
@@ -35,12 +35,12 @@ case class ConstrainRaw (a: Intable, dc: FloatingConstraint, c: Option[Constrain
     case Some(int) => c match {
         case None => dc instantiate s match {
           case Left(c) => optionToStatePair(if (v) s.addInstructionToHistory(this) else s, s"Memory object @ $a cannot $dc") (s => {
-            s.memory.Constrain(int, c)
+            s.memory.addConstraint(int, c)
           })
           case Right(err) => Fail(err)(s, v)
         }
         case Some(c) => optionToStatePair(if (v) s.addInstructionToHistory(this) else s, s"Memory object @ $a cannot $dc") (s => {
-          s.memory.Constrain(int, c)
+          s.memory.addConstraint(int, c)
         })
       }
     case None => Fail(TagExp.brokenTagExpErrorMessage)(s,v)

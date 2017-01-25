@@ -55,7 +55,14 @@ class AsyncExecutor(syncExec : InstructionExecutor,
           pending.decrementAndGet()
           running.incrementAndGet()
         }
-        execute(instruction, state, v)
+        try
+        {
+          execute(instruction, state, v)
+        }
+        catch
+        {
+          case ex : Exception => ex.printStackTrace()
+        }
         syncObject.synchronized {
           running.decrementAndGet()
         }

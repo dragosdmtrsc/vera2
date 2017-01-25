@@ -103,6 +103,7 @@ object SMTRunner {
     newComms.foreach { s => v.commands().add(s) }
     v.commands().add(0, new C_set_logic(factory.symbol("QF_LIA")))
     v.commands().add(new C_check_sat())
+    
     v
   }
 
