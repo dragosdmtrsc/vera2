@@ -5,6 +5,7 @@ import org.change.v2.analysis.memory.MemorySpace
 import org.smtlib.SMT
 import org.smtlib.ISolver
 import org.change.v2.analysis.executor.translators.SMTTranslator
+import org.smtlib.impl.Pos
 
 class SMTSolver(pathToExec : String)
   extends AbstractSolver[(IScript, SMT)] {
@@ -41,7 +42,8 @@ class SMTSolver(pathToExec : String)
     this.getClass.synchronized({
         val slv = new org.smtlib.solvers.Solver_z3_4_3(smt.smtConfig, 
             pathToExec)
-//        slv.set_logic("QF_LIA", smt.smtConfig.exprFactory.)
+        slv.start()
+        System.out.println(slv.sendCommand("(set-logic QF_LIA)"))
         slv
     })
   }
@@ -57,7 +59,10 @@ class SMTSolver(pathToExec : String)
 
     System.out.println(printer.toString(scr))
     val solver = getSolver
-    val resp = scr.execute(solver)
+    solver.push(1)
+    scr.execute(solver)
+    val resp = solver.check_sat()
+    solver.pop(1)
     System.out.println(resp + " " + resp.getClass)
     if (resp != null) 
       resp.toString().toLowerCase().equals("sat") 
