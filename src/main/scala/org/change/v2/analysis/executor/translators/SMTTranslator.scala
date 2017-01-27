@@ -37,6 +37,8 @@ import scala.collection.JavaConversions._
 import org.change.v2.smt.RenameVisitor
 import org.smtlib.command.C_set_logic
 import org.smtlib.command.C_check_sat
+import org.smtlib.command.C_push
+import org.smtlib.command.C_pop
 
 class SMTTranslator(smt : SMT)
   extends Translator[IScript] {
@@ -44,17 +46,15 @@ class SMTTranslator(smt : SMT)
   override def translate(mem : MemorySpace) : IScript = {
     val factory = smt.smtConfig.exprFactory
     val v = visit(mem, smt)
-    val newComms = renameCommands(v, factory)
-    v.commands().clear()
-    newComms.foreach { s => v.commands().add(s) }
-    v.commands().add(0, new C_set_logic(factory.symbol("QF_LIA")))
+//    v.commands().add(0, new C_push(factory.numeral(1)))
+//    v.commands().add(0, new C_set_logic(factory.symbol("QF_LIA")))
     v.commands().add(new C_check_sat())
+//    v.commands().add(new C_pop(factory.numeral(1)))
     v
   }
   
   private def visit(expression : Expression,  
       smt : SMT,  
-      mappings : Map[String, Value], 
       set : Set[String]): (IExpr, List[ICommand], Set[String]) = 
       {
         val factory = smt.smtConfig.exprFactory
@@ -62,9 +62,9 @@ class SMTTranslator(smt : SMT)
 
         expression match {
           case Plus(left, right) => 
-            hitMe(left, smt, mappings, set, right, factory, "+")
+            hitMe(left, smt, set, right, factory, "+")
           case Minus(left, right) =>
-            hitMe(left, smt, mappings, set, right, factory, "-")
+            hitMe(left, smt, set, right, factory, "-")
           case ConstantValue(v, _) =>
             (factory.numeral(v), List[ICommand](), Set[String]())
           case SymbolicValue(_) => {
@@ -88,19 +88,18 @@ class SMTTranslator(smt : SMT)
 
           }
           case Reference(value) =>
-            (factory.symbol(mappings.find(s => s._2 == value).get._1),
+            (this.visit(value.e, smt, set)._1,
                 List[ICommand](), set)
         }
       }
 
   private def hitMe(left: org.change.v2.analysis.memory.Value, 
       smt: org.smtlib.SMT, 
-      mappings: Map[String,org.change.v2.analysis.memory.Value], 
       set: Set[String], right: org.change.v2.analysis.memory.Value, 
       factory: org.smtlib.IExpr.IFactory,
       sep : String) : (IExpr.IFcnExpr, List[ICommand], Set[String]) = {
-    val leftVisit = visit(left.e, smt, mappings, set)
-    val rightVisit = visit(right.e, smt, mappings, leftVisit._3)
+    val leftVisit = visit(left.e, smt, set)
+    val rightVisit = visit(right.e, smt, leftVisit._3)
     (factory.fcn(factory.symbol(sep), 
         leftVisit._1, 
         rightVisit._1), 
@@ -113,30 +112,29 @@ class SMTTranslator(smt : SMT)
   private def visit(c : Constraint,   
       isym : IExpr,   
       smt : SMT,   
-      mappings : Map[String, Value],  
       set  : Set[String] = Set[String]()): (IExpr, List[ICommand], Set[String]) = {
     val eFactory = smt.smtConfig.exprFactory
     val sortFactory = smt.smtConfig.sortFactory
     c match {
       case AND(head :: Nil) =>
         {
-          visit(head, isym, smt, mappings, set)
+          visit(head, isym, smt, set)
         }
       case AND(head :: tail) =>
         {
-          andOrSolve(head, isym, smt, mappings, set, tail, eFactory, "AND")
+          andOrSolve(head, isym, smt, set, tail, eFactory, "AND")
         }
       case OR(head :: Nil) =>
         {
-          visit(head, isym, smt, mappings, set)
+          visit(head, isym, smt, set)
         }
       case OR(head :: tail) =>
         {
-          andOrSolve(head, isym, smt, mappings, set, tail, eFactory, "OR")
+          andOrSolve(head, isym, smt, set, tail, eFactory, "OR")
         }
       case NOT(ct) =>
         {
-          val ctVisit = visit(ct, isym, smt, mappings, set)
+          val ctVisit = visit(ct, isym, smt, set)
           (eFactory.fcn(eFactory.symbol("not"), 
             ctVisit._1),
             ctVisit._2,
@@ -160,7 +158,7 @@ class SMTTranslator(smt : SMT)
       case Range(start, stop) =>
         {
           visit(AND(List[Constraint](LTE(stop), GTE(start))),
-              isym, smt, mappings, set)
+              isym, smt, set)
         }
       case GT(value) =>
         {
@@ -174,35 +172,34 @@ class SMTTranslator(smt : SMT)
         }
       case EQ_E(value) =>
         {
-          opExpression(value, smt, mappings, set, eFactory, isym, "=")
+          opExpression(value, smt, set, eFactory, isym, "=")
         }
       case LT_E(value) =>
         {
-          opExpression(value, smt, mappings, set, eFactory, isym, "<")
+          opExpression(value, smt, set, eFactory, isym, "<")
         }
       case GT_E(value) =>
         {
-          opExpression(value, smt, mappings, set, eFactory, isym, ">")          
+          opExpression(value, smt, set, eFactory, isym, ">")          
         }
       case LTE_E(value) =>
         {
-          opExpression(value, smt, mappings, set, eFactory, isym, "<=")
+          opExpression(value, smt, set, eFactory, isym, "<=")
         }
       case GTE_E(value) =>
         {
-          opExpression(value, smt, mappings, set, eFactory, isym, ">=")
+          opExpression(value, smt, set, eFactory, isym, ">=")
         }
     }
   }
 
   private def opExpression(value: org.change.v2.analysis.expression.abst.Expression, 
       smt: org.smtlib.SMT, 
-      mappings: Map[String,org.change.v2.analysis.memory.Value], 
       set: Set[String], 
       eFactory: org.smtlib.IExpr.IFactory, 
       isym: org.smtlib.IExpr,
       sep : String) = {
-    val visited = visit(value, smt, mappings, set)
+    val visited = visit(value, smt, set)
     (eFactory.fcn(eFactory.symbol(sep), isym, visited._1),
         visited._2, visited._3)
   }
@@ -210,14 +207,13 @@ class SMTTranslator(smt : SMT)
   private def andOrSolve(head: org.change.v2.analysis.constraint.Constraint, 
       isym: org.smtlib.IExpr, 
       smt: org.smtlib.SMT, 
-      mappings: Map[String,org.change.v2.analysis.memory.Value], 
       set: Set[String], 
       tail: List[org.change.v2.analysis.constraint.Constraint], 
       eFactory: org.smtlib.IExpr.IFactory,
       sep : String) = {
     val list = head :: tail
     val retVal = list.foldLeft((List[IExpr](), List[ICommand](), set))((acc, s) => {
-      val visited = visit(s, isym, smt, mappings, acc._3)
+      val visited = visit(s, isym, smt, acc._3)
       (acc._1.+:(visited._1), acc._2 ++ visited._2, acc._3 ++ visited._3)
     })
     val args = retVal._1.toArray
@@ -228,33 +224,37 @@ class SMTTranslator(smt : SMT)
         retVal._2,
         retVal._3)
   }
-
-  private def visit(value : Map[String, Value], smt : SMT) : 
-      (List[ICommand], 
-          Set[String]) = {
-    val sortFactory = smt.smtConfig.sortFactory
-    val eFactory = smt.smtConfig.exprFactory
-    val listof = value.foldLeft((List[ICommand](), Set[String]()))((acc, s) => {
-      val set = acc._2
-      val (sym, v) = s
-      val isym = eFactory.symbol(sym)
-      val visitExpr = visit(v.e, smt, value, set)
+  
+  private def visit(s : Value, smt : SMT, set : Set[String]) : (List[ICommand], Set[String]) = {
+      val v = s
+//      val isym = eFactory.symbol(sym)
+      val visitExpr = visit(v.e, smt, set)
       val allCmds = visitExpr._2
-      val cmdDecl = new C_define_fun(isym,
-          new LinkedList[IExpr.IDeclaration], 
-          sortFactory.createSortExpression(eFactory.symbol("Int")), 
-          visitExpr._1)
-      val currentCommands = (allCmds ++ acc._1).:+(cmdDecl)
+      val currentCommands = List[ICommand]()
+//      val cmdDecl = new C_define_fun(isym,
+//          new LinkedList[IExpr.IDeclaration], 
+//          sortFactory.createSortExpression(eFactory.symbol("Int")), 
+//          visitExpr._1)
       val cts = v.cts
       val visitedCtsFull = cts.foldLeft((List[ICommand](), visitExpr._3))( (acc, s) =>
         {
-          val visited = visit(s, isym, smt, value, acc._2)
+          val visited = visit(s, visitExpr._1, smt, acc._2)
           val expr = visited._1
           val assertion = new C_assert(expr)
           (acc._1 ++ visited._2.:+(assertion), acc._2 ++ visited._3)
         })
       
-      (currentCommands ++ visitedCtsFull._1, visitedCtsFull._2)
+      (visitExpr._2 ++ visitedCtsFull._1, visitedCtsFull._2)
+  }
+
+  private def visit(values : List[Value], smt : SMT) : 
+      (List[ICommand], 
+          Set[String]) = {
+    val sortFactory = smt.smtConfig.sortFactory
+    val eFactory = smt.smtConfig.exprFactory
+    val listof = values.foldLeft((List[ICommand](), Set[String]()))((acc, v) => {
+      val res = visit(v.e, smt, acc._2)
+      (res._2 ++ acc._1, acc._2 ++ res._3) 
     })
     (listof._1, listof._2)
   }
@@ -262,7 +262,7 @@ class SMTTranslator(smt : SMT)
   def visit(value : MemorySpace, smt : SMT) : ICommand.IScript = {
     val (syms, raws, tags) = (value.symbols, value.rawObjects, value.memTags)
     val mSpace = syms.filter(p => !p._2.value.isEmpty).map( l => 
-      (l._1, l._2.value.get))
+      l._2.value.get).toList
     val rawSpace = raws.
       filter(s => !s._2.value.isEmpty).
       map( l => {
@@ -274,7 +274,7 @@ class SMTTranslator(smt : SMT)
         val start = l._1
         val end   = l._1 + l._2.size
         val full = theName + "_" + start + "_" + end
-        (full, l._2.value.get)
+        l._2.value.get
       })
     val fullSpace = mSpace ++ rawSpace
     var script = new org.smtlib.impl.Script()
@@ -349,6 +349,4 @@ class SMTTranslator(smt : SMT)
      })
     newComms
   }
-  
-  
 }

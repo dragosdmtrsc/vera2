@@ -38,9 +38,12 @@ class SMTSolver(pathToExec : String)
   }
   
   protected def createSolver(smt : SMT) : ISolver = {
-    this.getClass.synchronized(
-        new org.smtlib.solvers.Solver_z3_4_3(smt.smtConfig, 
-            pathToExec))
+    this.getClass.synchronized({
+        val slv = new org.smtlib.solvers.Solver_z3_4_3(smt.smtConfig, 
+            pathToExec)
+//        slv.set_logic("QF_LIA", smt.smtConfig.exprFactory.)
+        slv
+    })
   }
   
   override def translate(mem : MemorySpace) : (IScript, SMT) = {
@@ -50,8 +53,12 @@ class SMTSolver(pathToExec : String)
   
   override def decide(script : (IScript, SMT)) : Boolean = {
     val (scr, smt) = script
+    val printer = smt.smtConfig.defaultPrinter
+
+    System.out.println(printer.toString(scr))
     val solver = getSolver
     val resp = scr.execute(solver)
+    System.out.println(resp + " " + resp.getClass)
     if (resp != null) 
       resp.toString().toLowerCase().equals("sat") 
     else
