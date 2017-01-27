@@ -6,13 +6,45 @@ import org.smtlib.SMT
 import org.smtlib.ISolver
 import org.change.v2.analysis.executor.translators.SMTTranslator
 import org.smtlib.impl.Pos
+import org.smtlib.command.C_set_logic
+
+
+class SerialSMTSolver(pathToExec : String)
+  extends AbstractSolver[(IScript, SMT)] {
+  override def translate(memory : MemorySpace) : (IScript, SMT) = {
+    val smt = new SMT()
+    (new SMTTranslator(smt).translate(memory), smt)
+  }
+  
+  override def decide(scr : (IScript, SMT)) : Boolean = {
+    val slv = new org.smtlib.solvers.Solver_z3_4_3(scr._2.smtConfig, 
+            pathToExec)
+    slv.start()
+    var script = new org.smtlib.impl.Script()
+    script.commands().add(0, new C_set_logic(scr._2.smtConfig.exprFactory.symbol("QF_LIA")))
+    script.execute(slv)
+//    slv.push(1)
+    scr._1.execute(slv)
+    val resp = slv.check_sat()
+//    slv.pop(1)
+    if (resp != null)
+      resp.toString().toLowerCase().equals("sat") 
+    else
+      false
+  }
+
+}
 
 class SMTSolver(pathToExec : String)
   extends AbstractSolver[(IScript, SMT)] {
   
   private var threadLocalSMT = new ThreadLocal[SMT] () {
-    override def initialValue() : SMT = {
+    override def get() : SMT = {
+      this.getClass.synchronized({
         createSMT
+      })
+      
+      
     }
   }
   
@@ -43,7 +75,9 @@ class SMTSolver(pathToExec : String)
         val slv = new org.smtlib.solvers.Solver_z3_4_3(smt.smtConfig, 
             pathToExec)
         slv.start()
-        System.out.println(slv.sendCommand("(set-logic QF_LIA)"))
+        var script = new org.smtlib.impl.Script()
+        script.commands().add(0, new C_set_logic(smt.smtConfig.exprFactory.symbol("QF_LIA")))
+        script.execute(slv)
         slv
     })
   }
@@ -57,12 +91,13 @@ class SMTSolver(pathToExec : String)
     val (scr, smt) = script
     val printer = smt.smtConfig.defaultPrinter
 
-    System.out.println(printer.toString(scr))
     val solver = getSolver
     solver.push(1)
-    scr.execute(solver)
+    System.out.println(scr.execute(solver))
     val resp = solver.check_sat()
     solver.pop(1)
+    System.out.println(printer.toString(scr))
+
     System.out.println(resp + " " + resp.getClass)
     if (resp != null) 
       resp.toString().toLowerCase().equals("sat") 

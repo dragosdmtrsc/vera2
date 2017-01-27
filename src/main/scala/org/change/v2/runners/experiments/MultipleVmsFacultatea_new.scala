@@ -10,6 +10,12 @@ import org.change.v2.executor.clickabstractnetwork.ClickExecutionContext
 import org.change.v2.executor.clickabstractnetwork.executionlogging.JsonLogger
 import org.change.v2.analysis.executor.SpeculativeExecutor
 import org.change.v2.analysis.executor.InstructionExecutor
+import org.change.v2.analysis.executor.solvers.SMTSolver
+import org.change.v2.analysis.executor.solvers.Solver
+import org.change.v2.analysis.executor.solvers.Z3Solver
+import org.change.v2.analysis.executor.DecoratedInstructionExecutor
+import org.change.v2.analysis.executor.solvers.SerialSMTSolver
+import org.change.v2.analysis.executor.solvers.ComparisonSolver
 
 /**
  * Author: Radu Stoenescu
@@ -20,14 +26,41 @@ object MultipleVmsFacultatea_new {
   
   def main(args: Array[String]) = {
     val clicksFolder = new File("src/main/resources/facultatea")
-
+    var solver : Solver = null
+    if (args.length < 1)
+    {
+      System.err.println("USAGE: [smt|z3|compare] {path_to_smt_exec}")
+      System.exit(1)
+    }
+    else
+    {
+      if (args(0) == "smt")
+      {
+        if (args.length < 2)
+        {
+          System.err.println("USAGE: [smt|z3|compare] {path_to_smt_exec}")
+          System.exit(1)
+        }
+        solver = new SerialSMTSolver(args(1))
+      }
+      else if (args(0) == "z3")
+      {
+        solver = new Z3Solver()
+      }
+      else if (args(0) == "compare")
+      {
+        solver = new ComparisonSolver(new Z3Solver(), new SerialSMTSolver(args(1)))
+      }
+    }
     val clicks = clicksFolder.list(new FilenameFilter {
       override def accept(dir: File, name: String): Boolean = name.endsWith(".click")
     }).sorted.map(clicksFolder.getPath + File.separatorChar + _)
-    execClicks(clicks)
+    execClicks(clicks,
+        outFile = String.format("outputs/%sregular_log.log", args(0)),
+        executor = new DecoratedInstructionExecutor(solver))
     execClicks(clicks, 
-        outFile = "outputs/speculative_log.log", 
-        executor = new SpeculativeExecutor())
+        outFile = String.format("outputs/%sspeculative_log.log", args(0)), 
+        executor = new SpeculativeExecutor(solver))
     
   }
 

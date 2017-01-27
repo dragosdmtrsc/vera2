@@ -48,21 +48,14 @@ class AsyncExecutor(syncExec : InstructionExecutor,
   }
   
   def pushExec(instruction : Instruction, state : State, v : Boolean) : Unit = {
-    this.synchronized { pending.incrementAndGet() }    
+    syncObject.synchronized { pending.incrementAndGet() }    
     exec.submit(new Runnable() {
       def run() {
         syncObject.synchronized {
           pending.decrementAndGet()
           running.incrementAndGet()
         }
-        try
-        {
-          execute(instruction, state, v)
-        }
-        catch
-        {
-          case ex : Exception => ex.printStackTrace()
-        }
+        execute(instruction, state, v)
         syncObject.synchronized {
           running.decrementAndGet()
         }
@@ -78,21 +71,7 @@ class AsyncExecutor(syncExec : InstructionExecutor,
       val instr = getInstruction(loc)
       if (!instr.isEmpty)
       {
-         syncObject.synchronized {
-           pending.incrementAndGet()
-         }
-         exec.submit(new Runnable() {
-            def run() {
-              syncObject.synchronized {
-                pending.decrementAndGet()
-                running.incrementAndGet()
-              }
-              execute(instr.get, s, v)
-              syncObject.synchronized {
-                running.decrementAndGet()
-              }
-            }
-          }) 
+         this.pushExec(instr.get, s, v) 
       }
       else
       {
@@ -106,12 +85,17 @@ class AsyncExecutor(syncExec : InstructionExecutor,
     }
   }
   
+  def close() : Unit = {
+    this.exec.shutdown()
+  }
   
   def isOver = syncObject.synchronized( this.running.get() == 0 && 
       this.pending.get == 0)
   
   protected def getInstruction(loc : LocationId) : Option[Instruction] = {
-    this.instructions.get(loc)
+    this.synchronized({
+      this.instructions.get(loc)
+    })
   }
   
   
@@ -156,8 +140,8 @@ class AsyncExecutor(syncExec : InstructionExecutor,
         val ll = syncExec.executeForward(Forward(x), s, v)._1
         val st = ll(0)
         this.pushForward(st, v)
-        if (tail != Nil)
-          this.pushExec(InstructionBlock(tail), s, v)
+//        if (tail != Nil)
+//          this.pushExec(InstructionBlock(tail), s, v)
       }
       case InstructionBlock(instructions) :: tail => {
         this.executeInstructionBlock(InstructionBlock(instructions.toList ::: tail), s, v)

@@ -62,14 +62,13 @@ object MultipleVmsFacultatea {
         clicks.map(ClickToAbstractNetwork.buildConfig(_, prefixedElements = true)), 
         rawLinks, 
         startElems,
-        4, 
+        1, 
         instrExec = new DecoratedInstructionExecutor(solver))
 
     val startOfExec = System.currentTimeMillis()
 
     for (s <- start)
       exec.pushForward(s, true)
-
     while (!exec.isOver){}
 
     val doneExec = System.currentTimeMillis()
