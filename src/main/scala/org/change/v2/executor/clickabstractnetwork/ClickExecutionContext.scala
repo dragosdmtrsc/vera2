@@ -1,5 +1,7 @@
 package org.change.v2.executor.clickabstractnetwork
 
+import java.util.concurrent.{Executors, ExecutorService}
+
 import org.change.symbolicexec.verification.Rule
 import org.change.v2.abstractnet.generic.NetworkConfig
 import org.change.v2.analysis.memory.State
@@ -54,7 +56,23 @@ case class ClickExecutionContext(
    * @param verbose
    * @return
    */
-  def untilDone(verbose: Boolean): ClickExecutionContext = if (isDone) this else this.execute(verbose).untilDone(verbose)
+  def untilDone(verbose: Boolean): ClickExecutionContext = if (isDone) {
+//    ClickExecutionContext.executorService.shutdownNow()
+    this
+  } else this.execute(verbose).untilDone(verbose)
+
+  def untilDoneDumpingFailed(verbose: Boolean): ClickExecutionContext = if (isDone) {
+//    ClickExecutionContext.executorService.shutdownNow()
+    this
+  } else this.executeDumpingFailed(verbose).untilDoneDumpingFailed(verbose)
+
+  def untilDoneFrugally(verbose: Boolean): ClickExecutionContext = if (isDone) {
+    //    ClickExecutionContext.executorService.shutdownNow()
+    this
+  } else {
+    val nextExe = this.executeDFS(verbose)
+    nextExe.untilDoneFrugally(verbose)
+  }
 
   def execute(verbose: Boolean = false): ClickExecutionContext = {
     val (ok, fail, stuck) = (for {
@@ -67,7 +85,8 @@ case class ClickExecutionContext(
     } yield {
         if (instructions contains stateLocation) {
 //          Apply instructions
-          val r1 = instructions(stateLocation)(s, verbose)
+          val i = instructions(stateLocation)
+          val r1 = i(s, verbose)
 //          Apply check instructions on output ports
           val (toCheck, r2) = r1._1.partition(s => checkInstructions.contains(s.location))
           val r3 = toCheck.map(s => checkInstructions(s.location)(s,verbose)).unzip
@@ -83,12 +102,84 @@ case class ClickExecutionContext(
       ), {ctx: ClickExecutionContext => logger.log(ctx)})
   }
 
+  def executeDFS(verbose: Boolean = false): ClickExecutionContext = {
+    val (ok, fail, stuck) = {
+      val sPrime = okStates.head
+      val s = if (links contains sPrime.location)
+        sPrime.forwardTo(links(sPrime.location))
+      else
+        sPrime
+
+      val stateLocation = s.location
+
+      if (instructions contains stateLocation) {
+          //          Apply instructions
+          val i = instructions(stateLocation)
+          val r1 = i(s, verbose)
+          //          Apply check instructions on output ports
+          //          val (toCheck, r2) = r1._1.partition(s => checkInstructions.contains(s.location))
+          //          val r3 = toCheck.map(s => checkInstructions(s.location)(s,verbose)).unzip
+
+          for {
+            s <- r1._2
+          } s.memory.buildSolver.decRef()
+
+          (r1._1, r1._2, Nil)
+        } else (Nil, Nil, List(s))
+    }
+
+    useAndReturn(copy(
+      okStates = ok ++ okStates.tail,
+      stuckStates = stuck ++ stuckStates,
+      failedStates = fail ++ failedStates
+    ), {ctx: ClickExecutionContext => logger.log(ctx)})
+  }
+
+  def executeDumpingFailed(verbose: Boolean = false): ClickExecutionContext = {
+    val (ok, _, _) = (for {
+      sPrime <- okStates
+      s = if (links contains sPrime.location)
+        sPrime.forwardTo(links(sPrime.location))
+      else
+        sPrime
+      stateLocation = s.location
+    } yield {
+        if (instructions contains stateLocation) {
+          //          Apply instructions
+          val r1 = instructions(stateLocation)(s, verbose)
+          //          Apply check instructions on output ports
+          val (toCheck, r2) = r1._1.partition(s => checkInstructions.contains(s.location))
+          val r3 = toCheck.map(s => checkInstructions(s.location)(s,verbose)).unzip
+          (r2 ++ r3._1.flatten, r1._2 ++ r3._2.flatten, Nil)
+        } else
+          (Nil, Nil, List(s))
+      }).unzip3
+
+    useAndReturn(copy(
+      okStates = ok.flatten
+    ), {ctx: ClickExecutionContext => logger.log(ctx)})
+  }
+
   // TODO: Move to a logger
   def concretizeStates: String = (stuckStates ++ okStates).map(_.memory.concretizeSymbols).mkString("\n----------\n")
 
 }
 
 object ClickExecutionContext {
+
+//  private var executorService: ExecutorService = buildNewService()
+
+//  private def buildNewService(): ExecutorService = {
+//    Executors.newFixedThreadPool(Runtime.getRuntime.availableProcessors)
+//  }
+
+//  def getService = {
+//    if (executorService.isShutdown) {
+//      executorService = buildNewService()
+//    }
+//
+//    executorService
+//  }
 
   /**
    * Builds a symbolic execution context out of a single click config file.
@@ -127,9 +218,10 @@ object ClickExecutionContext {
 
   def buildAggregated(
             configs: Iterable[NetworkConfig],
-            interClickLinks: Iterable[(String, String, Int, String, String, Int)],
+            interClickLinks: Iterable[(String, String, String, String, String, String)],
             verificationConditions: List[List[Rule]] = Nil,
-            startElems: Option[Iterable[(String, String, Int)]] = None): ClickExecutionContext = {
+            startElems: Option[Iterable[(String, String, String)]] = None,
+            initialState: State = State.allSymbolic): ClickExecutionContext = {
     // Create a context for every network config.
     val ctxes = configs.map(ClickExecutionContext.fromSingle(_, includeInitial = false))
     // Keep the configs for name resolution.
@@ -148,8 +240,8 @@ object ClickExecutionContext {
     // Create initial states
     val startStates = startElems match {
       case Some(initialPoints) => initialPoints.map(ip =>
-        State.bigBang.forwardTo(configMap(ip._1).elements(ip._1 + "-" + ip._2).inputPortName(ip._3)))
-      case None => List(State.bigBang.forwardTo(configs.head.entryLocationId))
+        initialState.forwardTo(configMap(ip._1).elements(ip._1 + "-" + ip._2).inputPortName(ip._3)))
+      case None => List(initialState.forwardTo(configs.head.entryLocationId))
     }
     // Build the unified execution context.
     ctxes.foldLeft(new ClickExecutionContext(Map.empty, links, startStates.toList, Nil, Nil, checkInstructions))(_ + _)

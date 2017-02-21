@@ -28,10 +28,6 @@ object JsonLogger extends ExecutionLogger {
     output.println(ctx.toJson.prettyPrint)
     output.close()
 
-    // Here I will call Matei's code and see the results
-
-//    import org.change.v2.util.canonicalnames._
-//    println(ctx.stuckStates.map(verifyState(Map(IPDst -> 2))))
   }
 }
 
@@ -46,11 +42,30 @@ object ModelValidation extends ExecutionLogger {
 
     import org.change.v2.util.canonicalnames._
 
-    ctx.stuckStates.map({s =>
+    val (reachedDst, stuckSomewhere) = ctx.stuckStates
+      .partition(_.location.toLowerCase().contains("dst"))
+
+    println("Trying those reaching the destination")
+    reachedDst.map({ s =>
       val inputExample = RunConfig.mateiInputFlowFromState(s)
       println(inputExample)
-      // Here I will call Matei's code and see the results
-      println(verifyState(RunConfig.mateiOutputToValidationCase(inputExample))(s))})
+
+      RunConfig.getMateiOutputAsExample(inputExample) match {
+        case Some(validationInput) => println(verifyState(validationInput)(s))
+        case None => println("Bad output from matei.")
+      }
+    })
+
+    println("Trying those stuck")
+    stuckSomewhere.map({ s =>
+      val inputExample = RunConfig.mateiInputFlowFromState(s)
+      println(inputExample)
+
+      if (RunConfig.getMateisOutput(inputExample).contains("{}"))
+        println("Stuck state got stuck IRL")
+      else
+        println("Hmm apparently it escaped")
+    })
   }
 
   def verifyState(concreteValues: Map[TagExp, Long])(s: State): Option[String] = {

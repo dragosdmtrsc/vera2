@@ -2,7 +2,6 @@ package org.change.v2.analysis.expression.abst
 
 
 import org.change.v2.analysis.memory.State
-import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.analysis.z3.Z3Able
 
 import scala.util.Random
@@ -10,9 +9,9 @@ import scala.util.Random
 /**
  * Created by radu on 3/24/15.
  *
- * A floating expression is a formula with references not yet bound to values.
+ * A floating expression uses references instead of concrete values.
  *
- * These bindings are made according to the context of a state.
+ * The bindings to concrete values are made according to a state.
  */
 trait FloatingExpression {
   /**

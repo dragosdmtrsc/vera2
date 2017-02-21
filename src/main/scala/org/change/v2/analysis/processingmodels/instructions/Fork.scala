@@ -19,7 +19,10 @@ case class Fork(forkBlocks: Iterable[Instruction]) extends Instruction {
     (success.flatten.toList, fail.flatten.toList)
   }
 }
+<<<<<<< HEAD
 
 object Fork {
   def apply(instrs: Instruction*): Fork = Fork(instrs.toList)
 }
+=======
+>>>>>>> f6815ef3b4bedd3b3f16eefdaea2f9f97d4b4625
