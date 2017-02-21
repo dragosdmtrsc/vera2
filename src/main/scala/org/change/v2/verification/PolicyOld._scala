@@ -1,0 +1,246 @@
+package org.change.v2.verification
+
+import org.change.v2.analysis.memory.State
+import org.change.v2.analysis.processingmodels.Instruction
+import org.change.v2.analysis.processingmodels.instructions._
+
+/**
+ * Created by matei on 12/01/17.
+ * TODO: optimise such that subformulae are not checked repeatedly. Suspended because it might make debugging harder
+ */
+object PolicyOld {
+
+  def verbose = true
+
+  // very simplistic implementation of complement
+  def complement (i : Instruction) : Instruction = {
+    i match {
+      case InstructionBlock(l) => Fork(l.map(complement))
+      case ConstrainNamedSymbol(v,dc,c) => ConstrainNamedSymbol(v,:~:(dc),c) // negation of constrain
+      case ConstrainRaw(a,dc,c) => ConstrainRaw(a,:~:(dc),c) // as above
+      case _ => i // the complement leaves an instruction unchanged, for all other cases (for now)
+    }
+  }
+
+  def isSatisfied (state: State, i : Instruction ) : Boolean = {
+    var comp = complement(i)
+    var (success,failed) = comp.apply(state)
+    success.isEmpty //
+  }
+
+  def isComposite (i: Instruction) : Boolean =
+    i match {
+      case InstructionBlock(_) => true
+      case Fork(_) => true
+      case _ => false
+    }
+
+  def containsFork (i : Instruction) : Boolean =
+  i match {
+    case Fork(_) => true
+    case InstructionBlock(l) => (l.map(containsFork)).reduce(_ || _)
+    case _ => false
+  }
+
+  // must return an instruction of the type Fork(l) such that elements of l are fork-free
+  // i
+  def extractFork (i : Instruction) : Instruction =
+  if (containsFork(i))
+    i match { // if i contains a Fork, it must be a Fork itself or an instructionBlock
+      case Fork(i::Nil) => extractFork(i)
+      case Fork(Fork(l)::rest) => extractFork(Fork(l.map(extractFork) ++ rest.map(extractFork)))
+      case Fork(i::rest) => extractFork(i) match {
+        case fk@Fork(_) => extractFork(Fork(fk::rest)) // reduces to the above case
+        case ip => extractFork(Fork(rest)) match {
+          case Fork(l:List[Instruction]) => Fork(ip::l)
+          case other => Fork(ip::other::Nil)
+        }
+      }
+      case InstructionBlock(i::Nil) => extractFork(i)
+      case InstructionBlock(i::rest) => extractFork(i) match {
+        case Fork(l) => extractFork(Fork(l.map((is => InstructionBlock(is :: rest)))))
+        case ip => extractFork(InstructionBlock(rest)) match {
+          case Fork(lp) => Fork(lp.map(is => InstructionBlock(ip :: is :: Nil)))
+          case InstructionBlock(lp: List[Instruction]) => InstructionBlock(ip :: lp)
+          case other => InstructionBlock(ip::other::Nil)
+        }
+      }
+    }
+  else i
+
+
+  def changesState (i: Instruction) : Boolean = true
+
+  def verbose_print(s : String ) = if (verbose) println(s)
+
+
+  def seqcheck (f: Formula, s : State): Option[Set[Formula]] = {
+    verbose_print("Verifying formula "+f)
+    //verbose_print("In state "+s)
+    f match {
+      case fp@(Forall(Globally(_)) | Exists(Globally(_))) =>
+        var fpp = fp.inner.inner // the inner formula
+        seqcheck(fpp,s) match {
+          case None => None // if fpp is false, then "XG fpp" is false
+          case Some(l) => Some(l + (fp)) //add the current formula to the list of obligations
+        }
+      case fp@(Forall(Future(_)) | Exists(Future(_))) =>
+        var fpp = fp.inner.inner // the inner formula
+        seqcheck(fpp,s) match {
+          case None => Some(Set() + (fp)) // if fpp is false, then "XF fpp" is an obligation
+          // if fpp is true, then "XF fpp" is true - no obligations generated
+          //the else case is complicated... if fpp generates obligations, then either "XF fpp" is true later, or
+          //some obligations are fulfilled later (and "XF fpp" is true "now").
+          //each obligation x becomes "x V fp"
+          case Some(l) => if (l.isEmpty) Some(Set()) else Some(l.map(x => Or(fp,x)))
+        }
+        // must be a boolean formula
+      case fp => boolean_check(fp,s,seqcheck)
+
+    }
+  }
+
+
+
+
+  // this procedure verifies boolean formulae (and is independent on the program context verification, unlike temporal formulae
+  // the check function represents the "program context" in which it appears
+  def boolean_check (f:Formula, s:State, check : (Formula, State) => Option[Set[Formula]]) : Option[Set[Formula]] = {
+    verbose_print("boolean check")
+    f match {
+      case And(f1, f2) => check(f1, s) match {
+        case None => None
+        case Some(l) =>  check(f2, s) match {
+          case None => None
+          case Some(lp) => Some(l ++ lp)
+        }
+      }
+      case Or(f1, f2) => check(f1, s) match {
+        case None => check(f2, s)
+        case Some(l) => if (l.isEmpty) Some(Set())
+        else // the right-hand-size of the disjunction is true
+          check(f2, s) match {
+            case None => Some(l)
+            // this case is more complicated... if we have obligations on both parts of the disjunction,
+            // we need to combine via disjunction each combination of obligations
+            case Some(lp) => if (lp.isEmpty) Some(Set())
+            else // the lhs of the disjunctions is true
+               Some((for {x <- l; y <- lp} yield (x, y)).map((x) => Or(x._1, x._2)))
+          }
+      }
+      case Not(f) => check(f, s) match {
+        case None => Some(Set())
+        case Some(l) => if (l.isEmpty) None else Some(l.map((f: Formula) => Not(f)))
+      }
+      case Atomic(i) => if (isSatisfied(s, i)) Some(Set()) else None
+    }
+  }
+
+  //verifies a formula in a final state of a path
+  def final_check (f: Formula, s : State): Option[Set[Formula]] = {
+    verbose_print("Verifying in final state formula "+f)
+    //verbose_print("In state "+s)
+    f match {
+      case fp@(Forall(Globally(_)) | Exists(Globally(_)) | Forall(Future(_)) | Exists(Future(_))) => //temporal operators are evaluated in the final state.
+        var fpp = fp.inner.inner // the inner formula
+        final_check(fpp, s) match {
+          case None => None // if fpp is false, then "XG fpp" is false
+          case Some(l) => if (l.isEmpty) Some(Set()) //in a final state, no obligations means that the formula is true
+          else None // in a final state, obligations mean that the formula is false
+        }
+      // must be a boolean formula
+      case fp => boolean_check(fp, s, final_check)
+    }
+  }
+
+  //checks all formulae, possibly generating other obligations
+  def check_all (o: Set[Formula], s: State, check : (Formula, State) => Option[Set[Formula]]) : Option[Set[Formula]] =
+    (o.map((f: Formula) => check(f, s))).reduce(
+      (x, y) => x match {
+        case None => None
+        case Some(l) => y match {
+          case None => None
+          case Some(lp) => Some(l ++ lp)
+        }
+      }
+    )
+
+
+
+  def check (o : Set[Formula], p: Instruction, s : State) : Option [Set[Formula]] = {
+    verbose_print("Verifying " + o + "\n on program " + p)
+
+    p match {
+      // instructionBlock situations
+      case InstructionBlock(pr :: Nil) => check(o, pr, s) //single-instruction
+      case InstructionBlock(InstructionBlock(l) :: prp :: rest)
+      => check(o, InstructionBlock(l ++ (prp :: rest)), s) // flatten nested instruction blocks
+      case InstructionBlock(Fork(l) :: prp :: rest) // distribute Fork instructions
+      => check(o,
+        Fork(l.map(p => InstructionBlock(p :: prp :: rest)))
+        , s)
+
+      case InstructionBlock(pr :: prp :: rest) => //just an instruction
+        if (!changesState(pr)) {
+          // if this instruction does not change state, we simply execute it and continue
+          pr.apply(s) match {
+            case (Nil, _) => Some(Set()) //the path is unsuccessful, hence the formula is trivially true
+            case (sp :: _, _) => check(o, InstructionBlock(prp :: rest), sp) // execute one instruction and continue
+          }
+        } else {
+          // if at this instruction we need to look at the formulae, we check each of our obligations
+          // and generate new obligations (newo)
+          check_all(o,s,seqcheck) match {
+            case None => None //if some obligation was falsified, we return false
+            case Some(l) => if (l.isEmpty) Some(Set()) //if all obligations were satisfied, we return true
+              else pr.apply(s) match {
+              case (Nil, _) => Some(Set()) //the path is unsuccessful, the formula is trivially true
+              case (sp :: _, _) => check(l, InstructionBlock(prp :: rest), sp)
+            }
+          }
+        }
+
+     // Fork will never return obligations, since each path will be explored until the end
+     case Fork(pr::Nil) => check (o,pr,s) // single-instruction fork
+      case Fork(pr::rest) => check (o,pr,s) match { //execute the first branch of the Fork
+        case None => // at least one obligation is false
+
+
+          // if some obligation must hold on all paths
+          if(! (o.map((f) => f match {case Forall(_) => true; case _ => false})).reduce(_ || _))
+            None //the answer is false
+          else // all obligations are "existential"
+          check(o,Fork(rest),s)
+
+        case Some (l) => // some formulae in o generated obligations
+          if ( o.map(()))
+      }
+
+
+        //dfs;
+      //case Fork(path :: rest) => forkcheck ()
+
+        //TODO: case Fork
+
+        // a non-branching instruction at this level ends execution
+      case pr => pr.apply(s) match {
+        case (Nil, _) => Some(Set()) // unsuccesful path
+        case (sp::_ , _) => check_all(o,sp,final_check)
+      }
+
+    }
+  }
+
+  // "top-level" verification procedure
+  def verify (f : Formula, model : Instruction) : Boolean = {
+    check(Set() + (f),model,State.bigBang) match {
+      case None => verbose_print("Formula is false"); false     // should report the failing path
+      case Some(l) => if (l.isEmpty) {verbose_print("Formula is true"); true}
+                      else {verbose_print("Formula is false. Unsatisfied obligations "+l); false}
+
+    }
+  }
+
+
+}
+

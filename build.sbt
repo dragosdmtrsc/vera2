@@ -37,4 +37,9 @@ lazy val fuckultatea = taskKey[Unit]("Running multiple VMs")
 
 fullRunTask(fuckultatea, Compile, "org.change.v2.runners.experiments.MultipleVmsFacultatea")
 
+lazy val policy = taskKey[Unit]("Policy testing")
+
+fullRunTask(policy, Compile, "org.change.v2.verification.Test")
+
+
 seq(Revolver.settings: _*)

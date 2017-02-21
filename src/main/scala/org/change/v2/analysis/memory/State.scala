@@ -39,19 +39,21 @@ object State {
      CreateTag("START",0),
      CreateTag("L3", 0),
 
+   /*
      Allocate(IPVersion, 4),
      Assign(IPVersion, SymbolicValue()),
 
      Allocate(Proto, 8),
      Assign(Proto, SymbolicValue()),
-
+*/
      Allocate(IPSrc, 32),
      Assign(IPSrc, SymbolicValue()),
-     Constrain(IPSrc, :&:(:>=:(ConstantValue(0)), :<=:(ConstantValue(4294967296L)))),
+     //Constrain(IPSrc, :&:(:>=:(ConstantValue(0)), :<=:(ConstantValue(4294967296L)))),
+
      Allocate(IPDst, 32),
      Assign(IPDst, SymbolicValue()),
-     Constrain(IPSrc, :&:(:>=:(ConstantValue(0)), :<=:(ConstantValue(4294967296L)))),
-
+     Constrain(IPDst, :&:(:>=:(ConstantValue(0)), :<=:(ConstantValue(4294967296L)))),
+/*
      Allocate(TTL, 8),
      Assign(TTL, ConstantValue(255)),
 
@@ -66,7 +68,7 @@ object State {
 
      Allocate(IPID, 16),
      Assign(IPID, SymbolicValue()),
-
+*/
      CreateTag("L4", L3Tag + 160),
 
      Allocate(TcpSrc, 16),
@@ -75,8 +77,8 @@ object State {
 
      Allocate(TcpDst, 16),
      Assign(TcpDst, SymbolicValue()),
-     Constrain(TcpDst, :&:(:>=:(ConstantValue(0)), :<=:(ConstantValue(65536)))),
-
+     Constrain(TcpDst, :&:(:>=:(ConstantValue(0)), :<=:(ConstantValue(65536))))      //,
+/*
      Allocate(TcpSeq, 32),
      Assign(TcpSeq, SymbolicValue()),
 
@@ -112,6 +114,8 @@ object State {
      //Allocate(Tag("PAYLOAD"),12000),
      //Assign(Tag("PAYLOAD"),SymbolicValue()),
      CreateTag("END", L4Tag + 12000)
+
+     */
    )(bigBang, true)
 
    afterBigBang._1.head
