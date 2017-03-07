@@ -3,16 +3,13 @@ package org.change.v2.verification
 import org.change.v2.analysis.memory.State
 import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.analysis.processingmodels.instructions._
-import sun.font.TrueTypeFont
-
-
 import org.change.v2.verification.Formula._
 
 /**
  * Created by matei on 12/01/17.
  * TODO: optimise such that subformulae are not checked repeatedly. Suspended because it might make debugging harder
  */
-object Policy {
+object Policy_v1 {
 
   def verbose = true
 
@@ -65,7 +62,6 @@ object Policy {
   }
 
 
-
   def changesState (i: Instruction) : Boolean = true
 
   def verbose_print(s : String ) = if (verbose) println(s)
@@ -110,13 +106,6 @@ object Policy {
 
     }
   }
-
-  /* VG ( VG f )  if VG is pending, it is not false in the current state, hence the search continues.
-     VG f - if f is pending, then if it is true in a future state, it will be true in the current (pending) state
-
-
-   */
-
 
   // this procedure verifies boolean formulae (and is independent on the program context verification, unlike temporal formulae
   // the check function represents the "program context" in which it appears
@@ -209,7 +198,6 @@ object Policy {
         } else {
           // if at this instruction we need to look at the formulae, we check each of our obligations
           // and generate new obligations (newo)
-
 
           pr.apply(s) match {
             case (Nil, _) => make(o,Satisfied) //the path is unsuccessful, the formula is trivially true

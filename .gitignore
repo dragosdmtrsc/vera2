@@ -19,3 +19,5 @@ out
 src/main/scala/org/change/v2/runners/Run.scala
 *.output
 *.json
+.DS_Store
+._.DS_Store
