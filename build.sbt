@@ -38,12 +38,12 @@ lazy val sefl = taskKey[Unit]("SEFL execution")
 
 fullRunTask(sefl, Compile, "org.change.v2.runners.sefl.SEFLExecutor")
 
-lazy val fuck= taskKey[Unit]("Running multiple VMs")
-
-fullRunTask(fuck, Compile, "org.change.v2.executor.clickabstractnetwork.AggregatedBuilder")
-
 lazy val switch_bench = taskKey[Unit]("Switch Bench")
 
 fullRunTask(switch_bench, Compile, "org.change.v2.runners.experiments.ciscoswitchtest.CiscoSwitchTestBench")
+
+lazy val policy = taskKey[Unit]("Policy testing")
+
+fullRunTask(policy, Compile, "org.change.v2.verification.Test")
 
 seq(Revolver.settings: _*)

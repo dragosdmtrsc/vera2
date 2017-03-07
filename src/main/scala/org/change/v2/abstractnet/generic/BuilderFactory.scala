@@ -31,8 +31,13 @@ object BuilderFactory {
     case "IPClassifier" => IPClassifier.getBuilder(nameValue)
     case "StripIPHeader" => StripIPHeader.getBuilder(nameValue)
     case "CheckIPHeader" => CheckIPHeader.getBuilder(nameValue)
+<<<<<<< HEAD
     case "IPMirror" | "TcpIpMirror" => IPMirror.getBuilder(nameValue)
     case "AllMirror" => AllMirror.getBuilder(nameValue)
+=======
+    case "AllMirror" => AllMirror.getBuilder(nameValue)
+    case "IPMirror" | "TcpIpMirror" => IPMirror.getBuilder(nameValue)
+>>>>>>> 2008ae3be9237c99fcc4b7abc8d75b1f81f3ce72
     case "DecIPTTL" => DecIPTTL.getBuilder(nameValue)
     case "EtherEncap" => EtherEncap.getBuilder(nameValue)
     case "EtherDecap" => EtherDecap.getBuilder(nameValue)
@@ -75,8 +80,13 @@ object BuilderFactory {
     case "IPClassifier"  => IPClassifier.getBuilder
     case "StripIPHeader" => StripIPHeader.getBuilder
     case "CheckIPHeader" => CheckIPHeader.getBuilder
+<<<<<<< HEAD
     case "IPMirror" | "TcpIpMirror" => IPMirror.getBuilder
     case "AllMirror" => IPMirror.getBuilder
+=======
+    case "AllMirror" => IPMirror.getBuilder
+    case "IPMirror" | "TcpIpMirror" => IPMirror.getBuilder
+>>>>>>> 2008ae3be9237c99fcc4b7abc8d75b1f81f3ce72
     case "DecIPTTL" => DecIPTTL.getBuilder
     case "EtherEncap" => EtherEncap.getBuilder
     case "EtherDecap" => EtherDecap.getBuilder
