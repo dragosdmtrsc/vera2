@@ -1,1 +1,5 @@
-FromDevice -> LinearIPLookup(0.0.1.0/30 0, 0.0.2.0/30 0) -> ToDevice
+FromDevice -> r :: IPRewriter(keep 0 1, drop)[1] -> dst :: ToDevice
+
+r[0] -> IPMirror() -> [1]r;
+
+r[2] -> Discard;

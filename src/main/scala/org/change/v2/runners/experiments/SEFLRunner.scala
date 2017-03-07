@@ -1,6 +1,6 @@
 package org.change.v2.runners.experiments
 
-import java.io.{FileOutputStream, PrintStream, File}
+import java.io.{PrintWriter, FileOutputStream, PrintStream, File}
 
 import org.change.v2.analysis.expression.concrete.nonprimitive._
 import org.change.v2.analysis.expression.concrete.{ConstantValue, SymbolicValue}
@@ -15,9 +15,10 @@ object SEFLRunner {
 
   lazy val output = new PrintStream(new FileOutputStream(new File("sefl.output")))
 
-  def main (args: Array[String]){
+  def main (args: Array[String]): Unit = toJSONExample()
 
-    val (successful, failed) = ex0
+  def toJSONExample(): Unit = {
+    val (successful, failed) = code(State.clean, true)
 
     output.println(
       successful.map(_.jsonString).mkString("Successful: {\n", "\n", "}\n") +
@@ -29,19 +30,21 @@ object SEFLRunner {
     println("Check output @ sefl.output")
   }
 
-  def ex0: (List[State], List[State]) = {
-    val code = InstructionBlock (
-      Assign("a", SymbolicValue()),
-      Assign("zero", ConstantValue(0)),
-      // State that a is positive
-      Constrain("a", :>:(:@("zero"))),
-      // Compute the sum
-      Assign("sum", :+:(:@("a"), :@("zero"))),
-      // We want the sum to be 0, meaning a should also be zero - impossible
-      Constrain("sum", :==:(:@("zero")))
-    )
+  val code = InstructionBlock (
+    Assign("a", SymbolicValue()),
+    Assign("zero", ConstantValue(0)),
+    // State that a is positive
+    Constrain("a", :>:(:@("zero"))),
+    // Compute the sum
+    Assign("sum", :+:(:@("a"), :@("zero"))),
+    // We want the sum to be 0, meaning a should also be zero - impossible
+    If(Constrain("sum", :==:(:@("zero"))),
+      Fail("This should not be reachable"),
+      Forward("exit 0"))
+  )
 
-    code(State.clean, true)
+  def ex0: (List[State], List[State]) = {
+   code(State.clean, true)
   }
 
   def ex1: (List[State], List[State]) = {

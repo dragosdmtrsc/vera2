@@ -1,10 +1,13 @@
 package org.change.v2.analysis.memory
 
+import java.util.concurrent.{Callable, Executors, ExecutorService}
+
 import org.change.v2.analysis.constraint._
 import org.change.v2.analysis.expression.abst.Expression
 import org.change.v2.analysis.expression.concrete.SymbolicValue
 import org.change.v2.analysis.types.{LongType, NumericType, TypeUtils, Type}
 import org.change.v2.analysis.z3.Z3Util
+import org.change.v2.executor.clickabstractnetwork.ClickExecutionContext
 import org.change.v2.interval.{IntervalOps, ValueSet}
 import org.change.v2.util.codeabstractions._
 import z3.scala.{Z3Model, Z3Solver}
@@ -251,7 +254,19 @@ case class MemorySpace(val symbols: Map[String, MemoryObject] = Map.empty,
   private var isZ3ModelCacheValid = false
   private var modelCache: Option[Z3Model] = _
 
-  def isZ3Valid: Boolean = buildSolver.check().get
+  def isZ3Valid: Boolean = {
+//    val job = MemorySpace.service.submit(new Callable[Boolean]() {
+//      override def call(): Boolean = {
+//        val crt = System.currentTimeMillis()
+        val aux = buildSolver.check().get
+//        MemorySpace.incZ3Time(System.currentTimeMillis()-crt)
+//        MemorySpace.incZ3Call
+        aux
+//      }
+//    })
+//
+//    job.get()
+  }
 
   def buildModel: Option[Z3Model] = if (isZ3ModelCacheValid)
     modelCache
@@ -280,6 +295,12 @@ object MemorySpace {
    * Empty memory.
    * @return
    */
+   var z3Time = 0L;
+   var z3Call = 0L;
+
+   def incZ3Time(i:Long) = z3Time+=i
+   def incZ3Call() = z3Call+=1
+   
   def clean: MemorySpace = new MemorySpace()
 
   /**
@@ -288,4 +309,6 @@ object MemorySpace {
    * @return
    */
   def cleanWithSymolics(symbols: List[String]) = symbols.foldLeft(clean)((mem, s) => mem.Assign(s, SymbolicValue()).get)
+
+//  def service = ClickExecutionContext.getService
 }

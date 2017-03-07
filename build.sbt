@@ -10,12 +10,13 @@ fork := true
 
 libraryDependencies ++= {
   Seq(
-    "org.antlr" % "antlr4" % "4.3",
-    "commons-io" % "commons-io" % "2.4",
+    "org.antlr" % "antlr4" % "4.6",
     "org.scalatest" % "scalatest_2.11" % "2.2.4" % "test",
     "io.spray" %%  "spray-json" % "1.3.2"
   )
 }
+
+test in assembly := {}
 
 lazy val sample = taskKey[Unit]("Interpreting")
 
@@ -25,9 +26,9 @@ lazy val click = taskKey[Unit]("Symbolically running Template.click")
 
 fullRunTask(click, Compile, "org.change.v2.runners.experiments.TemplateRunner")
 
-lazy val click_exampl = taskKey[Unit]("Symbolically running TemplateExampl.click with example generation")
+lazy val symb = taskKey[Unit]("Symbolically running Template.click without validation")
 
-fullRunTask(click_exampl, Compile, "org.change.v2.runners.experiments.TemplateRunnerWithExamples")
+fullRunTask(symb, Compile, "org.change.v2.runners.experiments.TemplateRunnerWithoutValidation")
 
 lazy val mc = taskKey[Unit]("Running multiple VMs")
 
@@ -36,5 +37,13 @@ fullRunTask(mc, Compile, "org.change.v2.runners.experiments.MultipleVms")
 lazy val sefl = taskKey[Unit]("SEFL execution")
 
 fullRunTask(sefl, Compile, "org.change.v2.runners.sefl.SEFLExecutor")
+
+lazy val fuck= taskKey[Unit]("Running multiple VMs")
+
+fullRunTask(fuck, Compile, "org.change.v2.executor.clickabstractnetwork.AggregatedBuilder")
+
+lazy val switch_bench = taskKey[Unit]("Switch Bench")
+
+fullRunTask(switch_bench, Compile, "org.change.v2.runners.experiments.ciscoswitchtest.CiscoSwitchTestBench")
 
 seq(Revolver.settings: _*)
