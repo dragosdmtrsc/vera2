@@ -10,7 +10,7 @@ fork := true
 
 libraryDependencies ++= {
   Seq(
-    "org.antlr" % "antlr4" % "4.3",
+    "org.antlr" % "antlr4" % "4.6",
     "org.scalatest" % "scalatest_2.11" % "2.2.4" % "test",
     "io.spray" %%  "spray-json" % "1.3.2"
   )
@@ -33,6 +33,10 @@ fullRunTask(symb, Compile, "org.change.v2.runners.experiments.TemplateRunnerWith
 lazy val mc = taskKey[Unit]("Running multiple VMs")
 
 fullRunTask(mc, Compile, "org.change.v2.runners.experiments.MultipleVms")
+
+lazy val sefl = taskKey[Unit]("SEFL execution")
+
+fullRunTask(sefl, Compile, "org.change.v2.runners.sefl.SEFLExecutor")
 
 lazy val switch_bench = taskKey[Unit]("Switch Bench")
 

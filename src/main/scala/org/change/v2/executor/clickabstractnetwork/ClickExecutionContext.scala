@@ -24,8 +24,8 @@ case class ClickExecutionContext(
                            instructions: Map[LocationId, Instruction],
                            links: Map[LocationId, LocationId],
                            okStates: List[State],
-                           failedStates: List[State],
-                           stuckStates: List[State],
+                           failedStates: List[State] = Nil,
+                           stuckStates: List[State] = Nil,
                            checkInstructions: Map[LocationId, Instruction] = Map.empty,
                            logger: ExecutionLogger = NoLogging
 ) {

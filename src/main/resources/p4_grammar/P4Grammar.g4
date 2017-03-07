@@ -233,4 +233,7 @@ un_op : '~' | '-' ;
 bool_op : 'or' | 'and' ;
 rel_op : '>' | '>=' | '==' | '<=' | '<' | '!=' ;
 
-NAME : [a-zA-Z][0-9a-zA-Z]* ;
+NAME : [a-zA-Z][0-9a-zA-Z_]* ;
+
+// Skip whitespaces
+WS : [ \t\r\n]+ -> skip ;
