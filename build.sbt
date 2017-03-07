@@ -50,8 +50,4 @@ lazy val btdemo = taskKey[Unit]("BTDemo")
 
 fullRunTask(btdemo, Compile, "org.change.v2.runners.experiments.BTDemo")
 
-lazy val sefl = taskKey[Unit]("SEFL execution")
-
-fullRunTask(sefl, Compile, "org.change.v2.runners.sefl.SEFLExecutor")
-
 seq(Revolver.settings: _*)
