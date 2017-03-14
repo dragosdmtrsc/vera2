@@ -21,5 +21,5 @@ case class Fork(forkBlocks: Iterable[Instruction]) extends Instruction {
 }
 
 object Fork {
-  def apply(instrs: Instruction*): Instruction = Fork(instrs)
+  def apply(instrs: Instruction*): Instruction = Fork(instrs.toList)
 }
