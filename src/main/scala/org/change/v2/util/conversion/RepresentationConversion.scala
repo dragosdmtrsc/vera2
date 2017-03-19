@@ -18,14 +18,30 @@ object RepresentationConversion {
   def macToNumberCiscoFormat(mac: String): Long = {
     mac.toLowerCase.split("\\.").map(Integer.parseInt(_, 16)).foldLeft(0L)((a:Long, g:Int)=> a * 65536 + g)
   }
+  
+  /**
+   * Get yourself into CIDR mode
+   */
+  def ipAndMaskToInterval(masked : String) : (Long, Long) = {
+    val split = masked.split("/")
+    ipAndMaskToInterval(split(0), Integer.parseInt(split(1)))
+  }
 
-  def ipAndMaskToInterval(ip: String, mask: String): (Long, Long) = {
-    val ipv = ipToNumber(ip)
-    val maskv = Integer.parseInt(mask)
+  def ipAndMaskToInterval(ip: Long, mask: Int): (Long, Long) = {
+    val ipv = ip
+    val maskv = mask
     val addrS = 32 - maskv
     val lowerM = Long.MaxValue << addrS
     val higherM = Long.MaxValue >>> (maskv + 31)
     (ipv & lowerM, ipv | higherM)
+  }
+  
+  def ipAndMaskToInterval(ip : String, mask : Int) : (Long, Long) = {
+    ipAndMaskToInterval(ipToNumber(ip), mask)
+  }
+  
+  def ipAndMaskToInterval(ip: String, mask: String): (Long, Long) = {
+    ipAndMaskToInterval(ipToNumber(ip), Integer.parseInt(mask))
   }
 
   def ipAndExplicitMaskToInterval(ip: String, mask: String): (Long, Long) = {

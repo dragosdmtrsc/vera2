@@ -27,6 +27,8 @@ case class ConstrainNamedSymbol (id: String, dc: FloatingConstraint, c: Option[C
   }
 }
 
+
+
 case class ConstrainRaw (a: Intable, dc: FloatingConstraint, c: Option[Constraint] = None) extends Instruction {
   override def toString = {
     "Constrain(" + a + dc + ")"
