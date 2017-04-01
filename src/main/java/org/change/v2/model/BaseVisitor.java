@@ -38,6 +38,7 @@ import org.change.v2.model.iptables.RejectTarget;
 import org.change.v2.model.iptables.ReturnTarget;
 import org.change.v2.model.iptables.SNATTarget;
 import org.change.v2.model.iptables.StateOption;
+import org.change.v2.model.openflow.FlowEntry;
 
 // End of user code
 
@@ -333,6 +334,12 @@ public class BaseVisitor implements IVisitor {
 
 	@Override
 	public void visit(MarkOption option) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void visit(FlowEntry flowEntry) {
 		// TODO Auto-generated method stub
 		
 	}

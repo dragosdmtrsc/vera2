@@ -7,9 +7,13 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 
+import org.change.v2.model.Link;
 import org.change.v2.model.NIC;
 import org.change.v2.model.OVSBridge;
 
@@ -30,9 +34,38 @@ public class OVSParser {
 		Map<String, String> nicOptions = new HashMap<String, String>();
 	}
 	
-	private static class LinkLookup {
-		public String ifaceOne, ifaceTwo;
-		public NIC theNic;
+	public static class LinkLookup {
+		private String ifaceOne, ifaceTwo;
+		public void setEnds(String ifaceOne, String ifaceTwo)
+		{
+			String first = ifaceOne.compareTo(ifaceTwo) <= 0 ? ifaceOne : ifaceTwo;
+			String second = ifaceOne.compareTo(ifaceTwo) > 0 ? ifaceOne : ifaceTwo;
+			this.ifaceOne = first;
+			this.ifaceTwo = second;
+		}
+		public boolean equals(Object other)
+		{
+			if (other == null) return false;
+			if (! (other instanceof LinkLookup)) return false;
+			return this.ifaceOne.equals(((LinkLookup)other).ifaceOne) &&
+				   this.ifaceTwo.equals(((LinkLookup)other).ifaceTwo);
+		}
+		
+		public int hashCode() {
+			return (this.ifaceOne + ":" + this.ifaceTwo).hashCode();
+		}
+		
+		public boolean hasEnd(String iface)
+		{
+			return this.ifaceOne.equals(iface) || this.ifaceTwo.equals(iface);
+		}
+		@Override
+		public String toString() {
+			return "LinkLookup [ifaceOne=" + ifaceOne + ", ifaceTwo="
+					+ ifaceTwo + "]";
+		}
+		
+		
 	}
 	
 	private static class PortLookup {
@@ -46,6 +79,8 @@ public class OVSParser {
 		public String bridgeId, bridgeName;
 		public OVSBridge bridge;
 		List<String> ports = new ArrayList<String>();
+
+		
 	}
 	
 	private Map<String, Integer> getHeadings(JsonNode node) {
@@ -68,7 +103,13 @@ public class OVSParser {
 	}
 	
 	
-	public List<OVSBridge> getBridge(InputStream stream) throws JsonProcessingException, IOException {
+
+	public List<OVSBridge> getBridges(InputStream stream, 
+			Set<NIC> whatElse,
+			Set<Link> realLinks) 
+			throws JsonProcessingException, IOException {
+		assert(realLinks != null);
+		assert(whatElse != null);
 		ObjectMapper mapper = new ObjectMapper();
 		ArrayList<OVSBridge> bridges = new ArrayList<OVSBridge>();
 		BufferedReader br = new BufferedReader(new InputStreamReader(stream));
@@ -76,7 +117,7 @@ public class OVSParser {
 		List<BridgeLookup> bridgeLookups = null;
 		List<IfaceLookup> ifaces = null;
 		List<PortLookup> portLookups = null;
-		List<LinkLookup> links = new ArrayList<LinkLookup>();
+		Set<LinkLookup> links = new HashSet<LinkLookup>();
 		while ((line = br.readLine()) != null){
 			JsonNode theNode = mapper.readTree(line);
 			String tableName = theNode.path("caption").asText();
@@ -96,9 +137,95 @@ public class OVSParser {
 		
 		for (BridgeLookup bridge : bridgeLookups)
 		{
+			OVSBridge real = new OVSBridge();
+			real.setKind("OVS");
+			real.setName(bridge.bridgeName);
 			
+			for (String portId : bridge.ports)
+			{
+				PortLookup port = portLookups.
+						stream().
+						filter(s -> s.portId.equals(portId)).
+						findFirst().
+						get();
+				if (port.ifaces != null && port.ifaces.size() == 1)
+				{
+					String ifaceName = port.ifaces.get(0);
+					Optional<IfaceLookup> optIface = ifaces.
+							stream().
+							filter(s -> s.nicId.equals(ifaceName)).
+							findFirst();
+					Optional<NIC> maybeNic = whatElse.stream().filter(s -> s.getName().equals(ifaceName)).findFirst();
+					NIC realNic = null;
+					if (maybeNic.isPresent())
+					{
+						realNic = maybeNic.get();
+					}
+					else
+					{
+						realNic = new NIC();
+					}
+					
+					if (!optIface.isPresent() && !maybeNic.isPresent())
+					{
+						throw new IllegalArgumentException(String.format("Cannot do that, nic %s doesn't exist", ifaceName));
+					}
+					else if (optIface.isPresent())
+					{
+						IfaceLookup theIface = optIface.get();
+						realNic = new NIC();
+						realNic.setBridge(real);
+						realNic.setMacAddress(theIface.mac);
+						realNic.setName(port.portName);
+						realNic.setType(theIface.type);
+						for (String s : port.tags)
+						{
+							realNic.getVlans().add(Integer.decode(s));
+						}
+						realNic.getOptions().putAll(theIface.nicOptions);
+					}
+					real.getNICs().add(realNic);
+				}
+				else if (port.ifaces.size() != 1)
+				{
+					throw new UnsupportedOperationException("Cannot parse LACP just yet");
+				}
+				else
+				{
+					throw new IllegalArgumentException("No interfaces associated with the named port");
+				}
+			}
+			
+			
+			bridges.add(real);
 		}
 		
+		
+		for (LinkLookup ll : links)
+		{
+			NIC oneEnd = null;
+			NIC theOther = null;
+			Link realLink = new Link();
+
+			for (OVSBridge real : bridges)
+			{
+				Optional<NIC> nicOne = real.getNICs().stream().filter(s -> s.getName().equals(ll.ifaceOne)).findFirst();
+				Optional<NIC> nicTwo = real.getNICs().stream().filter(s -> s.getName().equals(ll.ifaceTwo)).findFirst();
+				if (nicOne.isPresent())
+				{
+					oneEnd = nicOne.get();
+				}
+				if (nicTwo.isPresent())
+				{
+					theOther = nicTwo.get();
+				}
+			}
+			if (oneEnd == null || theOther == null)
+				throw new IllegalArgumentException("Cannot find port for link " + ll);
+			
+			realLink.setNics(oneEnd, theOther);
+			realLinks.add(realLink);
+		}
 		return bridges;
 	}
 	
@@ -157,7 +284,7 @@ public class OVSParser {
 	}
 	
 	private List<IfaceLookup> parseIfaces(JsonNode node, 
-			List<LinkLookup> links) {
+			Set<LinkLookup> links) {
 		assert(links != null);
 		List<IfaceLookup> bridges = new ArrayList<IfaceLookup>();
 		Map<String, Integer> headers = this.getHeadings(node);
@@ -179,8 +306,7 @@ public class OVSParser {
 				if ("peer".equals(nnn.path(0).asText()))
 				{
 					LinkLookup ll = new LinkLookup();
-					ll.ifaceOne = name;
-					ll.ifaceTwo = nnn.path(1).asText();
+					ll.setEnds(name, nnn.path(1).asText());
 					links.add(ll);
 				}
 				else
@@ -196,7 +322,17 @@ public class OVSParser {
 	public static void main(String[] args) throws JsonProcessingException, IOException
 	{
 		InputStream str = new FileInputStream("ovsdb-config.json");
-		new OVSParser().getBridge(str);
+		Set<Link> links = new HashSet<Link>();
+		new OVSParser().getBridges(str, new HashSet<NIC>(), links).stream().forEach(s -> {
+			System.out.println(s.getName() + " (" + s.getKind() + ")");
+			s.getNICs().forEach(u -> {
+				System.out.println("\t" + u.getName() + " (" + u.getType() + ")");
+			});
+		});
+		for (Link l : links)
+		{
+			System.out.println(l);
+		}
 	}
 	
 }

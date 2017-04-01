@@ -1,0 +1,129 @@
+   'in_port=' NAME
+   'dl_vlan=' NUMBER
+   'dl_vlan_pcp=' NUMBER
+   'dl_src=' mac
+   'dl_dst=' mac
+   'dl_src=' mac/mac
+   'dl_dst=' mac/mac
+   'dl_type=' NUMBER
+   'nw_src=' IP[/mask]
+   'nw_dst=' IP[/mask]
+   'nw_proto=' NUMBER
+   'nw_tos=' NUMBER
+   'nw_ecn=' NUMBER
+   'nw_ttl=' NUMBER
+   'tp_src=' NUMBER
+   'tp_dst=' NUMBER
+   'tp_src=' NUMBER/NUMBER
+   'tp_dst=' NUMBER/NUMBER
+   'icmp_type=' NUMBER
+   'icmp_code=' NUMBER
+   'table=' NUMBER
+   'metadata=' NUMBER[/NUMBER]
+   'ip'     //Same as dl_type=0x0800.
+   'icmp'   //Same as dl_type=0x0800,nw_proto=1.
+   'tcp'  //Same as dl_type=0x0800,nw_proto=6.
+   'udp'    //Same as dl_type=0x0800,nw_proto=17.
+   'sctp'   //Same as dl_type=0x0800,nw_proto=132.
+   'arp'    //Same as dl_type=0x0806.
+   'rarp'   //Same as dl_type=0x8035.
+   
+   'vlan_tci=' NUMBER[/NUMBER]
+          no     Matches only non-fragmented packets.
+          yes    Matches all fragments.
+          first  Matches only fragments with offset 0.
+          later  Matches only fragments with nonzero offset.
+          not_later
+                 Matches non-fragmented packets and fragments with zero offset.
+   'arp_sha=' mac
+   'arp_tha=' mac
+   'ipv6_src=' ipv6[/NUMBER]
+   'ipv6_dst=' ipv6[/NUMBER]
+   'ipv6_label=' label
+   'nd_target=' ipv6[/NUMBER]
+   'nd_sll=' mac
+   'nd_tll=' mac
+   'tun_id=' tunnel-id[/NUMBER]
+   'tun_src=' ip[/mask]
+   'tun_dst=' ip[/mask]
+   'regidx=' value[/mask]
+   'pkt_mark=' value[/mask]
+   'ipv6'   //Same as dl_type=0x86dd.
+   'tcp6'   //Same as dl_type=0x86dd,nw_proto=6.
+   'udp6'   //Same as dl_type=0x86dd,nw_proto=17.
+   'sctp6'  //Same as dl_type=0x86dd,nw_proto=132.
+   'icmp6'  //Same as dl_type=0x86dd,nw_proto=58.     
+   'actions=' [target][',' target...]
+          'output:' port
+          'output:' src[start..end]
+          'enqueue:' port ':' NAME
+          'normal'
+          'flood'
+          'all'
+          'controller(max_len=' nbytes ','
+                 'reason=' reason ','
+                        action, no_match, invalid_ttl.
+                 'id=' controller-id)
+                 
+          'controller'
+          'controller:' NUMBER?
+          'local'
+          'in_port'
+          'drop'
+          'mod_vlan_vid:' NUMBER
+          'mod_vlan_pcp:' NUMBER
+          'strip_vlan'
+          'push_vlan:' NUMBER
+          'push_mpls:' NUMBER
+          'pop_mpls:' NUMBER
+          'mod_dl_src:' mac
+          'mod_dl_dst:' mac
+          'mod_nw_src:' ip
+          'mod_nw_dst:' ip
+          'mod_tp_src:' NUMBER
+          'mod_tp_dst:' NUMBER
+          'mod_nw_tos:' tos
+         
+          'resubmit:' NUMBER
+          'resubmit('NUMBER? ',' table?)
+          #set_tunnel:id
+          #set_tunnel64:id
+          'set_queue:' queue
+          'pop_queue'
+          'dec_ttl'
+          'dec_ttl' ('(' id1 ',' id2 ')')?
+          'set_mpls_ttl:' NUMBER
+          'dec_mpls_ttl'
+          #note:[hh]...
+          'move:' 'src[' NUMBER '..' NUMBER ']->dst[' NUMBER '..' NUMBER ']'
+          'load:' NUMBER '->dst[' NUMBER '..' NUMBER ']'
+          'push:' 'src[' NUMBER '..' NUMBER ']'
+          'pop:' dst[NUMBER..NUMBER]
+          'set_field:' NUMBER->dst
+          apply_actions([action][,action...])
+          clear_actions
+          'write_metadata:' NUMBER[/NUMBER]
+          'goto_table:' table
+          fin_timeout(argument[,argument])
+                'idle_timeout=' seconds
+                'hard_timeout=' seconds
+          sample(argument[,argument]...)
+                 'probability=' packets
+                 'collector_set_id=' id
+                 'obs_domain_id=' id
+                 'obs_point_id=' id
+          exit
+   'cookie=' NUMBER
+   'cookie=' NUMBER/NUMBER
+   'priority=' NUMBER
+   'idle_timeout=' NUMBER
+   'hard_timeout=' NUMBER
+   send_flow_rem
+   check_overlap
+   'out_port=' port
+
+   'duration=' secs
+   n_packets
+   n_bytes
+   'hard_age=' secs
+   'idle_age=' secs

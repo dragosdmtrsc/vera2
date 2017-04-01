@@ -37,6 +37,7 @@ import org.change.v2.model.iptables.RejectTarget;
 import org.change.v2.model.iptables.ReturnTarget;
 import org.change.v2.model.iptables.SNATTarget;
 import org.change.v2.model.iptables.StateOption;
+import org.change.v2.model.openflow.FlowEntry;
 
 // End of user code
 
@@ -193,6 +194,8 @@ public interface IVisitor {
 	public void visit(RedirectTarget redirectTarget);
 	
 	public void visit(MarkOption option);
+
+	public void visit(FlowEntry flowEntry);
 	
 	// End of user code
 

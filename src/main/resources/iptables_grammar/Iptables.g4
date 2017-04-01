@@ -16,11 +16,11 @@ policy : '-P' chainname targetName;
 
 target : '-j' targetName;
 targetName : (acceptTarget // TODO
-	| dropTarget // TODO
+	| dropTarget // TODO 
 	| returnTarget // TODO
 	| checksumTarget // TODO
 	| connmarkTarget  // TODO
-	| ctTarget // TODO
+	| ctTarget // TODO 
 	| dnatTarget // TODO
 	| markTarget // TODO
 	| notrackTarget // TODO

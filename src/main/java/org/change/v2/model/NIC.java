@@ -3,7 +3,11 @@
  *******************************************************************************/
 package org.change.v2.model;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 
 // Start of user code (user defined imports)
 
@@ -15,20 +19,48 @@ import java.util.HashSet;
  * @author Dragos
  */
 public class NIC {
+	
+	
+	private Map<String, String> options = new HashMap<String, String>();
+	
+	public Map<String, String> getOptions() {
+		return options;
+	}
+
+	
+	@Override
+	public String toString() {
+		String brName = "NOBRIDGE";
+		if (this.getBridge() != null)
+			brName = this.getBridge().getName();
+		return this.getName() + "(" + brName + ")";
+	}
+
+
+	private String type;
+	public String getType() {
+		return type;
+	}
+
+	public void setType(String type) {
+		this.type = type;
+	}
+
+
 	/**
 	 * Description of the property bridges.
 	 */
-	public Bridge bridges = null;
+	private Bridge bridge = null;
 	
 	/**
 	 * Description of the property symnetIPAddresss.
 	 */
-	public HashSet<IPAddress> symnetIPAddresss = new HashSet<IPAddress>();
+	private HashSet<IPAddress> symnetIPAddresss = new HashSet<IPAddress>();
 	
 	/**
 	 * Description of the property links.
 	 */
-	public Link links = null;
+	private Link link = null;
 	
 	/**
 	 * Description of the property macAddress.
@@ -42,8 +74,15 @@ public class NIC {
 	
 	// Start of user code (user defined attributes for NIC)
 	
+	private List<Integer> vlans = new ArrayList<Integer>();
+	
+	
 	// End of user code
 	
+	public List<Integer> getVlans() {
+		return vlans;
+	}
+
 	/**
 	 * The constructor.
 	 */
@@ -60,16 +99,16 @@ public class NIC {
 	 * Returns bridges.
 	 * @return bridges 
 	 */
-	public Bridge getBridges() {
-		return this.bridges;
+	public Bridge getBridge() {
+		return this.bridge;
 	}
 	
 	/**
 	 * Sets a value to attribute bridges. 
 	 * @param newBridges 
 	 */
-	public void setBridges(Bridge newBridges) {
-	    this.bridges = newBridges;
+	public void setBridge(Bridge newBridges) {
+	    this.bridge = newBridges;
 	}
 
 	/**
@@ -84,16 +123,16 @@ public class NIC {
 	 * Returns links.
 	 * @return links 
 	 */
-	public Link getLinks() {
-		return this.links;
+	public Link getLink() {
+		return this.link;
 	}
 	
 	/**
 	 * Sets a value to attribute links. 
 	 * @param newLinks 
 	 */
-	public void setLinks(Link newLinks) {
-	    this.links = newLinks;
+	public void setLink(Link newLinks) {
+	    this.link = newLinks;
 	}
 
 	/**
