@@ -1,20 +1,19 @@
-package org.change.v2.abstractnet.linux.iptables
+package org.change.v2.abstractnet.linux.iptables.old
 
-import org.change.v2.analysis.processingmodels.Instruction
-import org.change.v2.analysis.processingmodels.instructions.Constrain
 import org.change.v2.analysis.expression.concrete.ConstantValue
 import org.change.v2.analysis.memory.Tag
-import org.change.v2.analysis.processingmodels.instructions.{:==:, :~:,
-    :<:, :<=:, :>=:, :>:, :&:};
-import org.change.v2.util.conversion.RepresentationConversion._;
-
+import org.change.v2.analysis.processingmodels.Instruction
+import org.change.v2.analysis.processingmodels.instructions.Constrain
+import org.change.v2.analysis.processingmodels.instructions.FloatingConstraint
+import org.change.v2.util.conversion.RepresentationConversion.macToNumber
+import org.change.v2.analysis.processingmodels.instructions.{:==:, :~:, :>=:, :|:, :&:, :<=:}
 
 trait MatchOption {
   def apply() : Instruction;
 }
 abstract class SimpleOption(neg : Boolean) extends MatchOption {
   def apply() : Instruction;
-}
+} 
 
 abstract class TcpOption(neg : Boolean) extends SimpleOption(neg) {
 }
@@ -103,12 +102,70 @@ case class FragmentOption(neg : Boolean) extends SimpleOption(neg) {
   }
 }
 
-case class ConnmarkOption(neg : Boolean, value : Int, forTag : String = "mark", mask : Int = 32) extends
+case class ConnmarkOption(neg : Boolean, 
+    forTag : String = "NFMark", 
+    start : Int,
+    end : Int) extends
   SimpleOption(neg) {
   override def apply() : Instruction = {
-    val (start, end) = ipAndMaskToInterval(value, mask)
     val constraint = :&:(:>=:(ConstantValue(start)), :<=:(ConstantValue(end)))
     val actual = if (neg) :~:(constraint) else constraint
     Constrain(Tag(forTag), actual)
   }
 }
+
+class GenericOption(neg : Boolean, 
+    tagName : String, 
+    startValue : Long, 
+    isTag : Boolean = true,
+    isInterval : Boolean = false, 
+    endValue : Long = -1) 
+  extends SimpleOption(neg) {
+  override def apply() : Instruction = {
+    val constraint = getThatConstrain
+    if (isTag) Constrain(Tag(tagName), constraint)
+    else Constrain(tagName, constraint)
+  }
+  
+  protected def getThatConstrain() = {
+    val constraint = if (isInterval) :&:(:<=:(ConstantValue(endValue)), :>=:(ConstantValue(startValue)))
+    else :==:(ConstantValue(startValue))
+    if (neg) :~:(constraint) else constraint
+  }
+}
+
+case class PhysdevInOption(neg : Boolean, value : Int)
+  extends GenericOption(neg, "PhysdevIn", value, false, false)
+{
+}
+case class PhysdevOutOption(neg : Boolean, value : Int)
+  extends GenericOption(neg, "PhysdevOut", value, false, false)
+{
+}
+
+case class CtStateOption(neg : Boolean, name : String, list : List[Int], isTag : Boolean = true)
+  extends SimpleOption(neg)
+{
+  override def apply() : Instruction = {
+    val listof = list.map(s => :==:(ConstantValue(s)))
+    val head :: tail = listof
+    val constraint = tail.foldLeft(head.asInstanceOf[FloatingConstraint])((acc, value) => :|:(value, acc))
+    val actual = if (neg) :~:(constraint) else constraint
+    if (isTag)
+      Constrain(Tag(name), actual)
+    else
+      Constrain(name, actual)
+  }
+}
+
+case class StateOption(neg : Boolean, value : Int)
+  extends GenericOption(neg, "State", value, false, false)
+{
+}
+
+
+case class PhysdevIsBridgedOption(neg : Boolean)
+  extends GenericOption(neg, "PhysdevIsBridged", 1, false, false)
+{
+}
+

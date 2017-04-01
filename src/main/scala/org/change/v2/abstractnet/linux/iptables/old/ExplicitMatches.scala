@@ -1,4 +1,6 @@
-package org.change.v2.abstractnet.linux.iptables
+package org.change.v2.abstractnet.linux.iptables.old
+
+import org.change.v2.abstractnet.linux.iptables.old.SimpleMatch
 
 
 case class TcpMatch() extends SimpleMatch

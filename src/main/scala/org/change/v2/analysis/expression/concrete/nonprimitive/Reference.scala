@@ -1,9 +1,14 @@
 package org.change.v2.analysis.expression.concrete.nonprimitive
 
-import org.change.v2.analysis.expression.abst.{FloatingExpression, Expression}
-import org.change.v2.analysis.memory.{State, Value, TagExp, Intable}
-import org.change.v2.analysis.processingmodels.instructions.Fail
-import z3.scala.{Z3Solver, Z3AST}
+import org.change.v2.analysis.expression.abst.Expression
+import org.change.v2.analysis.expression.abst.FloatingExpression
+import org.change.v2.analysis.memory.Intable
+import org.change.v2.analysis.memory.State
+import org.change.v2.analysis.memory.TagExp
+import org.change.v2.analysis.memory.Value
+
+import z3.scala.Z3AST
+import z3.scala.Z3Solver
 
 /**
  * Author: Radu Stoenescu

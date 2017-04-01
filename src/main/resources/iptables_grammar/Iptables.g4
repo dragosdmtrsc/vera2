@@ -15,49 +15,44 @@ chain : '-N' chainname;
 policy : '-P' chainname targetName;
 
 target : '-j' targetName;
-targetName : (acceptTarget
-	| dropTarget
-	| queueTarget
-	| returnTarget
-	| checksumTarget
-	| connmarkTarget
-	| ctTarget
-	| dnatTarget
-	| markTarget
-	| masqueradeTarget
-	| notrackTarget
-	| redirectTarget
-	| rejectTarget 
-	| setTarget
-	| snatTarget
+targetName : (acceptTarget // TODO
+	| dropTarget // TODO
+	| returnTarget // TODO
+	| checksumTarget // TODO
+	| connmarkTarget  // TODO
+	| ctTarget // TODO
+	| dnatTarget // TODO
+	| markTarget // TODO
+	| notrackTarget // TODO
+	| redirectTarget // TODO
+	| rejectTarget  // TODO
+	| setTarget // TODO
+	| snatTarget // TODO
+	| jumpyTarget
 );
 
+jumpyTarget : NAME; 
 acceptTarget : 'ACCEPT';
 dropTarget : 'DROP' ;
-queueTarget : 'QUEUE' ;
 returnTarget : 'RETURN' ;
+
 checksumTarget : 'CHECKSUM'  checksumTargetOpts;
 checksumTargetOpts : ('--checksum-fill')?;
-connmarkTarget : 'CONNMARK'  connmarkTargetOpts;
-connmarkTargetOpts : ('--set-xmark' value=INT('/' cmask=INT)?
-| '--save-mark' ('--nfmask' nfCtMask | '--ctmask' nfCtMask)*
-| '--restore-mark' ('--nfmask' nfCtMask | '--ctmask' nfCtMask)*
-| '--and-mark' bits=nfCtMask
-| '--or-mark' bits=nfCtMask
-| '--xor-mark' bits=nfCtMask
-| '--set-mark' value=INT('/' cmask=INT)?
-| '--save-mark' ('--mask' cmask=INT)?
-| '--restore-mark' ('--mask' cmask=INT)?)*;
+connmarkTarget : 'CONNMARK'  connmarkTargetOpts*; 
+connmarkTargetOpts : '--save-mark' maskingOption #saveCtMark
+| '--restore-mark' maskingOption #restoreCtMark;
+ 
+maskingOption : '--nfmask' nfCtMask #nfMask
+| '--ctmask' nfCtMask #ctMask;
 
 nfCtMask : ('0x' HEX_DIGIT+);
 ctTarget : 'CT'  ctTargetOpts;
-ctTargetOpts : ('--notrack'
-| '--helper' name=NAME
-| '--ctevents' event*
-| '--expevents' event*
-| '--zone' id=INT
-| '--timeout' name=NAME
- )*;
+ctTargetOpts : (ctNotrack |
+ctZone
+ )*; 
+  
+ctZone : '--zone' id=INT;
+ctNotrack : '--notrack';
  
 event : 'new' 
 | 'related' 
@@ -69,26 +64,16 @@ event : 'new'
 | 'mark' 
 | 'natseqinfo' 
 | 'secmark';
- 
-dnatTarget : 'DNAT'  dnatTargetOpts;
-dnatTargetOpts : (
-'--to-destination' (fromip=address ('-' toip=address)?)?(':' fromport=INT('-' toport=INT)?)?
-| '--random'
-| '--persistent')*;
+  
+dnatTarget : 'DNAT'  '--to-destination' IP;
+dnatTargetOpts : '--to-destination' IP;
 
-markTarget : 'MARK'  markTargetOpts;
-markTargetOpts : ('--set-xmark' value=INT('/' cmask=INT)?
-| '--set-mark' value=INT('/' cmask=INT)?
-| '--and-mark' bits=nfCtMask
-| '--or-mark' bits=nfCtMask
-| '--xor-mark' bits=nfCtMask);
-masqueradeTarget : 'MASQUERADE'  masqueradeTargetOpts;
-masqueradeTargetOpts : ('--to-ports' startPort=INT('-' endPort=INT)?
-| '--random')*;
+markTarget : 'MARK'  '--set-xmark' INT('/' INT)?;
+markTargetOpts : '--set-xmark' INT('/' INT)?;
+
 notrackTarget : 'NOTRACK';
-redirectTarget : 'REDIRECT'  redirectTargetOpts;
-redirectTargetOpts : ('--to-ports' startPort=INT('-' endPort=INT)?
-| '--random');
+redirectTarget : 'REDIRECT'  '--to-ports' INT('-' INT)?;
+//redirectTargetOpts : ('--to-ports' INT('-' INT)?);
 rejectTarget : 'REJECT'  rejectTargetOpts;
 rejectTargetOpts : '--reject-with' type=INT;
 setTarget : 'SET'  setTargetOpts;
@@ -98,10 +83,8 @@ setTargetOpts : (
 '--timeout' value=INT
 '--exist')*;
 
-snatTarget : 'SNAT'  snatTargetOpts;
-snatTargetOpts : ('--to-source' (address ('-' address)?)?(':' fromport=INT('-' toport=INT)?)?
-| '--random'
-| '--persistent')*;
+snatTarget : 'SNAT'  '--to-source' IP;
+snatTargetOpts : ('--to-source' );
 
 chainname : NAME;
 // parse match
@@ -127,46 +110,44 @@ outiface : neg='!'? ('-o' | '--out-interface') iface=NAME;
 
 module : '-m' (tcpopts // OK
 	| udpopts // OK
-	| icmpopts // TODO : Do this please
+	| icmpopts // OK
 	| connmarkopts // FIXME: Reanalizeaza asta
 	| markopts // FIXME: Reanalizeaza asta
-	| conntrackopts // TODO
-	| commentopts // TODO
-	| icmp6opts // TODO
-	| macopts // TODO
-	| physdevopts // TODO
-	| setopts // TODO
-	| stateopts // TODO
+	| conntrackopts // OK
+	| commentopts // TODO: Optional, maybe unneeded
+	| icmp6opts // TODO : Optional(for the moment)
+	| macopts // OK
+	| physdevopts // OK
+	| setopts // TODO: Deffered - need also ipset parameters
+	| stateopts // OK
 ); 
 
-connmarkopts : 'connmark' connmarkvars;
-connmarkvars : not='!'? '--mark' value=INT '/' mask;
-
+connmarkopts : 'connmark' neg='!'? '--mark' INT ('/' INT)?;
 conntrackopts : 'conntrack' conntrackvars+;
-conntrackvars : '!'? '--ctstate' statelist;
+conntrackvars : neg='!'? '--ctstate' statelist;
 
-address : IP;
+address : IP; 
 mask : INT;
 
 statuslist : status (',' status)*;
 statelist : state (',' state)*;
 
-markopts : 'mark' '!'? '--mark' value=INT ('/' mask)?;
+markopts : 'mark' neg='!'? '--mark' INT ('/' INT)?;
 commentopts : 'comment' '--comment' comment=NAME+;
 icmp6opts : 'icmp6' '!'? '--icmpv6-type' type=INT ('/' code=INT)? |typename=NAME;
-macopts : 'mac' '!'? '--mac-source' macaddress;
+macopts : 'mac' neg='!'? '--mac-source' macaddress;
 macaddress : HEX_DIGIT HEX_DIGIT ':' 
 	HEX_DIGIT HEX_DIGIT ':' 
 	HEX_DIGIT HEX_DIGIT ':' 
-	HEX_DIGIT HEX_DIGIT ':'
+	HEX_DIGIT HEX_DIGIT ':' 
 	HEX_DIGIT HEX_DIGIT ':' 
 	HEX_DIGIT HEX_DIGIT;
-physdevopts: 'physdev' physdevvars+;
-physdevvars : '!'? '--physdev-in' name=NAME
-| '!'? '--physdev-out' name=NAME
-| '!'? '--physdev-is-bridged';
+physdevopts: 'physdev' physdevvars+;  
+physdevvars : neg='!'? '--physdev-in' NAME #physdevIn
+| neg='!'? '--physdev-out' NAME #physdevOut
+| neg='!'? '--physdev-is-bridged' #physdevIsBridged; 
 setopts : 'set' setvars+;
-setvars : '!'? '--match-set' setname=NAME flagset;
+setvars : neg='!'? '--match-set' setname=NAME flagset;
 flagset : (flag (',' flag)*)?;
 flag : NAME;
 
@@ -184,7 +165,7 @@ state : 'INVALID'
 | 'SNAT' 
 | 'DNAT';
 
-stateopts : 'state' '!'? '--state' state;
+stateopts : 'state' neg='!'? '--state' state;
 udpopts : 'udp' (dport | sport)*;
 // FIXME: icmp rtfd and add options 
 icmpopts : 'icmp' neg='!'? '--icmp-type' icmptype; 

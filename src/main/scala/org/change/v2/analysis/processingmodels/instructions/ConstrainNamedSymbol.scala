@@ -84,6 +84,14 @@ case class :&:(a: FloatingConstraint, b: FloatingConstraint) extends FloatingCon
   }
 }
 
+// TODO: Please update the new executor model with this class in the big ol' case
+case class Yes() extends FloatingConstraint {
+  override def instantiate(s : State) : Either[Constraint, String] = {
+    Left(new Truth())
+  }
+}
+
+
 case class :~:(c: FloatingConstraint) extends FloatingConstraint {
   override def instantiate(s: State): Either[Constraint, String] = c instantiate s match {
     case Left(c) => Left(NOT(c))

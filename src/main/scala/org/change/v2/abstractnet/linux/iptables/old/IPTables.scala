@@ -1,11 +1,11 @@
-package org.change.v2.abstractnet.linux.iptables
+package org.change.v2.abstractnet.linux.iptables.old
 
 import org.change.v2.analysis.processingmodels.instructions.NoOp
 import org.change.v2.analysis.processingmodels.Instruction
-import org.change.v2.analysis.processingmodels.instructions.InstructionBlock
 import org.change.v2.analysis.processingmodels.instructions.Fail
 import scala.collection.mutable.Stack
 import org.change.v2.analysis.processingmodels.instructions.If
+import org.change.v2.analysis.processingmodels.instructions.{:==:, :~:, :>=:, :|:, :&:, :<=:}
 
 
 case class IPTables (namespace : String, tables : List[IPTablesTable]) {
@@ -15,6 +15,7 @@ case class IPTables (namespace : String, tables : List[IPTablesTable]) {
    */
   def apply(table : String, chain : String) : Instruction = {
     tables.find(s => s.name == table).get.startProcessing((chain, 0))
+
   }
 }
 
@@ -88,20 +89,7 @@ case class IPTablesRule(
   }
 }
 
-abstract class IpTablesTarget(name : String) {
-  def name() : String = this.name
-  def apply() : Instruction;
-}
 
-/**
- * This target only cares to jump (RETURN, ACCEPT, DROP, <chain-name>)
- * Does no other packet processing whatsoever
- */
-case class JumpyTarget(theName : String) extends IpTablesTarget (theName) {
-  def apply() = {
-    NoOp
-  }
-}
 
 trait IpTablesMatch {
   def apply() : List[Instruction];

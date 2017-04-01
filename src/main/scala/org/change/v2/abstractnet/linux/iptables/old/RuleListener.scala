@@ -1,12 +1,10 @@
-package org.change.v2.abstractnet.linux.iptables
+package org.change.v2.abstractnet.linux.iptables.old
 
 import org.antlr.v4.runtime.tree.ParseTreeWalker
-
 import generated.iptables_grammar.IptablesBaseListener
 import generated.iptables_grammar.IptablesParser.MatchContext
 import generated.iptables_grammar.IptablesParser.RleContext
 import generated.iptables_grammar.IptablesParser.ProtocolContext
-import org.change.v2.abstractnet.linux.iptables.MatchOption
 import generated.iptables_grammar.IptablesParser.SourceaddrContext
 import generated.iptables_grammar.IptablesParser.IpNormalContext
 import org.change.v2.util.conversion.RepresentationConversion
@@ -21,6 +19,21 @@ import generated.iptables_grammar.IptablesParser.BareTypeContext
 import generated.iptables_grammar.IptablesParser.TypeCodeContext
 import generated.iptables_grammar.IptablesParser.TypeCodeContext
 import generated.iptables_grammar.IptablesParser.CodeNameContext
+import org.change.v2.iptables.ICMPDefinitions
+import generated.iptables_grammar.IptablesParser.MacoptsContext
+import generated.iptables_grammar.IptablesParser.PhysdevoptsContext
+import generated.iptables_grammar.IptablesParser.PhysdevIsBridgedContext
+import generated.iptables_grammar.IptablesParser.PhysdevOutContext
+import generated.iptables_grammar.IptablesParser.PhysdevInContext
+import generated.iptables_grammar.IptablesParser.StateoptsContext
+import org.change.v2.iptables.StateDefinitions
+import generated.iptables_grammar.IptablesParser.ConntrackvarsContext
+import scala.collection.JavaConversions._
+import generated.iptables_grammar.IptablesParser.TargetNameContext
+import generated.iptables_grammar.IptablesParser.MarkoptsContext
+import generated.iptables_grammar.IptablesParser.ConnmarkoptsContext
+
+
 
 class RulesListener(chains : List[IPTablesChain]) extends IptablesBaseListener {
   private var rules : List[IPTablesRule] = List[IPTablesRule]();
@@ -38,8 +51,14 @@ class RulesListener(chains : List[IPTablesChain]) extends IptablesBaseListener {
 
 class RuleListener(chains : List[IPTablesChain]) extends IptablesBaseListener {
   private var rule : IPTablesRule = null
+  private var target : IpTablesTarget  = null
+  
   def getRule() : IPTablesRule = {
     rule
+  }
+  
+  def getTarget() : IpTablesTarget = {
+    target
   }
   
   override def enterRle(rle : RleContext) {
@@ -52,6 +71,13 @@ class RuleListener(chains : List[IPTablesChain]) extends IptablesBaseListener {
     var treeWalker = new ParseTreeWalker()
     treeWalker.walk(matchListener, m)
     rule.theMatches = rule.theMatches.::(matchListener.getMatch())
+  }
+  
+  override def enterTargetName(target : TargetNameContext) {
+    val targetListener = new TargetListener
+    val treeWalker = new ParseTreeWalker
+    treeWalker.walk(targetListener, target)
+    this.target = targetListener.getTarget()
   }
 }
 
@@ -203,29 +229,141 @@ class MatchListener(chains : List[IPTablesChain]) extends IptablesBaseListener {
   }
   
   override def enterBareType(bareType : BareTypeContext) {
-    val icmpTypeOption = new IcmpTypeOption(this.currentIcmpNeg, 
-        Integer.parseInt(bareType.INT().getText))
-    this.matchOption.options = this.matchOption.options :+ icmpTypeOption
+    this.inputType(Integer.parseInt(bareType.INT().getText))
   }
   
   override def enterTypeCode(typeCode : TypeCodeContext) {
+    this.inputType(Integer.parseInt(typeCode.INT(0).getText))
+    this.inputCode(Integer.parseInt(typeCode.INT(1).getText))
+  }
+  
+  private def inputType(`type` : Int) {
     val icmpTypeOption = new IcmpTypeOption(this.currentIcmpNeg, 
-        Integer.parseInt(typeCode.INT(0).getText))
+       `type`)
     this.matchOption.options = this.matchOption.options :+ icmpTypeOption
-    val icmpCodeOption = new IcmpCodeOption(this.currentIcmpNeg,
-        Integer.parseInt(typeCode.INT(1).getText))
+  }
+  
+  private def inputCode(code : Int) {
+    val icmpCodeOption = new IcmpCodeOption(this.currentIcmpNeg, code)
     this.matchOption.options = this.matchOption.options :+ icmpCodeOption
   }
   
   override def enterCodeName(codeName : CodeNameContext) {
     val theName = codeName.NAME().getText
-    
+    if (ICMPDefinitions.NAMES.containsKey(theName))
+    {
+      val icmpDef = ICMPDefinitions.NAMES.get(theName)
+      this.inputType(icmpDef.getType)
+      if (icmpDef.getCode != -1)
+      {
+        this.inputCode(icmpDef.getCode)
+      }
+    }
   }
   
   /**
    * End handling icmp options
    */
   
+  /**
+   * Start handling mac options
+   */
+  
+  override def enterMacopts(macOpts : MacoptsContext) {
+    val neg = macOpts.neg != null
+    val source = macOpts.macaddress().getText
+    val opt = new MACOption(neg, "mac-source", source)
+    this.matchOption.options = this.matchOption.options :+ opt
+
+  }
+  
+  /**
+   * End handling mac options
+   */
+  
+  /**
+   * Start handling physdev options
+   */
+  
+  
+  override def enterPhysdevopts(physdev : PhysdevoptsContext) {
+  }
+  
+  override def enterPhysdevIn(physdevIn : PhysdevInContext) {
+    val neg = physdevIn.neg != null
+    val opt = new PhysdevInOption(neg, physdevIn.NAME().getText.hashCode)
+    this.matchOption.options = this.matchOption.options :+ opt
+
+  }
+  
+  override def enterPhysdevOut(physdevOut : PhysdevOutContext) {
+    val neg = physdevOut.neg != null
+    val opt = new PhysdevInOption(neg, physdevOut.NAME().getText.hashCode)
+    this.matchOption.options = this.matchOption.options :+ opt
+  }
+  
+  override def enterPhysdevIsBridged(physdevIsBridged : PhysdevIsBridgedContext) {
+    val neg = physdevIsBridged.neg != null
+    val opt = new PhysdevIsBridgedOption(neg)
+    this.matchOption.options = this.matchOption.options :+ opt
+  }
+  
+    /**
+   * End handling physdev options
+   */
+  
+  /**
+   * Start handling the state options
+   */
+  
+  
+  override def enterStateopts(state : StateoptsContext) {
+    val neg = state.neg != null
+    val opt = new StateOption(neg, StateDefinitions.NAMES.get(state.state().getText))
+    this.matchOption.options = this.matchOption.options :+ opt
+  }
+  
+  override def enterConntrackvars(stateVars : ConntrackvarsContext) {
+    val neg = stateVars.neg != null
+    val opt = new CtStateOption(neg, 
+        "State", 
+        stateVars.statelist().state().map(s => StateDefinitions.NAMES.get(s.getText).asInstanceOf[Int]).toList,
+        false)
+  }
+  
+  
+  /**
+   * End handling the state options
+   */
+  
+  
+  /**
+   * Start handling mark options
+   */
+  
+  override def enterMarkopts(mark : MarkoptsContext) {
+    val neg = mark.neg != null
+    val ip = Integer.decode(mark.INT(0).getText).asInstanceOf[Int]
+    val mask = 
+    if (mark.INT().size() > 1) Integer.decode(mark.INT(1).getText).asInstanceOf[Int]
+    else 0xFFFFFFFF
+    val (start, end) = RepresentationConversion.ipAndMaskToInterval(ip, mask)
+    
+  }
+  
+  override def enterConnmarkopts(mark : ConnmarkoptsContext) {
+    val neg = mark.neg != null
+    val ip = Integer.parseInt(mark.INT(0).getText)
+    val mask = 
+    if (mark.INT().size() > 1) Integer.decode(mark.INT(1).getText).asInstanceOf[Int]
+    else 0xFFFFFFFF
+    val (start, end) = RepresentationConversion.ipAndMaskToInterval(ip, mask)
+    
+  }
+  
+  /**
+   * End handling mark options
+   */
   
   
 }
