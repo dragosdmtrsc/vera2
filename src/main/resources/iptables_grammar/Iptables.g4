@@ -30,7 +30,7 @@ targetName : (acceptTarget // TODO
 	| snatTarget // TODO
 	| jumpyTarget
 );
-
+ 
 jumpyTarget : NAME; 
 acceptTarget : 'ACCEPT';
 dropTarget : 'DROP' ;
@@ -187,7 +187,7 @@ addressExpression : IP_MASK # ipMasked
 	| IP # ipNormal
 	| NAME # hostName;
 dstaddr : neg='!'? ('-d' | '--destination') addressExpression;
-
+ 
 MATCH : '-m';
 
 IP_MASK : IP '/' INT;
@@ -202,6 +202,6 @@ fragment ALPHA : UPPER | LOWER | SIGNS;
 fragment LOWER : [a-z];
 fragment UPPER : [A-Z];
 fragment SIGNS : [-_];
-fragment HEX_DIGIT : [0-9A-Fa-f] ;
+HEX_DIGIT : [0-9A-Fa-f] ;
 fragment OCT_DIGIT : [0-8] ;
 

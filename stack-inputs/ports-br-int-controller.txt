@@ -1,0 +1,41 @@
+OFPST_PORT_DESC reply (xid=0x2):
+ 1(int-br-provider): addr:de:78:b7:df:a9:91
+     config:     0
+     state:      0
+     speed: 0 Mbps now, 0 Mbps max
+ 2(patch-tun): addr:d2:ab:88:03:89:b5
+     config:     0
+     state:      0
+     speed: 0 Mbps now, 0 Mbps max
+ 10(qr-fb358de8-c4): addr:00:00:00:00:00:00
+     config:     PORT_DOWN
+     state:      LINK_DOWN
+     speed: 0 Mbps now, 0 Mbps max
+ 11(qr-6a98a347-87): addr:00:00:00:00:00:00
+     config:     PORT_DOWN
+     state:      LINK_DOWN
+     speed: 0 Mbps now, 0 Mbps max
+ 12(tap5589876b-8c): addr:00:00:00:00:00:00
+     config:     PORT_DOWN
+     state:      LINK_DOWN
+     speed: 0 Mbps now, 0 Mbps max
+ 13(tapa61e24db-b6): addr:00:00:00:00:00:00
+     config:     PORT_DOWN
+     state:      LINK_DOWN
+     speed: 0 Mbps now, 0 Mbps max
+ 14(tap1bffddfb-0a): addr:00:00:00:00:00:00
+     config:     PORT_DOWN
+     state:      LINK_DOWN
+     speed: 0 Mbps now, 0 Mbps max
+ 15(qg-09d66f0a-46): addr:00:00:00:00:00:00
+     config:     PORT_DOWN
+     state:      LINK_DOWN
+     speed: 0 Mbps now, 0 Mbps max
+ 16(qg-5a347f2e-bc): addr:00:00:00:00:00:00
+     config:     PORT_DOWN
+     state:      LINK_DOWN
+     speed: 0 Mbps now, 0 Mbps max
+ LOCAL(br-int): addr:76:72:73:eb:03:44
+     config:     PORT_DOWN
+     state:      LINK_DOWN
+     speed: 0 Mbps now, 0 Mbps max

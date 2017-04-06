@@ -6,6 +6,8 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.util.ArrayList;
+import java.util.List;
 
 public class FlowParser {
 
@@ -22,12 +24,11 @@ public class FlowParser {
 	
 	public void parseFlowEntry(String theString)
 	{
-		String[] split = theString.split("[ ,]");
-		for (String spl : split)
+		List<String> actions = new ArrayList<String>();
+		int indexOfActions = theString.lastIndexOf("actions=");
+		if (indexOfActions < 0)
 		{
-			String[] args = spl.split("=");
-			String field = args[0].trim();
-			String value = args[1].trim();
+			
 		}
 	}
 	

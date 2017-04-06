@@ -1,0 +1,6 @@
+NXST_FLOW reply (xid=0x4):
+ cookie=0x916a2a7f9a9035cb, duration=679.426s, table=0, n_packets=95, n_bytes=12302, idle_age=77, priority=3,in_port=1,vlan_tci=0x0000 actions=mod_vlan_vid:1,NORMAL
+ cookie=0x916a2a7f9a9035cb, duration=808.567s, table=0, n_packets=5, n_bytes=1075, idle_age=680, priority=2,in_port=1 actions=drop
+ cookie=0x916a2a7f9a9035cb, duration=809.718s, table=0, n_packets=241, n_bytes=23998, idle_age=591, priority=0 actions=NORMAL
+ cookie=0x916a2a7f9a9035cb, duration=809.634s, table=23, n_packets=0, n_bytes=0, idle_age=809, priority=0 actions=drop
+ cookie=0x916a2a7f9a9035cb, duration=809.558s, table=24, n_packets=0, n_bytes=0, idle_age=809, priority=0 actions=drop

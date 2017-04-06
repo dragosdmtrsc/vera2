@@ -1,4 +1,4 @@
-// Generated from Iptables.g4 by ANTLR 4.4
+// Generated from Iptables.g4 by ANTLR 4.3
 
 package generated.iptables_grammar;
 
@@ -13,7 +13,7 @@ import java.util.ArrayList;
 
 @SuppressWarnings({"all", "warnings", "unchecked", "unused", "cast"})
 public class IptablesParser extends Parser {
-	static { RuntimeMetaData.checkVersion("4.4", RuntimeMetaData.VERSION); }
+	static { RuntimeMetaData.checkVersion("4.3", RuntimeMetaData.VERSION); }
 
 	protected static final DFA[] _decisionToDFA;
 	protected static final PredictionContextCache _sharedContextCache =
@@ -1899,46 +1899,55 @@ public class IptablesParser extends Parser {
 				setState(330); module();
 				}
 				break;
+
 			case 2:
 				{
 				setState(331); protocol();
 				}
 				break;
+
 			case 3:
 				{
 				setState(332); sourceaddr();
 				}
 				break;
+
 			case 4:
 				{
 				setState(333); dstaddr();
 				}
 				break;
+
 			case 5:
 				{
 				setState(334); ipv4();
 				}
 				break;
+
 			case 6:
 				{
 				setState(335); ipv6();
 				}
 				break;
+
 			case 7:
 				{
 				setState(336); iniface();
 				}
 				break;
+
 			case 8:
 				{
 				setState(337); outiface();
 				}
 				break;
+
 			case 9:
 				{
 				setState(338); frgm();
 				}
 				break;
+
 			case 10:
 				{
 				setState(339); ctrs();
@@ -3161,6 +3170,7 @@ public class IptablesParser extends Parser {
 				setState(492); match(NAME);
 				}
 				break;
+
 			case 2:
 				_localctx = new PhysdevOutContext(_localctx);
 				enterOuterAlt(_localctx, 2);
@@ -3177,6 +3187,7 @@ public class IptablesParser extends Parser {
 				setState(497); match(NAME);
 				}
 				break;
+
 			case 3:
 				_localctx = new PhysdevIsBridgedContext(_localctx);
 				enterOuterAlt(_localctx, 3);
@@ -3597,6 +3608,7 @@ public class IptablesParser extends Parser {
 						setState(541); dport();
 						}
 						break;
+
 					case 2:
 						{
 						setState(542); sport();
@@ -3736,6 +3748,7 @@ public class IptablesParser extends Parser {
 				setState(555); match(INT);
 				}
 				break;
+
 			case 2:
 				_localctx = new TypeCodeContext(_localctx);
 				enterOuterAlt(_localctx, 2);
@@ -3745,6 +3758,7 @@ public class IptablesParser extends Parser {
 				setState(558); match(INT);
 				}
 				break;
+
 			case 3:
 				_localctx = new CodeNameContext(_localctx);
 				enterOuterAlt(_localctx, 3);
@@ -3813,6 +3827,7 @@ public class IptablesParser extends Parser {
 						setState(563); dport();
 						}
 						break;
+
 					case 2:
 						{
 						setState(564); sport();
