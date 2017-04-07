@@ -1,9 +1,8 @@
 package org.change.v2.model.openflow;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.stream.Collectors;
 
 public class FlowEntry implements FlowAcceptor {
 
@@ -12,14 +11,7 @@ public class FlowEntry implements FlowAcceptor {
 	
 	private List<Match> matches = new ArrayList<Match>();
 	private List<Action> actions = new ArrayList<Action>();
-	private int tableNumber = 0;
 
-	public int getTableNumber() {
-		return tableNumber;
-	}
-	public void setTableNumber(int tableNumber) {
-		this.tableNumber = tableNumber;
-	}
 	public List<Match> getMatches() {
 		return matches;
 	}
@@ -50,4 +42,17 @@ public class FlowEntry implements FlowAcceptor {
 	public void accept(FlowVisitor visitor) {
 		visitor.visit(this);
 	}
+	@Override
+	public String toString() {
+		return "FlowEntry [priority=" +  priority + ", table=" + table + ", cookie=" + cookie + ", matches=" + 
+				matches.stream()
+					.map(Object::toString)
+                	.collect(Collectors.joining(", "))
+				+ ", actions=" + actions.stream()
+				.map(Object::toString)
+            	.collect(Collectors.joining(", ")) + "]";
+	}
+	
+	
+	
 }

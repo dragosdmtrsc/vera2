@@ -63,7 +63,6 @@ fieldName : 'in_port'
    | nxm_reg;
 
 value : MAC | NUMBER | ip;
-
 //matchField : 'in_port' EQUALS port   
 //   | 'dl_vlan' EQUALS NUMBER   
 //   | 'dl_vlan_pcp' EQUALS NUMBER   
@@ -196,7 +195,7 @@ ctrlParam : 'max_len' EQUALS NUMBER #maxLenParam
 | 'id' EQUALS NUMBER #controllerIdParam;
  reason : 'action' | 'no_match' | 'invalid_ttl';
 
-port : NAME | NUMBER; 
+port : 'LOCAL' | 'CONTROLLER' | 'ALL' | 'NORMAL' | 'FLOOD' | NUMBER; 
 
 nxm_reg : 
 'NXM_OF_IN_PORT' #nxInPort
@@ -228,7 +227,7 @@ nxm_reg :
 | 'NXM_NX_REG' NUMBER  #nxRegIdx;//for idx in the switch's accepted range.
 
 target : 'output:' port #outputPort
-|  'output:' nxm_reg '[' (NUMBER '..' NUMBER)? ']' #outputReg
+|  'output:' fieldName '[' (NUMBER '..' NUMBER)? ']' #outputReg
 |  'enqueue:' port ':' NAME #enqueue
 |  'normal' #normal
 |  'flood' #flood 
@@ -263,11 +262,11 @@ target : 'output:' port #outputPort
 |  'dec_ttl' ('(' NUMBER NUMBER ')')? #decTTLWithParams
 |  'set_mpls_ttl:' NUMBER #setMplsTTL
 |  'dec_mpls_ttl' #decMplsTTL
-|  'move:' nxm_reg '[' (NUMBER '..' NUMBER)? ']->' nxm_reg '[' NUMBER '..' NUMBER ']' #move
-|  'load:' NUMBER '->' nxm_reg '[' (NUMBER '..' NUMBER)? ']' #load
-|  'push:' nxm_reg '[' (NUMBER '..' NUMBER)? ']' #push
-|  'pop:' nxm_reg '[' (NUMBER '..' NUMBER)? ']' #pop
-|  'set_field:' NAME '->' nxm_reg ('[' (NUMBER '..' NUMBER)? ']')? #setField
+|  'move:' fieldName '[' (NUMBER '..' NUMBER)? ']->' fieldName '[' NUMBER '..' NUMBER ']' #move
+|  'load:' NUMBER '->' fieldName '[' (NUMBER '..' NUMBER)? ']' #load
+|  'push:' fieldName '[' (NUMBER '..' NUMBER)? ']' #push
+|  'pop:' fieldName '[' (NUMBER '..' NUMBER)? ']' #pop
+|  'set_field:' NAME '->' fieldName ('[' (NUMBER '..' NUMBER)? ']')? #setField
 |  'apply_actions(' actionset ')' #applyActions
 |  'clear_actions' #clearActions
 |  'write_metadata:' NUMBER ('/' NUMBER)? #writeMetadata
@@ -276,6 +275,7 @@ target : 'output:' port #outputPort
 |  'sample(' sampleParam+ ')' #sample
 |  'learn' '(' argument+ ')'  #learn
 |  'exit' #exit
+|  port #forwardToPortTarget 
 ;
 
 

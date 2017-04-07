@@ -1,560 +1,70 @@
-Name:     conj_id
-Width:    32 bits
-Format:   decimal
-Masking:  not maskable
-Prerequisites:   none
-Access:   read-only
-OXM:      none
-NXM:      NXM_NX_CONJ_ID (37) since Open vSwitch 2.4
-Name:     tun_id (aka tunnel_id)
-Width:    64 bits
-Format:   hexadecimal
-Masking:  arbitrary bitwise masks
-Prerequisites:   none
-Access:   read/write
-OXM:      OXM_OF_TUNNEL_ID (38)  since  OpenFlow  1.3  and  Open
-NXM:      NXM_NX_TUN_ID (16) since Open vSwitch 1.1
-Name:     tun_src
-Width:    32 bits
-Format:   IPv4
-Masking:  arbitrary bitwise masks
-Prerequisites:   none
-Access:   read/write
-OXM:      none
-NXM:      NXM_NX_TUN_IPV4_SRC (31) since Open vSwitch 2.0
-Name:     tun_dst
-Width:    32 bits
-Format:   IPv4
-Masking:  arbitrary bitwise masks
-Prerequisites:   none
-Access:   read/write
-OXM:      none
-NXM:      NXM_NX_TUN_IPV4_DST (32) since Open vSwitch 2.0
-Name:     tun_ipv6_src
-Width:    128 bits
-Format:   IPv6
-Masking:  arbitrary bitwise masks
-Prerequisites:   none
-Access:   read/write
-OXM:      none
-NXM:      NXM_NX_TUN_IPV6_SRC (109) since Open vSwitch 2.5
-Name:     tun_ipv6_dst
-Width:    128 bits
-Format:   IPv6
-Masking:  arbitrary bitwise masks
-Prerequisites:   none
-Access:   read/write
-OXM:      none
-NXM:      NXM_NX_TUN_IPV6_DST (110) since Open vSwitch 2.5
-Name:     tun_gbp_id
-Width:    16 bits
-Format:   decimal
-Masking:  arbitrary bitwise masks
-Prerequisites:   none
-Access:   read/write
-OXM:      none
-NXM:      NXM_NX_TUN_GBP_ID (38) since Open vSwitch 2.4
-Name:     tun_gbp_flags
-Width:    8 bits
-Format:   hexadecimal
-Masking:  arbitrary bitwise masks
-Prerequisites:   none
-Access:   read/write
-OXM:      none
-NXM:      NXM_NX_TUN_GBP_FLAGS (39) since Open vSwitch 2.4
-Name:     tun_metadata0
-Width:    992 bits (124 bytes)
-Format:   hexadecimal
-Masking:  arbitrary bitwise masks
-Prerequisites:   none
-Access:   read/write
-OXM:      none
-NXM:      NXM_NX_TUN_METADATA0 (40) since Open vSwitch 2.5
-Name:     tun_flags
-Width:    16 bits (only the least-significant 1 bits may be nonzero)
-Format:   tunnel flags
-Masking:  arbitrary bitwise masks
-Prerequisites:   none
-Access:   read/write
-OXM:      none
-NXM:      NXM_NX_TUN_FLAGS (104) since Open vSwitch 2.5
-Name:     in_port
-Width:    16 bits
-Format:   OpenFlow 1.0 port
-Masking:  not maskable
-Prerequisites:   none
-Access:   read/write
-OXM:      none
-NXM:      NXM_OF_IN_PORT (0) since Open vSwitch 1.1
-Name:     in_port_oxm
-Width:    32 bits
-Format:   OpenFlow 1.1+ port
-Masking:  not maskable
-Prerequisites:   none
-Access:   read/write
-OXM:      OXM_OF_IN_PORT (0) since OpenFlow 1.2 and Open vSwitch
-NXM:      none
-Name:     skb_priority
-Width:    32 bits
-Format:   hexadecimal
-Masking:  not maskable
-Prerequisites:   none
-Access:   read-only
-OXM:      none
-NXM:      none
-Name:     pkt_mark
-Width:    32 bits
-Format:   hexadecimal
-Masking:  arbitrary bitwise masks
-Prerequisites:   none
-Access:   read/write
-OXM:      none
-NXM:      NXM_NX_PKT_MARK (33) since Open vSwitch 2.0
-Name:     actset_output
-Width:    32 bits
-Format:   OpenFlow 1.1+ port
-Masking:  not maskable
-Prerequisites:   none
-Access:   read-only
-OXM:      ONFOXM_ET_ACTSET_OUTPUT (43) since  OpenFlow  1.3  and
-NXM:      none
-Name:     ct_state
-Width:    32 bits
-Format:   ct state
-Masking:  arbitrary bitwise masks
-Prerequisites:   none
-Access:   read-only
-OXM:      none
-NXM:      NXM_NX_CT_STATE (105) since Open vSwitch 2.5
-Name:     ct_zone
-Width:    16 bits
-Format:   hexadecimal
-Masking:  not maskable
-Prerequisites:   none
-Access:   read-only
-OXM:      none
-NXM:      NXM_NX_CT_ZONE (106) since Open vSwitch 2.5
-Name:     ct_mark
-Width:    32 bits
-Format:   hexadecimal
-Masking:  arbitrary bitwise masks
-Prerequisites:   none
-Access:   read/write
-OXM:      none
-NXM:      NXM_NX_CT_MARK (107) since Open vSwitch 2.5
-Name:     ct_label
-Width:    128 bits
-Format:   hexadecimal
-Masking:  arbitrary bitwise masks
-Prerequisites:   none
-Access:   read/write
-OXM:      none
-NXM:      NXM_NX_CT_LABEL (108) since Open vSwitch 2.5
-Name:     ct_nw_src
-Width:    32 bits
-Format:   IPv4
-Masking:  arbitrary bitwise masks
-Prerequisites:   CT
-Access:   read-only
-OXM:      none
-NXM:      NXM_NX_CT_NW_SRC (120) since Open vSwitch 2.8
-Name:     ct_nw_dst
-Width:    32 bits
-Format:   IPv4
-Masking:  arbitrary bitwise masks
-Prerequisites:   CT
-Access:   read-only
-OXM:      none
-NXM:      NXM_NX_CT_NW_DST (121) since Open vSwitch 2.8
-Name:     ct_ipv6_src
-Width:    128 bits
-Format:   IPv6
-Masking:  arbitrary bitwise masks
-Prerequisites:   CT
-Access:   read-only
-OXM:      none
-NXM:      NXM_NX_CT_IPV6_SRC (122) since Open vSwitch 2.8
-Name:     ct_ipv6_dst
-Width:    128 bits
-Format:   IPv6
-Masking:  arbitrary bitwise masks
-Prerequisites:   CT
-Access:   read-only
-OXM:      none
-NXM:      NXM_NX_CT_IPV6_DST (123) since Open vSwitch 2.8
-Name:     ct_nw_proto
-Width:    8 bits
-Format:   decimal
-Masking:  not maskable
-Prerequisites:   CT
-Access:   read-only
-OXM:      none
-NXM:      NXM_NX_CT_NW_PROTO (119) since Open vSwitch 2.8
-Name:     ct_tp_src
-Width:    16 bits
-Format:   decimal
-Masking:  arbitrary bitwise masks
-Prerequisites:   CT
-Access:   read-only
-OXM:      none
-NXM:      NXM_NX_CT_TP_SRC (124) since Open vSwitch 2.8
-Name:     ct_tp_dst
-Width:    16 bits
-Format:   decimal
-Masking:  arbitrary bitwise masks
-Prerequisites:   CT
-Access:   read-only
-OXM:      none
-NXM:      NXM_NX_CT_TP_DST (125) since Open vSwitch 2.8
-Name:     metadata
-Width:    64 bits
-Format:   hexadecimal
-Masking:  arbitrary bitwise masks
-Prerequisites:   none
-Access:   read/write
-OXM:      OXM_OF_METADATA  (2)  since  OpenFlow  1.2  and   Open
-NXM:      none
-Name:     reg0
-Width:    32 bits
-Format:   hexadecimal
-Masking:  arbitrary bitwise masks
-Prerequisites:   none
-Access:   read/write
-OXM:      none
-NXM:      NXM_NX_REG0 (0) since Open vSwitch 1.1
-Name:     xreg0
-Width:    64 bits
-Format:   hexadecimal
-Masking:  arbitrary bitwise masks
-Prerequisites:   none
-Access:   read/write
-OXM:      OXM_OF_PKT_REG0  (0)  since  OpenFlow  1.3  and   Open
-NXM:      none
-Name:     xxreg0
-Width:    128 bits
-Format:   hexadecimal
-Masking:  arbitrary bitwise masks
-Prerequisites:   none
-Access:   read/write
-OXM:      none
-NXM:      NXM_NX_XXREG0 (111) since Open vSwitch 2.6
-Name:     eth_src (aka dl_src)
-Width:    48 bits
-Format:   Ethernet
-Masking:  arbitrary bitwise masks
-Prerequisites:   none
-Access:   read/write
-OXM:      OXM_OF_ETH_SRC (4) since OpenFlow 1.2 and Open vSwitch
-NXM:      NXM_OF_ETH_SRC (2) since Open vSwitch 1.1
-Name:     eth_dst (aka dl_dst)
-Width:    48 bits
-Format:   Ethernet
-Masking:  arbitrary bitwise masks
-Prerequisites:   none
-Access:   read/write
-OXM:      OXM_OF_ETH_DST (3) since OpenFlow 1.2 and Open vSwitch
-NXM:      NXM_OF_ETH_DST (1) since Open vSwitch 1.1
-Name:     eth_type (aka dl_type)
-Width:    16 bits
-Format:   hexadecimal
-Masking:  not maskable
-Prerequisites:   none
-Access:   read-only
-OXM:      OXM_OF_ETH_TYPE   (5)  since  OpenFlow  1.2  and  Open
-NXM:      NXM_OF_ETH_TYPE (3) since Open vSwitch 1.1
-Name:     vlan_vid
-Width:    16 bits (only the least-significant 12 bits may be nonzero)
-Format:   decimal
-Masking:  arbitrary bitwise masks
-Prerequisites:   none
-Access:   read/write
-OXM:      OXM_OF_VLAN_VID (6) since OpenFlow 1.2 and Open vSwitch 1.7
-NXM:      none
-Name:     vlan_pcp
-Width:    8 bits (only the least-significant 3 bits may be nonzero)
-Format:   decimal
-Masking:  not maskable
-Prerequisites:   VLAN VID
-Access:   read/write
-OXM:      OXM_OF_VLAN_PCP (7) since OpenFlow 1.2 and  Open  vSwitch
-NXM:      none
-Name:     vlan_tci
-Width:    16 bits
-Format:   hexadecimal
-Masking:  arbitrary bitwise masks
-Prerequisites:   none
-Access:   read/write
-OXM:      none
-NXM:      NXM_OF_VLAN_TCI (4) since Open vSwitch 1.1
-Name:     mpls_label
-Width:    32 bits (only the least-significant 20 bits may be nonzero)
-Format:   decimal
-Masking:  not maskable
-Prerequisites:   MPLS
-Access:   read/write
-OXM:      OXM_OF_MPLS_LABEL  (34) since OpenFlow 1.2 and Open vSwitch
-NXM:      none
-Name:     mpls_tc
-Width:    8 bits (only the least-significant 3 bits may be nonzero)
-Format:   decimal
-Masking:  not maskable
-Prerequisites:   MPLS
-Access:   read/write
-OXM:      OXM_OF_MPLS_TC (35) since OpenFlow 1.2 and  Open  vSwitch
-NXM:      none
-Name:     mpls_bos
-Width:    8 bits (only the least-significant 1 bits may be nonzero)
-Format:   decimal
-Masking:  not maskable
-Prerequisites:   MPLS
-Access:   read-only
-OXM:      OXM_OF_MPLS_BOS  (36) since OpenFlow 1.3 and Open vSwitch
-NXM:      none
-Name:     mpls_ttl
-Width:    8 bits
-Format:   decimal
-Masking:  not maskable
-Prerequisites:   MPLS
-Access:   read/write
-OXM:      none
-NXM:      NXM_NX_MPLS_TTL (30) since Open vSwitch 2.6
-Name:     ip_src (aka nw_src)
-Width:    32 bits
-Format:   IPv4
-Masking:  arbitrary bitwise masks
-Prerequisites:   IPv4
-Access:   read/write
-OXM:      OXM_OF_IPV4_SRC  (11)  since  OpenFlow  1.2  and  Open
-NXM:      NXM_OF_IP_SRC (7) since Open vSwitch 1.1
-Name:     ip_dst (aka nw_dst)
-Width:    32 bits
-Format:   IPv4
-Masking:  arbitrary bitwise masks
-Prerequisites:   IPv4
-Access:   read/write
-OXM:      OXM_OF_IPV4_DST  (12)  since  OpenFlow  1.2  and  Open
-NXM:      NXM_OF_IP_DST (8) since Open vSwitch 1.1
-Name:     ipv6_src
-Width:    128 bits
-Format:   IPv6
-Masking:  arbitrary bitwise masks
-Prerequisites:   IPv6
-Access:   read/write
-OXM:      OXM_OF_IPV6_SRC  (26)  since  OpenFlow  1.2  and  Open
-NXM:      NXM_NX_IPV6_SRC (19) since Open vSwitch 1.1
-Name:     ipv6_dst
-Width:    128 bits
-Format:   IPv6
-Masking:  arbitrary bitwise masks
-Prerequisites:   IPv6
-Access:   read/write
-OXM:      OXM_OF_IPV6_DST  (27)  since  OpenFlow  1.2  and  Open
-NXM:      NXM_NX_IPV6_DST (20) since Open vSwitch 1.1
-Name:     ipv6_label
-Width:    32 bits (only the least-significant 20 bits may be nonzero)
-Format:   hexadecimal
-Masking:  arbitrary bitwise masks
-Prerequisites:   IPv6
-Access:   read/write
-OXM:      OXM_OF_IPV6_FLABEL (28) since OpenFlow 1.2 and Open vSwitch
-NXM:      NXM_NX_IPV6_LABEL (27) since Open vSwitch 1.4
-Name:     nw_proto (aka ip_proto)
-Width:    8 bits
-Format:   decimal
-Masking:  not maskable
-Prerequisites:   IPv4/IPv6
-Access:   read-only
-OXM:      OXM_OF_IP_PROTO  (10)  since  OpenFlow  1.2  and  Open
-NXM:      NXM_OF_IP_PROTO (6) since Open vSwitch 1.1
-Name:     nw_ttl
-Width:    8 bits
-Format:   decimal
-Masking:  not maskable
-Prerequisites:   IPv4/IPv6
-Access:   read/write
-OXM:      none
-NXM:      NXM_NX_IP_TTL (29) since Open vSwitch 1.4
-Name:     ip_frag
-Width:    8 bits (only the least-significant 2 bits may be nonzero)
-Format:   frag
-Masking:  arbitrary bitwise masks
-Prerequisites:   IPv4/IPv6
-Access:   read-only
-OXM:      none
-NXM:      NXM_NX_IP_FRAG (26) since Open vSwitch 1.3
-Name:     nw_tos
-Width:    8 bits
-Format:   decimal
-Masking:  not maskable
-Prerequisites:   IPv4/IPv6
-Access:   read/write
-OXM:      none
-NXM:      NXM_OF_IP_TOS (5) since Open vSwitch 1.1
-Name:     ip_dscp
-Width:    8 bits (only the least-significant 6 bits may be nonzero)
-Format:   decimal
-Masking:  not maskable
-Prerequisites:   IPv4/IPv6
-Access:   read/write
-OXM:      OXM_OF_IP_DSCP (8) since OpenFlow 1.2  and  Open  vSwitch
-NXM:      none
-Name:     nw_ecn (aka ip_ecn)
-Width:    8 bits (only the least-significant 2 bits may be nonzero)
-Format:   decimal
-Masking:  not maskable
-Prerequisites:   IPv4/IPv6
-Access:   read/write
-OXM:      OXM_OF_IP_ECN (9) since OpenFlow 1.2 and Open vSwitch 1.7
-NXM:      NXM_NX_IP_ECN (28) since Open vSwitch 1.4
-Name:     arp_op
-Width:    16 bits
-Format:   decimal
-Masking:  not maskable
-Prerequisites:   ARP
-Access:   read/write
-OXM:      OXM_OF_ARP_OP (21) since OpenFlow 1.2 and Open vSwitch
-NXM:      NXM_OF_ARP_OP (15) since Open vSwitch 1.1
-Name:     arp_spa
-Width:    32 bits
-Format:   IPv4
-Masking:  arbitrary bitwise masks
-Prerequisites:   ARP
-Access:   read/write
-OXM:      OXM_OF_ARP_SPA   (22)  since  OpenFlow  1.2  and  Open
-NXM:      NXM_OF_ARP_SPA (16) since Open vSwitch 1.1
-Name:     arp_tpa
-Width:    32 bits
-Format:   IPv4
-Masking:  arbitrary bitwise masks
-Prerequisites:   ARP
-Access:   read/write
-OXM:      OXM_OF_ARP_TPA  (23)  since  OpenFlow  1.2  and   Open
-NXM:      NXM_OF_ARP_TPA (17) since Open vSwitch 1.1
-Name:     arp_sha
-Width:    48 bits
-Format:   Ethernet
-Masking:  arbitrary bitwise masks
-Prerequisites:   ARP
-Access:   read/write
-OXM:      OXM_OF_ARP_SHA   (24)  since  OpenFlow  1.2  and  Open
-NXM:      NXM_NX_ARP_SHA (17) since Open vSwitch 1.1
-Name:     arp_tha
-Width:    48 bits
-Format:   Ethernet
-Masking:  arbitrary bitwise masks
-Prerequisites:   ARP
-Access:   read/write
-OXM:      OXM_OF_ARP_THA  (25)  since  OpenFlow  1.2  and   Open
-NXM:      NXM_NX_ARP_THA (18) since Open vSwitch 1.1
-Name:     tcp_src (aka tp_src)
-Width:    16 bits
-Format:   decimal
-Masking:  arbitrary bitwise masks
-Prerequisites:   TCP
-Access:   read/write
-OXM:      OXM_OF_TCP_SRC  (13)  since  OpenFlow  1.2  and   Open
-NXM:      NXM_OF_TCP_SRC (9) since Open vSwitch 1.1
-Name:     tcp_dst (aka tp_dst)
-Width:    16 bits
-Format:   decimal
-Masking:  arbitrary bitwise masks
-Prerequisites:   TCP
-Access:   read/write
-OXM:      OXM_OF_TCP_DST   (14)  since  OpenFlow  1.2  and  Open
-NXM:      NXM_OF_TCP_DST (10) since Open vSwitch 1.1
-Name:     tcp_flags
-Width:    16 bits (only the least-significant 12 bits may be nonzero)
-Format:   TCP flags
-Masking:  arbitrary bitwise masks
-Prerequisites:   TCP
-Access:   read-only
-OXM:      ONFOXM_ET_TCP_FLAGS  (42)  since  OpenFlow  1.3  and   Open
-NXM:      NXM_NX_TCP_FLAGS (34) since Open vSwitch 2.1
-Name:     udp_src
-Width:    16 bits
-Format:   decimal
-Masking:  arbitrary bitwise masks
-Prerequisites:   UDP
-Access:   read/write
-OXM:      OXM_OF_UDP_SRC  (15)  since  OpenFlow  1.2  and   Open
-NXM:      NXM_OF_UDP_SRC (11) since Open vSwitch 1.1
-Name:     udp_dst
-Width:    16 bits
-Format:   decimal
-Masking:  arbitrary bitwise masks
-Prerequisites:   UDP
-Access:   read/write
-OXM:      OXM_OF_UDP_DST   (16)  since  OpenFlow  1.2  and  Open
-NXM:      NXM_OF_UDP_DST (12) since Open vSwitch 1.1
-Name:     sctp_src
-Width:    16 bits
-Format:   decimal
-Masking:  arbitrary bitwise masks
-Prerequisites:   SCTP
-Access:   read/write
-OXM:      OXM_OF_SCTP_SRC  (17)  since  OpenFlow  1.2  and  Open
-NXM:      none
-Name:     sctp_dst
-Width:    16 bits
-Format:   decimal
-Masking:  arbitrary bitwise masks
-Prerequisites:   SCTP
-Access:   read/write
-OXM:      OXM_OF_SCTP_DST  (18)  since  OpenFlow  1.2  and  Open
-NXM:      none
-Name:     icmp_type
-Width:    8 bits
-Format:   decimal
-Masking:  not maskable
-Prerequisites:   ICMPv4
-Access:   read/write
-OXM:      OXM_OF_ICMPV4_TYPE (19) since OpenFlow  1.2  and  Open
-NXM:      NXM_OF_ICMP_TYPE (13) since Open vSwitch 1.1
-Name:     icmp_code
-Width:    8 bits
-Format:   decimal
-Masking:  not maskable
-Prerequisites:   ICMPv4
-Access:   read/write
-OXM:      OXM_OF_ICMPV4_CODE (20) since OpenFlow  1.2  and  Open
-NXM:      NXM_OF_ICMP_CODE (14) since Open vSwitch 1.1
-Name:     icmpv6_type
-Width:    8 bits
-Format:   decimal
-Masking:  not maskable
-Prerequisites:   ICMPv6
-Access:   read/write
-OXM:      OXM_OF_ICMPV6_TYPE (29) since OpenFlow  1.2  and  Open
-NXM:      NXM_NX_ICMPV6_TYPE (21) since Open vSwitch 1.1
-Name:     icmpv6_code
-Width:    8 bits
-Format:   decimal
-Masking:  not maskable
-Prerequisites:   ICMPv6
-Access:   read/write
-OXM:      OXM_OF_ICMPV6_CODE  (30)  since  OpenFlow 1.2 and Open
-NXM:      NXM_NX_ICMPV6_CODE (22) since Open vSwitch 1.1
-Name:     nd_target
-Width:    128 bits
-Format:   IPv6
-Masking:  arbitrary bitwise masks
-Prerequisites:   ND
-Access:   read/write
-OXM:      OXM_OF_IPV6_ND_TARGET (31) since OpenFlow 1.2 and Open
-NXM:      NXM_NX_ND_TARGET (23) since Open vSwitch 1.1
-Name:     nd_sll
-Width:    48 bits
-Format:   Ethernet
-Masking:  arbitrary bitwise masks
-Prerequisites:   ND solicit
-Access:   read/write
-OXM:      OXM_OF_IPV6_ND_SLL  (32)  since  OpenFlow 1.2 and Open
-NXM:      NXM_NX_ND_SLL (24) since Open vSwitch 1.1
-Name:     nd_tll
-Width:    48 bits
-Format:   Ethernet
-Masking:  arbitrary bitwise masks
-Prerequisites:   ND advert
-Access:   read/write
-OXM:      OXM_OF_IPV6_ND_TLL (33) since OpenFlow  1.2  and  Open
-NXM:      NXM_NX_ND_TLL (25) since Open vSwitch 1.1
+conj_id,32,decimal,not maskable,none,NXM_NX_CONJ_ID,37
+tun_id (aka tunnel_id),64,hexadecimal,arbitrary bitwise masks,OXM_OF_TUNNEL_ID,38,NXM_NX_TUN_ID,16
+tun_src,32,IPv4,arbitrary bitwise masks,none,NXM_NX_TUN_IPV4_SRC,31
+tun_dst,32,IPv4,arbitrary bitwise masks,none,NXM_NX_TUN_IPV4_DST,32
+tun_ipv6_src,128,IPv6,arbitrary bitwise masks,none,NXM_NX_TUN_IPV6_SRC,109
+tun_ipv6_dst,128,IPv6,arbitrary bitwise masks,none,NXM_NX_TUN_IPV6_DST,110
+tun_gbp_id,16,decimal,arbitrary bitwise masks,none,NXM_NX_TUN_GBP_ID,38
+tun_gbp_flags,8,hexadecimal,arbitrary bitwise masks,none,NXM_NX_TUN_GBP_FLAGS,39
+tun_metadata0,992,hexadecimal,arbitrary bitwise masks,none,NXM_NX_TUN_METADATA0,40
+tun_flags,16,tunnel flags,arbitrary bitwise masks,none,NXM_NX_TUN_FLAGS,104
+in_port,16,OpenFlow 1.0 port,not maskable,none,NXM_OF_IN_PORT,0
+in_port_oxm,32,OpenFlow 1.1+ port,not maskable,OXM_OF_IN_PORT,0,none
+skb_priority,32,hexadecimal,not maskable,none,none
+pkt_mark,32,hexadecimal,arbitrary bitwise masks,none,NXM_NX_PKT_MARK,33
+actset_output,32,OpenFlow 1.1+ port,not maskable,ONFOXM_ET_ACTSET_OUTPUT,43,none
+ct_state,32,ct state,arbitrary bitwise masks,none,NXM_NX_CT_STATE,105
+ct_zone,16,hexadecimal,not maskable,none,NXM_NX_CT_ZONE,106
+ct_mark,32,hexadecimal,arbitrary bitwise masks,none,NXM_NX_CT_MARK,107
+ct_label,128,hexadecimal,arbitrary bitwise masks,none,NXM_NX_CT_LABEL,108
+ct_nw_src,32,IPv4,arbitrary bitwise masks,none,NXM_NX_CT_NW_SRC,120
+ct_nw_dst,32,IPv4,arbitrary bitwise masks,none,NXM_NX_CT_NW_DST,121
+ct_ipv6_src,128,IPv6,arbitrary bitwise masks,none,NXM_NX_CT_IPV6_SRC,122
+ct_ipv6_dst,128,IPv6,arbitrary bitwise masks,none,NXM_NX_CT_IPV6_DST,123
+ct_nw_proto,8,decimal,not maskable,none,NXM_NX_CT_NW_PROTO,119
+ct_tp_src,16,decimal,arbitrary bitwise masks,none,NXM_NX_CT_TP_SRC,124
+ct_tp_dst,16,decimal,arbitrary bitwise masks,none,NXM_NX_CT_TP_DST,125
+metadata,64,hexadecimal,arbitrary bitwise masks,OXM_OF_METADATA,2,none
+reg0,32,hexadecimal,arbitrary bitwise masks,none,NXM_NX_REG0,0
+xreg0,64,hexadecimal,arbitrary bitwise masks,OXM_OF_PKT_REG0,0,none
+xxreg0,128,hexadecimal,arbitrary bitwise masks,none,NXM_NX_XXREG0,111
+eth_src (aka dl_src),48,Ethernet,arbitrary bitwise masks,OXM_OF_ETH_SRC,4,NXM_OF_ETH_SRC,2
+eth_dst (aka dl_dst),48,Ethernet,arbitrary bitwise masks,OXM_OF_ETH_DST,3,NXM_OF_ETH_DST,1
+eth_type (aka dl_type),16,hexadecimal,not maskable,OXM_OF_ETH_TYPE,5,NXM_OF_ETH_TYPE,3
+vlan_vid,16,decimal,arbitrary bitwise masks,OXM_OF_VLAN_VID,6,none
+vlan_pcp,8,decimal,not maskable,OXM_OF_VLAN_PCP,7,none
+vlan_tci,16,hexadecimal,arbitrary bitwise masks,none,NXM_OF_VLAN_TCI,4
+mpls_label,32,decimal,not maskable,OXM_OF_MPLS_LABEL,34,none
+mpls_tc,8,decimal,not maskable,OXM_OF_MPLS_TC,35,none
+mpls_bos,8,decimal,not maskable,OXM_OF_MPLS_BOS,36,none
+mpls_ttl,8,decimal,not maskable,none,NXM_NX_MPLS_TTL,30
+ip_src (aka nw_src),32,IPv4,arbitrary bitwise masks,OXM_OF_IPV4_SRC,11,NXM_OF_IP_SRC,7
+ip_dst (aka nw_dst),32,IPv4,arbitrary bitwise masks,OXM_OF_IPV4_DST,12,NXM_OF_IP_DST,8
+ipv6_src,128,IPv6,arbitrary bitwise masks,OXM_OF_IPV6_SRC,26,NXM_NX_IPV6_SRC,19
+ipv6_dst,128,IPv6,arbitrary bitwise masks,OXM_OF_IPV6_DST,27,NXM_NX_IPV6_DST,20
+ipv6_label,32,hexadecimal,arbitrary bitwise masks,OXM_OF_IPV6_FLABEL,28,NXM_NX_IPV6_LABEL,27
+nw_proto (aka ip_proto),8,decimal,not maskable,OXM_OF_IP_PROTO,10,NXM_OF_IP_PROTO,6
+nw_ttl,8,decimal,not maskable,none,NXM_NX_IP_TTL,29
+ip_frag,8,frag,arbitrary bitwise masks,none,NXM_NX_IP_FRAG,26
+nw_tos,8,decimal,not maskable,none,NXM_OF_IP_TOS,5
+ip_dscp,8,decimal,not maskable,OXM_OF_IP_DSCP,8,none
+nw_ecn (aka ip_ecn),8,decimal,not maskable,OXM_OF_IP_ECN,9,NXM_NX_IP_ECN,28
+arp_op,16,decimal,not maskable,OXM_OF_ARP_OP,21,NXM_OF_ARP_OP,15
+arp_spa,32,IPv4,arbitrary bitwise masks,OXM_OF_ARP_SPA,22,NXM_OF_ARP_SPA,16
+arp_tpa,32,IPv4,arbitrary bitwise masks,OXM_OF_ARP_TPA,23,NXM_OF_ARP_TPA,17
+arp_sha,48,Ethernet,arbitrary bitwise masks,OXM_OF_ARP_SHA,24,NXM_NX_ARP_SHA,17
+arp_tha,48,Ethernet,arbitrary bitwise masks,OXM_OF_ARP_THA,25,NXM_NX_ARP_THA,18
+tcp_src (aka tp_src),16,decimal,arbitrary bitwise masks,OXM_OF_TCP_SRC,13,NXM_OF_TCP_SRC,9
+tcp_dst (aka tp_dst),16,decimal,arbitrary bitwise masks,OXM_OF_TCP_DST,14,NXM_OF_TCP_DST,10
+tcp_flags,16,TCP flags,arbitrary bitwise masks,ONFOXM_ET_TCP_FLAGS,42,NXM_NX_TCP_FLAGS,34
+udp_src,16,decimal,arbitrary bitwise masks,OXM_OF_UDP_SRC,15,NXM_OF_UDP_SRC,11
+udp_dst,16,decimal,arbitrary bitwise masks,OXM_OF_UDP_DST,16,NXM_OF_UDP_DST,12
+sctp_src,16,decimal,arbitrary bitwise masks,OXM_OF_SCTP_SRC,17,none
+sctp_dst,16,decimal,arbitrary bitwise masks,OXM_OF_SCTP_DST,18,none
+icmp_type,8,decimal,not maskable,OXM_OF_ICMPV4_TYPE,19,NXM_OF_ICMP_TYPE,13
+icmp_code,8,decimal,not maskable,OXM_OF_ICMPV4_CODE,20,NXM_OF_ICMP_CODE,14
+icmpv6_type,8,decimal,not maskable,OXM_OF_ICMPV6_TYPE,29,NXM_NX_ICMPV6_TYPE,21
+icmpv6_code,8,decimal,not maskable,OXM_OF_ICMPV6_CODE,30,NXM_NX_ICMPV6_CODE,22
+nd_target,128,IPv6,arbitrary bitwise masks,OXM_OF_IPV6_ND_TARGET,31,NXM_NX_ND_TARGET,23
+nd_sll,48,Ethernet,arbitrary bitwise masks,OXM_OF_IPV6_ND_SLL,32,NXM_NX_ND_SLL,24
+nd_tll,48,Ethernet,arbitrary bitwise masks,OXM_OF_IPV6_ND_TLL,33,NXM_NX_ND_TLL,25

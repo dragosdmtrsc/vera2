@@ -2,29 +2,41 @@ package org.change.v2.model.openflow;
 
 public class Match implements FlowAcceptor {
 
-	private String field;
-	private int value;
-	private int mask;
-	public String getField() {
+	private QualifiedField field;
+	private long value;
+	private long mask;
+	private boolean hasMask;
+	
+	public boolean isMasked() {
+		return hasMask;
+	}
+	public void setMasked(boolean hasMask) {
+		this.hasMask = hasMask;
+	}
+	public QualifiedField getField() {
 		return field;
 	}
-	public void setField(String field) {
+	public void setField(QualifiedField field) {
 		this.field = field;
 	}
-	public int getValue() {
+	public long getValue() {
 		return value;
 	}
-	public void setValue(int value) {
-		this.value = value;
+	public void setValue(long ivalue) {
+		this.value = ivalue;
 	}
-	public int getMask() {
+	public long getMask() {
 		return mask;
 	}
-	public void setMask(int mask) {
+	public void setMask(long mask) {
 		this.mask = mask;
 	}
 	@Override
 	public void accept(FlowVisitor visitor) {
+	}
+	@Override
+	public String toString() {
+		return "Match [field=" + field + ", value=" + value + ", mask=" + mask + "]";
 	}
 	
 	

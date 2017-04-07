@@ -1048,6 +1048,19 @@ public interface OpenflowListener extends ParseTreeListener {
 	void exitArpTha(@NotNull OpenflowParser.ArpThaContext ctx);
 
 	/**
+	 * Enter a parse tree produced by the {@code forwardToPortTarget}
+	 * labeled alternative in {@link OpenflowParser#target}.
+	 * @param ctx the parse tree
+	 */
+	void enterForwardToPortTarget(@NotNull OpenflowParser.ForwardToPortTargetContext ctx);
+	/**
+	 * Exit a parse tree produced by the {@code forwardToPortTarget}
+	 * labeled alternative in {@link OpenflowParser#target}.
+	 * @param ctx the parse tree
+	 */
+	void exitForwardToPortTarget(@NotNull OpenflowParser.ForwardToPortTargetContext ctx);
+
+	/**
 	 * Enter a parse tree produced by the {@code tunId}
 	 * labeled alternative in {@link OpenflowParser#nxm_reg}.
 	 * @param ctx the parse tree

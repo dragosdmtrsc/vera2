@@ -1,0 +1,13 @@
+learnIdleTo
+learnHardTo
+learnPriority
+learnFinIdleTo
+learnFinHardTo
+learnTable
+learnAssign
+learnAssignRegReg
+learnAssignSelf
+learnLoadNumberReg
+learnLoadRegReg
+learnOutputReg
+learnCookie
