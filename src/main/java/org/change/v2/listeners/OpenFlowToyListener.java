@@ -1,11 +1,10 @@
-package org.change.v2.ovs;
+package org.change.v2.listeners;
 
 import generated.openflow_grammar.OpenflowBaseListener;
 import generated.openflow_grammar.OpenflowParser.CookieContext;
 import generated.openflow_grammar.OpenflowParser.FlowContext;
 import generated.openflow_grammar.OpenflowParser.FlowsContext;
 import generated.openflow_grammar.OpenflowParser.LearnContext;
-import generated.openflow_grammar.OpenflowParser.LearnTableContext;
 import generated.openflow_grammar.OpenflowParser.MatchFieldContext;
 import generated.openflow_grammar.OpenflowParser.PriorityContext;
 
@@ -38,11 +37,6 @@ public class OpenFlowToyListener extends OpenflowBaseListener {
 
 	}
 
-	@Override
-	public void enterLearnTable(LearnTableContext ctx) {
-		super.enterLearnTable(ctx);
-		System.out.println("Entered enterLearnTable:: " + ctx.getText());
-	} 
 	
 	public void enterPriority(PriorityContext ctx)
 	{

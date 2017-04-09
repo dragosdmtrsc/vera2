@@ -6,7 +6,7 @@ package generated.openflow_grammar;
 HEADLINE : 'NXST_FLOW' .*? NL -> skip;
 flows : HEADLINE? flow* EOF;
 flow : matches NL;
-matches : match? (match)*;
+matches : match? (match)*; 
 
 
 matchField : varName (EQUALS value ('/' value)?)?;
@@ -62,107 +62,7 @@ fieldName : 'in_port'
    | 'out_port'
    | nxm_reg;
 
-value : MAC | NUMBER | ip;
-//matchField : 'in_port' EQUALS port   
-//   | 'dl_vlan' EQUALS NUMBER   
-//   | 'dl_vlan_pcp' EQUALS NUMBER   
-//   | 'dl_src' EQUALS MAC ('/' MAC)?  
-//   | 'dl_dst' EQUALS MAC ('/' MAC)?  
-//   | 'dl_type' EQUALS NUMBER   
-//   | 'nw_src' EQUALS ip ('/' mask)?   
-//   | 'nw_dst' EQUALS ip ('/' mask)?   
-//   | 'nw_proto' EQUALS NUMBER   
-//   | 'nw_tos' EQUALS NUMBER   
-//   | 'nw_ecn' EQUALS NUMBER   
-//   | 'nw_ttl' EQUALS NUMBER   
-//   | 'tp_src' EQUALS NUMBER ('/' NUMBER)?  
-//   | 'tp_dst' EQUALS NUMBER  ('/' NUMBER)? 
-//   | 'icmp_type' EQUALS NUMBER   
-//   | 'icmp_code' EQUALS NUMBER   
-//   | 'metadata' EQUALS NUMBER ( '/' NUMBER )?   
-//   | 'ip'     
-//   | 'icmp'   
-//   | 'tcp'    
-//   | 'udp'    
-//   | 'sctp'   
-//   | 'arp'    
-//   | 'rarp'   
-//   | 'vlan_tci' EQUALS NUMBER ('/' NUMBER)?   
-//   | 'ip_frag' EQUALS frag_type   
-//   | 'arp_sha' EQUALS MAC   
-//   | 'arp_tha' EQUALS MAC   
-//   | 'ipv6_src' EQUALS ipv6 ('/' ipv6)?   
-//   | 'ipv6_dst' EQUALS ipv6 ('/' ipv6)?   
-//   | 'ipv6_label' EQUALS NUMBER   
-//   | 'nd_target' EQUALS ipv6 ('/' ipv6)?   
-//   | 'nd_sll' EQUALS MAC   
-//   | 'nd_tll' EQUALS MAC   
-//   | 'tun_id' EQUALS NUMBER ('/' NUMBER)?   
-//   | 'tun_src' EQUALS ip ('/' mask)   
-//   | 'tun_dst' EQUALS ip ('/' mask)   
-//   | 'regidx' EQUALS NUMBER ('/' mask)?   
-//   | 'pkt_mark' EQUALS NUMBER ('/' mask)?   
-//   | 'ipv6'   
-//   | 'tcp6'   
-//   | 'udp6'   
-//   | 'sctp6'  
-//   | 'icmp6'  
-//   | 'send_flow_rem'   
-//   | 'check_overlap'   
-//   | 'out_port' EQUALS port   
-//   |  nxm_reg '[' NUMBER '..' NUMBER ']'
-//   |  nxm_reg '[' ']' ;
-
-
-//matchField : 'in_port' EQUALS port   #in_port
-//   | 'dl_vlan' EQUALS NUMBER   #dl_vlan
-//   | 'dl_vlan_pcp' EQUALS NUMBER   #dl_vlan_pcp
-//   | 'dl_src' EQUALS MAC ('/' MAC)?  #dl_src 
-//   | 'dl_dst' EQUALS MAC ('/' MAC)?  #dl_dst
-//   | 'dl_type' EQUALS NUMBER   #dl_type
-//   | 'nw_src' EQUALS ip ('/' mask)?   #nw_src
-//   | 'nw_dst' EQUALS ip ('/' mask)?   #nw_dst 
-//   | 'nw_proto' EQUALS NUMBER   #nw_proto
-//   | 'nw_tos' EQUALS NUMBER   #nw_tos 
-//   | 'nw_ecn' EQUALS NUMBER   #nw_ecn 
-//   | 'nw_ttl' EQUALS NUMBER   #nw_ttl
-//   | 'tp_src' EQUALS NUMBER ('/' NUMBER)?  #tp_src
-//   | 'tp_dst' EQUALS NUMBER  ('/' NUMBER)? #tp_dst 
-//   | 'icmp_type' EQUALS NUMBER   #icmp_type
-//   | 'icmp_code' EQUALS NUMBER   #icmp_code
-//   | 'metadata' EQUALS NUMBER ( '/' NUMBER )?   #metadata
-//   | 'ip'     #ipMatch //Same as dl_type=0x0800.   
-//   | 'icmp'   #icmp //Same as dl_type=0x0800,nw_proto=1.   
-//   | 'tcp'    #tcp //Same as dl_type=0x0800,nw_proto=6.   
-//   | 'udp'    #udp //Same as dl_type=0x0800,nw_proto=17.   
-//   | 'sctp'   #sctp //Same as dl_type=0x0800,nw_proto=132.   
-//   | 'arp'    #arp //Same as dl_type=0x0806.   
-//   | 'rarp'   #rarp //Same as dl_type=0x8035.
-//   | 'vlan_tci' EQUALS NUMBER ('/' NUMBER)?   #vlan_tci
-//   | 'ip_frag' EQUALS frag_type   #ip_frag
-//   | 'arp_sha' EQUALS MAC   #arp_sha
-//   | 'arp_tha' EQUALS MAC   #arp_tha
-//   | 'ipv6_src' EQUALS ipv6 ('/' ipv6)?   #ipv6_src
-//   | 'ipv6_dst' EQUALS ipv6 ('/' ipv6)?   #ipv6_dst
-//   | 'ipv6_label' EQUALS NUMBER   #ipv6_label
-//   | 'nd_target' EQUALS ipv6 ('/' ipv6)?   #nd_target
-//   | 'nd_sll' EQUALS MAC   #nd_sll
-//   | 'nd_tll' EQUALS MAC   #nd_tll
-//   | 'tun_id' EQUALS NUMBER ('/' NUMBER)?   #tun_id 
-//   | 'tun_src' EQUALS ip ('/' mask)   #tun_src
-//   | 'tun_dst' EQUALS ip ('/' mask)   #tun_dst
-//   | 'regidx' EQUALS NUMBER ('/' mask)?   #regidx
-//   | 'pkt_mark' EQUALS NUMBER ('/' mask)?   #pkt_mark
-//   | 'ipv6'   #ipv6Match //Same as dl_type=0x86dd.   #ipv6
-//   | 'tcp6'   #tcp6 //Same as dl_type=0x86dd,nw_proto=6.  
-//   | 'udp6'   #udp6//Same as dl_type=0x86dd,nw_proto=17.   #udp6
-//   | 'sctp6'  #sctp6 //Same as dl_type=0x86dd,nw_proto=132.   #sctp6
-//   | 'icmp6'  #icmp6//Same as dl_type=0x86dd,nw_proto=58.        #icmp6
-//   | 'send_flow_rem'   #send_flow_rem
-//   | 'check_overlap'   #check_overlap
-//   | 'out_port' EQUALS port   #out_port
-//   |  nxm_reg '[' NUMBER '..' NUMBER ']'#nxmRegMatchInterval
-//   |  nxm_reg '[' ']' #nxmRegMatchAll;
+value : MAC | NUMBER | ip | varName;
 
 flowMetadata :    'idle_timeout' EQUALS NUMBER   #idle_timeout
    | 'hard_timeout' EQUALS NUMBER   #hard_timeout
@@ -185,7 +85,7 @@ action: 'actions' EQUALS actionset;
 actionset : target? (target)*;
 
 
-seconds : NUMBER '.' NUMBER 's';
+seconds : NUMBER '.' NUMBER 's'; 
 
 ipv6 : NUMBER ':' NUMBER ':' NUMBER ':' NUMBER ':' 
 NUMBER ':' NUMBER ':' NUMBER ':' NUMBER;
@@ -253,7 +153,7 @@ target : 'output:' port #outputPort
 |  'mod_nw_tos:' NUMBER #setNwTos
 |  'resubmit:' NUMBER #resubmit
 |  'resubmit(,' NUMBER ')' #resubmitSecond
-|  'resubmit(' NUMBER NUMBER ')' #resubmitTable
+|  'resubmit(' port NUMBER ')' #resubmitTable
 |  'set_tunnel:' NUMBER #setTunnel
 |  'set_tunnel64:' NUMBER #setTunnel64
 |  'set_queue:' NUMBER #setQueue
@@ -262,37 +162,27 @@ target : 'output:' port #outputPort
 |  'dec_ttl' ('(' NUMBER NUMBER ')')? #decTTLWithParams
 |  'set_mpls_ttl:' NUMBER #setMplsTTL
 |  'dec_mpls_ttl' #decMplsTTL
-|  'move:' fieldName '[' (NUMBER '..' NUMBER)? ']->' fieldName '[' NUMBER '..' NUMBER ']' #move
-|  'load:' NUMBER '->' fieldName '[' (NUMBER '..' NUMBER)? ']' #load
+|  'move:' fieldName '[' (NUMBER '..' NUMBER)? ']' '->' fieldName '[' NUMBER '..' NUMBER ']' #move
+|  'load:' value '->' varName #load
 |  'push:' fieldName '[' (NUMBER '..' NUMBER)? ']' #push
 |  'pop:' fieldName '[' (NUMBER '..' NUMBER)? ']' #pop
 |  'set_field:' NAME '->' fieldName ('[' (NUMBER '..' NUMBER)? ']')? #setField
 |  'apply_actions(' actionset ')' #applyActions
-|  'clear_actions' #clearActions
-|  'write_metadata:' NUMBER ('/' NUMBER)? #writeMetadata
-|  'goto_table:' NUMBER #goto
+|  'clear_actions' #clearActions 
+|  'write_metadata:' NUMBER ('/' NUMBER)? #writeMetadata 
+|  'goto_table:' NUMBER #goto 
 |  'fin_timeout('timeoutParam timeoutParam ')' #finTimeout
 |  'sample(' sampleParam+ ')' #sample
-|  'learn' '(' argument+ ')'  #learn
-|  'exit' #exit
+|  'learn' '(' (match | argument | target)*  ')'  #learn
+|  'exit' #exit 
 |  port #forwardToPortTarget 
 ;
 
 
-argument : 'idle_timeout' EQUALS NUMBER #learnIdleTo
-| 'hard_timeout' EQUALS NUMBER #learnHardTo
-| 'priority' EQUALS NUMBER #learnPriority
-| 'fin_idle_timeout' EQUALS NUMBER #learnFinIdleTo
+argument : 'fin_idle_timeout' EQUALS NUMBER #learnFinIdleTo
 | 'fin_hard_timeout' EQUALS NUMBER #learnFinHardTo
-| 'table' EQUALS NUMBER #learnTable
-| nxm_reg EQUALS NUMBER #learnAssign
-| nxm_reg '[' (NUMBER '..' NUMBER)? ']' EQUALS nxm_reg '[' (NUMBER '..' NUMBER)? ']' #learnAssignRegReg
-| nxm_reg '[' NUMBER '..' NUMBER ']' #learnAssignSelf
-| 'load:' NUMBER '->' nxm_reg '[' (NUMBER '..' NUMBER)? ']' #learnLoadNumberReg
-| 'load:' nxm_reg '[' (NUMBER '..' NUMBER)? ']->' nxm_reg '[' (NUMBER '..' NUMBER)? ']' #learnLoadRegReg
-| 'output:' nxm_reg '[' (NUMBER '..' NUMBER)? ']' #learnOutputReg
-| 'cookie' EQUALS NUMBER #learnCookie;
-
+| varName EQUALS value #learnAssign
+| nxm_reg '[' (NUMBER '..' NUMBER)? ']' #learnAssignSelf;
 field : NAME;
 
 timeoutParam : 'idle_timeout' EQUALS NUMBER #idleTimeoutParam

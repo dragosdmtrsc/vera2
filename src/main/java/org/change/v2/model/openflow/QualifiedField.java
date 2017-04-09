@@ -5,6 +5,11 @@ public class QualifiedField {
 	private FormatType type;
 	private int startBit, endBit;
 
+	@Override
+	public String toString() {
+		return "QualifiedField [name=" + name + ", type=" + type
+				+ ", startBit=" + startBit + ", endBit=" + endBit + "]";
+	}
 	public String getName() {
 		return name;
 	}
@@ -22,8 +27,22 @@ public class QualifiedField {
 	public int getEndBit() {
 		return endBit;
 	}
-
+	
 	public static QualifiedField fromString(String decode)
+	{
+		String name;
+		if (decode.contains("["))
+		{
+			name = decode.substring(0, decode.indexOf('['));
+		}
+		else
+		{
+			name = decode;
+		}
+		return fromString(decode, TypeMappings.LEN_MAPPINGS.get(name));
+	}
+
+	public static QualifiedField fromString(String decode, int maxLen)
 	{
 		String name = decode;
 		int startBit = 0;
@@ -33,23 +52,32 @@ public class QualifiedField {
 			name = decode.substring(0, decode.indexOf('['));
 			String restOfString = decode.substring(decode.indexOf("[") + 1, decode.indexOf(']'));
 			int intervalStart = restOfString.indexOf("..");
-			String firstNumber = restOfString.substring(0, intervalStart);
-			String secondNumber = restOfString.substring(intervalStart + 2);
-			try
+			if (intervalStart < 0)
 			{
-				startBit = Integer.parseInt(firstNumber);
+				startBit = 0;
+				endBit = -1;
 			}
-			catch (NumberFormatException nfe)
+			else
 			{
+				String firstNumber = restOfString.substring(0, intervalStart);
+				String secondNumber = restOfString.substring(intervalStart + 2);
+				try
+				{
+					startBit = Integer.parseInt(firstNumber);
+				}
+				catch (NumberFormatException nfe)
+				{
+				}
+				
+				try
+				{
+					endBit = Integer.parseInt(secondNumber);
+				}
+				catch (NumberFormatException nfe)
+				{
+				}
 			}
 			
-			try
-			{
-				endBit = Integer.parseInt(secondNumber);
-			}
-			catch (NumberFormatException nfe)
-			{
-			}
 		}
 		
 		if (endBit < 0) endBit = TypeMappings.LEN_MAPPINGS.get(name);

@@ -84,32 +84,6 @@ public class OpenflowBaseListener implements OpenflowListener {
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void enterLearnIdleTo(@NotNull OpenflowParser.LearnIdleToContext ctx) { }
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
-	@Override public void exitLearnIdleTo(@NotNull OpenflowParser.LearnIdleToContext ctx) { }
-
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
-	@Override public void enterLearnAssignRegReg(@NotNull OpenflowParser.LearnAssignRegRegContext ctx) { }
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
-	@Override public void exitLearnAssignRegReg(@NotNull OpenflowParser.LearnAssignRegRegContext ctx) { }
-
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
 	@Override public void enterSeconds(@NotNull OpenflowParser.SecondsContext ctx) { }
 	/**
 	 * {@inheritDoc}
@@ -442,19 +416,6 @@ public class OpenflowBaseListener implements OpenflowListener {
 	 * <p>The default implementation does nothing.</p>
 	 */
 	@Override public void exitDecTTLWithParams(@NotNull OpenflowParser.DecTTLWithParamsContext ctx) { }
-
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
-	@Override public void enterLearnLoadRegReg(@NotNull OpenflowParser.LearnLoadRegRegContext ctx) { }
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
-	@Override public void exitLearnLoadRegReg(@NotNull OpenflowParser.LearnLoadRegRegContext ctx) { }
 
 	/**
 	 * {@inheritDoc}
@@ -968,19 +929,6 @@ public class OpenflowBaseListener implements OpenflowListener {
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void enterLearnLoadNumberReg(@NotNull OpenflowParser.LearnLoadNumberRegContext ctx) { }
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
-	@Override public void exitLearnLoadNumberReg(@NotNull OpenflowParser.LearnLoadNumberRegContext ctx) { }
-
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
 	@Override public void enterArpTpa(@NotNull OpenflowParser.ArpTpaContext ctx) { }
 	/**
 	 * {@inheritDoc}
@@ -1027,19 +975,6 @@ public class OpenflowBaseListener implements OpenflowListener {
 	 * <p>The default implementation does nothing.</p>
 	 */
 	@Override public void exitDecMplsTTL(@NotNull OpenflowParser.DecMplsTTLContext ctx) { }
-
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
-	@Override public void enterLearnPriority(@NotNull OpenflowParser.LearnPriorityContext ctx) { }
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
-	@Override public void exitLearnPriority(@NotNull OpenflowParser.LearnPriorityContext ctx) { }
 
 	/**
 	 * {@inheritDoc}
@@ -1254,19 +1189,6 @@ public class OpenflowBaseListener implements OpenflowListener {
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void enterLearnTable(@NotNull OpenflowParser.LearnTableContext ctx) { }
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
-	@Override public void exitLearnTable(@NotNull OpenflowParser.LearnTableContext ctx) { }
-
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
 	@Override public void enterTcpDst(@NotNull OpenflowParser.TcpDstContext ctx) { }
 	/**
 	 * {@inheritDoc}
@@ -1417,19 +1339,6 @@ public class OpenflowBaseListener implements OpenflowListener {
 	 * <p>The default implementation does nothing.</p>
 	 */
 	@Override public void exitFlows(@NotNull OpenflowParser.FlowsContext ctx) { }
-
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
-	@Override public void enterLearnHardTo(@NotNull OpenflowParser.LearnHardToContext ctx) { }
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
-	@Override public void exitLearnHardTo(@NotNull OpenflowParser.LearnHardToContext ctx) { }
 
 	/**
 	 * {@inheritDoc}
@@ -1625,32 +1534,6 @@ public class OpenflowBaseListener implements OpenflowListener {
 	 * <p>The default implementation does nothing.</p>
 	 */
 	@Override public void exitEnqueue(@NotNull OpenflowParser.EnqueueContext ctx) { }
-
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
-	@Override public void enterLearnCookie(@NotNull OpenflowParser.LearnCookieContext ctx) { }
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
-	@Override public void exitLearnCookie(@NotNull OpenflowParser.LearnCookieContext ctx) { }
-
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
-	@Override public void enterLearnOutputReg(@NotNull OpenflowParser.LearnOutputRegContext ctx) { }
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
-	@Override public void exitLearnOutputReg(@NotNull OpenflowParser.LearnOutputRegContext ctx) { }
 
 	/**
 	 * {@inheritDoc}

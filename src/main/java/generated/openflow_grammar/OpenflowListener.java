@@ -74,32 +74,6 @@ public interface OpenflowListener extends ParseTreeListener {
 	void exitModVlanPcp(@NotNull OpenflowParser.ModVlanPcpContext ctx);
 
 	/**
-	 * Enter a parse tree produced by the {@code learnIdleTo}
-	 * labeled alternative in {@link OpenflowParser#argument}.
-	 * @param ctx the parse tree
-	 */
-	void enterLearnIdleTo(@NotNull OpenflowParser.LearnIdleToContext ctx);
-	/**
-	 * Exit a parse tree produced by the {@code learnIdleTo}
-	 * labeled alternative in {@link OpenflowParser#argument}.
-	 * @param ctx the parse tree
-	 */
-	void exitLearnIdleTo(@NotNull OpenflowParser.LearnIdleToContext ctx);
-
-	/**
-	 * Enter a parse tree produced by the {@code learnAssignRegReg}
-	 * labeled alternative in {@link OpenflowParser#argument}.
-	 * @param ctx the parse tree
-	 */
-	void enterLearnAssignRegReg(@NotNull OpenflowParser.LearnAssignRegRegContext ctx);
-	/**
-	 * Exit a parse tree produced by the {@code learnAssignRegReg}
-	 * labeled alternative in {@link OpenflowParser#argument}.
-	 * @param ctx the parse tree
-	 */
-	void exitLearnAssignRegReg(@NotNull OpenflowParser.LearnAssignRegRegContext ctx);
-
-	/**
 	 * Enter a parse tree produced by {@link OpenflowParser#seconds}.
 	 * @param ctx the parse tree
 	 */
@@ -426,19 +400,6 @@ public interface OpenflowListener extends ParseTreeListener {
 	 * @param ctx the parse tree
 	 */
 	void exitDecTTLWithParams(@NotNull OpenflowParser.DecTTLWithParamsContext ctx);
-
-	/**
-	 * Enter a parse tree produced by the {@code learnLoadRegReg}
-	 * labeled alternative in {@link OpenflowParser#argument}.
-	 * @param ctx the parse tree
-	 */
-	void enterLearnLoadRegReg(@NotNull OpenflowParser.LearnLoadRegRegContext ctx);
-	/**
-	 * Exit a parse tree produced by the {@code learnLoadRegReg}
-	 * labeled alternative in {@link OpenflowParser#argument}.
-	 * @param ctx the parse tree
-	 */
-	void exitLearnLoadRegReg(@NotNull OpenflowParser.LearnLoadRegRegContext ctx);
 
 	/**
 	 * Enter a parse tree produced by {@link OpenflowParser#field}.
@@ -944,19 +905,6 @@ public interface OpenflowListener extends ParseTreeListener {
 	void exitVlanTci(@NotNull OpenflowParser.VlanTciContext ctx);
 
 	/**
-	 * Enter a parse tree produced by the {@code learnLoadNumberReg}
-	 * labeled alternative in {@link OpenflowParser#argument}.
-	 * @param ctx the parse tree
-	 */
-	void enterLearnLoadNumberReg(@NotNull OpenflowParser.LearnLoadNumberRegContext ctx);
-	/**
-	 * Exit a parse tree produced by the {@code learnLoadNumberReg}
-	 * labeled alternative in {@link OpenflowParser#argument}.
-	 * @param ctx the parse tree
-	 */
-	void exitLearnLoadNumberReg(@NotNull OpenflowParser.LearnLoadNumberRegContext ctx);
-
-	/**
 	 * Enter a parse tree produced by the {@code arpTpa}
 	 * labeled alternative in {@link OpenflowParser#nxm_reg}.
 	 * @param ctx the parse tree
@@ -1007,19 +955,6 @@ public interface OpenflowListener extends ParseTreeListener {
 	 * @param ctx the parse tree
 	 */
 	void exitDecMplsTTL(@NotNull OpenflowParser.DecMplsTTLContext ctx);
-
-	/**
-	 * Enter a parse tree produced by the {@code learnPriority}
-	 * labeled alternative in {@link OpenflowParser#argument}.
-	 * @param ctx the parse tree
-	 */
-	void enterLearnPriority(@NotNull OpenflowParser.LearnPriorityContext ctx);
-	/**
-	 * Exit a parse tree produced by the {@code learnPriority}
-	 * labeled alternative in {@link OpenflowParser#argument}.
-	 * @param ctx the parse tree
-	 */
-	void exitLearnPriority(@NotNull OpenflowParser.LearnPriorityContext ctx);
 
 	/**
 	 * Enter a parse tree produced by the {@code hard_timeout}
@@ -1228,19 +1163,6 @@ public interface OpenflowListener extends ParseTreeListener {
 	void exitMaxLenParam(@NotNull OpenflowParser.MaxLenParamContext ctx);
 
 	/**
-	 * Enter a parse tree produced by the {@code learnTable}
-	 * labeled alternative in {@link OpenflowParser#argument}.
-	 * @param ctx the parse tree
-	 */
-	void enterLearnTable(@NotNull OpenflowParser.LearnTableContext ctx);
-	/**
-	 * Exit a parse tree produced by the {@code learnTable}
-	 * labeled alternative in {@link OpenflowParser#argument}.
-	 * @param ctx the parse tree
-	 */
-	void exitLearnTable(@NotNull OpenflowParser.LearnTableContext ctx);
-
-	/**
 	 * Enter a parse tree produced by the {@code tcpDst}
 	 * labeled alternative in {@link OpenflowParser#nxm_reg}.
 	 * @param ctx the parse tree
@@ -1389,19 +1311,6 @@ public interface OpenflowListener extends ParseTreeListener {
 	 * @param ctx the parse tree
 	 */
 	void exitFlows(@NotNull OpenflowParser.FlowsContext ctx);
-
-	/**
-	 * Enter a parse tree produced by the {@code learnHardTo}
-	 * labeled alternative in {@link OpenflowParser#argument}.
-	 * @param ctx the parse tree
-	 */
-	void enterLearnHardTo(@NotNull OpenflowParser.LearnHardToContext ctx);
-	/**
-	 * Exit a parse tree produced by the {@code learnHardTo}
-	 * labeled alternative in {@link OpenflowParser#argument}.
-	 * @param ctx the parse tree
-	 */
-	void exitLearnHardTo(@NotNull OpenflowParser.LearnHardToContext ctx);
 
 	/**
 	 * Enter a parse tree produced by {@link OpenflowParser#ipv6}.
@@ -1589,32 +1498,6 @@ public interface OpenflowListener extends ParseTreeListener {
 	 * @param ctx the parse tree
 	 */
 	void exitEnqueue(@NotNull OpenflowParser.EnqueueContext ctx);
-
-	/**
-	 * Enter a parse tree produced by the {@code learnCookie}
-	 * labeled alternative in {@link OpenflowParser#argument}.
-	 * @param ctx the parse tree
-	 */
-	void enterLearnCookie(@NotNull OpenflowParser.LearnCookieContext ctx);
-	/**
-	 * Exit a parse tree produced by the {@code learnCookie}
-	 * labeled alternative in {@link OpenflowParser#argument}.
-	 * @param ctx the parse tree
-	 */
-	void exitLearnCookie(@NotNull OpenflowParser.LearnCookieContext ctx);
-
-	/**
-	 * Enter a parse tree produced by the {@code learnOutputReg}
-	 * labeled alternative in {@link OpenflowParser#argument}.
-	 * @param ctx the parse tree
-	 */
-	void enterLearnOutputReg(@NotNull OpenflowParser.LearnOutputRegContext ctx);
-	/**
-	 * Exit a parse tree produced by the {@code learnOutputReg}
-	 * labeled alternative in {@link OpenflowParser#argument}.
-	 * @param ctx the parse tree
-	 */
-	void exitLearnOutputReg(@NotNull OpenflowParser.LearnOutputRegContext ctx);
 
 	/**
 	 * Enter a parse tree produced by the {@code setNwTos}

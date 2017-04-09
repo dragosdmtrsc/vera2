@@ -39,7 +39,7 @@ public class Decoder {
 	public static Long decodeIP4(String value)
 	{
 		long v = 0;
-		String[] ofVals = value.split(".");
+		String[] ofVals = value.split("\\.");
 		for (String ofVal : ofVals)
 		{
 			v = v * 16 + Long.parseUnsignedLong(ofVal);
@@ -47,43 +47,50 @@ public class Decoder {
 		return v;
 	}
 	
-	public static Long decodeType(String field, String value)
+	public static Long decodeType(String field, String value) 
 	{
-		FormatType ft = TypeMappings.TYPE_MAPPINGS.get(field);
-		Long theValue = (long) 0;
-		switch (ft)
+		try
 		{
-		case CtState:
-			break;
-		case Decimal:
-			theValue = Long.parseUnsignedLong(value);
-			break;
-		case Ethernet:
-			theValue = decodeMAC(value);
-			break;
-		case Frag:
-			break;
-		case Hexadecimal:
-			theValue = decodeLong(value);
-			break;
-		case IPv4:
-			theValue = decodeIP4(value);
-			break;
-		case IPv6:
-			break;
-		case OpenFlow10port:
-		case OpenFlow11port:
-			theValue = decodePort(value);
-			break;
-		case TCPFlags:
-			break;
-		case TunnelFlags:
-			break;
-		default:
-			break;
-		
+			FormatType ft = TypeMappings.TYPE_MAPPINGS.get(field);
+			Long theValue = (long) 0;
+			switch (ft)
+			{
+			case CtState:
+				break;
+			case Decimal:
+				theValue = Long.parseUnsignedLong(value);
+				break;
+			case Ethernet:
+				theValue = decodeMAC(value);
+				break;
+			case Frag:
+				break;
+			case Hexadecimal:
+				theValue = decodeLong(value);
+				break;
+			case IPv4:
+				theValue = decodeIP4(value);
+				break;
+			case IPv6:
+				break;
+			case OpenFlow10port:
+			case OpenFlow11port:
+				theValue = decodePort(value);
+				break;
+			case TCPFlags:
+				break;
+			case TunnelFlags:
+				break;
+			default:
+				break;
+			
+			}
+			return theValue;
 		}
-		return theValue;
+		catch (NullPointerException ex)
+		{
+			throw new NullPointerException(String.format("In decodeType(%s, %s)\n%s", field, value, ex.toString()));
+		}
 	}
 
 	public static Long decodeLong(String value) {
@@ -94,9 +101,17 @@ public class Decoder {
 		}
 		else
 		{
-			theValue = Long.parseLong(value, 16);
+			theValue = Long.parseLong(value);
 		}
 		return theValue;
+	}
+
+	public static boolean isField(String firstOne) {
+		if (firstOne.contains("["))
+		{
+			firstOne = firstOne.substring(0, firstOne.indexOf("["));
+		}
+		return TypeMappings.TYPE_MAPPINGS.containsKey(firstOne);
 	}
 	
 }

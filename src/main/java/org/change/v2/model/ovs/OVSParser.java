@@ -16,6 +16,7 @@ import java.util.Set;
 import org.change.v2.model.Link;
 import org.change.v2.model.NIC;
 import org.change.v2.model.OVSBridge;
+import org.change.v2.model.OVSNIC;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -83,7 +84,7 @@ public class OVSParser {
 		
 	}
 	
-	private Map<String, Integer> getHeadings(JsonNode node) {
+	private static Map<String, Integer> getHeadings(JsonNode node) {
 		JsonNode headings = node.path("headings");
 		Map<String, Integer> list = new HashMap<String, Integer>();
 		if (headings.isArray())
@@ -104,7 +105,7 @@ public class OVSParser {
 	
 	
 
-	public List<OVSBridge> getBridges(InputStream stream, 
+	public static List<OVSBridge> getBridges(InputStream stream, 
 			Set<NIC> whatElse,
 			Set<Link> realLinks) 
 			throws JsonProcessingException, IOException {
@@ -123,15 +124,15 @@ public class OVSParser {
 			String tableName = theNode.path("caption").asText();
 			if (BRIDGE_TABLE.equals(tableName))
 			{
-				bridgeLookups = this.parseBridges(theNode);
+				bridgeLookups = parseBridges(theNode);
 			}
 			else if (PORT_TABLE.equals(tableName))
 			{
-				portLookups = this.parsePorts(theNode);
+				portLookups = parsePorts(theNode);
 			}
 			else if (INTERFACE_TABLE.equals(tableName))
 			{
-				ifaces = this.parseIfaces(theNode, links);
+				ifaces = parseIfaces(theNode, links);
 			}
 		}
 		
@@ -163,7 +164,7 @@ public class OVSParser {
 					}
 					else
 					{
-						realNic = new NIC();
+						realNic = new OVSNIC();
 					}
 					
 					if (!optIface.isPresent() && !maybeNic.isPresent())
@@ -173,8 +174,7 @@ public class OVSParser {
 					else if (optIface.isPresent())
 					{
 						IfaceLookup theIface = optIface.get();
-						realNic = new NIC();
-						realNic.setBridge(real);
+						realNic = new OVSNIC();
 						realNic.setMacAddress(theIface.mac);
 						realNic.setName(port.portName);
 						realNic.setType(theIface.type);
@@ -229,10 +229,10 @@ public class OVSParser {
 		return bridges;
 	}
 	
-	private List<BridgeLookup> parseBridges(JsonNode node)
+	private static List<BridgeLookup> parseBridges(JsonNode node)
 	{
 		List<BridgeLookup> bridges = new ArrayList<BridgeLookup>();
-		Map<String, Integer> headers = this.getHeadings(node);
+		Map<String, Integer> headers = getHeadings(node);
 		System.out.println(headers);
 		JsonNode dataNode = node.path("data");
 		for (JsonNode br : dataNode)
@@ -256,9 +256,9 @@ public class OVSParser {
 	}
 	
 	
-	private List<PortLookup> parsePorts(JsonNode node) {
+	private static List<PortLookup> parsePorts(JsonNode node) {
 		List<PortLookup> bridges = new ArrayList<PortLookup>();
-		Map<String, Integer> headers = this.getHeadings(node);
+		Map<String, Integer> headers = getHeadings(node);
 		System.out.println(headers);
 		JsonNode dataNode = node.path("data");
 		for (JsonNode br : dataNode)
@@ -283,11 +283,11 @@ public class OVSParser {
 		return bridges;
 	}
 	
-	private List<IfaceLookup> parseIfaces(JsonNode node, 
+	private static List<IfaceLookup> parseIfaces(JsonNode node, 
 			Set<LinkLookup> links) {
 		assert(links != null);
 		List<IfaceLookup> bridges = new ArrayList<IfaceLookup>();
-		Map<String, Integer> headers = this.getHeadings(node);
+		Map<String, Integer> headers = getHeadings(node);
 		System.out.println(headers);
 		JsonNode dataNode = node.path("data");
 		for (JsonNode br : dataNode)
@@ -321,9 +321,9 @@ public class OVSParser {
 	
 	public static void main(String[] args) throws JsonProcessingException, IOException
 	{
-		InputStream str = new FileInputStream("ovsdb-config.json");
+		InputStream str = new FileInputStream("stack-inputs/ovsdb-controller.json");
 		Set<Link> links = new HashSet<Link>();
-		new OVSParser().getBridges(str, new HashSet<NIC>(), links).stream().forEach(s -> {
+		OVSParser.getBridges(str, new HashSet<NIC>(), links).stream().forEach(s -> {
 			System.out.println(s.getName() + " (" + s.getKind() + ")");
 			s.getNICs().forEach(u -> {
 				System.out.println("\t" + u.getName() + " (" + u.getType() + ")");

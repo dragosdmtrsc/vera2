@@ -2,7 +2,16 @@ package org.change.v2.model.openflow;
 
 public class Match implements FlowAcceptor {
 
-	private QualifiedField field;
+	private QualifiedField field, fieldDst;
+	public void setFieldDst(QualifiedField fieldDst) {
+		this.fieldDst = fieldDst;
+	}
+	public QualifiedField getFieldDst() {
+		return fieldDst;
+	}
+	public boolean hasMask() {
+		return hasMask;
+	}
 	private long value;
 	private long mask;
 	private boolean hasMask;
@@ -25,6 +34,12 @@ public class Match implements FlowAcceptor {
 	public void setValue(long ivalue) {
 		this.value = ivalue;
 	}
+	
+	public void setValue(QualifiedField qf)
+	{
+		fieldDst = qf;
+	}
+	
 	public long getMask() {
 		return mask;
 	}

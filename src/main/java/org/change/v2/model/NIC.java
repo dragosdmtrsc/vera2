@@ -5,7 +5,6 @@ package org.change.v2.model;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 
@@ -30,10 +29,8 @@ public class NIC {
 	
 	@Override
 	public String toString() {
-		String brName = "NOBRIDGE";
-		if (this.getBridge() != null)
-			brName = this.getBridge().getName();
-		return this.getName() + "(" + brName + ")";
+		return "NIC [symnetIPAddresss=" + symnetIPAddresss + ", macAddress="
+				+ macAddress + ", Name=" + Name + "]";
 	}
 
 
@@ -45,23 +42,13 @@ public class NIC {
 	public void setType(String type) {
 		this.type = type;
 	}
-
-
-	/**
-	 * Description of the property bridges.
-	 */
-	private Bridge bridge = null;
 	
 	/**
 	 * Description of the property symnetIPAddresss.
 	 */
-	private HashSet<IPAddress> symnetIPAddresss = new HashSet<IPAddress>();
+	private IPAddress symnetIPAddresss = new IPAddress();
 	
-	/**
-	 * Description of the property links.
-	 */
-	private Link link = null;
-	
+
 	/**
 	 * Description of the property macAddress.
 	 */
@@ -94,45 +81,13 @@ public class NIC {
 	
 	// Start of user code (user defined methods for NIC)
 	
-	// End of user code
-	/**
-	 * Returns bridges.
-	 * @return bridges 
-	 */
-	public Bridge getBridge() {
-		return this.bridge;
-	}
-	
-	/**
-	 * Sets a value to attribute bridges. 
-	 * @param newBridges 
-	 */
-	public void setBridge(Bridge newBridges) {
-	    this.bridge = newBridges;
-	}
 
 	/**
 	 * Returns symnetIPAddresss.
 	 * @return symnetIPAddresss 
 	 */
-	public HashSet<IPAddress> getSymnetIPAddresss() {
+	public IPAddress getIPAddresss() {
 		return this.symnetIPAddresss;
-	}
-
-	/**
-	 * Returns links.
-	 * @return links 
-	 */
-	public Link getLink() {
-		return this.link;
-	}
-	
-	/**
-	 * Sets a value to attribute links. 
-	 * @param newLinks 
-	 */
-	public void setLink(Link newLinks) {
-	    this.link = newLinks;
 	}
 
 	/**

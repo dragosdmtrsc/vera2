@@ -3,7 +3,8 @@
  *******************************************************************************/
 package org.change.v2.model;
 
-import org.change.v2.model.Bridge;
+import java.util.ArrayList;
+import java.util.List;
 // Start of user code (user defined imports)
 
 // End of user code
@@ -15,21 +16,26 @@ import org.change.v2.model.Bridge;
  */
 public class OVSBridge extends Bridge {
 	// Start of user code (user defined attributes for OVSBridge)
+	private List<OVSNIC> nics = new ArrayList<OVSNIC>();
+	private OpenFlowConfig config = new OpenFlowConfig();
 	
 	// End of user code
 	
-	/**
-	 * The constructor.
-	 */
+	public List<OVSNIC> getNics() {
+		return nics;
+	}
+
+	public OpenFlowConfig getConfig() {
+		return config;
+	}
+
 	public OVSBridge() {
-		// Start of user code constructor for OVSBridge)
 		super();
-		// End of user code
+	}
+
+	@Override
+	public String toString() {
+		return "OVSBridge [nics=" + nics + ", config=" + config + "]";
 	}
 	
-	// Start of user code (user defined methods for OVSBridge)
-	
-	// End of user code
-
-
 }

@@ -14,4 +14,11 @@ public class DropAction extends Action {
 	public void accept(FlowVisitor visitor) {
 		visitor.visit(this);
 	}
+
+	@Override
+	public String toString() {
+		return "DropAction []";
+	}
+	
+	
 }

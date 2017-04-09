@@ -1,0 +1,6 @@
+3: eth0: <BROADCAST,MULTICAST,UP> mtu 1500 qdisc cbq qlen 100
+	link/ether 00:a0:cc:66:18:78 brd ff:ff:ff:ff:ff:ff
+	inet 193.233.7.90/24 brd 193.233.7.255 scope global eth0
+	inet6 3ffe:2400:0:1:2a0:ccff:fe66:1878/64 scope global dynamic
+		valid_lft forever preferred_lft 604746sec
+	inet6 fe80::2a0:ccff:fe66:1878/10 scope link

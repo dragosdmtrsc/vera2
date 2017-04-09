@@ -44,4 +44,13 @@ public class OutputAction extends Action {
 	public void accept(FlowVisitor visitor) {
 		visitor.visit(this);
 	}
+
+	@Override
+	public String toString() {
+		return "OutputAction [regName=" + regName
+				+ ", port=" + port + "]";
+	}
+	
+	
+	
 }

@@ -1,14 +1,5 @@
 package org.change.v2.listeners.openflow;
 
-import java.util.ArrayList;
-import java.util.List;
-
-import org.change.v2.model.openflow.Decoder;
-import org.change.v2.model.openflow.FlowEntry;
-import org.change.v2.model.openflow.Match;
-import org.change.v2.model.openflow.QualifiedField;
-import org.change.v2.model.openflow.actions.*;
-
 import generated.openflow_grammar.OpenflowBaseListener;
 import generated.openflow_grammar.OpenflowParser.AllContext;
 import generated.openflow_grammar.OpenflowParser.ApplyActionsContext;
@@ -30,20 +21,7 @@ import generated.openflow_grammar.OpenflowParser.FlowsContext;
 import generated.openflow_grammar.OpenflowParser.ForwardToPortTargetContext;
 import generated.openflow_grammar.OpenflowParser.GotoContext;
 import generated.openflow_grammar.OpenflowParser.InPortContext;
-import generated.openflow_grammar.OpenflowParser.LearnAssignContext;
-import generated.openflow_grammar.OpenflowParser.LearnAssignRegRegContext;
-import generated.openflow_grammar.OpenflowParser.LearnAssignSelfContext;
 import generated.openflow_grammar.OpenflowParser.LearnContext;
-import generated.openflow_grammar.OpenflowParser.LearnCookieContext;
-import generated.openflow_grammar.OpenflowParser.LearnFinHardToContext;
-import generated.openflow_grammar.OpenflowParser.LearnFinIdleToContext;
-import generated.openflow_grammar.OpenflowParser.LearnHardToContext;
-import generated.openflow_grammar.OpenflowParser.LearnIdleToContext;
-import generated.openflow_grammar.OpenflowParser.LearnLoadNumberRegContext;
-import generated.openflow_grammar.OpenflowParser.LearnLoadRegRegContext;
-import generated.openflow_grammar.OpenflowParser.LearnOutputRegContext;
-import generated.openflow_grammar.OpenflowParser.LearnPriorityContext;
-import generated.openflow_grammar.OpenflowParser.LearnTableContext;
 import generated.openflow_grammar.OpenflowParser.LoadContext;
 import generated.openflow_grammar.OpenflowParser.LocalContext;
 import generated.openflow_grammar.OpenflowParser.MatchFieldContext;
@@ -79,6 +57,41 @@ import generated.openflow_grammar.OpenflowParser.SetTunnelContext;
 import generated.openflow_grammar.OpenflowParser.StripVlanContext;
 import generated.openflow_grammar.OpenflowParser.TableContext;
 import generated.openflow_grammar.OpenflowParser.WriteMetadataContext;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Stack;
+
+import org.change.v2.model.openflow.Action;
+import org.change.v2.model.openflow.Decoder;
+import org.change.v2.model.openflow.FlowEntry;
+import org.change.v2.model.openflow.Match;
+import org.change.v2.model.openflow.QualifiedField;
+import org.change.v2.model.openflow.actions.AllAction;
+import org.change.v2.model.openflow.actions.ApplyActionsAction;
+import org.change.v2.model.openflow.actions.ClearActionsAction;
+import org.change.v2.model.openflow.actions.ControllerAction;
+import org.change.v2.model.openflow.actions.DropAction;
+import org.change.v2.model.openflow.actions.ExitAction;
+import org.change.v2.model.openflow.actions.FloodAction;
+import org.change.v2.model.openflow.actions.InPortAction;
+import org.change.v2.model.openflow.actions.LearnAction;
+import org.change.v2.model.openflow.actions.LoadAction;
+import org.change.v2.model.openflow.actions.LocalAction;
+import org.change.v2.model.openflow.actions.ModDlDstAction;
+import org.change.v2.model.openflow.actions.ModDlSrcAction;
+import org.change.v2.model.openflow.actions.ModNwDstAction;
+import org.change.v2.model.openflow.actions.ModNwSrcAction;
+import org.change.v2.model.openflow.actions.ModNwTosAction;
+import org.change.v2.model.openflow.actions.ModTpDstAction;
+import org.change.v2.model.openflow.actions.ModTpSrcAction;
+import org.change.v2.model.openflow.actions.ModVlanVidAction;
+import org.change.v2.model.openflow.actions.MoveAction;
+import org.change.v2.model.openflow.actions.NormalAction;
+import org.change.v2.model.openflow.actions.OutputAction;
+import org.change.v2.model.openflow.actions.ResubmitAction;
+import org.change.v2.model.openflow.actions.SetFieldAction;
+import org.change.v2.model.openflow.actions.SetTunnelAction;
 
 public class FlowEntryListener extends OpenflowBaseListener {
 
@@ -123,21 +136,30 @@ public class FlowEntryListener extends OpenflowBaseListener {
 		}
 		else
 		{
+			QualifiedField qf = QualifiedField.fromString(matchName);
+			Match theMatch = new Match();
+			theMatch.setField(qf);
+
 			if (value.contains("/"))
 			{
 				String[] vmask = value.split("/");
 				value = vmask[0];
 				String smask = vmask[1];
-				mask =Decoder.decodeType(matchName, smask);
+				mask =Decoder.decodeType(qf.getName(), smask);
 				isMasked = true;
 			}
-			long ivalue =Decoder.decodeType(matchName, value);
-			
-			Match theMatch = new Match();
+			else if (value.contains("["))
+			{
+				theMatch.setFieldDst(QualifiedField.fromString(value));
+			}
+			else
+			{
+				long ivalue =Decoder.decodeType(qf.getName(), value);
+				theMatch.setValue(ivalue);
+				theMatch.setMask(mask);
+			}
 			theMatch.setMasked(isMasked);
-			theMatch.setField(QualifiedField.fromString(matchName));
-			theMatch.setValue(ivalue);
-			theMatch.setMask(mask);
+
 			this.currentEntry.getMatches().add(theMatch);
 
 		}
@@ -264,39 +286,49 @@ public class FlowEntryListener extends OpenflowBaseListener {
 	}
 	public void enterSetNwSrc(SetNwSrcContext ctx) {
 		//TODO: No action
-		
+		this.currentEntry.getActions().add(new ModNwSrcAction(Decoder.decodeIP4(ctx.ip().getText())));
+
 	}
 	public void enterSetNwDst(SetNwDstContext ctx) {
 		//TODO: No action
+		this.currentEntry.getActions().add(new ModNwDstAction(Decoder.decodeIP4(ctx.ip().getText())));
 
 	}
 	public void enterSetTpSrc(SetTpSrcContext ctx) {
 		//TODO: No action
-
+		this.currentEntry.getActions().add(new ModTpSrcAction(Decoder.decodeLong(ctx.NUMBER().getText())));
 	}
 	public void enterSetTpDst(SetTpDstContext ctx) {
 		//TODO: No action
+		this.currentEntry.getActions().add(new ModTpDstAction(Decoder.decodeLong(ctx.NUMBER().getText())));
 
 	}
 	public void enterSetNwTos(SetNwTosContext ctx) {
 		//TODO: Code here
+		this.currentEntry.getActions().add(new ModNwTosAction(Decoder.decodeLong(ctx.NUMBER().getText())));
 	}
 	public void enterResubmit(ResubmitContext ctx) {
 		//TODO: Code here
+		this.currentEntry.getActions().add(ResubmitAction.fromString(ctx.getText()));
 
 	}
 	public void enterResubmitSecond(ResubmitSecondContext ctx) {
 		//TODO: Code here
+		this.currentEntry.getActions().add(ResubmitAction.fromString(ctx.getText()));
 
 	}
 	public void enterResubmitTable(ResubmitTableContext ctx) {
 		//TODO: Code here	
+		this.currentEntry.getActions().add(ResubmitAction.fromString(ctx.getText()));
+
 	} 
 	public void enterSetTunnel(SetTunnelContext ctx) {
 		//TODO: Code here
+		this.currentEntry.getActions().add(new SetTunnelAction(Decoder.decodeLong(ctx.NUMBER().getText())));
 	}
 	public void enterSetTunnel64(SetTunnel64Context ctx) {
 		//TODO: Code here
+		this.currentEntry.getActions().add(new SetTunnelAction(Decoder.decodeLong(ctx.NUMBER().getText())));
 	}
 	public void enterSetQueue(SetQueueContext ctx) {
 		//TODO: No action
@@ -322,10 +354,14 @@ public class FlowEntryListener extends OpenflowBaseListener {
 	}
 	public void enterMove(MoveContext ctx) {
 		//TODO: Code here
+		this.currentEntry.getActions().add(MoveAction.fromString(ctx.getText()));
 	}
 	public void enterLoad(LoadContext ctx) {
-		//TODO: No action
+		//TODO: Code here
+		this.currentEntry.getActions().add(LoadAction.fromString(ctx.getText()));
+
 	}
+	
 	public void enterPush(PushContext ctx) {
 		//TODO: No action
 
@@ -336,18 +372,34 @@ public class FlowEntryListener extends OpenflowBaseListener {
 	}
 	public void enterSetField(SetFieldContext ctx) {
 		//TODO: Code here
-
+		this.currentEntry.getActions().add(new SetFieldAction());
 	}
+	
+	private Stack<FlowEntry> savedFlows = new Stack<FlowEntry>();
 	
 	public void enterApplyActions(ApplyActionsContext ctx) {
 		//TODO: Code here
+		savedFlows.push(this.currentEntry);
+		this.currentEntry = new FlowEntry();
 	}
+	
+	public void exitApplyActions(ApplyActionsContext ctx) {
+		ApplyActionsAction action = new ApplyActionsAction();
+		for (Action act : this.currentEntry.getActions())
+		{
+			action.addAction(act);
+		}
+		this.currentEntry = savedFlows.pop();
+		this.currentEntry.getActions().add(action);
+	}
+	
 	public void enterClearActions(ClearActionsContext ctx) {
 		//TODO: Code here
+		this.currentEntry.getActions().add(new ClearActionsAction());
 	}
 	public void enterWriteMetadata(WriteMetadataContext ctx) {
 		//TODO: No action
-
+		
 	}
 	public void enterGoto(GotoContext ctx) {
 		//TODO: No action
@@ -363,69 +415,36 @@ public class FlowEntryListener extends OpenflowBaseListener {
 	}
 	public void enterLearn(LearnContext ctx) {
 		//TODO: Code here
-
+		this.savedFlows.push(currentEntry);
+		this.currentEntry = new FlowEntry();
 	}
+	
+	public void exitLearn(LearnContext ctx)
+	{
+		LearnAction la = new LearnAction();
+		for (Match m : this.currentEntry.getMatches())
+		{
+			la.getMatches().add(m);
+		}
+		for (Action a : this.currentEntry.getActions())
+		{
+			la.getActions().add(a);
+		}
+
+		this.currentEntry = savedFlows.pop();
+		this.currentEntry.getActions().add(la);
+	}
+	
+	
 	public void enterExit(ExitContext ctx) {
 		//TODO: Code here
-
+		this.currentEntry.getActions().add(new ExitAction());
 	}
 
 	public void enterForwardToPortTarget(ForwardToPortTargetContext ctx) {
-		Long.parseLong(ctx.port().getText());
 		//TODO: Code here
-
+		OutputAction oa = new OutputAction();
+		oa.setPort(Decoder.decodePort(ctx.port().getText()));
+		this.currentEntry.getActions().add(oa);
 	}
-	
-	
-	/**
-	 * Start parsing some learn arguments
-	 */
-	
-	public void enterLearnIdleTo(LearnIdleToContext ctx) {
-		//TODO: Code here
-
-	}
-	public void enterLearnHardTo(LearnHardToContext ctx) {
-		//TODO: Code here
-
-	}
-	public void enterLearnPriority(LearnPriorityContext ctx) {
-		//TODO: Code here
-	}
-	public void enterLearnFinIdleTo(LearnFinIdleToContext ctx) {
-		//TODO: No action
-	}
-	public void enterLearnFinHardTo(LearnFinHardToContext ctx) {
-		//TODO: No action
-	}
-	public void enterLearnTable(LearnTableContext ctx) {
-		//TODO: Code here
-	}
-	public void enterLearnAssign(LearnAssignContext ctx) {
-		//TODO: Code here
-
-	}
-	public void enterLearnAssignRegReg(LearnAssignRegRegContext ctx) {
-		//TODO: Code here
-
-	}
-	public void enterLearnAssignSelf(LearnAssignSelfContext ctx) {
-		//TODO: Code here
-
-	}
-	public void enterLearnLoadNumberReg(LearnLoadNumberRegContext ctx) {
-		//TODO: Code here
-
-	}
-	public void enterLearnLoadRegReg(LearnLoadRegRegContext ctx) {
-		//TODO: Code here
-	}
-	public void enterLearnOutputReg(LearnOutputRegContext ctx) {
-		//TODO: Code here
-
-	}
-	public void enterLearnCookie(LearnCookieContext ctx) {
-		//TODO: Code here
-
-	}	
 }

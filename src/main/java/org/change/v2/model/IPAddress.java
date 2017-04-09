@@ -16,17 +16,13 @@ public class IPAddress {
 	/**
 	 * Description of the property address.
 	 */
-	private Integer address = Integer.valueOf(0);
+	private Long address = Long.valueOf(0);
 	
-	/**
-	 * Description of the property symnetNICs.
-	 */
-	public NIC symnetNICs = null;
 	
 	/**
 	 * Description of the property mask.
 	 */
-	private Integer mask = Integer.valueOf(0);
+	private Long mask = Long.valueOf(0);
 	
 	// Start of user code (user defined attributes for IPAddress)
 	
@@ -48,48 +44,37 @@ public class IPAddress {
 	 * Returns address.
 	 * @return address 
 	 */
-	public Integer getAddress() {
+	public Long getAddress() {
 		return this.address;
 	}
 	
 	/**
 	 * Sets a value to attribute address. 
-	 * @param newAddress 
+	 * @param long1 
 	 */
-	public void setAddress(Integer newAddress) {
-	    this.address = newAddress;
-	}
-
-	/**
-	 * Returns symnetNICs.
-	 * @return symnetNICs 
-	 */
-	public NIC getSymnetNICs() {
-		return this.symnetNICs;
-	}
-	
-	/**
-	 * Sets a value to attribute symnetNICs. 
-	 * @param newSymnetNICs 
-	 */
-	public void setSymnetNICs(NIC newSymnetNICs) {
-	    this.symnetNICs = newSymnetNICs;
+	public void setAddress(Long long1) {
+	    this.address = long1;
 	}
 
 	/**
 	 * Returns mask.
 	 * @return mask 
 	 */
-	public Integer getMask() {
+	public Long getMask() {
 		return this.mask;
 	}
 	
 	/**
 	 * Sets a value to attribute mask. 
-	 * @param newMask 
+	 * @param long1 
 	 */
-	public void setMask(Integer newMask) {
-	    this.mask = newMask;
+	public void setMask(Long long1) {
+	    this.mask = long1;
+	}
+
+	@Override
+	public String toString() {
+		return "IPAddress [address=" + address + ", mask=" + mask + "]";
 	}
 
 
