@@ -1,5 +1,7 @@
 package org.change.v2.model.openflow;
 
+import java.net.InetAddress;
+
 public class Decoder {
 	
 	
@@ -21,6 +23,37 @@ public class Decoder {
 		}
 		return v;
 	}
+	public static int convertNetmaskToCIDR(String nm){
+
+		String[] bts = nm.split("\\.");
+        int[] netmaskBytes = new int[4];
+
+        int j = 0;
+		for (String b : bts)
+		{
+			netmaskBytes[j++] = Integer.parseUnsignedInt(b);
+		}
+        int cidr = 0;
+        boolean zero = false;
+        for(int b : netmaskBytes){
+            int mask = 0x80;
+
+            for(int i = 0; i < 8; i++){
+                int result = b & mask;
+                if(result == 0){
+                    zero = true;
+                }else if(zero){
+                    throw new IllegalArgumentException("Invalid netmask.");
+                } else {
+                    cidr++;
+                }
+                mask >>>= 1;
+            }
+        }
+        return cidr;
+    }
+
+	
 	
 	public static Long decodePort(String value)
 	{
@@ -113,5 +146,6 @@ public class Decoder {
 		}
 		return TypeMappings.TYPE_MAPPINGS.containsKey(firstOne);
 	}
+
 	
 }

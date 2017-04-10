@@ -3,6 +3,8 @@
  *******************************************************************************/
 package org.change.v2.model;
 
+import org.change.v2.model.openflow.Decoder;
+
 // Start of user code (user defined imports)
 
 // End of user code
@@ -75,6 +77,18 @@ public class IPAddress {
 	@Override
 	public String toString() {
 		return "IPAddress [address=" + address + ", mask=" + mask + "]";
+	}
+
+	public static IPAddress fromString(String ip) {
+		IPAddress ipa = new IPAddress();
+		if (ip.contains("/"))
+		{
+			String[] spl = ip.split("/");
+			ip = spl[0];
+			ipa.mask = Decoder.decodeLong(spl[1]);
+		}
+		ipa.address = Decoder.decodeIP4(ip);
+		return ipa;
 	}
 
 

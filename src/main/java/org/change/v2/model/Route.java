@@ -94,6 +94,11 @@ public class Route {
 	    this.nic = newNic;
 	}
 
+	@Override
+	public String toString() {
+		return "Route [nextHop=" + nextHop + ", netAddress=" + netAddress + ", nic=" + nic + "]";
+	} 
+
 
 
 }

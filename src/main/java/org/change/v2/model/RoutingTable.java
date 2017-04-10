@@ -3,7 +3,9 @@
  *******************************************************************************/
 package org.change.v2.model;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 
 // Start of user code (user defined imports)
 
@@ -18,7 +20,7 @@ public class RoutingTable {
 	/**
 	 * Description of the property routes.
 	 */
-	public HashSet<Route> routes = new HashSet<Route>();
+	public List<Route> routes = new ArrayList<Route>();
 	
 	// Start of user code (user defined attributes for RoutingTable)
 	
@@ -40,8 +42,13 @@ public class RoutingTable {
 	 * Returns routes.
 	 * @return routes 
 	 */
-	public HashSet<Route> getRoutes() {
+	public List<Route> getRoutes() {
 		return this.routes;
+	}
+
+	@Override
+	public String toString() {
+		return "RoutingTable [routes=" + routes + "]";
 	}
 
 
