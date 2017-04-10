@@ -14,4 +14,9 @@ public class ChecksumTarget extends IPTablesTarget {
 		
 	}
 
+	@Override
+	public String toString() {
+		return "ChecksumTarget []";
+	}
+
 }

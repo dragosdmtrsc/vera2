@@ -78,6 +78,11 @@ public abstract class IPTablesTarget implements Acceptor {
 	    this.iPTablesRules = newIPTablesRules;
 	}
 
+	@Override
+	public String toString() {
+		return "IPTablesTarget [name=" + name + ", iPTablesRules=" + iPTablesRules + "]";
+	}
+
 
 
 }

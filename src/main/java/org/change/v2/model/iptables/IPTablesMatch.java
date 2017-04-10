@@ -77,6 +77,11 @@ public class IPTablesMatch implements Acceptor {
 		return this.matchOptions;
 	}
 
+	@Override
+	public String toString() {
+		return "IPTablesMatch [iPTablesRule=" + iPTablesRule + ", matchOptions=" + matchOptions + "]";
+	}
+
 
 
 }

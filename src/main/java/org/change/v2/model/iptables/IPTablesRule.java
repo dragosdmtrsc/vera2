@@ -96,6 +96,12 @@ public class IPTablesRule implements Acceptor {
 	    this.index = newIndex;
 	}
 
+	@Override
+	public String toString() {
+		return "IPTablesRule [iPTablesTarget=" + iPTablesTarget + ", iPTablesMatches=" + iPTablesMatches + ", index="
+				+ index + "]";
+	}
+
 
 
 }

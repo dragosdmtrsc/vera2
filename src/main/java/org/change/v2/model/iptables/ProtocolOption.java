@@ -63,6 +63,11 @@ public class ProtocolOption extends SimpleOption {
 		visitor.visit(this);
 	}
 
+	@Override
+	public String toString() {
+		return "ProtocolOption [proto=" + proto + "]";
+	}
+
 
 
 }

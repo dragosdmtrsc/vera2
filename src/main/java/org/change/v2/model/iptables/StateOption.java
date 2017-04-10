@@ -63,6 +63,11 @@ public class StateOption extends SimpleOption {
 		visitor.visit(this);
 	}
 
+	@Override
+	public String toString() {
+		return "StateOption [value=" + value + "]";
+	}
+
 
 
 }

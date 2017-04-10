@@ -1,4 +1,4 @@
-package org.change.v2.listeners;
+package org.change.v2.listeners.openflow;
 
 import generated.openflow_grammar.OpenflowBaseListener;
 import generated.openflow_grammar.OpenflowParser.CookieContext;

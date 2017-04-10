@@ -106,6 +106,11 @@ public class AddrOption extends SimpleOption {
 		visitor.visit(this);
 	}
 
+	@Override
+	public String toString() {
+		return "AddrOption [end=" + end + ", start=" + start + ", name=" + name + "]";
+	}
+
 
 
 }

@@ -62,6 +62,11 @@ public class ConnmarkTarget extends IPTablesTarget {
 		this.ctMask = ctMask;
 	}
 
+	@Override
+	public String toString() {
+		return "ConnmarkTarget [restore=" + restore + ", nfMask=" + nfMask + ", ctMask=" + ctMask + "]";
+	}
+
 	
 	
 	// Start of user code (user defined methods for ConnmarkTarget)

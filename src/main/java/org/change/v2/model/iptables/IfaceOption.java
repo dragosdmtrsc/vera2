@@ -86,6 +86,11 @@ public class IfaceOption extends SimpleOption {
 		visitor.visit(this);
 	}
 
+	@Override
+	public String toString() {
+		return "IfaceOption [ifaceNo=" + ifaceNo + ", io=" + io + "]";
+	}
+
 
 
 }

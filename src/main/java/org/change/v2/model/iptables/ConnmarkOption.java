@@ -101,6 +101,11 @@ public class ConnmarkOption extends SimpleOption {
 		visitor.visit(this);
 	}
 
+	@Override
+	public String toString() {
+		return "ConnmarkOption [forTag=" + forTag + ", value=" + value + ", mask=" + mask + "]";
+	}
+
 
 
 }

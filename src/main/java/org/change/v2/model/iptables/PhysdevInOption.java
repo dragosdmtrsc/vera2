@@ -73,6 +73,11 @@ public class PhysdevInOption extends SimpleOption {
 		visitor.visit(this);
 	}
 
+	@Override
+	public String toString() {
+		return "PhysdevInOption [value=" + value + ", name=" + name + "]";
+	}
+
 
 
 }

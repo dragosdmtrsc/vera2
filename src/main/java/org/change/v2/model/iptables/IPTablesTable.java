@@ -29,8 +29,7 @@ public class IPTablesTable implements Acceptor {
 
 	public void setParent(Namespace parent) {
 		this.parent = parent;
-	}
-
+	} 
 	/**
 	 * Description of the property name.
 	 */
@@ -89,6 +88,11 @@ public class IPTablesTable implements Acceptor {
 	 */
 	public void setName(String newName) {
 	    this.name = newName;
+	}
+
+	@Override
+	public String toString() {
+		return "IPTablesTable [iPTablesChains=" + iPTablesChains + ", parent=" + parent + ", name=" + name + "]";
 	}
 
 

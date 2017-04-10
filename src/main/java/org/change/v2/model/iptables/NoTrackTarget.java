@@ -17,6 +17,11 @@ public class NoTrackTarget extends IPTablesTarget {
 	
 	// End of user code
 	
+	@Override
+	public String toString() {
+		return "NoTrackTarget []";
+	}
+
 	/**
 	 * The constructor.
 	 */

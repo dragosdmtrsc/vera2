@@ -86,6 +86,11 @@ public class MACOption extends SimpleOption {
 		visitor.visit(this);
 	}
 
+	@Override
+	public String toString() {
+		return "MACOption [addr=" + addr + ", name=" + name + "]";
+	}
+
 
 
 }

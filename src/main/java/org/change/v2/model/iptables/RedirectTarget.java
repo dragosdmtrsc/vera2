@@ -45,4 +45,10 @@ public class RedirectTarget extends IPTablesTarget {
 		visitor.visit(this);
 	}
 
+
+	@Override
+	public String toString() {
+		return "RedirectTarget [toPortStart=" + toPortStart + ", toPortEnd=" + toPortEnd + "]";
+	}
+
 }

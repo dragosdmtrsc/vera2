@@ -39,6 +39,11 @@ public class PhysdevIsBridgedOption extends SimpleOption {
 		super.accept(visitor);
 		visitor.visit(this);
 	}
+
+	@Override
+	public String toString() {
+		return "PhysdevIsBridgedOption []";
+	}
 	
 	// Start of user code (user defined methods for PhysdevIsBridgedOption)
 	

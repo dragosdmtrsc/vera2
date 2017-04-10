@@ -100,6 +100,11 @@ public class CtStateOption extends SimpleOption {
 		visitor.visit(this);
 	}
 
+	@Override
+	public String toString() {
+		return "CtStateOption [isTag=" + isTag + ", list=" + list + ", name=" + name + "]";
+	}
+
 
 
 }

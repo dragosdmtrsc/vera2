@@ -131,4 +131,12 @@ public class IPTablesChain implements Acceptor {
 	public void setName(String newName) {
 	    this.name = newName;
 	}
+
+	@Override
+	public String toString() {
+		return "IPTablesChain [iPTablesRules=" + iPTablesRules + ", policy="
+				+ policy + ", name=" + name + "]";
+	} 
+	
+	
 }

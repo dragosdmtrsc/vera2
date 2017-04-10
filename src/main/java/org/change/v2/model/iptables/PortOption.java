@@ -86,6 +86,11 @@ public class PortOption extends SimpleOption {
 		visitor.visit(this);
 	}
 
+	@Override
+	public String toString() {
+		return "PortOption [name=" + name + ", portNo=" + portNo + "]";
+	}
+
 
 
 }

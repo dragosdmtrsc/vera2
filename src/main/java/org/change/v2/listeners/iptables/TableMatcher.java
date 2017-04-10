@@ -1,4 +1,4 @@
-package org.change.v2.listeners;
+package org.change.v2.listeners.iptables;
 
 import org.antlr.v4.runtime.tree.ParseTreeWalker;
 import org.change.v2.model.iptables.IPTablesChain;
@@ -8,6 +8,7 @@ import org.change.v2.model.iptables.JumpyTarget;
 import generated.iptables_grammar.IptablesBaseListener;
 import generated.iptables_grammar.IptablesParser.ChainContext;
 import generated.iptables_grammar.IptablesParser.PolicyContext;
+import generated.iptables_grammar.IptablesParser.RleContext;
 
 public class TableMatcher extends IptablesBaseListener {
 	private String name;
@@ -20,7 +21,7 @@ public class TableMatcher extends IptablesBaseListener {
 		this.createChain("OUTPUT");
 		this.createChain("FORWARD");
 		this.createChain("POSTROUTING");
-	}
+	} 
 	
 	
 	
@@ -36,6 +37,13 @@ public class TableMatcher extends IptablesBaseListener {
 		super.enterChain(ctx);
 		String name = ctx.chainname().NAME().getText();
 		createChain(name);
+	}
+
+
+
+	@Override
+	public void enterRle(RleContext ctx) {
+		super.enterRle(ctx);
 	}
 
 

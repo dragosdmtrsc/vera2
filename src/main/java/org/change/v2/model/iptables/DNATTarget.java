@@ -46,6 +46,11 @@ public class DNATTarget extends IPTablesTarget {
 	public void accept(IVisitor visitor) {
 		visitor.visit(this);
 	}
+
+	@Override
+	public String toString() {
+		return "DNATTarget [ipAddress=" + ipAddress + "]";
+	}
 	
 	// Start of user code (user defined methods for DNATTarget)
 	

@@ -4,6 +4,10 @@ import org.change.v2.model.IVisitor;
 
 public class MarkOption extends SimpleOption {
 
+	@Override
+	public String toString() {
+		return "MarkOption [value=" + value + ", mask=" + mask + ", name=" + name + "]";
+	}
 	private int value, mask;
 	private String name;
 	public MarkOption(boolean neg, int value, int mask, String name) {

@@ -1,4 +1,4 @@
-package org.change.v2.listeners;
+package org.change.v2.listeners.openflow;
 
 import java.io.FileInputStream;
 import java.math.BigInteger;
@@ -6,7 +6,6 @@ import java.math.BigInteger;
 import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.tree.ParseTreeWalker;
-import org.change.v2.listeners.openflow.FlowEntryListener;
 
 import generated.openflow_grammar.OpenflowLexer;
 import generated.openflow_grammar.OpenflowParser;

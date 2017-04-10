@@ -9,7 +9,8 @@ package generated.iptables_grammar;
 table : (rle NL 
 		| chain NL
 		| policy NL
-		| NL)*;
+		| NL
+		| EOF)* ; 
 rle : '-A' chainname match* target;
 chain : '-N' chainname;
 policy : '-P' chainname targetName;
@@ -22,14 +23,14 @@ targetName : (acceptTarget // TODO
 	| connmarkTarget  // TODO
 	| ctTarget // TODO 
 	| dnatTarget // TODO
-	| markTarget // TODO
+	| markTarget // TODO 
 	| notrackTarget // TODO
 	| redirectTarget // TODO
 	| rejectTarget  // TODO
 	| setTarget // TODO
 	| snatTarget // TODO
 	| jumpyTarget
-);
+); 
  
 jumpyTarget : NAME; 
 acceptTarget : 'ACCEPT';

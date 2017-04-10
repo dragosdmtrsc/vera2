@@ -152,6 +152,12 @@ public class GenericOption extends SimpleOption {
 		this.tagName = tagName;
 	}
 
+	@Override
+	public String toString() {
+		return "GenericOption [endValue=" + endValue + ", startValue=" + startValue + ", isInterval=" + isInterval
+				+ ", isTag=" + isTag + ", tagName=" + tagName + "]";
+	}
+
 
 
 }

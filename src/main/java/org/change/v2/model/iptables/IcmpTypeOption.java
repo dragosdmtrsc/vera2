@@ -64,6 +64,11 @@ public class IcmpTypeOption extends SimpleOption {
 		visitor.visit(this);
 	}
 
+	@Override
+	public String toString() {
+		return "IcmpTypeOption [theType=" + theType + "]";
+	}
+
 
 
 }

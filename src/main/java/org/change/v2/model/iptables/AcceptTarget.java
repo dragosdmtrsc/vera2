@@ -32,6 +32,11 @@ public class AcceptTarget extends IPTablesTarget {
 	public void accept(IVisitor visitor) {
 		visitor.visit(this);
 	}
+
+	@Override
+	public String toString() {
+		return "AcceptTarget []";
+	}
 	
 	// Start of user code (user defined methods for AcceptTarget)
 	

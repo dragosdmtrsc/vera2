@@ -58,6 +58,11 @@ public class PhysdevOutOption extends SimpleOption {
 		visitor.visit(this);
 	}
 
+	@Override
+	public String toString() {
+		return "PhysdevOutOption [value=" + value + "]";
+	}
+
 
 
 }

@@ -51,6 +51,11 @@ public class SimpleOption implements MatchOption {
 		this.neg = newNeg;
 	}
 
+	@Override
+	public String toString() {
+		return "SimpleOption [neg=" + neg + "]";
+	}
+
 
 
 }

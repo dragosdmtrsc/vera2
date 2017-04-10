@@ -32,6 +32,11 @@ public class RejectTarget extends IPTablesTarget {
 	public void accept(IVisitor visitor) {
 		visitor.visit(this);		
 	}
+
+	@Override
+	public String toString() {
+		return "RejectTarget []";
+	}
 	
 	// Start of user code (user defined methods for RejectTarget)
 	

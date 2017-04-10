@@ -43,4 +43,9 @@ public class SNATTarget extends IPTablesTarget {
 		visitor.visit(this);
 	}
 
+	@Override
+	public String toString() {
+		return "SNATTarget [ipAddress=" + ipAddress + "]";
+	}
+
 }
