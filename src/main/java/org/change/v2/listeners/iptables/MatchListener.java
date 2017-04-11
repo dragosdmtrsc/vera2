@@ -1,5 +1,6 @@
 package org.change.v2.listeners.iptables;
 
+import java.util.Map.Entry;
 import java.util.stream.Collectors;
 
 import org.change.v2.iptables.ICMPDefinitions;
@@ -18,6 +19,7 @@ import org.change.v2.model.iptables.PhysdevIsBridgedOption;
 import org.change.v2.model.iptables.PortOption;
 import org.change.v2.model.iptables.ProtocolOption;
 import org.change.v2.model.iptables.StateOption;
+import org.change.v2.model.openflow.Decoder;
 import org.change.v2.util.conversion.RepresentationConversion;
 
 import generated.iptables_grammar.IptablesBaseListener;
@@ -66,9 +68,9 @@ public class MatchListener extends IptablesBaseListener {
 	   */
 	  private Integer protoToInt(String proto)  
 	  {
-	    if (proto == "tcp") return 6;
-	    else if (proto == "udp") return 17;
-	    else if (proto == "icmp") return 1;
+	    if ("tcp".equals(proto)) return 6;
+	    else if ("udp".equals(proto)) return 17;
+	    else if ("icmp".equals(proto)) return 1;
 	    else return 0;
 	  }
 	  
@@ -111,9 +113,18 @@ public class MatchListener extends IptablesBaseListener {
 	  }
 	  
 	  @Override public void enterIpMasked(IpMaskedContext ip) {
-	    long asInt = RepresentationConversion.ipToNumber(ip.IP_MASK().getText());
-	    currentSourceOption.setStart(asInt);
-	    currentSourceOption.setEnd(asInt);  
+		String ipMasked = ip.getText();
+		String ipv = ipMasked;
+		Long mask = 0L;
+		if (ipMasked.contains("/"))
+		{
+			ipv = ipMasked.split("/")[0];
+			mask = Decoder.decodeLong(ipMasked.split("/")[1]);
+		}
+		Long ipn = Decoder.decodeIP4(ipv);
+		Entry<Long, Long> interval = Decoder.ipMaskToInterval(ipn, mask);
+		currentSourceOption.setStart(interval.getKey());
+	    currentSourceOption.setEnd(interval.getValue());  
 	  }
 	  
 	  @Override public void enterIpNormal(IpNormalContext ip) {

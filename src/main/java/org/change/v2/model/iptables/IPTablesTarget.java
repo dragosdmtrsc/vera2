@@ -80,7 +80,7 @@ public abstract class IPTablesTarget implements Acceptor {
 
 	@Override
 	public String toString() {
-		return "IPTablesTarget [name=" + name + ", iPTablesRules=" + iPTablesRules + "]";
+		return "IPTablesTarget [name=" + name + "]";
 	}
 
 

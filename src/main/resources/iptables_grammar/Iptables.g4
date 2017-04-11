@@ -26,7 +26,7 @@ targetName : (acceptTarget // TODO
 	| markTarget // TODO 
 	| notrackTarget // TODO
 	| redirectTarget // TODO
-	| rejectTarget  // TODO
+	| rejectTarget  // TODO 
 	| setTarget // TODO
 	| snatTarget // TODO
 	| jumpyTarget
@@ -192,9 +192,9 @@ dstaddr : neg='!'? ('-d' | '--destination') addressExpression;
 MATCH : '-m';
 
 IP_MASK : IP '/' INT;
-IP : INT '.' INT '.' INT '.' INT {System.out.println("IP");};
-INT : DIGIT+ {System.out.println("INT");};
-NAME : (ALPHA) (ALPHA | DIGIT)* {System.out.println("NAME");};
+IP : INT '.' INT '.' INT '.' INT ;
+INT : DIGIT+;
+NAME : (ALPHA) (ALPHA | DIGIT)*;
 WS : [ \t]+ -> skip ; // skip spaces, tabs, newlines
 NL : '\r'? '\n';
 

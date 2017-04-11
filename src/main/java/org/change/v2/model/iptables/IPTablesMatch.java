@@ -79,7 +79,7 @@ public class IPTablesMatch implements Acceptor {
 
 	@Override
 	public String toString() {
-		return "IPTablesMatch [iPTablesRule=" + iPTablesRule + ", matchOptions=" + matchOptions + "]";
+		return "IPTablesMatch [matchOptions=" + matchOptions + "]";
 	}
 
 

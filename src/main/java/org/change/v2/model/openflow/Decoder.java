@@ -1,6 +1,7 @@
 package org.change.v2.model.openflow;
 
-import java.net.InetAddress;
+import java.util.AbstractMap.SimpleEntry;
+import java.util.Map.Entry;
 
 public class Decoder {
 	
@@ -13,6 +14,17 @@ public class Decoder {
 //	 Normal	0xfffffffa
 //	 Flood	0xfffffffb
 //	ANY	0xffffffff
+	
+	
+	public static Entry<Long, Long> ipMaskToInterval(Long ip, Long mask)
+	{
+	    long ipv = ip;
+	    long maskv = mask;
+	    long addrS = 32 - maskv;
+	    long lowerM = Long.MAX_VALUE << addrS;
+		long higherM = Long.MAX_VALUE >>> (maskv + 31);
+	    return new SimpleEntry<Long, Long>(ipv & lowerM, ipv | higherM);
+	}
 	
 	public static Long decodeMAC(String value) {
 		long v = 0;

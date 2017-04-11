@@ -1,9 +1,10 @@
 package org.change.v2.listeners.iptables;
 
+import java.util.Optional;
+
 import org.antlr.v4.runtime.tree.ParseTreeWalker;
 import org.change.v2.model.iptables.IPTablesChain;
 import org.change.v2.model.iptables.IPTablesTable;
-import org.change.v2.model.iptables.JumpyTarget;
 
 import generated.iptables_grammar.IptablesBaseListener;
 import generated.iptables_grammar.IptablesParser.ChainContext;
@@ -13,9 +14,12 @@ import generated.iptables_grammar.IptablesParser.RleContext;
 public class TableMatcher extends IptablesBaseListener {
 	private String name;
 	private IPTablesTable table = new IPTablesTable();
+		
+	
 	public TableMatcher(String name) {
 		super();
-		this.name = name;
+		table = new IPTablesTable();
+		table.setName(name);
 		this.createChain("PREROUTING");
 		this.createChain("INPUT");
 		this.createChain("OUTPUT");
@@ -43,7 +47,23 @@ public class TableMatcher extends IptablesBaseListener {
 
 	@Override
 	public void enterRle(RleContext ctx) {
-		super.enterRle(ctx);
+		RuleListener listener = new RuleListener();
+		ParseTreeWalker ptw = new ParseTreeWalker();
+		ptw.walk(listener, ctx);
+		String name = ctx.chainname().getText();
+		Optional<IPTablesChain> opChain = this.table.getIPTablesChains().stream().filter(s -> s.getName().equalsIgnoreCase(name)).findFirst();
+		IPTablesChain chain = null;
+		if (opChain.isPresent())
+		{
+			chain = opChain.get();
+		}
+		else
+		{
+			chain = new IPTablesChain();
+			chain.setName(name);
+			this.table.getIPTablesChains().add(chain);
+		}
+		chain.getIPTablesRules().add(listener.getRule());
 	}
 
 
@@ -51,13 +71,25 @@ public class TableMatcher extends IptablesBaseListener {
 	private void createChain(String name) {
 		IPTablesChain chain = new IPTablesChain();
 		chain.setName(name);
-		this.table.getIPTablesChains().add(chain);
+		if (!this.table.getIPTablesChains().stream().anyMatch(s -> s.getName().equalsIgnoreCase(name)))
+			this.table.getIPTablesChains().add(chain);
 	}
 	@Override
 	public void enterPolicy(PolicyContext ctx) {
 		super.enterPolicy(ctx);
 		String name = ctx.chainname().NAME().getText();
-		IPTablesChain chain = this.table.getIPTablesChains().stream().filter(s -> s.getName().equalsIgnoreCase(name)).findFirst().get();
+		Optional<IPTablesChain> opChain = this.table.getIPTablesChains().stream().filter(s -> s.getName().equalsIgnoreCase(name)).findFirst();
+		IPTablesChain chain = null;
+		if (opChain.isPresent())
+		{
+			chain = opChain.get();
+		}
+		else
+		{
+			chain = new IPTablesChain();
+			chain.setName(name);
+			this.table.getIPTablesChains().add(chain);
+		}
 		ParseTreeWalker walker = new ParseTreeWalker();
 		TargetMatcher matcher = new TargetMatcher();
 		walker.walk(matcher, ctx.targetName());
