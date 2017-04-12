@@ -1,5 +1,6 @@
 package org.change.v2.model.openflow;
 
+import org.change.v2.model.OpenFlowTable;
 import org.change.v2.model.openflow.actions.AllAction;
 import org.change.v2.model.openflow.actions.ApplyActionsAction;
 import org.change.v2.model.openflow.actions.ClearActionsAction;
@@ -90,5 +91,7 @@ public interface FlowVisitor {
 	void visit(SampleAction action);
 	void visit(LearnAction action);
 	void visit(ExitAction action);
+	void visit(OpenFlowTable openFlowTable);
+	void visit(Match match);
 
 }

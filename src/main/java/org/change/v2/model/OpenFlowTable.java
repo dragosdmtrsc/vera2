@@ -17,10 +17,12 @@ import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.tree.ParseTreeWalker;
 import org.change.v2.listeners.openflow.FlowEntryListener;
+import org.change.v2.model.openflow.FlowAcceptor;
 import org.change.v2.model.openflow.FlowEntry;
+import org.change.v2.model.openflow.FlowVisitor;
 import org.change.v2.model.openflow.PortParser;
 
-public class OpenFlowTable {
+public class OpenFlowTable implements FlowAcceptor {
 	private List<FlowEntry> entries = new ArrayList<FlowEntry>();
 	private int tableId;
 	
@@ -101,6 +103,16 @@ public class OpenFlowTable {
 //		System.out.println(cfg);
 		cfg = appendPorts(new FileInputStream("stack-inputs/ports-br-int-controller.txt"), cfg);
 		System.out.println(cfg);
+	}
+
+
+	@Override
+	public void accept(FlowVisitor visitor) {
+		visitor.visit(this);
+		for (FlowEntry fe : this.getEntries())
+		{
+			fe.accept(visitor);
+		}
 	}
 	
 }

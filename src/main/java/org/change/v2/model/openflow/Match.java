@@ -9,9 +9,7 @@ public class Match implements FlowAcceptor {
 	public QualifiedField getFieldDst() {
 		return fieldDst;
 	}
-	public boolean hasMask() {
-		return hasMask;
-	}
+
 	private long value;
 	private long mask;
 	private boolean hasMask;
@@ -48,6 +46,7 @@ public class Match implements FlowAcceptor {
 	}
 	@Override
 	public void accept(FlowVisitor visitor) {
+		visitor.visit(this);
 	}
 	@Override
 	public String toString() {
