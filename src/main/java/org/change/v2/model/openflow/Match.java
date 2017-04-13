@@ -3,9 +3,7 @@ package org.change.v2.model.openflow;
 public class Match implements FlowAcceptor {
 
 	private QualifiedField field, fieldDst;
-	public void setFieldDst(QualifiedField fieldDst) {
-		this.fieldDst = fieldDst;
-	}
+
 	public QualifiedField getFieldDst() {
 		return fieldDst;
 	}
@@ -13,7 +11,11 @@ public class Match implements FlowAcceptor {
 	private long value;
 	private long mask;
 	private boolean hasMask;
+	private boolean isReg;
 	
+	public boolean isReg() {
+		return isReg;
+	}
 	public boolean isMasked() {
 		return hasMask;
 	}
@@ -31,11 +33,13 @@ public class Match implements FlowAcceptor {
 	}
 	public void setValue(long ivalue) {
 		this.value = ivalue;
+		this.isReg = false;
 	}
 	
 	public void setValue(QualifiedField qf)
 	{
 		fieldDst = qf;
+		this.isReg = true;
 	}
 	
 	public long getMask() {

@@ -150,7 +150,7 @@ public class FlowEntryListener extends OpenflowBaseListener {
 			}
 			else if (value.contains("["))
 			{
-				theMatch.setFieldDst(QualifiedField.fromString(value));
+				theMatch.setValue(QualifiedField.fromString(value));
 			}
 			else
 			{
