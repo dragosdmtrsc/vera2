@@ -422,15 +422,7 @@ public class FlowEntryListener extends OpenflowBaseListener {
 	public void exitLearn(LearnContext ctx)
 	{
 		LearnAction la = new LearnAction();
-		for (Match m : this.currentEntry.getMatches())
-		{
-			la.getMatches().add(m);
-		}
-		for (Action a : this.currentEntry.getActions())
-		{
-			la.getActions().add(a);
-		}
-
+		la.setFlow(currentEntry);
 		this.currentEntry = savedFlows.pop();
 		this.currentEntry.getActions().add(la);
 	}

@@ -173,7 +173,7 @@ target : 'output:' port #outputPort
 |  'goto_table:' NUMBER #goto 
 |  'fin_timeout('timeoutParam timeoutParam ')' #finTimeout
 |  'sample(' sampleParam+ ')' #sample
-|  'learn' '(' (match | argument | target)*  ')'  #learn
+|  'learn' '(' (match | argument | flowMetadata | target)*  ')'  #learn
 |  'exit' #exit 
 |  port #forwardToPortTarget 
 ;

@@ -66,6 +66,11 @@ import org.change.v2.analysis.processingmodels.instructions.Fail
 import org.change.v2.analysis.memory.Tag
 import org.change.v2.analysis.processingmodels.instructions.Deallocate
 import org.change.v2.analysis.processingmodels.instructions.Allocate
+import org.change.v2.analysis.processingmodels.instructions.Forward
+import org.change.v2.analysis.processingmodels.instructions.Fail
+import org.change.v2.analysis.expression.concrete.ConstantValue
+import org.change.v2.analysis.processingmodels.instructions.If
+import org.change.v2.analysis.memory.Tag
 
 class Openflow2Sefl(bridge : OVSBridge)  {
   
@@ -338,8 +343,12 @@ class ActionVisitor extends BaseFlowVisitor {
 
 	
 	override def visit(action : SetTunnelAction) {
-		// TODO Auto-generated method stub
-		
+			this.instruction = (
+        InstructionBlock(
+            Assign(action.getClass.getSimpleName, ConstantValue(1))),
+        action.getClass.getSimpleName,
+          Assign(Tag("TunnelId"), ConstantValue(action.getTunId))
+        )
 	}
 
 	
@@ -348,112 +357,84 @@ class ActionVisitor extends BaseFlowVisitor {
 		
 	}
 
-	
-	override def visit(action : SetQueueAction) {
-		// TODO Auto-generated method stub
-		
-	}
-
-	
-	override def visit(action : PopQueueAction) {
-		// TODO Auto-generated method stub
-		
-	}
-
-	
-	override def visit(action : DecTtlAction) {
-		// TODO Auto-generated method stub
-		
-	}
-
-	
-	override def visit(action : SetMplsTtlAction) {
-		// TODO Auto-generated method stub
-		
-	}
-
-	
-	override def visit(action : DecMplsTtlAction) {
-		// TODO Auto-generated method stub
-		
-	}
 
 	
 	override def visit(action : MoveAction) {
-		// TODO Auto-generated method stub
-		
+	  // TODO: Please add logic here to move things around => i.e. mapping between 
+	  // field name and Tag/Memory value
+			this.instruction = (
+        InstructionBlock(
+            Assign(action.getClass.getSimpleName, ConstantValue(1))),
+        action.getClass.getSimpleName,
+          Assign(action.getTo.getName, :@(action.getFrom.getName))
+        )		
 	}
 
 	
 	override def visit(action : LoadAction) {
-		// TODO Auto-generated method stub
-		
+	  // TODO: Please add logic here to move things around => i.e. mapping between 
+	  // field name and Tag/Memory value
+	  val t = 
+	  if (action.getTo.isPresent() && action.getFrom.isPresent())
+	  {
+	    Assign(action.getTo.get.getName, :@(action.getFrom.get.getName))
+	  }
+	  else if (action.getTo.isPresent() && !action.getFrom.isPresent())
+	  {
+	    Assign(action.getTo.get.getName, ConstantValue(action.getValue.get))
+	  }
+	  else if (!action.getTo.isPresent() && action.getFrom.isPresent)
+	  {
+	    Assign(action.getFrom.get.getName, :@(action.getFrom.get.getName))
+	  }
+	  else 
+	  {
+	    throw new IllegalArgumentException("Cannot do that, load action must have at least one parameter")
+	  }
+			this.instruction = (
+        InstructionBlock(
+            Assign(action.getClass.getSimpleName, ConstantValue(1))),
+        action.getClass.getSimpleName,
+          t
+        )	
 	}
 
-	
-	override def visit(action : PushAction) {
-		// TODO Auto-generated method stub
-		
-	}
-
-	
-	override def visit(action : PopAction) {
-		// TODO Auto-generated method stub
-		
-	}
-
-	
 	override def visit(action : SetFieldAction) {
-		// TODO Auto-generated method stub
-		
+	  this.instruction = (
+        InstructionBlock(
+            Assign(action.getClass.getSimpleName, ConstantValue(1))),
+        action.getClass.getSimpleName,
+          Assign(action.getField.getName, ConstantValue(action.getValue))
+        )
+	  
 	}
 
 	
 	override def visit(action : ApplyActionsAction) {
-		// TODO Auto-generated method stub
-		
+		val ll = InstructionBlock(action.getActions.map(s => {
+		  val av = new ActionVisitor()
+		  s.accept(av)
+		  av.getInstruction._3
+		}))
+		this.instruction = (ll, action.getClass.getSimpleName, NoOp)
 	}
 
 	
 	override def visit(action : ClearActionsAction) {
-		// TODO Auto-generated method stub
-		
+		this.instruction = (
+        InstructionBlock(
+            Assign(action.getClass.getSimpleName, ConstantValue(1))),
+        action.getClass.getSimpleName,
+          NoOp
+        )
 	}
-
-	
-	override def visit(action : WriteMetadataAction) {
-		// TODO Auto-generated method stub
-		
-	}
-
-	
-	override def visit(action : GotoTableAction) {
-		// TODO Auto-generated method stub
-		
-	}
-
-	
-	override def visit(action : FinTimeoutAction) {
-		// TODO Auto-generated method stub
-		
-	}
-
-	
-	override def visit(action : SampleAction) {
-		// TODO Auto-generated method stub
-		
-	}
-
 	
 	override def visit(action : LearnAction) {
-		// TODO Auto-generated method stub
-		
-	}
-
-	
-	override def visit(action : ExitAction) {
-		// TODO Auto-generated method stub
-		
-	}
-  
+      this.instruction = (
+        InstructionBlock(
+            Assign(action.getClass.getSimpleName, ConstantValue(1))),
+        action.getClass.getSimpleName,
+          Assign("Learned___" + action.getFlowEntry().getTable + "__" + action.getFlowEntry.getPriority, ConstantValue(1))
+        )	
+   } 
 }

@@ -5,12 +5,17 @@ import java.util.List;
 
 import org.change.v2.model.openflow.Action;
 import org.change.v2.model.openflow.ActionType;
+import org.change.v2.model.openflow.FlowEntry;
 import org.change.v2.model.openflow.FlowVisitor;
 import org.change.v2.model.openflow.Match;
 
 public class LearnAction extends Action {
-	private List<Action> actions = new ArrayList<Action>();
-	private List<Match> matches = new ArrayList<Match>();
+
+	private FlowEntry flowEntry;
+
+	public FlowEntry getFlowEntry() {
+		return flowEntry;
+	}
 
 	public LearnAction() {
 		super(ActionType.Learn);
@@ -21,20 +26,9 @@ public class LearnAction extends Action {
 		visitor.visit(this);
 	}
 
-	public List<Match> getMatches() {
-		// TODO Auto-generated method stub
-		return matches;
+	public void setFlow(FlowEntry fe)	
+	{
+		this.flowEntry = fe;
 	}
-	
-	public List<Action> getActions() {
-		return this.actions;
-	}
-
-	@Override
-	public String toString() {
-		return "LearnAction [matches=" + matches + ", actions=" + actions  + "]";
-	}
-	
-	
 	
 }
