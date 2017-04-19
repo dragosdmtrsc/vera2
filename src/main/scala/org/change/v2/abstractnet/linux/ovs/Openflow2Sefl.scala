@@ -72,9 +72,32 @@ import org.change.v2.analysis.expression.concrete.ConstantValue
 import org.change.v2.analysis.processingmodels.instructions.If
 import org.change.v2.analysis.memory.Tag
 
+
+case class ActionToGo(entry : FlowEntry, defer : Boolean = false) {
+  
+}
+
 class Openflow2Sefl(bridge : OVSBridge)  {
   
   private var tableVisitor = new TableVisitor()
+  
+  def enterBridge(port : Int) : Instruction = {
+    val flows = bridge.getConfig.getTables.foldLeft(List[FlowEntry]())(_ ++ _.getEntries)
+    val learns = flows.foldLeft(List[Action]()) { (acc, s) => 
+      acc ++ s.getActions.filter { x => x.isInstanceOf[LearnAction] } 
+    }.map { x => x.asInstanceOf[LearnAction] }
+    val tablesWithActions = bridge.getConfig.getTables.map 
+    { l => 
+      (l.getTableId, 
+        (l.getEntries.map (ActionToGo(_))
+          ++ (learns.
+            filter { y => (y.getFlowEntry.getTable == l.getTableId) }.
+            map { y => ActionToGo(y.getFlowEntry, true) }))
+        .sortWith((u1, u2) => u1.entry.getPriority > u2.entry.getPriority)
+      ) 
+    }
+  }
+  
   
   def executeTable(tab : Int) : Instruction = {
     val table = bridge.getConfig.getTables()(tab)
