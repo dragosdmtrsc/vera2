@@ -74,14 +74,33 @@ import org.change.v2.analysis.memory.Tag
 
 
 case class ActionToGo(entry : FlowEntry, defer : Boolean = false) {
+  def apply(index : Int) = {
+    val matches = (i : Instruction) => 
+    { 
+      val fin = InstructionBlock(i, Forward("ApplyActions_" + entry.getTable + "/FEntry_" + index))
+      entry.getMatches.map(s => {
+        Constrain(s.getField.getName, :==:(ConstantValue(s.getValue)))
+      }).foldRight(fin : Instruction)((u, acc) => {
+        If (u, acc, Forward("Tab_" + entry.getTable + "/FEntry_" + index + 1))
+      })
+    }
+    
+    val what = entry.getActions.map(s => {
+      val av = new ActionVisitor()
+      s.accept(av)
+      av.getInstruction
+    })
+    (matches(InstructionBlock(what.map(_._1))),what.map { x => x._2 -> x._3 }.toMap)
+  }
   
 }
+
 
 class Openflow2Sefl(bridge : OVSBridge)  {
   
   private var tableVisitor = new TableVisitor()
   
-  def enterBridge(port : Int) : Instruction = {
+  def createBridge() = {
     val flows = bridge.getConfig.getTables.foldLeft(List[FlowEntry]())(_ ++ _.getEntries)
     val learns = flows.foldLeft(List[Action]()) { (acc, s) => 
       acc ++ s.getActions.filter { x => x.isInstanceOf[LearnAction] } 
@@ -94,8 +113,16 @@ class Openflow2Sefl(bridge : OVSBridge)  {
             filter { y => (y.getFlowEntry.getTable == l.getTableId) }.
             map { y => ActionToGo(y.getFlowEntry, true) }))
         .sortWith((u1, u2) => u1.entry.getPriority > u2.entry.getPriority)
-      ) 
+      )
     }
+    
+    val instrs = tablesWithActions.map(s => s._2.zipWithIndex.map(u => "Tab_" +  s._1 + "/FEntry_" + u._2 -> u._1(u._2)))
+    val blocks = instrs.foldLeft(List[(String, (Instruction, Map[String, Instruction]))]())((acc, u) => {
+          acc ++ u.map(s => s._1 -> s._2)
+        }).toMap
+    val priorActions = blocks.map(s => s._1 -> s._2._1)
+    // apply these actions in the apply actions section of each flow entry
+    val finalActions = blocks.map(s => s._1 -> s._2._2)
   }
   
   
@@ -105,7 +132,6 @@ class Openflow2Sefl(bridge : OVSBridge)  {
     tableVisitor.getInstruction
   }
 }
-
 
 class TableVisitor extends BaseFlowVisitor {
   
