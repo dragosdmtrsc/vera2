@@ -86,19 +86,23 @@ case class ActionToGo(entry : FlowEntry, defer : Boolean = false) {
     }
     
     val what = entry.getActions.map(s => {
-      val av = new ActionVisitor()
+      val av = new ActionVisitor(entry, index)
       s.accept(av)
-      av.getInstruction
+      val instr = av.getInstruction
+      if (defer)
+        (If(Constrain("Learned___" + entry.hashCode(), :==:(ConstantValue(1))),
+            instr._1,
+            NoOp), instr._2, instr._3)
+      else
+        instr
     })
-    (matches(InstructionBlock(what.map(_._1))),what.map { x => x._2 -> x._3 }.toMap)
+    (matches(InstructionBlock(what.map(_._1))), what.map { x => x._2 -> x._3 }.toMap)
   }
   
 }
 
 
 class Openflow2Sefl(bridge : OVSBridge)  {
-  
-  private var tableVisitor = new TableVisitor()
   
   def createBridge() = {
     val flows = bridge.getConfig.getTables.foldLeft(List[FlowEntry]())(_ ++ _.getEntries)
@@ -124,49 +128,11 @@ class Openflow2Sefl(bridge : OVSBridge)  {
     // apply these actions in the apply actions section of each flow entry
     val finalActions = blocks.map(s => s._1 -> s._2._2)
   }
-  
-  
-  def executeTable(tab : Int) : Instruction = {
-    val table = bridge.getConfig.getTables()(tab)
-    table.accept(tableVisitor)
-    tableVisitor.getInstruction
-  }
+
 }
 
-class TableVisitor extends BaseFlowVisitor {
-  
-  private var instruction : Instruction = NoOp
-  
-  def getInstruction = instruction
-  override def visit(table : OpenFlowTable) = {
-    instruction = NoOp
-  }
-  
-  
-  override def visit(entry : FlowEntry) {
-    val ifin = InstructionBlock(entry.getActions.map(visitAction).+:(Assign("Matched", ConstantValue(1)))) : Instruction
-    If(Constrain("Matched", :~:(:==:(ConstantValue(1)))),
-        InstructionBlock(entry.getMatches.map(visitMatch).foldRight(ifin)((s, t) => If (s, t, NoOp))),
-        NoOp)
-  }
-  
-  override def visit(m : Match) = {
-    val iff = visitMatch(m)
-  }
-  
-  protected def visitMatch(m : Match) : Instruction = {
-    Constrain(m.getField.getName, :==:(ConstantValue(m.getValue)))
-  }
-  
-  private def visitAction(a : Action) : Instruction = {
-    var vi = new ActionVisitor()
-    a.accept(vi)
-    vi.getInstruction._1
-  }
-  
-}
 
-class ActionVisitor extends BaseFlowVisitor {
+class ActionVisitor(entry : FlowEntry, index : Int = 0) extends BaseFlowVisitor {
   private var instruction : (Instruction, String, Instruction) = (NoOp, "", NoOp)
   def getInstruction = instruction
 
@@ -207,7 +173,7 @@ class ActionVisitor extends BaseFlowVisitor {
 	override def visit(action : FloodAction) {
     this.instruction = (
         InstructionBlock(
-            Assign("FloodAction", ConstantValue(1))),
+            Assign("FloodAction", ConstantValue(entry.getTable))),
         "FloodAction",
     		Forward("Flood"))
 	}
@@ -461,7 +427,7 @@ class ActionVisitor extends BaseFlowVisitor {
 	
 	override def visit(action : ApplyActionsAction) {
 		val ll = InstructionBlock(action.getActions.map(s => {
-		  val av = new ActionVisitor()
+		  val av = new ActionVisitor(entry, index)
 		  s.accept(av)
 		  av.getInstruction._3
 		}))
@@ -483,7 +449,7 @@ class ActionVisitor extends BaseFlowVisitor {
         InstructionBlock(
             Assign(action.getClass.getSimpleName, ConstantValue(1))),
         action.getClass.getSimpleName,
-          Assign("Learned___" + action.getFlowEntry().getTable + "__" + action.getFlowEntry.getPriority, ConstantValue(1))
+          Assign("Learned___" + action.getFlowEntry.hashCode(), ConstantValue(1))
         )	
    } 
 }

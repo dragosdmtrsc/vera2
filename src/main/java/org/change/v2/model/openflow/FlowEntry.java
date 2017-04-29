@@ -2,6 +2,7 @@ package org.change.v2.model.openflow;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 public class FlowEntry implements FlowAcceptor {
@@ -42,6 +43,12 @@ public class FlowEntry implements FlowAcceptor {
 	public void accept(FlowVisitor visitor) {
 		visitor.visit(this);
 	}
+	
+	public int hashCode() {
+		return Objects.hash(priority, table, matches.hashCode(), actions.hashCode());
+	}
+	
+	
 	@Override
 	public String toString() {
 		return "FlowEntry [priority=" +  priority + ", table=" + table + ", cookie=" + cookie + ", matches=" + 

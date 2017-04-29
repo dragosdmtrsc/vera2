@@ -4,6 +4,7 @@
 package org.change.v2.model;
 
 import java.util.HashSet;
+import java.util.List;
 
 // Start of user code (user defined imports)
 
@@ -14,7 +15,7 @@ import java.util.HashSet;
  * 
  * @author Dragos
  */
-public class Bridge {
+public abstract class Bridge {
 	/**
 	 * Description of the property computers.
 	 */
@@ -25,10 +26,6 @@ public class Bridge {
 	 */
 	private String kind = "";
 	
-	/**
-	 * Description of the property nICs.
-	 */
-	public HashSet<NIC> nICs = new HashSet<NIC>();
 	
 	/**
 	 * Description of the property name.
@@ -55,7 +52,7 @@ public class Bridge {
 	 * Returns computers.
 	 * @return computers 
 	 */
-	public Computer getComputers() {
+	public Computer getComputer() {
 		return this.computers;
 	}
 	
@@ -87,9 +84,7 @@ public class Bridge {
 	 * Returns nICs.
 	 * @return nICs 
 	 */
-	public HashSet<NIC> getNICs() {
-		return this.nICs;
-	}
+	public abstract List<? extends NIC> getNICs();
 
 	/**
 	 * Returns name.

@@ -3,7 +3,11 @@
  *******************************************************************************/
 package org.change.v2.model;
 
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 // Start of user code (user defined imports)
 
@@ -103,4 +107,77 @@ public class Computer implements Acceptor {
 	public void accept(IVisitor visitor) {
 		visitor.visit(this);
 	}
+	
+	private Map<String, NIC> preloaded = null;
+	public NIC getNic(String name)
+	{
+		if (preloaded == null)
+		{
+			preloaded = new HashMap<String, NIC>();
+			for (Namespace ns : symnetNamespaces)
+			{
+				HashSet<NIC> nics = ns.getSymnetNICs();
+				for (NIC nic : nics)
+				{
+					preloaded.put(name, nic);
+				}
+			}
+		}
+		if (preloaded.containsKey(name))
+		{
+			return preloaded.get(name);
+		}
+		return null;
+	}
+	
+	
+	public boolean isBridged(String iface)
+	{
+		NIC theNic = this.getNic(iface);
+		if (theNic == null)
+		{
+			return false;
+		}
+		else
+		{
+			for (Bridge br : this.getBridges())
+			{
+				List<? extends NIC> nics = br.getNICs();
+				for (NIC nic : nics)
+				{
+					if (nic.getName().equalsIgnoreCase(iface))
+					{
+						return true;
+					}
+				}
+			}
+		}
+		return false;
+	}
+	
+	
+	public Bridge getBridge(String iface)
+	{
+		NIC theNic = this.getNic(iface);
+		if (theNic == null)
+		{
+			return null;
+		}
+		else
+		{
+			for (Bridge br : this.getBridges())
+			{
+				List<? extends NIC> nics = br.getNICs();
+				for (NIC nic : nics)
+				{
+					if (nic.getName().equalsIgnoreCase(iface))
+					{
+						return br;
+					}
+				}
+			}
+		}
+		return null;
+	}
+	
 }

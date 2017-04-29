@@ -184,7 +184,7 @@ public class OVSParser {
 						}
 						realNic.getOptions().putAll(theIface.nicOptions);
 					}
-					real.getNICs().add(realNic);
+					real.getNICs().add((OVSNIC) realNic);
 				}
 				else if (port.ifaces.size() != 1)
 				{
@@ -209,8 +209,8 @@ public class OVSParser {
 
 			for (OVSBridge real : bridges)
 			{
-				Optional<NIC> nicOne = real.getNICs().stream().filter(s -> s.getName().equals(ll.ifaceOne)).findFirst();
-				Optional<NIC> nicTwo = real.getNICs().stream().filter(s -> s.getName().equals(ll.ifaceTwo)).findFirst();
+				Optional<OVSNIC> nicOne = real.getNICs().stream().filter(s -> s.getName().equals(ll.ifaceOne)).findFirst();
+				Optional<OVSNIC> nicTwo = real.getNICs().stream().filter(s -> s.getName().equals(ll.ifaceTwo)).findFirst();
 				if (nicOne.isPresent())
 				{
 					oneEnd = nicOne.get();
@@ -309,8 +309,7 @@ public class OVSParser {
 					ll.setEnds(name, nnn.path(1).asText());
 					links.add(ll);
 				}
-				else
-					lookup.nicOptions.put(nnn.path(0).asText(), 
+				lookup.nicOptions.put(nnn.path(0).asText(), 
 							nnn.path(1).asText());
 			}
 			bridges.add(lookup);
@@ -326,7 +325,7 @@ public class OVSParser {
 		OVSParser.getBridges(str, new HashSet<NIC>(), links).stream().forEach(s -> {
 			System.out.println(s.getName() + " (" + s.getKind() + ")");
 			s.getNICs().forEach(u -> {
-				System.out.println("\t" + u.getName() + " (" + u.getType() + ")");
+				System.out.println("\t" + u.getName() + " (" + u.getType() + ") - " + u.getOptions());
 			});
 		});
 		for (Link l : links)

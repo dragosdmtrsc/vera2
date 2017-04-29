@@ -83,7 +83,6 @@ abstract class Executor[T] extends IExecutor[T] {
       }
       case v : Fork => {
         executeFork(v, s, verbose)        
-
       }
       case v : Forward => {
         executeForward(v, s, verbose)
@@ -94,11 +93,16 @@ abstract class Executor[T] extends IExecutor[T] {
       case v : InstructionBlock => {
         executeInstructionBlock(v, s, verbose)
       }
+      case _ => {
+        executeExoticInstruction(instruction, s, verbose)
+      }
     }
-//    println(instruction.toString() + " Exiting")
     as
   }
   
+  def executeExoticInstruction(instruction : Instruction, 
+      s : State,
+      verbose : Boolean) : T;
   
   def executeInstructionBlock(instruction : InstructionBlock, 
       s : State, 
@@ -329,6 +333,10 @@ abstract class AbstractInstructionExecutor extends InstructionExecutor {
     stateToError(s, errMsg)
   }
   
+  override def executeExoticInstruction(instruction : Instruction, s : State, v : Boolean) : 
+    (List[State], List[State]) = {
+    instruction(s, v)
+  }
   
   protected def isSat(memory : MemorySpace) : Boolean;
   

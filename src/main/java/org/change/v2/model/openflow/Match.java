@@ -56,6 +56,48 @@ public class Match implements FlowAcceptor {
 	public String toString() {
 		return "Match [field=" + field + ", value=" + value + ", mask=" + mask + "]";
 	}
+	@Override
+	public int hashCode() {
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + ((field == null) ? 0 : field.hashCode());
+		result = prime * result
+				+ ((fieldDst == null) ? 0 : fieldDst.hashCode());
+		result = prime * result + (hasMask ? 1231 : 1237);
+		result = prime * result + (isReg ? 1231 : 1237);
+		result = prime * result + (int) (mask ^ (mask >>> 32));
+		result = prime * result + (int) (value ^ (value >>> 32));
+		return result;
+	}
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		Match other = (Match) obj;
+		if (field == null) {
+			if (other.field != null)
+				return false;
+		} else if (!field.equals(other.field))
+			return false;
+		if (fieldDst == null) {
+			if (other.fieldDst != null)
+				return false;
+		} else if (!fieldDst.equals(other.fieldDst))
+			return false;
+		if (hasMask != other.hasMask)
+			return false;
+		if (isReg != other.isReg)
+			return false;
+		if (mask != other.mask)
+			return false;
+		if (value != other.value)
+			return false;
+		return true;
+	}
 	
 	
 }
