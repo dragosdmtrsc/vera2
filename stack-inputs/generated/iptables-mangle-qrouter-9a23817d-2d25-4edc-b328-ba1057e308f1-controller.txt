@@ -1,0 +1,29 @@
+-P PREROUTING ACCEPT
+-P INPUT ACCEPT
+-P FORWARD ACCEPT
+-P OUTPUT ACCEPT
+-P POSTROUTING ACCEPT
+-N neutron-l3-agent-FORWARD
+-N neutron-l3-agent-INPUT
+-N neutron-l3-agent-OUTPUT
+-N neutron-l3-agent-POSTROUTING
+-N neutron-l3-agent-PREROUTING
+-N neutron-l3-agent-float-snat
+-N neutron-l3-agent-floatingip
+-N neutron-l3-agent-mark
+-N neutron-l3-agent-scope
+-A PREROUTING -j neutron-l3-agent-PREROUTING
+-A INPUT -j neutron-l3-agent-INPUT
+-A FORWARD -j neutron-l3-agent-FORWARD
+-A OUTPUT -j neutron-l3-agent-OUTPUT
+-A POSTROUTING -j neutron-l3-agent-POSTROUTING
+-A neutron-l3-agent-POSTROUTING -o qg-5a347f2e-bc -m connmark --mark 0x0/0xffff0000 -j CONNMARK --save-mark --nfmask 0xffff0000 --ctmask 0xffff0000
+-A neutron-l3-agent-PREROUTING -j neutron-l3-agent-mark
+-A neutron-l3-agent-PREROUTING -j neutron-l3-agent-scope
+-A neutron-l3-agent-PREROUTING -m connmark ! --mark 0x0/0xffff0000 -j CONNMARK --restore-mark --nfmask 0xffff0000 --ctmask 0xffff0000
+-A neutron-l3-agent-PREROUTING -j neutron-l3-agent-floatingip
+-A neutron-l3-agent-PREROUTING -d 169.254.169.254/32 -i qr-+ -p tcp -m tcp --dport 80 -j MARK --set-xmark 0x1/0xffff
+-A neutron-l3-agent-float-snat -m connmark --mark 0x0/0xffff0000 -j CONNMARK --save-mark --nfmask 0xffff0000 --ctmask 0xffff0000
+-A neutron-l3-agent-mark -i qg-5a347f2e-bc -j MARK --set-xmark 0x2/0xffff
+-A neutron-l3-agent-scope -i qr-fb358de8-c4 -j MARK --set-xmark 0x4000000/0xffff0000
+-A neutron-l3-agent-scope -i qg-5a347f2e-bc -j MARK --set-xmark 0x4000000/0xffff0000

@@ -1,0 +1,17 @@
+NXST_FLOW reply (xid=0x4):
+ cookie=0xadc41eb92db03880, duration=120.357s, table=0, n_packets=141, n_bytes=14422, idle_age=14, priority=1,in_port=1 actions=resubmit(,2)
+ cookie=0xadc41eb92db03880, duration=96.193s, table=0, n_packets=106, n_bytes=10624, idle_age=14, priority=1,in_port=2 actions=resubmit(,4)
+ cookie=0xadc41eb92db03880, duration=120.357s, table=0, n_packets=0, n_bytes=0, idle_age=120, priority=0 actions=drop
+ cookie=0xadc41eb92db03880, duration=120.356s, table=2, n_packets=68, n_bytes=7848, idle_age=14, priority=0,dl_dst=00:00:00:00:00:00/01:00:00:00:00:00 actions=resubmit(,20)
+ cookie=0xadc41eb92db03880, duration=120.356s, table=2, n_packets=73, n_bytes=6574, idle_age=48, priority=0,dl_dst=01:00:00:00:00:00/01:00:00:00:00:00 actions=resubmit(,22)
+ cookie=0xadc41eb92db03880, duration=120.355s, table=3, n_packets=0, n_bytes=0, idle_age=120, priority=0 actions=drop
+ cookie=0xadc41eb92db03880, duration=103.204s, table=4, n_packets=0, n_bytes=0, idle_age=103, priority=1,tun_id=0x2 actions=mod_vlan_vid:1,resubmit(,10)
+ cookie=0xadc41eb92db03880, duration=102.600s, table=4, n_packets=106, n_bytes=10624, idle_age=14, priority=1,tun_id=0x51 actions=mod_vlan_vid:2,resubmit(,10)
+ cookie=0xadc41eb92db03880, duration=120.354s, table=4, n_packets=0, n_bytes=0, idle_age=120, priority=0 actions=drop
+ cookie=0xadc41eb92db03880, duration=120.353s, table=6, n_packets=0, n_bytes=0, idle_age=120, priority=0 actions=drop
+ cookie=0xadc41eb92db03880, duration=120.352s, table=10, n_packets=106, n_bytes=10624, idle_age=14, priority=1 actions=learn(table=20,hard_timeout=300,priority=1,cookie=0xadc41eb92db03880,NXM_OF_VLAN_TCI[0..11],NXM_OF_ETH_DST[]=NXM_OF_ETH_SRC[],load:0->NXM_OF_VLAN_TCI[],load:NXM_NX_TUN_ID[]->NXM_NX_TUN_ID[],output:NXM_OF_IN_PORT[]),output:1
+ cookie=0xadc41eb92db03880, duration=40.087s, table=20, n_packets=68, n_bytes=7848, idle_age=14, priority=2,dl_vlan=2,dl_dst=fa:16:3e:42:5d:ed actions=strip_vlan,set_tunnel:0x51,output:2
+ cookie=0xadc41eb92db03880, duration=26.022s, table=20, n_packets=0, n_bytes=0, hard_timeout=300, idle_age=26, hard_age=14, priority=1,vlan_tci=0x0002/0x0fff,dl_dst=fa:16:3e:42:5d:ed actions=load:0->NXM_OF_VLAN_TCI[],load:0x51->NXM_NX_TUN_ID[],output:2
+ cookie=0xadc41eb92db03880, duration=120.351s, table=20, n_packets=0, n_bytes=0, idle_age=120, priority=0 actions=resubmit(,22)
+ cookie=0xadc41eb92db03880, duration=95.719s, table=22, n_packets=0, n_bytes=0, idle_age=95, hard_age=39, dl_vlan=2 actions=strip_vlan,set_tunnel:0x51,output:2
+ cookie=0xadc41eb92db03880, duration=120.279s, table=22, n_packets=73, n_bytes=6574, idle_age=48, priority=0 actions=drop

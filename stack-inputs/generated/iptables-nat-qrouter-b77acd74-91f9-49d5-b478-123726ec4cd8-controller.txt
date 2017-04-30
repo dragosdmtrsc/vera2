@@ -1,0 +1,23 @@
+-P PREROUTING ACCEPT
+-P INPUT ACCEPT
+-P OUTPUT ACCEPT
+-P POSTROUTING ACCEPT
+-N neutron-l3-agent-OUTPUT
+-N neutron-l3-agent-POSTROUTING
+-N neutron-l3-agent-PREROUTING
+-N neutron-l3-agent-float-snat
+-N neutron-l3-agent-snat
+-N neutron-postrouting-bottom
+-A PREROUTING -j neutron-l3-agent-PREROUTING
+-A OUTPUT -j neutron-l3-agent-OUTPUT
+-A POSTROUTING -j neutron-l3-agent-POSTROUTING
+-A POSTROUTING -j neutron-postrouting-bottom
+-A neutron-l3-agent-OUTPUT -d 203.0.113.103/32 -j DNAT --to-destination 192.168.13.3
+-A neutron-l3-agent-POSTROUTING ! -i qg-09d66f0a-46 ! -o qg-09d66f0a-46 -m conntrack ! --ctstate DNAT -j ACCEPT
+-A neutron-l3-agent-PREROUTING -d 203.0.113.103/32 -j DNAT --to-destination 192.168.13.3
+-A neutron-l3-agent-PREROUTING -d 169.254.169.254/32 -i qr-+ -p tcp -m tcp --dport 80 -j REDIRECT --to-ports 9697
+-A neutron-l3-agent-float-snat -s 192.168.13.3/32 -j SNAT --to-source 203.0.113.103
+-A neutron-l3-agent-snat -j neutron-l3-agent-float-snat
+-A neutron-l3-agent-snat -o qg-09d66f0a-46 -j SNAT --to-source 203.0.113.100
+-A neutron-l3-agent-snat -m mark ! --mark 0x2/0xffff -m conntrack --ctstate DNAT -j SNAT --to-source 203.0.113.100
+-A neutron-postrouting-bottom -m comment --comment "Perform source NAT on outgoing traffic." -j neutron-l3-agent-snat

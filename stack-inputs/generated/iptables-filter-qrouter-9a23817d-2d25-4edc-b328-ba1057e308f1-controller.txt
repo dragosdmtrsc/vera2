@@ -1,0 +1,19 @@
+-P INPUT ACCEPT
+-P FORWARD ACCEPT
+-P OUTPUT ACCEPT
+-N neutron-filter-top
+-N neutron-l3-agent-FORWARD
+-N neutron-l3-agent-INPUT
+-N neutron-l3-agent-OUTPUT
+-N neutron-l3-agent-local
+-N neutron-l3-agent-scope
+-A INPUT -j neutron-l3-agent-INPUT
+-A FORWARD -j neutron-filter-top
+-A FORWARD -j neutron-l3-agent-FORWARD
+-A OUTPUT -j neutron-filter-top
+-A OUTPUT -j neutron-l3-agent-OUTPUT
+-A neutron-filter-top -j neutron-l3-agent-local
+-A neutron-l3-agent-FORWARD -j neutron-l3-agent-scope
+-A neutron-l3-agent-INPUT -m mark --mark 0x1/0xffff -j ACCEPT
+-A neutron-l3-agent-INPUT -p tcp -m tcp --dport 9697 -j DROP
+-A neutron-l3-agent-scope -o qr-fb358de8-c4 -m mark ! --mark 0x4000000/0xffff0000 -j DROP

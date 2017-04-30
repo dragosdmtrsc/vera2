@@ -1,0 +1,16 @@
+-P INPUT ACCEPT
+-P FORWARD ACCEPT
+-P OUTPUT ACCEPT
+-N neutron-dhcp-age-FORWARD
+-N neutron-dhcp-age-INPUT
+-N neutron-dhcp-age-OUTPUT
+-N neutron-dhcp-age-local
+-N neutron-dhcp-age-scope
+-N neutron-filter-top
+-A INPUT -j neutron-dhcp-age-INPUT
+-A FORWARD -j neutron-filter-top
+-A FORWARD -j neutron-dhcp-age-FORWARD
+-A OUTPUT -j neutron-filter-top
+-A OUTPUT -j neutron-dhcp-age-OUTPUT
+-A neutron-dhcp-age-FORWARD -j neutron-dhcp-age-scope
+-A neutron-filter-top -j neutron-dhcp-age-local

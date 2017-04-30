@@ -1,0 +1,15 @@
+-P INPUT ACCEPT
+-P FORWARD ACCEPT
+-P OUTPUT ACCEPT
+-N nova-api-FORWARD
+-N nova-api-INPUT
+-N nova-api-OUTPUT
+-N nova-api-local
+-N nova-filter-top
+-A INPUT -j nova-api-INPUT
+-A FORWARD -j nova-filter-top
+-A FORWARD -j nova-api-FORWARD
+-A OUTPUT -j nova-filter-top
+-A OUTPUT -j nova-api-OUTPUT
+-A nova-api-INPUT -d 172.16.0.11/32 -p tcp -m tcp --dport 8775 -j ACCEPT
+-A nova-filter-top -j nova-api-local

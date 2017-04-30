@@ -1,0 +1,6 @@
+-P PREROUTING ACCEPT
+-P OUTPUT ACCEPT
+-N neutron-l3-agent-OUTPUT
+-N neutron-l3-agent-PREROUTING
+-A PREROUTING -j neutron-l3-agent-PREROUTING
+-A OUTPUT -j neutron-l3-agent-OUTPUT
