@@ -80,7 +80,6 @@ class EnterBridge(br : OVSBridge, iface : NIC, world : WorldModel) extends Instr
 class EnterBridgeNormal(br : OVSBridge, iface : NIC, world : WorldModel) extends Instruction {
   override def apply(state : State, verbose : Boolean) : 
       (List[State], List[State]) = {
-       //TODO: Add code here
       val collected = br.getDistinctVlans()
       val instr = InstructionBlock(collected.toArray().map { 
           x  => If(Constrain(Tag("VLANId"), :==:(ConstantValue(x.asInstanceOf[Integer].intValue()))),
@@ -304,6 +303,21 @@ object FieldNameTranslator
        case "tun_dst" => Right(Tag("TunnelDst"))
        case "pkt_mark" => Left("PacketMark")
        case "out_port" => Left("OutPort")
+       case "NXM_OF_IN_PORT" => Left("InPort")
+       case "NXM_OF_ETH_DST" => Right(Tag("L2Dst"))
+       case "NXM_OF_ETH_SRC" => Right(Tag("L2Src"))
+       case "NXM_OF_ETH_TYPE" => Right(Tag("L2Type")) 
+       case "NXM_OF_VLAN_TCI" => Right(Tag("VlanID"))
+       case "NXM_OF_IP_PROTO" => Right(Tag("L3Type")) 
+       case "NXM_OF_IP_SRC" => Right(Tag("L3Src"))
+       case "NXM_OF_IP_DST" => Right(Tag("L3Dst")) 
+       case "NXM_OF_TCP_SRC" => Right(Tag("L4Src"))
+       case "NXM_OF_TCP_DST" => Right(Tag("L4Dst"))
+       case "NXM_OF_UDP_SRC" => Right(Tag("L4Src"))
+       case "NXM_OF_UDP_DST" => Right(Tag("L4Dst"))
+       case "NXM_OF_ICMP_TYPE" => Right(Tag("ICMPType")) 
+       case "NXM_OF_ICMP_CODE" => Right(Tag("ICMPCode"))
+       case "NXM_NX_TUN_ID" => Right(Tag("TunnelId"))
        case _ =>    throw new UnsupportedOperationException("Field " + name + " is not translatable in Symnet... Yet")
     }
   }
@@ -337,6 +351,7 @@ class EnterFlowEntry(flowEntry : FlowEntry, index : Int, ofPort : OpenFlowNIC, b
 object OVSInstructionExecutor
 {
   
-  def main(argv : Array[String]) {    
+  def main(argv : Array[String]) {
+    
   }
 }
