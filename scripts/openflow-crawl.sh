@@ -20,7 +20,7 @@ do
 done
 
 
-ovsdb-client dump -f json --pretty > symnet-ovs-`hostname`.txt
+ovsdb-client dump -f json > symnet-ovs-`hostname`.txt
 
 for x in `ovs-vsctl list-br`; 
 do
