@@ -94,11 +94,7 @@ class TargetListener  extends IptablesBaseListener {
   }
   
   override def enterNfCtMask (theOption : NfCtMaskContext) {
-    val inte = theOption.HEX_DIGIT().foldLeft(0)((acc, v) => {
-      val txt = v.getText
-      val chr = txt.toUpperCase()
-      acc * 16 + Integer.parseInt(chr, 16)
-    })
+    val inte = 0
     if (nfMask) connmarkTarget.nfMask = inte
     else connmarkTarget.ctMask = inte
   }  

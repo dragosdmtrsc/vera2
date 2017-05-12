@@ -62,6 +62,9 @@ public class NIC {
 	// Start of user code (user defined attributes for NIC)
 	
 	private List<Integer> vlans = new ArrayList<Integer>();
+
+
+	private String vlanMode = "trunk";
 	
 	
 	// End of user code
@@ -121,7 +124,28 @@ public class NIC {
 	public void setName(String newName) {
 	    this.Name = newName;
 	}
+	
+	public void setVlanMode(String portType) {
+		this.vlanMode = portType;
+	}
 
-
-
+	public String getVlanMode() {
+		return vlanMode;
+	}
+	
+	
+	public boolean isAllVlans()
+	{
+		return isTrunk() && this.vlans.size() == 0;
+	}
+	
+	public boolean isAccess()
+	{
+		return !this.isTrunk();
+	}
+	
+	public boolean isTrunk()
+	{
+		return this.vlanMode == null || this.vlanMode.equals("trunk");
+	}
 }

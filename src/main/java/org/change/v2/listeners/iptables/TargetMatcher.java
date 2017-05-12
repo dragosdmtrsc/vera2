@@ -13,6 +13,7 @@ import org.change.v2.model.iptables.NoTrackTarget;
 import org.change.v2.model.iptables.RedirectTarget;
 import org.change.v2.model.iptables.ReturnTarget;
 import org.change.v2.model.iptables.SNATTarget;
+import org.change.v2.model.openflow.Decoder;
 
 import generated.iptables_grammar.IptablesBaseListener;
 import generated.iptables_grammar.IptablesParser.AcceptTargetContext;
@@ -88,11 +89,7 @@ public class TargetMatcher extends IptablesBaseListener {
 	
 	public void enterNfCtMask(NfCtMaskContext context) {
 		int inte = 0xFFFFFFFF;
-		int acc = 0;
-		for (TerminalNode node : context.HEX_DIGIT())
-		{
-			acc = acc * 16 + Integer.decode(node.getText().toUpperCase());
-		}
+		inte = Decoder.decodeLong(context.INT().getText()).intValue();
 	    if (nfMask) connmarkTarget.setNfMask(inte);
 	    else connmarkTarget.setCtMask(inte);
 	}
@@ -122,11 +119,11 @@ public class TargetMatcher extends IptablesBaseListener {
 		this.target = new SNATTarget(context.IP().getText());
 	}
 	public void enterMarkTarget(MarkTargetContext context) {
-		MarkTarget theTarget = new MarkTarget(Integer.decode(context.INT(0).getText())); 
+		MarkTarget theTarget = new MarkTarget(Decoder.decodeLong(context.INT(0).getText())); 
 		this.target = theTarget;
 		if (context.INT().size() > 1)
 		{
-			theTarget.setMask(Integer.decode(context.INT(1).getText()));
+			theTarget.setMask(Decoder.decodeLong(context.INT(1).getText()));
 		}
 	}
 	public void enterNotrackTarget(NotrackTargetContext context) { 
@@ -148,5 +145,7 @@ public class TargetMatcher extends IptablesBaseListener {
 	public void enterDnatTarget(DnatTargetContext context) { 
 		this.target = new DNATTarget(context.IP().getText());
 	}
+	
+
 
 }

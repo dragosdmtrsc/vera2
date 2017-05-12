@@ -23,12 +23,12 @@ public class ConnmarkOption extends SimpleOption {
 	/**
 	 * Description of the property start.
 	 */
-	private Integer value = Integer.valueOf(0);
+	private long value = Long.valueOf(0);
 	
 	/**
 	 * Description of the property end.
 	 */
-	private Integer mask = Integer.valueOf(0);
+	private long mask = Long.valueOf(0);
 	
 	// Start of user code (user defined attributes for ConnmarkOption)
 	
@@ -66,7 +66,7 @@ public class ConnmarkOption extends SimpleOption {
 	 * Returns start.
 	 * @return start 
 	 */
-	public Integer getValue() {
+	public long getValue() {
 		return this.value;
 	}
 	
@@ -82,7 +82,7 @@ public class ConnmarkOption extends SimpleOption {
 	 * Returns end.
 	 * @return end 
 	 */
-	public Integer getMask() {
+	public long getMask() {
 		return this.mask;
 	}
 	

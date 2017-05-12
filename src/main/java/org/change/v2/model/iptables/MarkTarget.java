@@ -16,8 +16,8 @@ import org.change.v2.model.iptables.IPTablesTarget;
  */
 public class MarkTarget extends IPTablesTarget {
 	// Start of user code (user defined attributes for MarkTarget)
-	private int value;
-	private int mask = 0xFFFFFFFF;
+	private Long value;
+	private long mask = 0xFFFFFFFF;
 	// End of user code
 	
 	/**
@@ -29,29 +29,29 @@ public class MarkTarget extends IPTablesTarget {
 		// End of user code
 	}
 
-	public MarkTarget(int value, int mask) {
+	public MarkTarget(Long long1, long mask) {
 		this();
-		this.value = value;
+		this.value = long1;
 		this.mask = mask;
 	}
 
-	public MarkTarget(int value) {
-		this(value, 0xFFFFFFFF);
+	public MarkTarget(Long long1) {
+		this(long1, 0xFFFFFFFF);
 	}
 
-	public int getValue() {
+	public Long getValue() {
 		return value;
 	}
 
-	public void setValue(int value) {
+	public void setValue(Long value) {
 		this.value = value;
 	}
 
-	public int getMask() {
+	public long getMask() {
 		return mask;
 	}
 
-	public void setMask(int mask) {
+	public void setMask(long mask) {
 		this.mask = mask;
 	}
 

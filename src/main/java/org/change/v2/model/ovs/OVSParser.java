@@ -74,6 +74,7 @@ public class OVSParser {
 		public NIC theNic;
 		List<String> ifaces = new ArrayList<String>();
 		List<String> tags = new ArrayList<String>();
+		String portType;
 	}
 	
 	private static class BridgeLookup {
@@ -178,6 +179,7 @@ public class OVSParser {
 						realNic.setMacAddress(theIface.mac);
 						realNic.setName(port.portName);
 						realNic.setType(theIface.type);
+						realNic.setVlanMode(port.portType);
 						for (String s : port.tags)
 						{
 							realNic.getVlans().add(Integer.decode(s));
@@ -269,7 +271,44 @@ public class OVSParser {
 			PortLookup lookup = new PortLookup();
 			lookup.portName = name;
 			lookup.portId = uuid;
-			getData(br, headers, "tag").path(1).forEach(s -> lookup.tags.add(s.asText()));
+			// handle vlans here
+			JsonNode vlanModeNode = getData(br, headers, "vlan_mode");
+			if (vlanModeNode != null && vlanModeNode.isValueNode())
+			{
+				lookup.portType = vlanModeNode.asText();
+			}
+			
+			JsonNode tagNode = getData(br, headers, "tag");
+			if (tagNode != null && tagNode.isValueNode())
+			{
+				lookup.tags.add(tagNode.asText());
+				if (lookup.portType == null)
+					lookup.portType = "access";
+			}
+			else
+			{
+				if (lookup.portType == null)
+				{
+					lookup.portType = "trunk";
+				}
+			}
+			
+			JsonNode trunksNode = getData(br, headers, "trunks");
+			if (lookup.portType != null &&
+					lookup.portType.equals("trunk") &&
+					trunksNode != null && trunksNode.isArray())
+			{
+				if (trunksNode.path(1) != null
+						&& trunksNode.path(1).isArray()
+						&& trunksNode.path(1).size() > 0)
+				{
+					for (JsonNode v : trunksNode)
+					{
+						lookup.tags.add(v.asText());
+					}
+				}
+			}
+			
 			JsonNode ifaceList = getData(br, headers, "interfaces");
 			int i = 0;
 			for (JsonNode iface : ifaceList)
@@ -320,7 +359,7 @@ public class OVSParser {
 	
 	public static void main(String[] args) throws JsonProcessingException, IOException
 	{
-		InputStream str = new FileInputStream("stack-inputs/ovsdb-controller.json");
+		InputStream str = new FileInputStream("stack-inputs/generated/ovs-compute1.txt");
 		Set<Link> links = new HashSet<Link>();
 		OVSParser.getBridges(str, new HashSet<NIC>(), links).stream().forEach(s -> {
 			System.out.println(s.getName() + " (" + s.getKind() + ")");

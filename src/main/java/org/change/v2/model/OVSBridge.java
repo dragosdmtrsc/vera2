@@ -126,7 +126,10 @@ public class OVSBridge extends Bridge {
 	
 	public List<Integer> getVlansForInterface(String iface)
 	{
-		return this.getMappedIfaces().containsKey(iface) ? this.getMappedIfaces().get(iface) : null;
+		if (this.getMappedIfaces().containsKey(iface))
+			return this.getMappedIfaces().get(iface);
+		else
+			return null;
 	}
 	
 	private HashSet<Integer> distinctVlans ;
@@ -150,13 +153,32 @@ public class OVSBridge extends Bridge {
 			reverseMap = new HashMap<Integer, List<String>>();
 			for (OVSNIC nic : this.getNICs())
 			{
-				for (int vv : nic.getVlans())
+				if (nic.isAccess())
 				{
-					if (!reverseMap.containsKey(vv))
+					for (int vv : nic.getVlans())
 					{
-						reverseMap.put(vv, new ArrayList<String>());
+						if (!reverseMap.containsKey(vv))
+							reverseMap.put(vv, new ArrayList<String>());
+						reverseMap.get(vv).add(nic.getName());
 					}
-					reverseMap.get(vv).add(nic.getName());
+				}
+				else if (nic.isTrunk() && nic.isAllVlans())
+				{
+					for (int vv : this.getDistinctVlans())
+					{
+						if (!reverseMap.containsKey(vv))
+							reverseMap.put(vv, new ArrayList<String>());
+						reverseMap.get(vv).add(nic.getName());
+					}
+				}
+				else
+				{
+					for (int vv : nic.getVlans())
+					{
+						if (!reverseMap.containsKey(vv))
+							reverseMap.put(vv, new ArrayList<String>());
+						reverseMap.get(vv).add(nic.getName());
+					}
 				}
 			}
 		}

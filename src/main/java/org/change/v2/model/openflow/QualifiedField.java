@@ -39,7 +39,14 @@ public class QualifiedField {
 		{
 			name = decode;
 		}
-		return fromString(decode, TypeMappings.LEN_MAPPINGS.get(name));
+		try
+		{
+			return fromString(decode, TypeMappings.LEN_MAPPINGS.get(name));
+		}
+		catch (Exception ex)
+		{
+			throw new IllegalArgumentException("Failed to decode " + decode, ex);
+		}
 	}
 
 	public static QualifiedField fromString(String decode, int maxLen)

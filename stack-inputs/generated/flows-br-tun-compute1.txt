@@ -1,0 +1,16 @@
+NXST_FLOW reply (xid=0x4):
+ cookie=0x85182ef86946a9d8, duration=7413.278s, table=0, n_packets=106, n_bytes=10624, idle_age=7239, priority=1,in_port=1 actions=resubmit(,2)
+ cookie=0x85182ef86946a9d8, duration=7264.782s, table=0, n_packets=68, n_bytes=7848, idle_age=7239, priority=1,in_port=2 actions=resubmit(,4)
+ cookie=0x85182ef86946a9d8, duration=7413.277s, table=0, n_packets=0, n_bytes=0, idle_age=7413, priority=0 actions=drop
+ cookie=0x85182ef86946a9d8, duration=7413.277s, table=2, n_packets=97, n_bytes=9410, idle_age=7239, priority=0,dl_dst=00:00:00:00:00:00/01:00:00:00:00:00 actions=resubmit(,20)
+ cookie=0x85182ef86946a9d8, duration=7413.277s, table=2, n_packets=9, n_bytes=1214, idle_age=7242, priority=0,dl_dst=01:00:00:00:00:00/01:00:00:00:00:00 actions=resubmit(,22)
+ cookie=0x85182ef86946a9d8, duration=7413.277s, table=3, n_packets=0, n_bytes=0, idle_age=7413, priority=0 actions=drop
+ cookie=0x85182ef86946a9d8, duration=7267.385s, table=4, n_packets=68, n_bytes=7848, idle_age=7239, priority=1,tun_id=0x51 actions=mod_vlan_vid:1,resubmit(,10)
+ cookie=0x85182ef86946a9d8, duration=7413.276s, table=4, n_packets=0, n_bytes=0, idle_age=7413, priority=0 actions=drop
+ cookie=0x85182ef86946a9d8, duration=7413.276s, table=6, n_packets=0, n_bytes=0, idle_age=7413, priority=0 actions=drop
+ cookie=0x85182ef86946a9d8, duration=7413.276s, table=10, n_packets=68, n_bytes=7848, idle_age=7239, priority=1 actions=learn(table=20,hard_timeout=300,priority=1,cookie=0x85182ef86946a9d8,NXM_OF_VLAN_TCI[0..11],NXM_OF_ETH_DST[]=NXM_OF_ETH_SRC[],load:0->NXM_OF_VLAN_TCI[],load:NXM_NX_TUN_ID[]->NXM_NX_TUN_ID[],output:NXM_OF_IN_PORT[]),output:1
+ cookie=0x85182ef86946a9d8, duration=7264.782s, table=20, n_packets=97, n_bytes=9410, idle_age=7239, priority=2,dl_vlan=1,dl_dst=fa:16:3e:26:f6:b8 actions=strip_vlan,set_tunnel:0x51,output:2
+ cookie=0x85182ef86946a9d8, duration=7264.781s, table=20, n_packets=0, n_bytes=0, idle_age=7264, priority=2,dl_vlan=1,dl_dst=fa:16:3e:56:c6:4e actions=strip_vlan,set_tunnel:0x51,output:2
+ cookie=0x85182ef86946a9d8, duration=7413.276s, table=20, n_packets=0, n_bytes=0, idle_age=7413, priority=0 actions=resubmit(,22)
+ cookie=0x85182ef86946a9d8, duration=7264.463s, table=22, n_packets=9, n_bytes=1214, idle_age=7242, dl_vlan=1 actions=strip_vlan,set_tunnel:0x51,output:2
+ cookie=0x85182ef86946a9d8, duration=7413.113s, table=22, n_packets=0, n_bytes=0, idle_age=7413, priority=0 actions=drop

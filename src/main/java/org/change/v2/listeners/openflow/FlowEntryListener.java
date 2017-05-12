@@ -1,6 +1,8 @@
 package org.change.v2.listeners.openflow;
 
 import generated.openflow_grammar.OpenflowBaseListener;
+import generated.openflow_grammar.OpenflowLexer;
+import generated.openflow_grammar.OpenflowParser;
 import generated.openflow_grammar.OpenflowParser.AllContext;
 import generated.openflow_grammar.OpenflowParser.ApplyActionsContext;
 import generated.openflow_grammar.OpenflowParser.ClearActionsContext;
@@ -58,10 +60,16 @@ import generated.openflow_grammar.OpenflowParser.StripVlanContext;
 import generated.openflow_grammar.OpenflowParser.TableContext;
 import generated.openflow_grammar.OpenflowParser.WriteMetadataContext;
 
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Stack;
 
+import org.antlr.v4.runtime.ANTLRInputStream;
+import org.antlr.v4.runtime.CommonTokenStream;
+import org.antlr.v4.runtime.tree.ParseTreeWalker;
 import org.change.v2.model.openflow.Action;
 import org.change.v2.model.openflow.Decoder;
 import org.change.v2.model.openflow.FlowEntry;
@@ -95,6 +103,8 @@ import org.change.v2.model.openflow.actions.SetTunnelAction;
 
 public class FlowEntryListener extends OpenflowBaseListener {
 
+	
+	
 	private List<FlowEntry> entries = new ArrayList<FlowEntry>();
 
 	public List<FlowEntry> getEntries() {
@@ -119,52 +129,155 @@ public class FlowEntryListener extends OpenflowBaseListener {
 	 * Start parsing the matches
 	 */
 	public void enterMatchField(MatchFieldContext ctx) {
+		enterMatchField(ctx.getText());
+	}
+
+	public void enterMatchField(String ctxText) {
 		String[] splits;
-		if (!ctx.getText().contains("="))
-			splits = new String[] { ctx.getText() };
-		else
-			splits = ctx.getText().split("=");
-		String matchName = splits[0];
-		String value = splits.length > 1 ? splits[1] : "";
-		long mask = -1;
-		boolean isMasked = false;
-		if ("".equals(value))
+		
+		// quick and dirty things => do that for all the sugar that 
+		// ovs-ofctl gives us 
+		/*
+		 * ip     Same as dl_type=0x0800.
+       icmp   Same as dl_type=0x0800,nw_proto=1.
+       tcp    Same as dl_type=0x0800,nw_proto=6.
+       udp    Same as dl_type=0x0800,nw_proto=17.
+       sctp   Same as dl_type=0x0800,nw_proto=132.
+       arp    Same as dl_type=0x0806.
+       rarp   Same as dl_type=0x8035.
+       
+       ipv6   Same as dl_type=0x86dd.
+       tcp6   Same as dl_type=0x86dd,nw_proto=6.
+       udp6   Same as dl_type=0x86dd,nw_proto=17.
+       sctp6  Same as dl_type=0x86dd,nw_proto=132.
+       icmp6  Same as dl_type=0x86dd,nw_proto=58.
+		 */
+		ctxText = ctxText.trim();
+		if (ctxText.equals("ip"))
 		{
-			Match theMatch = new Match();
-			theMatch.setField(QualifiedField.fromString(matchName));
+			Match theMatch = getMatchForIp();
+			this.currentEntry.getMatches().add(theMatch);
+		}
+		else if (ctxText.equals("icmp"))
+		{
+			Match theMatch = getMatchForIp();
+			this.currentEntry.getMatches().add(theMatch);
+			this.currentEntry.getMatches().add(Match.getMatchForSomething("nw_proto", 1));
+		}
+		else if (ctxText.equals("tcp"))
+		{
+			Match theMatch = getMatchForIp();
+			this.currentEntry.getMatches().add(theMatch);
+			this.currentEntry.getMatches().add(Match.getMatchForSomething("nw_proto", 6));
+		}
+		else if (ctxText.equals("udp"))
+		{
+			Match theMatch = getMatchForIp();
+			this.currentEntry.getMatches().add(theMatch);
+			this.currentEntry.getMatches().add(Match.getMatchForSomething("nw_proto", 17));
+		}
+		else if (ctxText.equals("sctp"))
+		{
+			Match theMatch = getMatchForIp();
+			this.currentEntry.getMatches().add(theMatch);
+			this.currentEntry.getMatches().add(Match.getMatchForSomething("nw_proto", 132));
+		}
+		else if (ctxText.equals("arp"))
+		{
+			Match theMatch = Match.getMatchForSomething("dl_type", 0x0806);
+			this.currentEntry.getMatches().add(theMatch);
+		}
+		else if (ctxText.equals("rarp"))
+		{
+			Match theMatch = Match.getMatchForSomething("dl_type", 0x8035);
+			this.currentEntry.getMatches().add(theMatch);
+		}
+		else if (ctxText.equals("ipv6"))
+		{
+			Match theMatch = Match.getMatchForSomething("dl_type", 0x86dd);
+			this.currentEntry.getMatches().add(theMatch);
+		}
+		else if (ctxText.equals("tcp6"))
+		{
+			Match theMatch = Match.getMatchForSomething("dl_type", 0x86dd);
+			this.currentEntry.getMatches().add(theMatch);
+			theMatch = Match.getMatchForSomething("nw_proto", 6);
+			this.currentEntry.getMatches().add(theMatch);
+		}
+		else if (ctxText.equals("udp6"))
+		{
+			Match theMatch = Match.getMatchForSomething("dl_type", 0x86dd);
+			this.currentEntry.getMatches().add(theMatch);
+			theMatch = Match.getMatchForSomething("nw_proto", 17);
+			this.currentEntry.getMatches().add(theMatch);
+		}
+		else if (ctxText.equals("sctp6"))
+		{
+			Match theMatch = Match.getMatchForSomething("dl_type", 0x86dd);
+			this.currentEntry.getMatches().add(theMatch);
+			theMatch = Match.getMatchForSomething("nw_proto", 132);
+			this.currentEntry.getMatches().add(theMatch);
+		}
+		else if (ctxText.equals("icmp6"))
+		{
+			Match theMatch = Match.getMatchForSomething("dl_type", 0x86dd);
+			this.currentEntry.getMatches().add(theMatch);
+			theMatch = Match.getMatchForSomething("nw_proto", 58);
 			this.currentEntry.getMatches().add(theMatch);
 		}
 		else
 		{
-			QualifiedField qf = QualifiedField.fromString(matchName);
-			Match theMatch = new Match();
-			theMatch.setField(qf);
-
-			if (value.contains("/"))
+			if (!ctxText.contains("="))
+				splits = new String[] { ctxText };
+			else
+				splits = ctxText.split("=");
+			String matchName = splits[0];
+			String value = splits.length > 1 ? splits[1] : "";
+			long mask = -1;
+			boolean isMasked = false;
+			if ("".equals(value))
 			{
-				String[] vmask = value.split("/");
-				value = vmask[0];
-				String smask = vmask[1];
-				mask =Decoder.decodeType(qf.getName(), smask);
-				isMasked = true;
-			}
-			else if (value.contains("["))
-			{
-				theMatch.setValue(QualifiedField.fromString(value));
+				Match theMatch = new Match();
+				theMatch.setField(QualifiedField.fromString(matchName));
+				this.currentEntry.getMatches().add(theMatch);
 			}
 			else
 			{
-				long ivalue =Decoder.decodeType(qf.getName(), value);
-				theMatch.setValue(ivalue);
-				theMatch.setMask(mask);
+				QualifiedField qf = QualifiedField.fromString(matchName);
+				Match theMatch = new Match();
+				theMatch.setField(qf);
+
+				if (value.contains("/"))
+				{
+					String[] vmask = value.split("/");
+					value = vmask[0];
+					String smask = vmask[1];
+					mask =Decoder.decodeType(qf.getName(), smask);
+					isMasked = true;
+				}
+				else if (value.contains("["))
+				{
+					theMatch.setValue(QualifiedField.fromString(value));
+				}
+				else
+				{
+					long ivalue =Decoder.decodeType(qf.getName(), value);
+					theMatch.setValue(ivalue);
+					theMatch.setMask(mask);
+				}
+				theMatch.setMasked(isMasked);
+
+				this.currentEntry.getMatches().add(theMatch);
+
 			}
-			theMatch.setMasked(isMasked);
-
-			this.currentEntry.getMatches().add(theMatch);
-
 		}
-
 	}
+
+	public Match getMatchForIp() {
+		return Match.getMatchForSomething("dl_type", (long) 0x0800);
+	}
+	
+
 
 	
 	

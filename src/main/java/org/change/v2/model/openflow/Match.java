@@ -99,5 +99,16 @@ public class Match implements FlowAcceptor {
 		return true;
 	}
 	
+	public static Match getMatchForSomething(String something, Long value)
+	{
+		Match m = new Match();
+		m.setField(QualifiedField.fromString(something));
+		m.setValue(value);
+		return m;
+	}
+	public static Match getMatchForSomething(String something, int i) {
+		return getMatchForSomething(something, (long)i);
+	}
+	
 	
 }

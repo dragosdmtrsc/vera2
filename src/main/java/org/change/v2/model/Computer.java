@@ -67,7 +67,7 @@ public class Computer implements Acceptor {
 	 * Returns symnetNamespaces.
 	 * @return symnetNamespaces 
 	 */
-	public HashSet<Namespace> getSymnetNamespaces() {
+	public HashSet<Namespace> getNamespaces() {
 		return this.symnetNamespaces;
 	}
 
@@ -116,12 +116,24 @@ public class Computer implements Acceptor {
 			preloaded = new HashMap<String, NIC>();
 			for (Namespace ns : symnetNamespaces)
 			{
-				HashSet<NIC> nics = ns.getSymnetNICs();
+				HashSet<NIC> nics = ns.getNICs();
 				for (NIC nic : nics)
 				{
-					preloaded.put(name, nic);
+					preloaded.put(nic.getName(), nic);
 				}
 			}
+			
+			for (Bridge br : this.getBridges())
+			{
+				for (NIC n : br.getNICs())
+				{
+					if (!preloaded.containsKey(n.getName()))
+					{
+						preloaded.put(n.getName(), n);
+					}
+				}
+			}
+			
 		}
 		if (preloaded.containsKey(name))
 		{

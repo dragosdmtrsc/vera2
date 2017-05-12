@@ -45,6 +45,25 @@ import org.change.v2.analysis.processingmodels.instructions.Constrain
 import org.change.v2.analysis.processingmodels.instructions.:==:
 import org.change.v2.analysis.processingmodels.instructions.If
 import org.change.v2.analysis.processingmodels.instructions.Fork
+import org.change.v2.analysis.memory.Value
+import org.change.v2.analysis.processingmodels.instructions.CreateTag
+import org.change.v2.analysis.memory.TagExp._
+
+
+
+object TestThatCrap
+{
+  def main(argv : Array[String]) {
+    val enterIface = "tap737565c0-2c"
+    val pcName = "compute1"
+    val initial = 
+    InstructionBlock(
+        CreateTag("START", 0),
+        CreateTag("VLANId", Tag("START") + 0))(State.clean, false)._1(0)
+    val world = WorldModel.fromFolder("stack-inputs/generated")
+    System.out.println(new EnterIface(pcName, enterIface, world)(initial))
+  }
+}
 
 class EnterIface(pcName : String, iface : String, world : WorldModel) extends Instruction {
   override def apply(state : State, verbose : Boolean) : 
@@ -54,14 +73,14 @@ class EnterIface(pcName : String, iface : String, world : WorldModel) extends In
     if (pc.isBridged(iface))
     {
       val br = pc.getBridge(iface)
-      if (br.isInstanceOf[OVSBridge])
+      if (br != null && br.isInstanceOf[OVSBridge])
         new EnterBridge(br.asInstanceOf[OVSBridge], nic, world)(state)
       else
         throw new UnsupportedOperationException("Not implemented for Linux Bridge")
     }
     else
     {
-       throw new UnsupportedOperationException("Not implemented for iptables")
+       Fail("Not implemented for iptables")(state, verbose)
     }
   }
 }
@@ -71,8 +90,10 @@ class EnterBridge(br : OVSBridge, iface : NIC, world : WorldModel) extends Instr
 {
     override def apply(state : State, verbose : Boolean) : 
       (List[State], List[State]) = {
+      System.out.println("Entering " + br.getName)
+      val ovsnic = br.getOvsNic(iface.getName)
       val ofPort = br.getOpenFlowPort(iface.getName)
-      new EnterOFPort(ofPort, br, iface, world)(state, verbose)
+      new EnterOFPort(ofPort, br, ovsnic, world)(state, verbose)
     }
 }
 
@@ -80,17 +101,35 @@ class EnterBridge(br : OVSBridge, iface : NIC, world : WorldModel) extends Instr
 class EnterBridgeNormal(br : OVSBridge, iface : NIC, world : WorldModel) extends Instruction {
   override def apply(state : State, verbose : Boolean) : 
       (List[State], List[State]) = {
+      System.out.println("Entering bridge " + br.getName + " NORMAL L2 processing")
       val collected = br.getDistinctVlans()
-      val instr = InstructionBlock(collected.toArray().map { 
-          x  => If(Constrain(Tag("VLANId"), :==:(ConstantValue(x.asInstanceOf[Integer].intValue()))),
-          Fork(
-              br.getIfacesForVlan(x.asInstanceOf[Integer].intValue()).map { 
-                  y => new ExitBridge(br, br.getOvsNic(y), world) 
-                }
-              ), 
-              NoOp)
-      })
-      instr(state, verbose)
+      val stt = 
+      if (iface.isAccess())
+      {
+        val vlan = iface.getVlans().get(0).intValue
+        System.out.println("Adding VLANId " + vlan)
+        
+        val res = InstructionBlock(Allocate(Tag("VLANId"), 4),
+            Assign(Tag("VLANId"), ConstantValue(vlan)))(state, verbose)
+        res._1(0)
+      }
+      else
+        state
+      InstructionBlock(
+      collected.toArray().map { x => x.asInstanceOf[Integer].intValue }.map(t =>  {
+        val isvlans = br.getIfacesForVlan(t).map { x => br.getOvsNic(x) }
+        If (Constrain(Tag("VLANId"), :==:(ConstantValue(t))),
+          Fork(isvlans.map ( y => {
+            if (y.isAccess())
+            {
+               InstructionBlock(Deallocate(Tag("VLANId"), 4), new ExitBridge(br, y, world))
+            }
+            else
+              new ExitBridge(br, y, world)
+          })),
+          NoOp)
+      }))(stt, verbose)
+      
     }}
 
 class ExitOFPort(ofPort : OpenFlowNIC, br : OVSBridge, iface : NIC, world : WorldModel) extends Instruction
@@ -109,9 +148,12 @@ class ExitBridge(br : OVSBridge, iface : NIC, world : WorldModel)
   override def apply(state : State, verbose : Boolean) : 
     (List[State], List[State]) = 
   {
+    System.out.println("Exiting Bridge " + br.getName + " at iface " + iface.getName)
     val isInterbridge = iface.getType == "patch"
     val isVxlan = iface.getType == "vxlan"
     val isGre = iface.getType == "gre"
+    val isInternal = iface.getType == "internal"
+    val isSystem  = iface.getType == "system"
     if (isInterbridge)
     {
       val peer = iface.getOptions.get("peer")
@@ -124,9 +166,20 @@ class ExitBridge(br : OVSBridge, iface : NIC, world : WorldModel)
       val ifacePeer = world.getNICByIp(peer2)
       new EnterIface(pc.getName, iface.getName, world)(state, verbose)
     }
+    else if (isInternal)
+    {
+      (List[State](State(state.memory, iface.getName :: state.history, 
+          state.errorCause, 
+          state.instructionHistory)), Nil)    }
+    else if (iface.getType == "")
+    {
+      (List[State](State(state.memory, iface.getName :: state.history, 
+          state.errorCause, 
+          state.instructionHistory)), Nil)
+    }
     else
     {
-      throw new UnsupportedOperationException("iptables not implemented... Yet")
+      throw new IllegalArgumentException("Unknown interface type " + iface.getType)
     }
   }
 }
@@ -137,6 +190,7 @@ class EnterOFPort(ofPort : OpenFlowNIC, br : OVSBridge, iface : NIC, world : Wor
 {
     override def apply(state : State, verbose : Boolean) : 
       (List[State], List[State]) = {
+      System.out.println("Entering OFPort " + ofPort.getPortNo + " at bridge " + br.getName)
       val table = br.getConfig.getTables.get(0)
       new EnterOFTable(Nil, table, ofPort, br, iface, world)(state, verbose)
     }
@@ -162,14 +216,18 @@ class EnterOFTable(actionSet : List[Action], table : OpenFlowTable, ofPort : Ope
   
   override def apply(state : State, verbose : Boolean) : (List[State], List[State]) = {
       val table = br.getConfig.getTables.get(0)
+      System.out.println("Entering OFTable " + table.getTableId + " at OFPort " + ofPort.getPortNo + " at bridge " + br.getName)
       val st = Assign("Matched", ConstantValue(-1))(state)._1(0)
       val flows = table.getEntries
       val doFlows = InstructionBlock(flows.zipWithIndex.map { 
         v => new EnterFlowEntry(v._1, v._2, ofPort, br, iface, world) 
        }.:+(new EnterTableMiss(table, ofPort, br, iface, world)) )(state, verbose)
 
+       
+      
       doFlows._1.foldLeft((List[State](), doFlows._2))((acc, s) => {
-            val matched = s.memory.eval("Matched").get.asInstanceOf[ConstantValue].value
+            val matched = s.memory.eval("Matched").get.e.asInstanceOf[ConstantValue].value
+            System.out.println("Matched " + matched)
             val actions = flows.get(matched.asInstanceOf[Int]).getActions
             val gotoTable = actions.find { x => x.getType == ActionType.Resubmit || x.getType == ActionType.GotoTable }
             val clearAction = actions.find { x => x.getType == ActionType.ClearActions || x.getType == ActionType.Drop }
@@ -233,7 +291,15 @@ class ApplyAction(action : Action, table : OpenFlowTable, ofPort : OpenFlowNIC, 
     		}
     		else
     		{
-    		  new ExitOFPort(br.getOpenFlowPort(action.getPort.asInstanceOf[Int]), br, iface, world)(state, verbose)
+    		  if (action.getPort == 0xfffffffa)
+    		  {
+    		    // NORMAL goes here
+            new EnterBridgeNormal(br, iface, world)(state, verbose)
+    		  }
+    		  else
+    		  {
+      		  new ExitOFPort(br.getOpenFlowPort(action.getPort.intValue()), br, iface, world)(state, verbose)
+    		  }
     		}
       case action : NormalAction => new EnterBridgeNormal(br, iface, world)(state, verbose)
       case action : DropAction => Fail("Drop action encountered")(state, verbose)
@@ -328,7 +394,9 @@ class EnterTableMiss(table : OpenFlowTable, ofPort : OpenFlowNIC, br : OVSBridge
   extends Instruction
 {
     override def apply(state : State, verbose : Boolean) : (List[State], List[State]) = {
-      Fail("Table miss encountered")(state, verbose)
+      If (Constrain("Matched", :==:(ConstantValue(-1))),
+        Fail("Table miss encountered"),
+        NoOp)(state, verbose)
       //TODO : add code here to distinguish between the actual table misses
     }
 }
@@ -336,15 +404,19 @@ class EnterTableMiss(table : OpenFlowTable, ofPort : OpenFlowNIC, br : OVSBridge
 class EnterFlowEntry(flowEntry : FlowEntry, index : Int, ofPort : OpenFlowNIC, br : OVSBridge, iface : NIC, world : WorldModel)
   extends Instruction {
   override def apply(state : State, verbose : Boolean) : (List[State], List[State]) = {
-    
+    System.out.println("Entering flow entry " + flowEntry.getTable + "@" + flowEntry.getPriority + " at OFPort " + ofPort.getPortNo + " at bridge " + br.getName)
+
     val matches = flowEntry.getMatches
-    matches.map { x => FieldNameTranslator(x.getField.getName) match {
-        case Right(tag) => Constrain(tag, :==:(ConstantValue(x.getValue))) 
-        case Left(mem) => Constrain(mem, :==:(ConstantValue(x.getValue)))
-      }
-    }.foldRight(Assign("Matched", ConstantValue(index)))((u, acc) => {
-      If (u, acc, NoOp)
-    })(state, verbose)
+    if (!matches.isEmpty())
+      matches.map { x => FieldNameTranslator(x.getField.getName) match {
+          case Right(tag) => Constrain(tag, :==:(ConstantValue(x.getValue))) 
+          case Left(mem) => Constrain(mem, :==:(ConstantValue(x.getValue)))
+        }
+      }.foldRight(Assign("Matched", ConstantValue(index)))((u, acc) => {
+        If (u, acc, NoOp)
+      })(state, verbose)
+    else
+      Assign("Matched", ConstantValue(index))(state, verbose)
   }
 }
 

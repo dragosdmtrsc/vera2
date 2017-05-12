@@ -6,14 +6,14 @@ grammar Iptables;
 package generated.iptables_grammar;
 }
 
-table : (rle NL 
-		| chain NL
-		| policy NL
+table : (rle  
+		| chain 
+		| policy
 		| NL
-		| EOF)* ; 
-rle : '-A' chainname match* target;
-chain : '-N' chainname;
-policy : '-P' chainname targetName;
+		)* ; 
+rle : '-A' chainname match* target NL;
+chain : '-N' chainname NL ;
+policy : '-P' chainname targetName NL ;
 
 target : '-j' targetName;
 targetName : (acceptTarget // TODO
@@ -40,13 +40,13 @@ returnTarget : 'RETURN' ;
 checksumTarget : 'CHECKSUM'  checksumTargetOpts;
 checksumTargetOpts : ('--checksum-fill')?;
 connmarkTarget : 'CONNMARK'  connmarkTargetOpts*; 
-connmarkTargetOpts : '--save-mark' maskingOption #saveCtMark
-| '--restore-mark' maskingOption #restoreCtMark;
+connmarkTargetOpts : '--save-mark' maskingOption* #saveCtMark
+| '--restore-mark' maskingOption* #restoreCtMark;
  
 maskingOption : '--nfmask' nfCtMask #nfMask
 | '--ctmask' nfCtMask #ctMask;
 
-nfCtMask : ('0x' HEX_DIGIT+);
+nfCtMask : INT;
 ctTarget : 'CT'  ctTargetOpts;
 ctTargetOpts : (ctNotrack |
 ctZone
@@ -98,7 +98,7 @@ match : (module // TODO
 	| iniface // OK
 	| outiface // OK
 	| frgm // OK
-	| ctrs // TODO : Optiona l
+	| ctrs // TODO : Optional
 );
 ipv4 : '-4';
 ipv6 : '-6';
@@ -134,7 +134,7 @@ statuslist : status (',' status)*;
 statelist : state (',' state)*;
 
 markopts : 'mark' neg='!'? '--mark' INT ('/' INT)?;
-commentopts : 'comment' '--comment' comment=NAME+;
+commentopts : 'comment' '--comment' STRING { System.out.println("Entered comment");};
 icmp6opts : 'icmp6' '!'? '--icmpv6-type' type=INT ('/' code=INT)? |typename=NAME;
 macopts : 'mac' neg='!'? '--mac-source' macaddress;
 macaddress : HEX_DIGIT HEX_DIGIT ':' 
@@ -190,19 +190,19 @@ addressExpression : IP_MASK # ipMasked
 dstaddr : neg='!'? ('-d' | '--destination') addressExpression;
  
 MATCH : '-m';
-
 IP_MASK : IP '/' INT;
 IP : INT '.' INT '.' INT '.' INT ;
-INT : DIGIT+;
+INT : DIGIT+ | '0x' HEX_DIGIT+;
 NAME : (ALPHA) (ALPHA | DIGIT)*;
 WS : [ \t]+ -> skip ; // skip spaces, tabs, newlines
 NL : '\r'? '\n';
+STRING : '"' ~('"')* '"' ;
 
 fragment DIGIT : [0-9]; 
 fragment ALPHA : UPPER | LOWER | SIGNS;
 fragment LOWER : [a-z];
 fragment UPPER : [A-Z];
-fragment SIGNS : [-_];
+fragment SIGNS : [-_+];
 HEX_DIGIT : [0-9A-Fa-f] ;
 fragment OCT_DIGIT : [0-8] ;
 

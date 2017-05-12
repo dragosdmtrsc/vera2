@@ -326,18 +326,20 @@ public class MatchListener extends IptablesBaseListener {
 	  
 	  @Override public void enterMarkopts(MarkoptsContext mark) {
 	    boolean neg = mark.neg != null;
-	    int ip = Integer.decode(mark.INT(0).getText());
-	    int mask = (mark.INT().size() > 1) ? Integer.decode(mark.INT(1).getText()) : 0xFFFFFFFF;
+	    Long ip =  Decoder.decodeLong(mark.INT(0).getText());
+	    System.out.println(mark.INT(0).getText());
+	    if (mark.INT().size() > 1) System.out.println(mark.INT(1).getText());
+	    long mask = (mark.INT().size() > 1) ? Decoder.decodeLong(mark.INT(1).getText()) : 0xFFFFFFFF;
 	    //TODO : Fix this crap
 	    match.getMatchOptions().add(new MarkOption(neg, ip, mask, "nfmark"));
 	  }
 	  
 	  @Override public void enterConnmarkopts(ConnmarkoptsContext mark) {
 	    boolean neg = mark.neg != null;
-	    int ip = Integer.decode(mark.INT(0).getText());
-	    int mask = (mark.INT().size() > 1) ? Integer.decode(mark.INT(1).getText()) : 0xFFFFFFFF;
+	    Long ip = Decoder.decodeLong(mark.INT(0).getText());
+	    long mask = (mark.INT().size() > 1) ? Decoder.decodeLong(mark.INT(1).getText()) : 0xFFFFFFFF;
 	    //TODO : Fix this crap	    
-	    match.getMatchOptions().add(new MarkOption(neg, ip, mask, "ctmark"));
+	    match.getMatchOptions().add(new MarkOption(neg, ip, mask, "ctmark")); 
 	  }
 	  
 	  /**

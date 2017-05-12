@@ -158,7 +158,7 @@ class RuleVisitor extends BaseVisitor {
     instructions = handleMarkOptions(ctMask, ctMark, baseVarName)
   }
 
-  def handleMarkOptions(ctMask: Integer, ctMark: Integer, baseVarName: String) = {
+  def handleMarkOptions(ctMask: Long, ctMark: Long, baseVarName: String) = {
     List.range(0, 32).map(s => {
       val maski = ctMask >> s & 1
       val marki = ctMark >> s & 1
@@ -435,7 +435,7 @@ class TargetVisitor extends BaseVisitor {
     markTarget(nfMask, value, fieldName)
   }
 
-  def markTarget(nfMask: Int, value: Int, fieldName: String) = {
+  def markTarget(nfMask: Long, value: Long, fieldName: String) = {
     this.instruction = InstructionBlock(List.range(0, 32).map(s => {
       val nfi = (nfMask >> s) & 1
       val vi  = (value >> s) & 1
@@ -455,7 +455,7 @@ class TargetVisitor extends BaseVisitor {
       }
       
     }))
-  }
+  } 
   
   override def visit(target : RedirectTarget) {
     // TODO: Confused

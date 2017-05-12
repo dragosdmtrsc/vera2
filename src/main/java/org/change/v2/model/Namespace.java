@@ -94,7 +94,7 @@ public class Namespace {
 	 * Returns symnetNICs.
 	 * @return symnetNICs 
 	 */
-	public HashSet<NIC> getSymnetNICs() {
+	public HashSet<NIC> getNICs() {
 		return this.symnetNICs;
 	}
 
@@ -102,7 +102,7 @@ public class Namespace {
 	 * Returns symnetComputers.
 	 * @return symnetComputers 
 	 */
-	public Computer getSymnetComputers() {
+	public Computer getComputer() {
 		return this.symnetComputers;
 	}
 	
@@ -110,7 +110,7 @@ public class Namespace {
 	 * Sets a value to attribute symnetComputers. 
 	 * @param newSymnetComputers 
 	 */
-	public void setSymnetComputers(Computer newSymnetComputers) {
+	public void setComputer(Computer newSymnetComputers) {
 	    this.symnetComputers = newSymnetComputers;
 	}
 

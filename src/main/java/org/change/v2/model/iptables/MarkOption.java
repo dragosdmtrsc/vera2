@@ -8,25 +8,26 @@ public class MarkOption extends SimpleOption {
 	public String toString() {
 		return "MarkOption [value=" + value + ", mask=" + mask + ", name=" + name + "]";
 	}
-	private int value, mask;
+	Long value;
+	private long mask;
 	private String name;
-	public MarkOption(boolean neg, int value, int mask, String name) {
+	public MarkOption(boolean neg, Long ip, long mask2, String name) {
 		super();
 		this.setNeg(neg);
-		this.value = value;
-		this.mask = mask;
+		this.value = ip;
+		this.mask = mask2;
 		this.name = name;
 	}
-	public int getValue() {
+	public Long getValue() {
 		return value;
 	}
-	public void setValue(int value) {
+	public void setValue(Long value) {
 		this.value = value;
 	}
-	public int getMask() {
+	public long getMask() {
 		return mask;
 	}
-	public void setMask(int mask) {
+	public void setMask(long mask) {
 		this.mask = mask;
 	}
 	public String getName() {
