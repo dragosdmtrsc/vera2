@@ -1,4 +1,4 @@
-// Generated from /0/projects/internal/symnet-stuff/Symnetic/src/main/resources/p4_grammar/P4Grammar.g4 by ANTLR 4.6
+// Generated from /0/projects/internal/symnet-stuff/Symnetic/src/main/resources/p4_grammar/P4Grammar.g4 by ANTLR 4.7
 package generated.parse.p4;
 import org.antlr.v4.runtime.Lexer;
 import org.antlr.v4.runtime.CharStream;
@@ -11,7 +11,7 @@ import org.antlr.v4.runtime.misc.*;
 
 @SuppressWarnings({"all", "warnings", "unchecked", "unused", "cast"})
 public class P4GrammarLexer extends Lexer {
-	static { RuntimeMetaData.checkVersion("4.6", RuntimeMetaData.VERSION); }
+	static { RuntimeMetaData.checkVersion("4.7", RuntimeMetaData.VERSION); }
 
 	protected static final DFA[] _decisionToDFA;
 	protected static final PredictionContextCache _sharedContextCache =
@@ -36,6 +36,10 @@ public class P4GrammarLexer extends Lexer {
 		T__113=114, T__114=115, T__115=116, T__116=117, T__117=118, T__118=119, 
 		T__119=120, T__120=121, T__121=122, T__122=123, T__123=124, BINARY_BASE=125, 
 		HEXADECIMAL_BASE=126, NAME=127, WS=128;
+	public static String[] channelNames = {
+		"DEFAULT_TOKEN_CHANNEL", "HIDDEN"
+	};
+
 	public static String[] modeNames = {
 		"DEFAULT_MODE"
 	};
@@ -63,18 +67,18 @@ public class P4GrammarLexer extends Lexer {
 	private static final String[] _LITERAL_NAMES = {
 		null, "'+'", "'-'", "'_'", "'0'", "'1'", "'2'", "'3'", "'4'", "'5'", "'6'", 
 		"'7'", "'8'", "'9'", "'a'", "'A'", "'b'", "'B'", "'c'", "'C'", "'d'", 
-		"'D'", "'e'", "'E'", "'f'", "'F'", "'’'", "'header_type'", "'{'", "'}'", 
-		"'fields'", "'length'", "':'", "';'", "'max_length'", "'('", "')'", "'signed'", 
-		"'saturating'", "','", "'*'", "'<<'", "'>>'", "'header'", "'['", "']'", 
-		"'metadata'", "'last'", "'.'", "'field_list'", "'payload'", "'field_list_calculation'", 
-		"'input'", "'algorithm'", "'output_width'", "'calculated_field'", "'update'", 
-		"'verify'", "'if'", "'valid'", "'=='", "'parser_value_set'", "'parser'", 
-		"'extract'", "'next'", "'set_metadata'", "'return select'", "'return'", 
-		"'parse_error'", "'default'", "'mask'", "'latest.'", "'current'", "'parser_exception'", 
-		"'parser_drop'", "'counter'", "'type'", "'instance_count'", "'min_width'", 
-		"'bytes'", "'packets'", "'packets_and_bytes'", "'direct'", "'static'", 
-		"'meter'", "'result'", "' instance_count'", "'register'", "'width'", "'attributes'", 
-		"'action'", "'action_profile'", "'size'", "'dynamic_action_selection'", 
+		"'D'", "'e'", "'E'", "'f'", "'F'", "'\u2019'", "'header_type'", "'{'", 
+		"'}'", "'fields'", "'length'", "':'", "';'", "'max_length'", "'('", "')'", 
+		"'signed'", "'saturating'", "','", "'*'", "'<<'", "'>>'", "'header'", 
+		"'['", "']'", "'metadata'", "'last'", "'.'", "'field_list'", "'payload'", 
+		"'field_list_calculation'", "'input'", "'algorithm'", "'output_width'", 
+		"'calculated_field'", "'update'", "'verify'", "'if'", "'valid'", "'=='", 
+		"'parser_value_set'", "'parser'", "'extract'", "'next'", "'set_metadata'", 
+		"'return select'", "'return'", "'parse_error'", "'default'", "'mask'", 
+		"'latest.'", "'current'", "'parser_exception'", "'parser_drop'", "'counter'", 
+		"'type'", "'instance_count'", "'min_width'", "'bytes'", "'packets'", "'packets_and_bytes'", 
+		"'direct'", "'static'", "'meter'", "'result'", "' instance_count'", "'register'", 
+		"'width'", "'attributes'", "'action'", "'action_profile'", "'size'", "'dynamic_action_selection'", 
 		"'actions'", "'action_selector'", "'selection_key'", "'table'", "'reads'", 
 		"'min_size'", "'max_size'", "'support_timeout'", "'true'", "'false'", 
 		"'exact'", "'ternary'", "'lpm'", "'range'", "'control'", "'apply'", "'hit'", 
@@ -144,13 +148,16 @@ public class P4GrammarLexer extends Lexer {
 	public String getSerializedATN() { return _serializedATN; }
 
 	@Override
+	public String[] getChannelNames() { return channelNames; }
+
+	@Override
 	public String[] getModeNames() { return modeNames; }
 
 	@Override
 	public ATN getATN() { return _ATN; }
 
 	public static final String _serializedATN =
-		"\3\u0430\ud6d1\u8206\uad2d\u4417\uaef1\u8d80\uaadd\2\u0082\u042a\b\1\4"+
+		"\3\u608b\ua72a\u8133\ub9ed\u417c\u3be7\u7786\u5964\2\u0082\u042a\b\1\4"+
 		"\2\t\2\4\3\t\3\4\4\t\4\4\5\t\5\4\6\t\6\4\7\t\7\4\b\t\b\4\t\t\t\4\n\t\n"+
 		"\4\13\t\13\4\f\t\f\4\r\t\r\4\16\t\16\4\17\t\17\4\20\t\20\4\21\t\21\4\22"+
 		"\t\22\4\23\t\23\4\24\t\24\4\25\t\25\4\26\t\26\4\27\t\27\4\30\t\30\4\31"+
@@ -216,18 +223,18 @@ public class P4GrammarLexer extends Lexer {
 		"j\u00d3k\u00d5l\u00d7m\u00d9n\u00dbo\u00ddp\u00dfq\u00e1r\u00e3s\u00e5"+
 		"t\u00e7u\u00e9v\u00ebw\u00edx\u00efy\u00f1z\u00f3{\u00f5|\u00f7}\u00f9"+
 		"~\u00fb\177\u00fd\u0080\u00ff\u0081\u0101\u0082\3\2\5\4\2C\\c|\6\2\62"+
-		";C\\aac|\5\2\13\f\17\17\"\"\u042d\2\3\3\2\2\2\2\5\3\2\2\2\2\7\3\2\2\2"+
-		"\2\t\3\2\2\2\2\13\3\2\2\2\2\r\3\2\2\2\2\17\3\2\2\2\2\21\3\2\2\2\2\23\3"+
-		"\2\2\2\2\25\3\2\2\2\2\27\3\2\2\2\2\31\3\2\2\2\2\33\3\2\2\2\2\35\3\2\2"+
-		"\2\2\37\3\2\2\2\2!\3\2\2\2\2#\3\2\2\2\2%\3\2\2\2\2\'\3\2\2\2\2)\3\2\2"+
-		"\2\2+\3\2\2\2\2-\3\2\2\2\2/\3\2\2\2\2\61\3\2\2\2\2\63\3\2\2\2\2\65\3\2"+
-		"\2\2\2\67\3\2\2\2\29\3\2\2\2\2;\3\2\2\2\2=\3\2\2\2\2?\3\2\2\2\2A\3\2\2"+
-		"\2\2C\3\2\2\2\2E\3\2\2\2\2G\3\2\2\2\2I\3\2\2\2\2K\3\2\2\2\2M\3\2\2\2\2"+
-		"O\3\2\2\2\2Q\3\2\2\2\2S\3\2\2\2\2U\3\2\2\2\2W\3\2\2\2\2Y\3\2\2\2\2[\3"+
-		"\2\2\2\2]\3\2\2\2\2_\3\2\2\2\2a\3\2\2\2\2c\3\2\2\2\2e\3\2\2\2\2g\3\2\2"+
-		"\2\2i\3\2\2\2\2k\3\2\2\2\2m\3\2\2\2\2o\3\2\2\2\2q\3\2\2\2\2s\3\2\2\2\2"+
-		"u\3\2\2\2\2w\3\2\2\2\2y\3\2\2\2\2{\3\2\2\2\2}\3\2\2\2\2\177\3\2\2\2\2"+
-		"\u0081\3\2\2\2\2\u0083\3\2\2\2\2\u0085\3\2\2\2\2\u0087\3\2\2\2\2\u0089"+
+		";C\\aac|\5\2\13\f\17\17\"\"\2\u042d\2\3\3\2\2\2\2\5\3\2\2\2\2\7\3\2\2"+
+		"\2\2\t\3\2\2\2\2\13\3\2\2\2\2\r\3\2\2\2\2\17\3\2\2\2\2\21\3\2\2\2\2\23"+
+		"\3\2\2\2\2\25\3\2\2\2\2\27\3\2\2\2\2\31\3\2\2\2\2\33\3\2\2\2\2\35\3\2"+
+		"\2\2\2\37\3\2\2\2\2!\3\2\2\2\2#\3\2\2\2\2%\3\2\2\2\2\'\3\2\2\2\2)\3\2"+
+		"\2\2\2+\3\2\2\2\2-\3\2\2\2\2/\3\2\2\2\2\61\3\2\2\2\2\63\3\2\2\2\2\65\3"+
+		"\2\2\2\2\67\3\2\2\2\29\3\2\2\2\2;\3\2\2\2\2=\3\2\2\2\2?\3\2\2\2\2A\3\2"+
+		"\2\2\2C\3\2\2\2\2E\3\2\2\2\2G\3\2\2\2\2I\3\2\2\2\2K\3\2\2\2\2M\3\2\2\2"+
+		"\2O\3\2\2\2\2Q\3\2\2\2\2S\3\2\2\2\2U\3\2\2\2\2W\3\2\2\2\2Y\3\2\2\2\2["+
+		"\3\2\2\2\2]\3\2\2\2\2_\3\2\2\2\2a\3\2\2\2\2c\3\2\2\2\2e\3\2\2\2\2g\3\2"+
+		"\2\2\2i\3\2\2\2\2k\3\2\2\2\2m\3\2\2\2\2o\3\2\2\2\2q\3\2\2\2\2s\3\2\2\2"+
+		"\2u\3\2\2\2\2w\3\2\2\2\2y\3\2\2\2\2{\3\2\2\2\2}\3\2\2\2\2\177\3\2\2\2"+
+		"\2\u0081\3\2\2\2\2\u0083\3\2\2\2\2\u0085\3\2\2\2\2\u0087\3\2\2\2\2\u0089"+
 		"\3\2\2\2\2\u008b\3\2\2\2\2\u008d\3\2\2\2\2\u008f\3\2\2\2\2\u0091\3\2\2"+
 		"\2\2\u0093\3\2\2\2\2\u0095\3\2\2\2\2\u0097\3\2\2\2\2\u0099\3\2\2\2\2\u009b"+
 		"\3\2\2\2\2\u009d\3\2\2\2\2\u009f\3\2\2\2\2\u00a1\3\2\2\2\2\u00a3\3\2\2"+

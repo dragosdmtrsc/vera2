@@ -1,4 +1,4 @@
-// Generated from /0/projects/internal/symnet-stuff/Symnetic/src/main/resources/p4_grammar/P4Grammar.g4 by ANTLR 4.6
+// Generated from /0/projects/internal/symnet-stuff/Symnetic/src/main/resources/p4_grammar/P4Grammar.g4 by ANTLR 4.7
 package generated.parse.p4;
 import org.antlr.v4.runtime.atn.*;
 import org.antlr.v4.runtime.dfa.DFA;
@@ -11,7 +11,7 @@ import java.util.ArrayList;
 
 @SuppressWarnings({"all", "warnings", "unchecked", "unused", "cast"})
 public class P4GrammarParser extends Parser {
-	static { RuntimeMetaData.checkVersion("4.6", RuntimeMetaData.VERSION); }
+	static { RuntimeMetaData.checkVersion("4.7", RuntimeMetaData.VERSION); }
 
 	protected static final DFA[] _decisionToDFA;
 	protected static final PredictionContextCache _sharedContextCache =
@@ -111,18 +111,18 @@ public class P4GrammarParser extends Parser {
 	private static final String[] _LITERAL_NAMES = {
 		null, "'+'", "'-'", "'_'", "'0'", "'1'", "'2'", "'3'", "'4'", "'5'", "'6'", 
 		"'7'", "'8'", "'9'", "'a'", "'A'", "'b'", "'B'", "'c'", "'C'", "'d'", 
-		"'D'", "'e'", "'E'", "'f'", "'F'", "'’'", "'header_type'", "'{'", "'}'", 
-		"'fields'", "'length'", "':'", "';'", "'max_length'", "'('", "')'", "'signed'", 
-		"'saturating'", "','", "'*'", "'<<'", "'>>'", "'header'", "'['", "']'", 
-		"'metadata'", "'last'", "'.'", "'field_list'", "'payload'", "'field_list_calculation'", 
-		"'input'", "'algorithm'", "'output_width'", "'calculated_field'", "'update'", 
-		"'verify'", "'if'", "'valid'", "'=='", "'parser_value_set'", "'parser'", 
-		"'extract'", "'next'", "'set_metadata'", "'return select'", "'return'", 
-		"'parse_error'", "'default'", "'mask'", "'latest.'", "'current'", "'parser_exception'", 
-		"'parser_drop'", "'counter'", "'type'", "'instance_count'", "'min_width'", 
-		"'bytes'", "'packets'", "'packets_and_bytes'", "'direct'", "'static'", 
-		"'meter'", "'result'", "' instance_count'", "'register'", "'width'", "'attributes'", 
-		"'action'", "'action_profile'", "'size'", "'dynamic_action_selection'", 
+		"'D'", "'e'", "'E'", "'f'", "'F'", "'\u2019'", "'header_type'", "'{'", 
+		"'}'", "'fields'", "'length'", "':'", "';'", "'max_length'", "'('", "')'", 
+		"'signed'", "'saturating'", "','", "'*'", "'<<'", "'>>'", "'header'", 
+		"'['", "']'", "'metadata'", "'last'", "'.'", "'field_list'", "'payload'", 
+		"'field_list_calculation'", "'input'", "'algorithm'", "'output_width'", 
+		"'calculated_field'", "'update'", "'verify'", "'if'", "'valid'", "'=='", 
+		"'parser_value_set'", "'parser'", "'extract'", "'next'", "'set_metadata'", 
+		"'return select'", "'return'", "'parse_error'", "'default'", "'mask'", 
+		"'latest.'", "'current'", "'parser_exception'", "'parser_drop'", "'counter'", 
+		"'type'", "'instance_count'", "'min_width'", "'bytes'", "'packets'", "'packets_and_bytes'", 
+		"'direct'", "'static'", "'meter'", "'result'", "' instance_count'", "'register'", 
+		"'width'", "'attributes'", "'action'", "'action_profile'", "'size'", "'dynamic_action_selection'", 
 		"'actions'", "'action_selector'", "'selection_key'", "'table'", "'reads'", 
 		"'min_size'", "'max_size'", "'support_timeout'", "'true'", "'false'", 
 		"'exact'", "'ternary'", "'lpm'", "'range'", "'control'", "'apply'", "'hit'", 
@@ -447,6 +447,7 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Const_valueContext extends ParserRuleContext {
+		public Integer constValue;
 		public Unsigned_valueContext unsigned_value() {
 			return getRuleContext(Unsigned_valueContext.class,0);
 		}
@@ -518,6 +519,7 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Unsigned_valueContext extends ParserRuleContext {
+		public Integer unsignedValue;
 		public Binary_valueContext binary_value() {
 			return getRuleContext(Binary_valueContext.class,0);
 		}
@@ -595,6 +597,7 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Binary_valueContext extends ParserRuleContext {
+		public Integer parsedValue;
 		public TerminalNode BINARY_BASE() { return getToken(P4GrammarParser.BINARY_BASE, 0); }
 		public List<Binary_digitContext> binary_digit() {
 			return getRuleContexts(Binary_digitContext.class);
@@ -659,6 +662,7 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Decimal_valueContext extends ParserRuleContext {
+		public Integer parsedValue;
 		public List<Decimal_digitContext> decimal_digit() {
 			return getRuleContexts(Decimal_digitContext.class);
 		}
@@ -720,6 +724,7 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Hexadecimal_valueContext extends ParserRuleContext {
+		public Integer parsedValue;
 		public TerminalNode HEXADECIMAL_BASE() { return getToken(P4GrammarParser.HEXADECIMAL_BASE, 0); }
 		public List<Hexadecimal_digitContext> hexadecimal_digit() {
 			return getRuleContexts(Hexadecimal_digitContext.class);
@@ -1132,6 +1137,7 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Field_valueContext extends ParserRuleContext {
+		public Integer fieldValue;
 		public Const_valueContext const_value() {
 			return getRuleContext(Const_valueContext.class,0);
 		}
@@ -7737,7 +7743,7 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static final String _serializedATN =
-		"\3\u0430\ud6d1\u8206\uad2d\u4417\uaef1\u8d80\uaadd\3\u0082\u047a\4\2\t"+
+		"\3\u608b\ua72a\u8133\ub9ed\u417c\u3be7\u7786\u5964\3\u0082\u047a\4\2\t"+
 		"\2\4\3\t\3\4\4\t\4\4\5\t\5\4\6\t\6\4\7\t\7\4\b\t\b\4\t\t\t\4\n\t\n\4\13"+
 		"\t\13\4\f\t\f\4\r\t\r\4\16\t\16\4\17\t\17\4\20\t\20\4\21\t\21\4\22\t\22"+
 		"\4\23\t\23\4\24\t\24\4\25\t\25\4\26\t\26\4\27\t\27\4\30\t\30\4\31\t\31"+
@@ -7815,11 +7821,11 @@ public class P4GrammarParser extends Parser {
 		"\u00ca\u00cc\u00ce\u00d0\u00d2\u00d4\u00d6\u00d8\u00da\u00dc\u00de\u00e0"+
 		"\u00e2\u00e4\u00e6\u00e8\u00ea\u00ec\u00ee\u00f0\2\17\3\2\3\4\3\2\5\7"+
 		"\4\2\3\4*,\3\2:;\3\2QS\3\2QR\3\2hi\4\2==jm\3\2pq\5\2\3\4*,tv\4\2\4\4w"+
-		"w\3\2xy\4\2>>z~\u0492\2\u00f3\3\2\2\2\4\u0107\3\2\2\2\6\u010a\3\2\2\2"+
-		"\b\u0114\3\2\2\2\n\u0116\3\2\2\2\f\u011d\3\2\2\2\16\u0121\3\2\2\2\20\u0127"+
-		"\3\2\2\2\22\u0132\3\2\2\2\24\u0141\3\2\2\2\26\u0144\3\2\2\2\30\u014a\3"+
-		"\2\2\2\32\u014c\3\2\2\2\34\u0152\3\2\2\2\36\u0154\3\2\2\2 \u016a\3\2\2"+
-		"\2\"\u0175\3\2\2\2$\u017a\3\2\2\2&\u0184\3\2\2\2(\u018d\3\2\2\2*\u019a"+
+		"w\3\2xy\4\2>>z~\2\u0492\2\u00f3\3\2\2\2\4\u0107\3\2\2\2\6\u010a\3\2\2"+
+		"\2\b\u0114\3\2\2\2\n\u0116\3\2\2\2\f\u011d\3\2\2\2\16\u0121\3\2\2\2\20"+
+		"\u0127\3\2\2\2\22\u0132\3\2\2\2\24\u0141\3\2\2\2\26\u0144\3\2\2\2\30\u014a"+
+		"\3\2\2\2\32\u014c\3\2\2\2\34\u0152\3\2\2\2\36\u0154\3\2\2\2 \u016a\3\2"+
+		"\2\2\"\u0175\3\2\2\2$\u017a\3\2\2\2&\u0184\3\2\2\2(\u018d\3\2\2\2*\u019a"+
 		"\3\2\2\2,\u019e\3\2\2\2.\u01a2\3\2\2\2\60\u01a4\3\2\2\2\62\u01a9\3\2\2"+
 		"\2\64\u01b1\3\2\2\2\66\u01ba\3\2\2\28\u01bc\3\2\2\2:\u01ce\3\2\2\2<\u01d2"+
 		"\3\2\2\2>\u01d4\3\2\2\2@\u01d8\3\2\2\2B\u01e4\3\2\2\2D\u01eb\3\2\2\2F"+

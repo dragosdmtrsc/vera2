@@ -22,12 +22,12 @@ p4_declaration  :    header_type_declaration
                 |   control_function_declaration
                 ;
 
-const_value     :   ('+'|'-')? width_spec? unsigned_value ;
-unsigned_value  :   binary_value | decimal_value | hexadecimal_value ;
+const_value     returns [Integer constValue]:   ('+'|'-')? width_spec? unsigned_value ;
+unsigned_value  returns [Integer unsignedValue]:   binary_value | decimal_value | hexadecimal_value ;
 
-binary_value    :   BINARY_BASE binary_digit+ ;
-decimal_value   :   decimal_digit+ ;
-hexadecimal_value   :   HEXADECIMAL_BASE hexadecimal_digit+ ;
+binary_value    returns [Integer parsedValue]:   BINARY_BASE binary_digit+ ;
+decimal_value   returns [Integer parsedValue]:   decimal_digit+ ;
+hexadecimal_value   returns [Integer parsedValue]:   HEXADECIMAL_BASE hexadecimal_digit+ ;
 
 BINARY_BASE     :   '0b' | '0B' ;
 HEXADECIMAL_BASE    :   '0x' | '0X' ;
@@ -37,7 +37,7 @@ decimal_digit   :   binary_digit | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9'
 hexadecimal_digit   : decimal_digit | 'a' | 'A' | 'b' | 'B' | 'c' | 'C' | 'd' | 'D' | 'e' | 'E' | 'f' | 'F' ;
 
 width_spec  :   decimal_digit+ '’' ;
-field_value :   const_value ;
+field_value returns [Integer fieldValue] : const_value ;
 header_type_declaration :   'header_type' header_type_name '{' header_dec_body '}' ;
 header_type_name : NAME ;
 
