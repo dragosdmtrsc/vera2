@@ -47,7 +47,7 @@ case class MemorySpace(val symbols: Map[String, MemoryObject] = Map.empty,
 
   def isAllocated(a: Int): Boolean = rawObjects.contains(a)
 
-  private def doesNotOverlap(a: Int, size: Int): Boolean = {
+  def doesNotOverlap(a: Int, size: Int): Boolean = {
     (! rawObjects.contains(a)) &&
       rawObjects.forall(kv => ! IntervalOps.intervalIntersectionIsInterval(a, a+size, kv._1, kv._1 + kv._2.size))
   }
