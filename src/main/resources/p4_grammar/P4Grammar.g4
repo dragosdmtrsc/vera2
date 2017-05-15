@@ -55,6 +55,7 @@ length_exp  :   const_value | field_name | length_exp length_bin_op length_exp |
 bit_width   :   const_value | '*' ;
 
 // Section 2.2
+//TODO: Support metadata instances.
 instance_declaration    :   header_instance | metadata_instance ;
 header_instance :   scalar_instance | array_instance ;
 scalar_instance :   'header' header_type_name instance_name ';' ;
@@ -62,8 +63,8 @@ array_instance  :   'header' header_type_name instance_name '[' const_value ']' 
 instance_name   :   NAME ;
 
 metadata_instance   :   'metadata' header_type_name instance_name ( metadata_initializer )? | ';' ;
-
 metadata_initializer    :   '{' ( field_name ':' field_value ';' )+ '}' ;
+
 header_ref  :   instance_name | instance_name '[' index ']' ;
 index   :   const_value | 'last' ;
 field_ref   :   header_ref '.' field_name ;
