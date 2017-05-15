@@ -1,12 +1,10 @@
 package org.change.v2.analysis.memory
 
-import org.change.v2.analysis.processingmodels.Instruction
-
 /**
   * Author: Radu Stoenescu
  * Don't be a stranger,  symnetic.7.radustoe@spamgourmet.com
  */
-case class Tag(val name: String) extends Intable {
+case class Tag(name: String) extends Intable {
 
   def +(other: TagExp): TagExp = TagExp(this :: other.plusTags, other.minusTags , other.rest)
   def +(other: Int): TagExp = TagExp(List(this), Nil , other)
