@@ -7,6 +7,31 @@ import generated.parse.p4.{P4GrammarBaseListener, P4GrammarParser}
   */
 class P4GrammarListener extends P4GrammarBaseListener {
 
+  // Section 2.1
+  import scala.collection.mutable.{Map => MutableMap}
+  private val declaredHeaders: MutableMap[String, HeaderDeclaration] = MutableMap()
+
+  override def exitHeader_type_declaration(ctx: P4GrammarParser.Header_type_declarationContext): Unit = {
+    val declaredHeaderName = ctx.header_type_name().getText
+    //TODO: Support for other header lengths.
+    val headerSize = ctx.header_dec_body().length_exp().const_value().constValue
+
+    import scala.collection.JavaConversions._
+    val fields = ctx.header_dec_body().field_dec().toList.map { h =>
+      val width: Option[Int] = Option(h.bit_width().const_value()).map(_.constValue)
+      val name: String = h.field_name().getText
+      (name, width)
+    }
+
+    val fieldsWithSizes = {
+      val total = fields.foldLeft(0)(_ + _._2.getOrElse(0))
+      fields.map(field => (field._1, field._2.getOrElse(headerSize - total)))
+    }
+
+    declaredHeaders.put(declaredHeaderName,
+      HeaderDeclaration(declaredHeaderName, fieldsWithSizes.scanLeft(0)(_ + _._2).zip(fieldsWithSizes).toMap))
+  }
+  // Exit Section 2.1
 
   override def exitField_value(ctx: P4GrammarParser.Field_valueContext): Unit = {
     ctx.fieldValue = ctx.const_value().constValue

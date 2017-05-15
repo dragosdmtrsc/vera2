@@ -4,7 +4,7 @@ grammar P4Grammar;
 
 p4_program      :   p4_declaration+ ;
 
-p4_declaration  :    header_type_declaration
+p4_declaration  :   header_type_declaration
                 |   instance_declaration
                 |   field_list_declaration
                 |   field_list_calculation_declaration
@@ -38,17 +38,23 @@ hexadecimal_digit   : decimal_digit | 'a' | 'A' | 'b' | 'B' | 'c' | 'C' | 'd' | 
 
 width_spec  :   decimal_digit+ '’' ;
 field_value returns [Integer fieldValue] : const_value ;
+
+// Section 2.1
 header_type_declaration :   'header_type' header_type_name '{' header_dec_body '}' ;
 header_type_name : NAME ;
 
+// max_length is used for run-time checks (if the header is larger than this maximum)
 header_dec_body :   'fields' '{' field_dec+ '}' ( 'length' ':' length_exp ';' )? ( 'max_length' ':' const_value ';' )? ;
 
 field_dec   :   field_name ':' bit_width ( '(' field_mod ')' )? ';' ;
 field_name  :   NAME ;
 field_mod   :   'signed' | 'saturating' | field_mod ',' field_mod ;
 length_bin_op   :   '+' | '-' | '*' | '<<' | '>>' ;
+//TODO: Only const_value is supported currenty.
 length_exp  :   const_value | field_name | length_exp length_bin_op length_exp | '(' length_exp ')' ;
 bit_width   :   const_value | '*' ;
+
+// Section 2.2
 instance_declaration    :   header_instance | metadata_instance ;
 header_instance :   scalar_instance | array_instance ;
 scalar_instance :   'header' header_type_name instance_name ';' ;
