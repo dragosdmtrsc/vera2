@@ -7,3 +7,7 @@ package org.change.v2.analysis.memory
 trait Intable {
   def apply(s: State): Option[Int]
 }
+
+trait ProducesTagExp {
+  def getTagExp(): TagExp
+}

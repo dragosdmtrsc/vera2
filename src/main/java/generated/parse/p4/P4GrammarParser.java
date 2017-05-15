@@ -2197,6 +2197,8 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Header_refContext extends ParserRuleContext {
+		public org.change.v2.analysis.memory.TagExp tagReference;
+		public String headerInstanceId;
 		public Instance_nameContext instance_name() {
 			return getRuleContext(Instance_nameContext.class,0);
 		}
@@ -2326,6 +2328,7 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Field_refContext extends ParserRuleContext {
+		public org.change.v2.analysis.memory.TagExp reference;
 		public Header_refContext header_ref() {
 			return getRuleContext(Header_refContext.class,0);
 		}

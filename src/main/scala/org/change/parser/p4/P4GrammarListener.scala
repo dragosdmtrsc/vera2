@@ -29,7 +29,12 @@ class P4GrammarListener extends P4GrammarBaseListener {
     }
 
     declaredHeaders.put(declaredHeaderName,
-      HeaderDeclaration(declaredHeaderName, fieldsWithSizes.scanLeft(0)(_ + _._2).zip(fieldsWithSizes).toMap))
+      HeaderDeclaration(
+        declaredHeaderName,
+        fieldsWithSizes.scanLeft(0)(_ + _._2).zip(fieldsWithSizes).toMap,
+        headerSize
+      )
+    )
   }
   // Exit Section 2.1
 
@@ -50,7 +55,21 @@ class P4GrammarListener extends P4GrammarBaseListener {
   }
   // Exit Section 2.2
 
+  override def exitHeader_ref(ctx: P4GrammarParser.Header_refContext): Unit = {
+    ctx.headerInstanceId = if (ctx.index() != null)
+        if (! (ctx.index().getText == "last"))
+          ctx.instance_name().getText + ctx.index().getText
+        else throw new UnsupportedOperationException("'last' not yet supported")
+      else
+        ctx.instance_name().getText
 
+    ctx.tagReference = headerInstances(ctx.headerInstanceId).getTagExp
+  }
+
+  override def exitField_ref(ctx: P4GrammarParser.Field_refContext): Unit = {
+    ctx.reference = ctx.header_ref().tagReference +
+      headerInstances(ctx.header_ref().headerInstanceId).layout.indexOf(ctx.field_name().getText)
+  }
 
   override def exitField_value(ctx: P4GrammarParser.Field_valueContext): Unit = {
     ctx.fieldValue = ctx.const_value().constValue

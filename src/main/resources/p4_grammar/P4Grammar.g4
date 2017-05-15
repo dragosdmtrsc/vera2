@@ -65,9 +65,11 @@ instance_name   :   NAME ;
 metadata_instance   :   'metadata' header_type_name instance_name ( metadata_initializer )? | ';' ;
 metadata_initializer    :   '{' ( field_name ':' field_value ';' )+ '}' ;
 
-header_ref  :   instance_name | instance_name '[' index ']' ;
+header_ref returns [org.change.v2.analysis.memory.TagExp tagReference, String headerInstanceId] :
+    instance_name | instance_name '[' index ']' ;
+// TODO: Add support for `last`
 index   :   const_value | 'last' ;
-field_ref   :   header_ref '.' field_name ;
+field_ref   returns [org.change.v2.analysis.memory.TagExp reference]:   header_ref '.' field_name ;
 field_list_declaration  :   'field_list' field_list_name '{' ( field_list_entry ';')+ '}' ;
 field_list_name :   NAME ;
 
