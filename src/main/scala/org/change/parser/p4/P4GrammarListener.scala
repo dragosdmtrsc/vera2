@@ -6,6 +6,8 @@ import generated.parse.p4.{P4GrammarBaseListener, P4GrammarParser}
   * A small gift from radu to symnetic.
   */
 class P4GrammarListener extends P4GrammarBaseListener {
+  // For converting ANTLR - produced API
+  import scala.collection.JavaConversions._
 
   // Section 2.1
   import scala.collection.mutable.{Map => MutableMap}
@@ -16,7 +18,6 @@ class P4GrammarListener extends P4GrammarBaseListener {
     //TODO: Support for other header lengths.
     val headerSize = ctx.header_dec_body().length_exp().const_value().constValue
 
-    import scala.collection.JavaConversions._
     val fields = ctx.header_dec_body().field_dec().toList.map { h =>
       val width: Option[Int] = Option(h.bit_width().const_value()).map(_.constValue)
       val name: String = h.field_name().getText
@@ -54,6 +55,38 @@ class P4GrammarListener extends P4GrammarBaseListener {
     headerInstances.put(instanceName + index, ArrayHeader(instanceName, index, declaredHeaders(headerType)))
   }
   // Exit Section 2.2
+
+  // Section 4
+  override def exitHeader_extract_ref(ctx: P4GrammarParser.Header_extract_refContext): Unit = {
+    ctx.headerInstance = headerInstances(
+      ctx.instance_name().getText + {
+        if (ctx.header_extract_index() != null)
+          if (ctx.header_extract_index().getText != "next")
+            ctx.header_extract_index().getText
+          else "" //TODO: Support next
+        else ""
+      }
+    )
+  }
+
+  val declaredFunctions: MutableMap[String, ParserFunctionDeclaration] = MutableMap()
+
+  override def exitParser_function_declaration(ctx: P4GrammarParser.Parser_function_declarationContext): Unit = {
+    ctx.functionDeclaration = ParserFunctionDeclaration(
+      ctx.parser_state_name().getText,
+      ctx.parser_function_body().extract_or_set_statement().toList.map(_.functionStatement)
+    )
+  }
+
+  override def exitExtract_or_set_statement(ctx: P4GrammarParser.Extract_or_set_statementContext): Unit = {
+    ctx.functionStatement = Option(ctx.extract_statement()).map(_.extractStatement).orElse(
+        throw new Exception("Set not supported")
+      ).get
+  }
+
+  override def enterExtract_statement(ctx: P4GrammarParser.Extract_statementContext): Unit = {
+    ctx.extractStatement = ExtractHeader(ctx.header_extract_ref().headerInstance)
+  }
 
   override def exitHeader_ref(ctx: P4GrammarParser.Header_refContext): Unit = {
     ctx.headerInstanceId = if (ctx.index() != null)

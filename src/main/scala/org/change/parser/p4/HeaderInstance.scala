@@ -1,6 +1,6 @@
 package org.change.parser.p4
 
-import org.change.v2.analysis.memory.{Intable, ProducesTagExp, Tag, TagExp}
+import org.change.v2.analysis.memory.{ProducesTagExp, Tag, TagExp}
 
 /**
   * A small gift from radu to symnetic.

@@ -3103,6 +3103,7 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Parser_function_declarationContext extends ParserRuleContext {
+		public org.change.parser.p4.ParserFunctionDeclaration functionDeclaration;
 		public Parser_state_nameContext parser_state_name() {
 			return getRuleContext(Parser_state_nameContext.class,0);
 		}
@@ -3250,6 +3251,7 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Extract_or_set_statementContext extends ParserRuleContext {
+		public org.change.parser.p4.ParserFunctionStatement functionStatement;
 		public Extract_statementContext extract_statement() {
 			return getRuleContext(Extract_statementContext.class,0);
 		}
@@ -3307,6 +3309,7 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Extract_statementContext extends ParserRuleContext {
+		public org.change.parser.p4.ExtractHeader extractStatement;
 		public Header_extract_refContext header_extract_ref() {
 			return getRuleContext(Header_extract_refContext.class,0);
 		}
@@ -3354,6 +3357,7 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Header_extract_refContext extends ParserRuleContext {
+		public org.change.parser.p4.HeaderInstance headerInstance;
 		public Instance_nameContext instance_name() {
 			return getRuleContext(Instance_nameContext.class,0);
 		}

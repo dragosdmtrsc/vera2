@@ -70,6 +70,8 @@ header_ref returns [org.change.v2.analysis.memory.TagExp tagReference, String he
 // TODO: Add support for `last`
 index   :   const_value | 'last' ;
 field_ref   returns [org.change.v2.analysis.memory.TagExp reference]:   header_ref '.' field_name ;
+
+//TODO: All the field etc stuff.
 field_list_declaration  :   'field_list' field_list_name '{' ( field_list_entry ';')+ '}' ;
 field_list_name :   NAME ;
 
@@ -89,19 +91,25 @@ calculated_field_declaration    : 'calculated_field' field_ref '{' update_verify
 
 update_verify_spec  :   update_or_verify field_list_calculation_name ( if_cond )? ';' ;
 update_or_verify    :   'update' | 'verify' ;
+
 if_cond :   'if' '(' calc_bool_cond ')' ;
 calc_bool_cond :    'valid' '(' header_ref | field_ref ')' | field_ref '==' field_value ;
 value_set_declaration : 'parser_value_set' value_set_name ';' ;
 value_set_name  : NAME ;
-parser_function_declaration :   'parser' parser_state_name '{' parser_function_body '}' ;
+
+// Section 4 Parser Specification
+parser_function_declaration returns [org.change.parser.p4.ParserFunctionDeclaration functionDeclaration] :
+    'parser' parser_state_name '{' parser_function_body '}' ;
+
 parser_state_name   :   NAME ;
-
 parser_function_body : extract_or_set_statement* return_statement ;
-
-extract_or_set_statement : extract_statement | set_statement ;
-// TODO: This i guess is a bug, we'll see
-extract_statement   : 'extract' '(' header_extract_ref ')' ';' ;
-header_extract_ref  : instance_name | instance_name '[' header_extract_index ']' ;
+// TODO: Support set_statement.
+extract_or_set_statement returns [org.change.parser.p4.ParserFunctionStatement functionStatement] :
+    extract_statement | set_statement ;
+extract_statement  returns [org.change.parser.p4.ExtractHeader extractStatement] :
+    'extract' '(' header_extract_ref ')' ';' ;
+header_extract_ref returns [org.change.parser.p4.HeaderInstance headerInstance] :
+    instance_name | instance_name '[' header_extract_index ']' ;
 header_extract_index    : const_value | 'next' ;
 set_statement   :   'set_metadata' '(' field_ref',' metadata_expr ')' ';' ;
 metadata_expr   :   field_value | field_or_data_ref ;
