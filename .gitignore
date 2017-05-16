@@ -31,3 +31,5 @@ outputs/
 .cache-tests
 .gitignore.swp
 nohup.out
+
+credentials\.txt
