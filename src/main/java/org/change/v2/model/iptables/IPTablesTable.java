@@ -3,7 +3,8 @@
  *******************************************************************************/
 package org.change.v2.model.iptables;
 
-import java.util.HashSet;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.change.v2.model.Acceptor;
 // Start of user code (user defined imports)
@@ -21,7 +22,7 @@ public class IPTablesTable implements Acceptor {
 	/**
 	 * Description of the property iPTablesChains.
 	 */
-	private HashSet<IPTablesChain> iPTablesChains = new HashSet<IPTablesChain>();
+	private List<IPTablesChain> iPTablesChains = new ArrayList<IPTablesChain>();
 	private Namespace parent = null;
 	public Namespace getParent() {
 		return parent;
@@ -70,7 +71,7 @@ public class IPTablesTable implements Acceptor {
 	 * Returns iPTablesChains.
 	 * @return iPTablesChains 
 	 */
-	public HashSet<IPTablesChain> getIPTablesChains() {
+	public List<IPTablesChain> getIPTablesChains() {
 		return this.iPTablesChains;
 	}
 

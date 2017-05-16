@@ -149,7 +149,7 @@ public class MatchListener extends IptablesBaseListener {
 	  
 	  private void enterIfaceGen(Boolean neg, String ifaceName, String io) {
 	    IfaceOption iface = new IfaceOption (neg,
-	        io, ifaceName.hashCode());
+	        io, ifaceName);
 	    match.getMatchOptions().add(iface);
 	  }
 	  /**

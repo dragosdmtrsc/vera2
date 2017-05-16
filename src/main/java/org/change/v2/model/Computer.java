@@ -192,4 +192,29 @@ public class Computer implements Acceptor {
 		return null;
 	}
 	
+	private Map<String, Namespace> nicToNamespace;
+	public Namespace getNamespaceForNic(String nicName)
+	{
+		if (nicToNamespace == null)
+		{
+			nicToNamespace = new HashMap<String, Namespace>();
+			for (Namespace ns : this.getNamespaces())
+			{
+				for (NIC nic : ns.getNICs())
+				{
+					nicToNamespace.put(nic.getName(), ns);
+				}
+			}
+		}
+		
+		if (nicToNamespace.containsKey(nicName))
+		{
+			return nicToNamespace.get(nicName);
+		}
+		else
+		{
+			return null;
+		}
+	}
+	
 }

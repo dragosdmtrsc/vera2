@@ -48,7 +48,10 @@ import org.change.v2.analysis.processingmodels.instructions.Fork
 import org.change.v2.analysis.memory.Value
 import org.change.v2.analysis.processingmodels.instructions.CreateTag
 import org.change.v2.analysis.memory.TagExp._
-
+import org.change.v2.util.canonicalnames._
+import org.change.v2.analysis.expression.concrete.SymbolicValue
+import org.change.v2.analysis.memory.Intable
+import java.io.PrintStream
 
 
 object TestThatCrap
@@ -56,18 +59,34 @@ object TestThatCrap
   def main(argv : Array[String]) {
     val enterIface = "tap737565c0-2c"
     val pcName = "compute1"
-    val initial = 
-    InstructionBlock(
-        CreateTag("START", 0),
-        CreateTag("VLANId", Tag("START") + 0))(State.clean, false)._1(0)
+    val initials = InstructionBlock(CreateTag("L2", StartTag - 120),
+        CreateTag("TunId", L2Tag - 32),
+        Allocate(EtherType, 16),
+        Assign(EtherType, ConstantValue(0x0800)),
+        Allocate(EtherDst, 24),
+        Assign(EtherDst, SymbolicValue()),
+        Allocate(EtherSrc, 24),
+        Assign(EtherSrc, SymbolicValue()),
+        If (Constrain(Proto, :==:(ConstantValue(UDPProto))),
+            InstructionBlock(CreateTag("L4Src", UDPSrc),
+                CreateTag("L4Dst", UDPDst)),
+            If (Constrain(Proto, :==:(ConstantValue(TCPProto))),
+                InstructionBlock(CreateTag("L4Src", TcpSrc),
+                CreateTag("L4Dst", TcpDst)),
+                NoOp)
+        ))(State.bigBang, false)._1.take(1)
     val world = WorldModel.fromFolder("stack-inputs/generated")
-    System.out.println(new EnterIface(pcName, enterIface, world)(initial))
+    System.setOut(new PrintStream("generated.out"))
+    System.out.println(
+        initials.map { initial => new EnterIface(pcName, enterIface, world)(initial) }
+    )
   }
 }
 
 class EnterIface(pcName : String, iface : String, world : WorldModel) extends Instruction {
   override def apply(state : State, verbose : Boolean) : 
     (List[State], List[State]) = {
+    System.out.println("Entering " + iface + " at pc " + pcName)
     val pc = world.getComputer(pcName)
     val nic = pc.getNic(iface)
     if (pc.isBridged(iface))
@@ -109,20 +128,20 @@ class EnterBridgeNormal(br : OVSBridge, iface : NIC, world : WorldModel) extends
         val vlan = iface.getVlans().get(0).intValue
         System.out.println("Adding VLANId " + vlan)
         
-        val res = InstructionBlock(Allocate(Tag("VLANId"), 4),
-            Assign(Tag("VLANId"), ConstantValue(vlan)))(state, verbose)
+        val res = InstructionBlock(Allocate(VLANTag, 4),
+            Assign(VLANTag, ConstantValue(vlan)))(state, verbose)
         res._1(0)
       }
       else
         state
       InstructionBlock(
       collected.toArray().map { x => x.asInstanceOf[Integer].intValue }.map(t =>  {
-        val isvlans = br.getIfacesForVlan(t).map { x => br.getOvsNic(x) }
-        If (Constrain(Tag("VLANId"), :==:(ConstantValue(t))),
+        val isvlans = br.getIfacesForVlan(t).filter { x => x != iface.getName }.map { x => br.getOvsNic(x) }
+        If (Constrain(VLANTag, :==:(ConstantValue(t))),
           Fork(isvlans.map ( y => {
             if (y.isAccess())
             {
-               InstructionBlock(Deallocate(Tag("VLANId"), 4), new ExitBridge(br, y, world))
+               InstructionBlock(Deallocate(VLANTag, 4), new ExitBridge(br, y, world))
             }
             else
               new ExitBridge(br, y, world)
@@ -164,7 +183,7 @@ class ExitBridge(br : OVSBridge, iface : NIC, world : WorldModel)
       val peer2 : String = iface.getOptions.get("remote-ip")
       val pc = world.getComputerByIp(peer2)
       val ifacePeer = world.getNICByIp(peer2)
-      new EnterIface(pc.getName, iface.getName, world)(state, verbose)
+      InstructionBlock(new EnterIface(pc.getName, iface.getName, world))(state, verbose)
     }
     else if (isInternal)
     {
@@ -322,15 +341,27 @@ class ApplyAction(action : Action, table : OpenFlowTable, ofPort : OpenFlowNIC, 
         	  }
         	  t(state, verbose)
       }
-      case action : ModDlDstAction => Assign(Tag("L2Dst"), ConstantValue(action.getMacAddr))(state, verbose)
-      case action : ModDlSrcAction => Assign(Tag("L2Src"), ConstantValue(action.getMacAddr))(state, verbose)
-      case action : ModNwSrcAction => Assign(Tag("L3Src"), ConstantValue(action.getIpAddress))(state, verbose)
-      case action : ModNwDstAction => Assign(Tag("L3Dst"), ConstantValue(action.getIpAddress))(state, verbose)
-      case action : ModTpDstAction => Assign(Tag("L4Dst"), ConstantValue(action.getIpAddress))(state, verbose)
-      case action : ModTpSrcAction => Assign(Tag("L4Src"), ConstantValue(action.getIpAddress))(state, verbose)
-      case action : ModVlanVidAction => Assign(Tag("VLANId"), ConstantValue(action.getVlanId))(state, verbose)
+      case action : ModDlDstAction => Assign(EtherDst, ConstantValue(action.getMacAddr))(state, verbose)
+      case action : ModDlSrcAction => Assign(EtherSrc, ConstantValue(action.getMacAddr))(state, verbose)
+      case action : ModNwSrcAction => Assign(IPSrc, ConstantValue(action.getIpAddress))(state, verbose)
+      case action : ModNwDstAction => Assign(IPDst, ConstantValue(action.getIpAddress))(state, verbose)
+      case action : ModTpDstAction => If (Constrain(EtherType, :==:(ConstantValue(TCPProto))),
+          Assign(TcpDst, ConstantValue(action.getIpAddress)),
+          If (Constrain(EtherType, :==:(ConstantValue(ICMPProto))),
+              Assign(ICMPType, ConstantValue(action.getIpAddress)),
+              If (Constrain(EtherType, :==:(ConstantValue(UDPProto))),
+                  Assign(UDPDst, ConstantValue(action.getIpAddress)),
+                  Fail("No such protocol"))))(state, verbose)
+      case action : ModTpSrcAction => If (Constrain(EtherType, :==:(ConstantValue(TCPProto))),
+          Assign(TcpSrc, ConstantValue(action.getIpAddress)),
+          If (Constrain(EtherType, :==:(ConstantValue(ICMPProto))),
+              Assign(ICMPType, ConstantValue(action.getIpAddress)),
+              If (Constrain(EtherType, :==:(ConstantValue(UDPProto))),
+                  Assign(UDPSrc, ConstantValue(action.getIpAddress)),
+                  Fail("No such protocol"))))(state, verbose)
+      case action : ModVlanVidAction => Assign(VLANTag, ConstantValue(action.getVlanId))(state, verbose)
       case action : MoveAction => Assign(action.getTo.getName, :@(action.getFrom.getName))(state, verbose)
-      case action : PushVlanAction => Allocate(Tag("VLANId"), 4)(state, verbose)
+      case action : PushVlanAction => Allocate(VLANTag, 4)(state, verbose)
       case action : SetFieldAction => Assign(action.getField.getName, ConstantValue(action.getValue))(state, verbose)
       case action : SetTunnelAction => Assign(Tag("TunnelId"), ConstantValue(action.getTunId))(state, verbose)
       case action : StripVlanAction => Deallocate(Tag("VLANId"), 4)(state, verbose)
@@ -344,46 +375,46 @@ class ApplyAction(action : Action, table : OpenFlowTable, ofPort : OpenFlowNIC, 
 
 object FieldNameTranslator
 {
-  def apply(name : String) : Either[String, Tag] = {
+  def apply(name : String) : Either[String, Intable] = {
      name match {
        case "in_port" => Left("InPort")
-       case "dl_vlan" => Right(Tag("VlanID"))
+       case "dl_vlan" => Right(VLANTag)
        case "dl_vlan_pcp" => Right(Tag("VlanPCP"))
-       case "dl_src" => Right(Tag("L2Src"))
-       case "dl_dst" => Right(Tag("L2Dst"))
-       case "dl_type" => Right(Tag("L2Type"))
-       case "nw_src" => Right(Tag("L3Src"))
-       case "nw_dst" => Right(Tag("L3Dst"))
-       case "nw_proto" => Right(Tag("L3Type"))
-       case "nw_ttl" => Right(Tag("L3TTL"))
+       case "dl_src" => Right(EtherSrc)
+       case "dl_dst" => Right(EtherDst)
+       case "dl_type" => Right(EtherType)
+       case "nw_src" => Right(IPSrc)
+       case "nw_dst" => Right(IPDst)
+       case "nw_proto" => Right(Proto)
+       case "nw_ttl" => Right(TTL)
        case "tp_src" => Right(Tag("L4Src"))
        case "tp_dst" => Right(Tag("L4Dst"))
-       case "icmp_type" => Right(Tag("ICMPType"))
-       case "icmp_code" => Right(Tag("ICMPCode"))
+       case "icmp_type" => Right(ICMPType)
+       case "icmp_code" => Right(ICMPCode)
        case "metadata" => Left("OFMetadata")
        case "ipv6_src" => Right(Tag("L3Src"))
        case "ipv6_dst" => Right(Tag("L3Dst"))
        case "ipv6_label" => Right(Tag("IPv6Label"))
-       case "tun_id" => Right(Tag("TunnelId")) 
+       case "tun_id" => Right(Tag("TunId")) 
        case "tun_src" => Right(Tag("TunnelSrc"))
        case "tun_dst" => Right(Tag("TunnelDst"))
        case "pkt_mark" => Left("PacketMark")
        case "out_port" => Left("OutPort")
        case "NXM_OF_IN_PORT" => Left("InPort")
-       case "NXM_OF_ETH_DST" => Right(Tag("L2Dst"))
-       case "NXM_OF_ETH_SRC" => Right(Tag("L2Src"))
-       case "NXM_OF_ETH_TYPE" => Right(Tag("L2Type")) 
-       case "NXM_OF_VLAN_TCI" => Right(Tag("VlanID"))
-       case "NXM_OF_IP_PROTO" => Right(Tag("L3Type")) 
-       case "NXM_OF_IP_SRC" => Right(Tag("L3Src"))
-       case "NXM_OF_IP_DST" => Right(Tag("L3Dst")) 
+       case "NXM_OF_ETH_DST" => Right(EtherSrc)
+       case "NXM_OF_ETH_SRC" => Right(EtherDst)
+       case "NXM_OF_ETH_TYPE" => Right(EtherType) 
+       case "NXM_OF_VLAN_TCI" => Right(VLANTag)
+       case "NXM_OF_IP_PROTO" => Right(Proto) 
+       case "NXM_OF_IP_SRC" => Right(IPSrc)
+       case "NXM_OF_IP_DST" => Right(IPDst) 
        case "NXM_OF_TCP_SRC" => Right(Tag("L4Src"))
        case "NXM_OF_TCP_DST" => Right(Tag("L4Dst"))
        case "NXM_OF_UDP_SRC" => Right(Tag("L4Src"))
        case "NXM_OF_UDP_DST" => Right(Tag("L4Dst"))
-       case "NXM_OF_ICMP_TYPE" => Right(Tag("ICMPType")) 
-       case "NXM_OF_ICMP_CODE" => Right(Tag("ICMPCode"))
-       case "NXM_NX_TUN_ID" => Right(Tag("TunnelId"))
+       case "NXM_OF_ICMP_TYPE" => Right(ICMPType) 
+       case "NXM_OF_ICMP_CODE" => Right(ICMPCode)
+       case "NXM_NX_TUN_ID" => Right(Tag("TunId"))
        case _ =>    throw new UnsupportedOperationException("Field " + name + " is not translatable in Symnet... Yet")
     }
   }
@@ -405,7 +436,10 @@ class EnterFlowEntry(flowEntry : FlowEntry, index : Int, ofPort : OpenFlowNIC, b
   extends Instruction {
   override def apply(state : State, verbose : Boolean) : (List[State], List[State]) = {
     System.out.println("Entering flow entry " + flowEntry.getTable + "@" + flowEntry.getPriority + " at OFPort " + ofPort.getPortNo + " at bridge " + br.getName)
-
+    System.out.println("Namely: " + flowEntry.toString().trim())
+    
+//    String.format("%s/%s/%s/%d/%d", br.getComputer.getName, br.getName, ofPort.getName, new Integer(flowEntry.getTable), new Integer(index))
+//    state.forwardTo(String.format("%s/%s/%s/%d/%d", br.getComputer.getName, br.getName, ofPort.getName, new Integer(flowEntry.getTable), new Integer(index)))
     val matches = flowEntry.getMatches
     if (!matches.isEmpty())
       matches.map { x => FieldNameTranslator(x.getField.getName) match {

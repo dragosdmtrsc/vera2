@@ -25,6 +25,7 @@ import org.change.v2.model.iptables.JumpyTarget;
 import org.change.v2.model.iptables.MACOption;
 import org.change.v2.model.iptables.MarkOption;
 import org.change.v2.model.iptables.MarkTarget;
+import org.change.v2.model.iptables.MasqueradeTarget;
 import org.change.v2.model.iptables.NoTrackTarget;
 // Start of user code (user defined imports)
 import org.change.v2.model.iptables.PhysdevInOption;
@@ -196,6 +197,8 @@ public interface IVisitor {
 	public void visit(MarkOption option);
 
 	public void visit(FlowEntry flowEntry);
+
+	public void visit(MasqueradeTarget masqueradeTarget);
 	
 	// End of user code
 

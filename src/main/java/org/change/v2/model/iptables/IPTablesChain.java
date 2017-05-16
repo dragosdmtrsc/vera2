@@ -132,6 +132,21 @@ public class IPTablesChain implements Acceptor {
 	    this.name = newName;
 	}
 
+	private static final String[] DEFAULT_CHAINS = new String[] {
+		"PREROUTING", "FORWARD", "POSTROUTING", "INPUT"
+	};
+	
+	public boolean isDefault()
+	{
+		for (String defChain : DEFAULT_CHAINS)
+		{
+			if (defChain.equals(name))
+				return true;
+		}
+		return false;
+	}
+	
+	
 	@Override
 	public String toString() {
 		return "IPTablesChain [iPTablesRules=" + iPTablesRules + ", policy="

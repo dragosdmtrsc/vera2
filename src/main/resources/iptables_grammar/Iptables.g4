@@ -29,6 +29,7 @@ targetName : (acceptTarget // TODO
 	| rejectTarget  // TODO 
 	| setTarget // TODO
 	| snatTarget // TODO
+	| masqueradeTarget 
 	| jumpyTarget
 ); 
  
@@ -36,7 +37,9 @@ jumpyTarget : NAME;
 acceptTarget : 'ACCEPT';
 dropTarget : 'DROP' ;
 returnTarget : 'RETURN' ;
+masqueradeTarget : 'MASQUERADE' ('--to-ports'  (RANGE | INT))?;
 
+RANGE : INT '-' INT;
 checksumTarget : 'CHECKSUM'  checksumTargetOpts;
 checksumTargetOpts : ('--checksum-fill')?;
 connmarkTarget : 'CONNMARK'  connmarkTargetOpts*; 
@@ -73,10 +76,17 @@ markTarget : 'MARK'  '--set-xmark' INT('/' INT)?;
 markTargetOpts : '--set-xmark' INT('/' INT)?;
 
 notrackTarget : 'NOTRACK';
-redirectTarget : 'REDIRECT'  '--to-ports' INT('-' INT)?;
+redirectTarget : 'REDIRECT' '--to-ports' INT ('-' INT)?;
 //redirectTargetOpts : ('--to-ports' INT('-' INT)?);
 rejectTarget : 'REJECT'  rejectTargetOpts;
-rejectTargetOpts : '--reject-with' type=INT;
+rejectTargetOpts : '--reject-with' (INT |
+	 'icmp-net-unreachable' |
+ 'icmp-host-unreachable' |
+ 'icmp-port-unreachable' |
+ 'icmp-proto-unreachable' |
+ 'icmp-net-prohibited' |
+ 'icmp-host-prohibited' | 
+ 'icmp-admin-prohibited');
 setTarget : 'SET'  setTargetOpts;
 setTargetOpts : (
 '--add-set' setname=NAME flag(',' flag)*

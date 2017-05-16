@@ -74,17 +74,6 @@ public interface OpenflowListener extends ParseTreeListener {
 	void exitModVlanPcp(@NotNull OpenflowParser.ModVlanPcpContext ctx);
 
 	/**
-	 * Enter a parse tree produced by {@link OpenflowParser#seconds}.
-	 * @param ctx the parse tree
-	 */
-	void enterSeconds(@NotNull OpenflowParser.SecondsContext ctx);
-	/**
-	 * Exit a parse tree produced by {@link OpenflowParser#seconds}.
-	 * @param ctx the parse tree
-	 */
-	void exitSeconds(@NotNull OpenflowParser.SecondsContext ctx);
-
-	/**
 	 * Enter a parse tree produced by the {@code udpDst}
 	 * labeled alternative in {@link OpenflowParser#nxm_reg}.
 	 * @param ctx the parse tree
@@ -209,17 +198,6 @@ public interface OpenflowListener extends ParseTreeListener {
 	 * @param ctx the parse tree
 	 */
 	void exitInPort(@NotNull OpenflowParser.InPortContext ctx);
-
-	/**
-	 * Enter a parse tree produced by {@link OpenflowParser#ip}.
-	 * @param ctx the parse tree
-	 */
-	void enterIp(@NotNull OpenflowParser.IpContext ctx);
-	/**
-	 * Exit a parse tree produced by {@link OpenflowParser#ip}.
-	 * @param ctx the parse tree
-	 */
-	void exitIp(@NotNull OpenflowParser.IpContext ctx);
 
 	/**
 	 * Enter a parse tree produced by the {@code ipProto}

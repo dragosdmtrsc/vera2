@@ -15,7 +15,6 @@ import org.change.v2.analysis.expression.abst.{FloatingExpression, Expression}
 import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.analysis.memory.{State, TagExp, Intable}
 
-
 /**
  * Author: Radu Stoenescu
  * Don't be a stranger,  symnetic.7.radustoe@spamgourmet.com

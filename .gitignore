@@ -32,3 +32,5 @@ outputs/
 .gitignore.swp
 nohup.out
 .tmpBin/
+
+generated\.out

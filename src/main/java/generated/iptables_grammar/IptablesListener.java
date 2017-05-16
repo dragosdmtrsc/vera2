@@ -555,6 +555,17 @@ public interface IptablesListener extends ParseTreeListener {
 	void exitSetvars(@NotNull IptablesParser.SetvarsContext ctx);
 
 	/**
+	 * Enter a parse tree produced by {@link IptablesParser#masqueradeTarget}.
+	 * @param ctx the parse tree
+	 */
+	void enterMasqueradeTarget(@NotNull IptablesParser.MasqueradeTargetContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link IptablesParser#masqueradeTarget}.
+	 * @param ctx the parse tree
+	 */
+	void exitMasqueradeTarget(@NotNull IptablesParser.MasqueradeTargetContext ctx);
+
+	/**
 	 * Enter a parse tree produced by {@link IptablesParser#ipv4}.
 	 * @param ctx the parse tree
 	 */

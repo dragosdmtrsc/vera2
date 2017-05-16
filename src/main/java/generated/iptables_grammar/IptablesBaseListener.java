@@ -643,6 +643,19 @@ public class IptablesBaseListener implements IptablesListener {
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
+	@Override public void enterMasqueradeTarget(@NotNull IptablesParser.MasqueradeTargetContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitMasqueradeTarget(@NotNull IptablesParser.MasqueradeTargetContext ctx) { }
+
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
 	@Override public void enterIpv4(@NotNull IptablesParser.Ipv4Context ctx) { }
 	/**
 	 * {@inheritDoc}

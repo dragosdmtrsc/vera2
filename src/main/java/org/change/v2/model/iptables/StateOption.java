@@ -36,7 +36,8 @@ public class StateOption extends SimpleOption {
 	// Start of user code (user defined methods for StateOption)
 	
 	public StateOption(boolean neg, Integer integer) {
-		// TODO Auto-generated constructor stub
+		setNeg(neg);
+		setValue(integer);
 	}
 
 	// End of user code

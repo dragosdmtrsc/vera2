@@ -18,17 +18,18 @@ public class IfaceOption extends SimpleOption {
 	/**
 	 * Description of the property ifaceNo.
 	 */
-	public Integer ifaceNo = Integer.valueOf(0);
-	
+
 	/**
 	 * Description of the property io.
 	 */
 	public String io = "";
-	
+
+	private String name;
+
 	// Start of user code (user defined attributes for IfaceOption)
-	
+
 	// End of user code
-	
+
 	/**
 	 * The constructor.
 	 */
@@ -37,46 +38,41 @@ public class IfaceOption extends SimpleOption {
 		super();
 		// End of user code
 	}
-	
+
 	// Start of user code (user defined methods for IfaceOption)
-	
-	public IfaceOption(Boolean neg, String io2, int hashCode) {
-		this.setIfaceNo(hashCode);
+
+
+	public IfaceOption(Boolean neg, String io2, String ifaceName) {
+		this.setIfaceName(ifaceName);
 		this.setNeg(neg);
 		this.io = io2;
 	}
 
-	// End of user code
-	/**
-	 * Returns ifaceNo.
-	 * @return ifaceNo 
-	 */
-	public Integer getIfaceNo() {
-		return this.ifaceNo;
+	private void setIfaceName(String ifaceName) {
+		this.name = ifaceName;
 	}
-	
-	/**
-	 * Sets a value to attribute ifaceNo. 
-	 * @param newIfaceNo 
-	 */
-	public void setIfaceNo(Integer newIfaceNo) {
-	    this.ifaceNo = newIfaceNo;
+
+	public String getIfaceName() {
+		return name;
 	}
+
 
 	/**
 	 * Returns io.
-	 * @return io 
+	 * 
+	 * @return io
 	 */
 	public String getIo() {
 		return this.io;
 	}
-	
+
 	/**
-	 * Sets a value to attribute io. 
-	 * @param newIo 
+	 * Sets a value to attribute io.
+	 * 
+	 * @param newIo
 	 */
 	public void setIo(String newIo) {
-	    this.io = newIo;
+		this.io = newIo;
 	}
 
 	@Override
@@ -90,7 +86,5 @@ public class IfaceOption extends SimpleOption {
 	public String toString() {
 		return "IfaceOption [ifaceNo=" + ifaceNo + ", io=" + io + "]";
 	}
-
-
 
 }

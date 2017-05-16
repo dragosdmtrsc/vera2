@@ -74,6 +74,7 @@ case class :|:(a: FloatingConstraint, b: FloatingConstraint) extends FloatingCon
   }
 }
 
+
 case class :&:(a: FloatingConstraint, b: FloatingConstraint) extends FloatingConstraint {
   override def instantiate(s: State): Either[Constraint, String] = a instantiate s match {
     case Left(ac) => b instantiate s match {

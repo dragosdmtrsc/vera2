@@ -3,11 +3,10 @@
  *******************************************************************************/
 package org.change.v2.model.iptables;
 
-import java.util.HashSet;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.change.v2.model.IVisitor;
-import org.change.v2.model.iptables.SimpleOption;
 // Start of user code (user defined imports)
 
 // End of user code
@@ -26,7 +25,7 @@ public class CtStateOption extends SimpleOption {
 	/**
 	 * Description of the property list.
 	 */
-	private HashSet<Integer> list = new HashSet<Integer>();
+	private List<Integer> list = new ArrayList<Integer>();
 	
 	/**
 	 * Description of the property name.
@@ -49,7 +48,10 @@ public class CtStateOption extends SimpleOption {
 	// Start of user code (user defined methods for CtStateOption)
 	
 	public CtStateOption(boolean neg, String string, List<Integer> collect, boolean b) {
-		// TODO Auto-generated constructor stub
+		this.setNeg(neg);
+		this.setName(string);
+		this.list = collect;
+		this.setIsTag(b);
 	}
 
 	// End of user code
@@ -73,7 +75,7 @@ public class CtStateOption extends SimpleOption {
 	 * Returns list.
 	 * @return list 
 	 */
-	public HashSet<Integer> getList() {
+	public List<Integer> getList() {
 		return this.list;
 	}
 

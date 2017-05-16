@@ -47,7 +47,17 @@ public class FlowEntry implements FlowAcceptor {
 	public int hashCode() {
 		return Objects.hash(priority, table, matches.hashCode(), actions.hashCode());
 	}
+	private String flowDescription;
 	
+	public void setFlowDescription(String f)
+	{
+		this.flowDescription = f;
+	}
+	
+	public String getFlowDescription()
+	{
+		return this.flowDescription;
+	}
 	
 	@Override
 	public String toString() {

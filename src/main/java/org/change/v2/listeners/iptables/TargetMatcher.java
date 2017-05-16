@@ -1,20 +1,5 @@
 package org.change.v2.listeners.iptables;
 
-import org.antlr.v4.runtime.tree.TerminalNode;
-import org.change.v2.model.iptables.AcceptTarget;
-import org.change.v2.model.iptables.ChecksumTarget;
-import org.change.v2.model.iptables.ConnmarkTarget;
-import org.change.v2.model.iptables.DNATTarget;
-import org.change.v2.model.iptables.DropTarget;
-import org.change.v2.model.iptables.IPTablesTarget;
-import org.change.v2.model.iptables.JumpyTarget;
-import org.change.v2.model.iptables.MarkTarget;
-import org.change.v2.model.iptables.NoTrackTarget;
-import org.change.v2.model.iptables.RedirectTarget;
-import org.change.v2.model.iptables.ReturnTarget;
-import org.change.v2.model.iptables.SNATTarget;
-import org.change.v2.model.openflow.Decoder;
-
 import generated.iptables_grammar.IptablesBaseListener;
 import generated.iptables_grammar.IptablesParser.AcceptTargetContext;
 import generated.iptables_grammar.IptablesParser.ChecksumTargetContext;
@@ -28,6 +13,7 @@ import generated.iptables_grammar.IptablesParser.DnatTargetContext;
 import generated.iptables_grammar.IptablesParser.DropTargetContext;
 import generated.iptables_grammar.IptablesParser.JumpyTargetContext;
 import generated.iptables_grammar.IptablesParser.MarkTargetContext;
+import generated.iptables_grammar.IptablesParser.MasqueradeTargetContext;
 import generated.iptables_grammar.IptablesParser.NfCtMaskContext;
 import generated.iptables_grammar.IptablesParser.NfMaskContext;
 import generated.iptables_grammar.IptablesParser.NotrackTargetContext;
@@ -39,11 +25,27 @@ import generated.iptables_grammar.IptablesParser.SaveCtMarkContext;
 import generated.iptables_grammar.IptablesParser.SetTargetContext;
 import generated.iptables_grammar.IptablesParser.SnatTargetContext;
 
+import org.change.v2.model.iptables.AcceptTarget;
+import org.change.v2.model.iptables.ChecksumTarget;
+import org.change.v2.model.iptables.ConnmarkTarget;
+import org.change.v2.model.iptables.DNATTarget;
+import org.change.v2.model.iptables.DropTarget;
+import org.change.v2.model.iptables.IPTablesTarget;
+import org.change.v2.model.iptables.JumpyTarget;
+import org.change.v2.model.iptables.MarkTarget;
+import org.change.v2.model.iptables.MasqueradeTarget;
+import org.change.v2.model.iptables.NoTrackTarget;
+import org.change.v2.model.iptables.RedirectTarget;
+import org.change.v2.model.iptables.ReturnTarget;
+import org.change.v2.model.iptables.SNATTarget;
+import org.change.v2.model.openflow.Decoder;
+
 public class TargetMatcher extends IptablesBaseListener {
 
 	private IPTablesTarget target = null;
 	private ConnmarkTarget connmarkTarget = null;
     private Boolean nfMask = false;
+	private MasqueradeTarget masqueradeTarget;
 
 	public IPTablesTarget getTarget() {
 		return target;
@@ -71,6 +73,37 @@ public class TargetMatcher extends IptablesBaseListener {
 		        false);
 	}
 	
+	
+	
+	@Override
+	public void enterMasqueradeTarget(MasqueradeTargetContext ctx) {
+		super.enterMasqueradeTarget(ctx);
+		this.masqueradeTarget = new MasqueradeTarget();
+		String text = ctx.getText();
+		if (text.contains("--to-ports"))
+		{
+			int index = text.indexOf("--to-ports");
+			text = text.substring(index).trim();
+			if (text.length() > "--to-ports".length())
+			{
+				text = text.substring("--to-ports".length()).trim();
+				String[] split = text.split("-");
+				if (split.length > 1)
+				{
+					masqueradeTarget.setEnd(Integer.decode(split[1]));
+				}
+				masqueradeTarget.setStart(Integer.decode(split[0]));
+			}
+		}
+		this.target = this.masqueradeTarget;
+	}
+	
+	@Override
+	public void exitMasqueradeTarget(MasqueradeTargetContext ctx)
+	{
+		
+	}
+
 	public void exitConnmarkTarget(ConnmarkTargetContext context) {
 		this.target = connmarkTarget;
 		connmarkTarget = null;

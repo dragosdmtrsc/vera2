@@ -3,7 +3,8 @@
  *******************************************************************************/
 package org.change.v2.model.iptables;
 
-import java.util.HashSet;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.change.v2.model.Acceptor;
 // Start of user code (user defined imports)
@@ -25,7 +26,7 @@ public class IPTablesRule implements Acceptor {
 	/**
 	 * Description of the property iPTablesMatches.
 	 */
-	public HashSet<IPTablesMatch> iPTablesMatches = new HashSet<IPTablesMatch>();
+	public List<IPTablesMatch> iPTablesMatches = new ArrayList<IPTablesMatch>();
 	
 	/**
 	 * Description of the property index.
@@ -76,7 +77,7 @@ public class IPTablesRule implements Acceptor {
 	 * Returns iPTablesMatches.
 	 * @return iPTablesMatches 
 	 */
-	public HashSet<IPTablesMatch> getIPTablesMatches() {
+	public List<IPTablesMatch> getIPTablesMatches() {
 		return this.iPTablesMatches;
 	}
 

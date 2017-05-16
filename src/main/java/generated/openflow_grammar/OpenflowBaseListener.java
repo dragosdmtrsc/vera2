@@ -84,19 +84,6 @@ public class OpenflowBaseListener implements OpenflowListener {
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void enterSeconds(@NotNull OpenflowParser.SecondsContext ctx) { }
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
-	@Override public void exitSeconds(@NotNull OpenflowParser.SecondsContext ctx) { }
-
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
 	@Override public void enterUdpDst(@NotNull OpenflowParser.UdpDstContext ctx) { }
 	/**
 	 * {@inheritDoc}
@@ -221,19 +208,6 @@ public class OpenflowBaseListener implements OpenflowListener {
 	 * <p>The default implementation does nothing.</p>
 	 */
 	@Override public void exitInPort(@NotNull OpenflowParser.InPortContext ctx) { }
-
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
-	@Override public void enterIp(@NotNull OpenflowParser.IpContext ctx) { }
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
-	@Override public void exitIp(@NotNull OpenflowParser.IpContext ctx) { }
 
 	/**
 	 * {@inheritDoc}

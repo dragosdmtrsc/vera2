@@ -26,6 +26,7 @@ import org.change.v2.model.iptables.JumpyTarget;
 import org.change.v2.model.iptables.MACOption;
 import org.change.v2.model.iptables.MarkOption;
 import org.change.v2.model.iptables.MarkTarget;
+import org.change.v2.model.iptables.MasqueradeTarget;
 import org.change.v2.model.iptables.MatchOption;
 import org.change.v2.model.iptables.NoTrackTarget;
 import org.change.v2.model.iptables.PhysdevInOption;
@@ -340,6 +341,12 @@ public class BaseVisitor implements IVisitor {
 
 	@Override
 	public void visit(FlowEntry flowEntry) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void visit(MasqueradeTarget masqueradeTarget) {
 		// TODO Auto-generated method stub
 		
 	}

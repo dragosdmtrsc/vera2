@@ -3,7 +3,9 @@
  *******************************************************************************/
 package org.change.v2.model;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 
 import org.change.v2.model.iptables.IPTablesTable;
 
@@ -20,7 +22,7 @@ public class Namespace {
 	/**
 	 * Description of the property iPTablesTables.
 	 */
-	public HashSet<IPTablesTable> iPTablesTables = new HashSet<IPTablesTable>();
+	public List<IPTablesTable> iPTablesTables = new ArrayList<IPTablesTable>();
 	
 	/**
 	 * Description of the property name.
@@ -62,7 +64,7 @@ public class Namespace {
 	 * Returns iPTablesTables.
 	 * @return iPTablesTables 
 	 */
-	public HashSet<IPTablesTable> getIPTablesTables() {
+	public List<IPTablesTable> getIPTablesTables() {
 		return this.iPTablesTables;
 	}
 

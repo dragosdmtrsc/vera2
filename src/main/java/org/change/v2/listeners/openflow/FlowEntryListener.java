@@ -115,6 +115,7 @@ public class FlowEntryListener extends OpenflowBaseListener {
 	
 	public void enterFlow(FlowContext ctx) {
 		currentEntry = new FlowEntry();
+		currentEntry.setFlowDescription(ctx.getText());
 	}
 	
 	public void exitFlow(FlowContext ctx) {
@@ -399,12 +400,12 @@ public class FlowEntryListener extends OpenflowBaseListener {
 	}
 	public void enterSetNwSrc(SetNwSrcContext ctx) {
 		//TODO: No action
-		this.currentEntry.getActions().add(new ModNwSrcAction(Decoder.decodeIP4(ctx.ip().getText())));
+		this.currentEntry.getActions().add(new ModNwSrcAction(Decoder.decodeIP4(ctx.IP().getText())));
 
 	}
 	public void enterSetNwDst(SetNwDstContext ctx) {
 		//TODO: No action
-		this.currentEntry.getActions().add(new ModNwDstAction(Decoder.decodeIP4(ctx.ip().getText())));
+		this.currentEntry.getActions().add(new ModNwDstAction(Decoder.decodeIP4(ctx.IP().getText())));
 
 	}
 	public void enterSetTpSrc(SetTpSrcContext ctx) {

@@ -63,7 +63,7 @@ fieldName : 'in_port'
    | 'out_port'
    | nxm_reg;
 
-value : MAC | NUMBER | ip | varName;
+value : MAC | IP | NUMBER | IP6 | varName; 
 
 flowMetadata :    'idle_timeout' EQUALS NUMBER   #idle_timeout
    | 'hard_timeout' EQUALS NUMBER   #hard_timeout
@@ -72,7 +72,7 @@ flowMetadata :    'idle_timeout' EQUALS NUMBER   #idle_timeout
    | 'table' EQUALS NUMBER #table
    | 'cookie' EQUALS NUMBER #cookie
    | 'priority' EQUALS NUMBER  #priority
-   | 'duration' EQUALS seconds   #duration
+   | 'duration' EQUALS Seconds   #duration
    | 'n_packets' EQUALS NUMBER   #n_packets
    | 'n_bytes'  EQUALS NUMBER  #n_bytes
    | 'hard_age' EQUALS NUMBER   #hard_age
@@ -80,13 +80,13 @@ flowMetadata :    'idle_timeout' EQUALS NUMBER   #idle_timeout
 
 match : matchField
    | flowMetadata
-   | action;
+   | action; 
    
 action: 'actions' EQUALS actionset;
 actionset : target? (target)*;
 
 
-seconds : NUMBER '.' NUMBER 's'; 
+Seconds : INT '.' INT 's'; 
 
 ipv6 : NUMBER ':' NUMBER ':' NUMBER ':' NUMBER ':' 
 NUMBER ':' NUMBER ':' NUMBER ':' NUMBER;
@@ -146,9 +146,9 @@ target : 'output:' port #outputPort
 |  'push_mpls:' NUMBER #pushMpls
 |  'pop_mpls:' NUMBER #popMpls
 |  'mod_dl_src:' MAC #setDlSrc
-|  'mod_dl_dst:' MAC #setDlDst
-|  'mod_nw_src:' ip #setNwSrc
-|  'mod_nw_dst:' ip #setNwDst
+|  'mod_dl_dst:' MAC #setDlDst 
+|  'mod_nw_src:' IP #setNwSrc
+|  'mod_nw_dst:' IP #setNwDst
 |  'mod_tp_src:' NUMBER #setTpSrc
 |  'mod_tp_dst:' NUMBER #setTpDst
 |  'mod_nw_tos:' NUMBER #setNwTos
@@ -203,15 +203,29 @@ frag_type : 'no'   #noFrag //Matches only non-fragmented packets.
 
 
 
-mask : INT | ip;
-ip : INT '.' INT '.' INT '.' INT;
+mask : INT | IP;
+IP : INT '.' INT '.' INT '.' INT;
+
+IP6   :                             ( H16 ':'  H16 ':'  H16 ':'  H16 ':'  H16 ':'  H16 ':' ) Ls32
+                |                       '::' ( H16 ':'  H16 ':'  H16 ':'  H16 ':'  H16 ':' ) Ls32
+                |                H16?  '::' ( H16 ':'  H16 ':'  H16 ':'  H16 ':' ) Ls32
+                |  (( H16 ':' )? H16)?  '::' ( H16 ':'  H16 ':'  H16 ':' ) Ls32
+                |  (( H16 ':'  H16 ':' )? H16)?  '::' ( H16 ':'  H16 ':' ) Ls32
+                |  (( H16 ':'  H16 ':'  H16 ':' )? H16)?  '::'    H16 ':'   Ls32
+                |  (( H16 ':'  H16 ':'  H16 ':'  H16 ':' )? H16)?  '::'              Ls32
+                |  (( H16 ':'  H16 ':'  H16 ':'  H16 ':'  H16 ':' )? H16)?  '::'              H16
+                |  (( H16 ':'  H16 ':'  H16 ':'  H16 ':'  H16 ':'  H16 ':' )? H16)?  '::';
+
+ fragment H16           : HEX_DIGIT HEX_DIGIT HEX_DIGIT HEX_DIGIT;
+ fragment Ls32          : ( H16 ':' H16 ) | IP;
+
 MAC : HEX_DIGIT HEX_DIGIT ':' 
 	HEX_DIGIT HEX_DIGIT ':' 
 	HEX_DIGIT HEX_DIGIT ':' 
 	HEX_DIGIT HEX_DIGIT ':' 
 	HEX_DIGIT HEX_DIGIT ':' 
 	HEX_DIGIT HEX_DIGIT;
-NUMBER : INT | '0x' HEX_DIGIT+;
+NUMBER : INT | ('0x' HEX_DIGIT+);
 INT : DIGIT+;
 NAME : (ALPHA) (ALPHA | DIGIT)*;
 WS : ([ \t\,])+ -> skip ; // skip spaces and commas
