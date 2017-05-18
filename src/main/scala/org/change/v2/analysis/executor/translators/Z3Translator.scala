@@ -31,7 +31,7 @@ class Z3Translator(context : Z3Context) extends Translator[Z3Solver] {
       case Plus(a, b) => context.mkAdd(translate(slv, a)._1, translate(slv, b)._1)
       case Minus(a, b) => context.mkSub(translate(slv, a)._1, translate(slv, b)._1)
       case Reference(what) => translate(slv,what)._1
-      case ConstantValue(v, _) => context.mkInt(v.asInstanceOf[Int], context.mkIntSort)
+      case ConstantValue(v, _) => context.mkNumeral(v.toString(), context.mkIntSort)
       case SymbolicValue(_) => context.mkConst(e.id.toString, context.mkIntSort)
     }
     (ast, slv)
@@ -42,15 +42,15 @@ class Z3Translator(context : Z3Context) extends Translator[Z3Solver] {
       case AND(constrs) => context.mkAnd(constrs.map(s => translate(slv,ast, s)._1):_*)
       case OR(constrs) => context.mkOr(constrs.map(s => translate(slv,ast, s)._1):_*)
       case NOT(c) => context.mkNot(translate(slv,ast, c)._1)
-      case E(v) => context.mkEq(ast, context.mkInt(v.asInstanceOf[Int], context.mkIntSort))
-      case GT(v) => context.mkGT(ast, context.mkInt(v.asInstanceOf[Int], context.mkIntSort))
-      case LTE(v) => context.mkLE(ast, context.mkInt(v.asInstanceOf[Int], context.mkIntSort))
-      case GTE(v) => context.mkGE(ast, context.mkInt(v.asInstanceOf[Int], context.mkIntSort))
-      case LT(v) => context.mkLT(ast, context.mkInt(v.asInstanceOf[Int], context.mkIntSort))
+      case E(v) => context.mkEq(ast, context.mkNumeral(v.toString(), context.mkIntSort))
+      case GT(v) => context.mkGT(ast, context.mkNumeral(v.toString, context.mkIntSort))
+      case LTE(v) => context.mkLE(ast, context.mkNumeral(v.toString, context.mkIntSort))
+      case GTE(v) => context.mkGE(ast, context.mkNumeral(v.toString, context.mkIntSort))
+      case LT(v) => context.mkLT(ast, context.mkNumeral(v.toString, context.mkIntSort))
       case GT_E(e) => context.mkGT(ast, translate(slv,e)._1)
       case LT_E(e) => context.mkLT(ast, translate(slv,e)._1)
       case LTE_E(e) => context.mkLE(ast, translate(slv,e)._1)
-      case GTE_E(e) => context.mkOr(Z3Util.z3Context.mkGT(ast, translate(slv,e)._1),
+      case GTE_E(e) => context.mkOr(context.mkGT(ast, translate(slv,e)._1),
           context.mkEq(ast, translate(slv,e)._1))
       case EQ_E(e) => context.mkEq(ast, translate(slv,e)._1)
     }
@@ -66,6 +66,6 @@ class Z3Translator(context : Z3Context) extends Translator[Z3Solver] {
     } {
       slv2.assertCnstr(translate(slv,ast, c)._1)
     }
-    (ast, slv)
+    (ast, slv2)
   }
 }

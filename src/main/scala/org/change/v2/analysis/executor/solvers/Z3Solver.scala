@@ -52,7 +52,6 @@ class Z3Solver extends AbstractSolver[z3.scala.Z3Solver] {
   
   
   override def decide(ctx : z3.scala.Z3Solver) : Boolean = {
-//    System.out.println("decide on " + ctx.toString())
     ctx.check.getOrElse(false)
   }
 }
