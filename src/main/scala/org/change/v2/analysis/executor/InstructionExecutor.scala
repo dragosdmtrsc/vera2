@@ -22,6 +22,7 @@ import org.change.v2.analysis.processingmodels.instructions.InstructionBlock
 import org.change.v2.analysis.processingmodels.instructions.DeallocateRaw
 import org.change.v2.analysis.processingmodels.instructions.Fork
 import org.change.v2.analysis.processingmodels.instructions.If
+import org.change.v2.analysis.processingmodels.instructions.NoOp
 import org.change.v2.analysis.processingmodels.instructions.optionToStatePair
 import org.change.v2.analysis.processingmodels.instructions.stateToError
 import org.change.v2.analysis.processingmodels.instructions.:~:
@@ -30,6 +31,8 @@ import org.change.v2.analysis.memory.MemorySpace
 import org.change.v2.analysis.executor.solvers.Solver 
 import org.change.v2.analysis.executor.solvers.Z3Solver
 import org.change.v2.analysis.executor.solvers.Z3SolverEnhanced
+import org.change.v2.analysis.processingmodels.instructions.NoOp
+import org.change.v2.analysis.processingmodels.instructions.NoOp
 
 trait IExecutor[T] {
   def execute(instruction : Instruction, 
@@ -45,8 +48,9 @@ abstract class Executor[T] extends IExecutor[T] {
           !instruction.isInstanceOf[InstructionBlock])
         state.addInstructionToHistory(instruction)
       else
-        state
+        state  
     val as = instruction match {
+      case v @ NoOp => executeNoOp(s, verbose)
       case v: AllocateRaw => {
         executeAllocateRaw(v, s, verbose)
       }
@@ -99,6 +103,8 @@ abstract class Executor[T] extends IExecutor[T] {
     as
   }
   
+  
+  def executeNoOp(s : State, v : Boolean  = false) : T;
   
   def executeInstructionBlock(instruction : InstructionBlock, 
       s : State, 
@@ -277,6 +283,11 @@ abstract class AbstractInstructionExecutor extends InstructionExecutor {
     }
   }
   
+  
+  override def executeNoOp(s : State, v : Boolean = false) : (List[State], List[State]) = {
+    NoOp(s, v)
+  }
+  
   override def executeIf(instruction : If, s : State, v : Boolean = false) : 
     (List[State], List[State]) = { 
     val If(testInstr, thenWhat, elseWhat) = instruction
@@ -289,7 +300,6 @@ abstract class AbstractInstructionExecutor extends InstructionExecutor {
             val (sb, fb) = execute(InstructionBlock(ConstrainNamedSymbol(what, :~:(withWhat), Some(NOT(c))), elseWhat), s, v)
             (sa ++ sb, fa ++ fb)
           }
-  
           case _ => elseWhat(s, v)
         }
       }

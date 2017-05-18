@@ -33,3 +33,9 @@ outputs/
 nohup.out
 
 credentials\.txt
+
+code\.txt
+
+fail\.txt
+
+ok\.txt

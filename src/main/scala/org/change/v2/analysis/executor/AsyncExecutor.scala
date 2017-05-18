@@ -115,6 +115,10 @@ class AsyncExecutor(syncExec : InstructionExecutor,
   def getFails = this.synchronized { fails.toList }
   
   
+  override def executeNoOp(s : State, v : Boolean = false) : Unit = {
+    putOk(s)
+  }
+  
   override def executeInstructionBlock(instruction : InstructionBlock, 
       s : State, 
       v : Boolean = false) : Unit = {
