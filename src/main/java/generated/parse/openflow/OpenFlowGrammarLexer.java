@@ -1,8 +1,6 @@
 // Generated from /0/projects/internal/symnet-stuff/Symnetic/src/main/resources/openflow_grammar/OpenFlowGrammar.g4 by ANTLR 4.7
 package generated.parse.openflow;
 
-package generated.parse.openflow;
-
 import org.antlr.v4.runtime.Lexer;
 import org.antlr.v4.runtime.CharStream;
 import org.antlr.v4.runtime.Token;
