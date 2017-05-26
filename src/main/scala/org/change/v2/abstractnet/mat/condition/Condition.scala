@@ -11,5 +11,13 @@ trait Condition {
     */
   def generality: Long
 
-
+  def compare(other: Condition): Relation
 }
+
+sealed trait Relation
+object Disjoint extends Relation
+object Sub extends Relation
+object Super extends Relation
+object Intersect extends Relation
+object Same extends Relation
+object No extends Relation

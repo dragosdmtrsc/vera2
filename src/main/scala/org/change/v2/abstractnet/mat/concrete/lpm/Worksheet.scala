@@ -22,7 +22,7 @@ object Worksheet {
     val sortedRt = rt.sorted(Range.ordering.reverse)
 
     println(sortedRt.size)
-
+    println(sortedRt.take(15).toList)
   }
 
 }
