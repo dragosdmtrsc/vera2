@@ -1,6 +1,5 @@
 package org.change.v2.abstractnet.optimized.router
 
-import org.change.utils
 import org.change.v2.abstractnet.click.selfbuildingblocks.EtherMumboJumbo
 import org.change.v2.abstractnet.generic._
 import org.change.v2.analysis.constraint._
@@ -10,7 +9,6 @@ import org.change.v2.analysis.processingmodels.instructions._
 import org.change.v2.util.canonicalnames._
 import java.io.File
 import scala.io.Source
-import scala.util.matching.Regex
 import org.change.v2.util.regexes._
 import org.change.v2.util.conversion.RepresentationConversion
 
