@@ -11,21 +11,36 @@ import scala.collection.LinearSeq
 case class Node[T <: Condition](
    condition: T,
    children: Forest[T],
-   lateral: Forest[T]) {
+   lateral: Forest[T],
+   id: Long = Node.nextId) {
 
   def size: Int = 1 + Node.forestSize(children)
+  def height: Int = 1 + Node.forestHeight(children)
+  def avgHeight: Double = 1 + Node.avgForestHeight(children)
 }
 
 object Node {
 
+  private var id = Long.MinValue
+
+  def nextId: Long = this.synchronized {
+    id += 1
+    id
+  }
+
   type Forest[T <: Condition] = LinearSeq[Node[T]]
 
   def forestSize[T <: Condition](forest: Forest[T]): Int = forest.map(_.size).sum
+  def forestHeight[T <: Condition](forest: Forest[T]): Int = if (forest.nonEmpty) forest.map(_.height).max else 0
+  def avgForestHeight[T <: Condition](forest: Forest[T]): Double = forest.map(_.height).sum / forest.length.toDouble
 
   def makeForest[T <: Condition](conditions: Seq[T]): Forest[T] = {
     // TODO: Assert it is sorted properly
-    conditions.foldLeft(Nil:Forest[T])(add)
+    conditions.foldLeft(Nil:Forest[T])(addIgnoringNewNode)
   }
+
+  def addIgnoringNewNode[T <: Condition](forest: Forest[T], condition: T): Forest[T] =
+    add(forest, condition)._1
 
   /**
     * Create a new node corresponding to a given condition.
@@ -34,11 +49,11 @@ object Node {
     * @tparam T
     * @return The new forest, including the newly created node.
     */
-  def add[T <: Condition](forest: Forest[T], condition: T): Forest[T] = {
+  def add[T <: Condition](forest: Forest[T], condition: T): (Forest[T], Node[T]) = {
     /**
       * TODO: Partition the nodes into possible overlaps and the rest
       */
-    val (possible, rest) = (forest, Nil)
+    val (possible, rest) = partitionByCondition({c: T => c.compare(condition) != Disjoint }, forest)
 
     /**
       * The possible one is partitioned, only Same, Super or Intersection(if no Super) should found.
@@ -57,20 +72,21 @@ object Node {
       * If there is a node in Sub relation, then the condition gets propagated.
       */
     if (grouped contains Super) {
-      // Only one Super node should exist.
-      assert(grouped(Super).length == 1)
 
-      // Propagate the node
-      val superNode = grouped(Super).head
-      val nodeAfterPropagation = superNode.copy(children = add(superNode.children, condition))
+      // Propagate the new node in the oldest (most general) of the super nodes in order to avoid links between
+      // trees that are not situated at the root.
+      val superNode = grouped(Super).reduceLeft((old, current) => if (old.id > current.id) current else old)
+
+      val (modifiedChildren, newNode) = add(superNode.children, condition)
+      val nodeAfterPropagation = superNode.copy(children = modifiedChildren)
 
       // Rebuild the forest
-      val result = (grouped.getOrElse(Intersect, Nil) :+ nodeAfterPropagation) ++ rest
+      val result = grouped(Super).tail ++ (grouped.getOrElse(Intersect, Nil) :+ nodeAfterPropagation) ++ rest
 
       // The forest should be the same size
       assert(result.length == forest.length)
 
-      result
+      (result, newNode)
     } else if (grouped contains Intersect) {
       // Construct a new node for this condition
       val newNode = Node(condition, Nil, grouped(Intersect))
@@ -85,13 +101,18 @@ object Node {
       // One node should have been created at this step.
       assert(result.length == forest.length + 1)
 
-      result
+      (result, newNode)
     } else if (grouped contains Same) {
-      // TODO: Same is not yet considered
-      forest
+      val sameNode = grouped(Same)
+
+      // Never should two Same nodes be detected
+      assert(sameNode.length == 1)
+
+      (forest, sameNode.head)
     } else {
-      // Construct the root
-      LinearSeq(Node(condition, Nil, Nil))
+      // Construct a leaf node, with no links
+      val newNode = Node(condition, Nil, Nil)
+      (newNode +: rest, newNode)
     }
   }
 
