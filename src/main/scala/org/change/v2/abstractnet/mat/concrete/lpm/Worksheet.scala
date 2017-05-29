@@ -16,7 +16,7 @@ object Worksheet {
   def main(args: Array[String]): Unit = {
 
     val rt = OptimizedRouter.getRoutingEntries(
-      new File("src/main/resources/routing_tables/huge.txt")).map( e =>
+      new File("src/main/resources/routing_tables/medium.txt")).map( e =>
     Range(e._1._1, e._1._2))
 
     println("Initial " + rt.size)
@@ -35,7 +35,8 @@ object Worksheet {
     println("Top-level: " + frst.length)
     println("Avg-height: " + Node.avgForestHeight(frst))
     println("Height: " + Node.forestHeight(frst))
-    println("Time to build:" + stop)
+    println("Time to build: " + stop / 1000)
+    println("Constraints: " + Node.totalConstraintNumber(frst))
   }
 
 }

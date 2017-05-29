@@ -13,10 +13,10 @@ case class Node[T <: Condition](
    children: Forest[T],
    lateral: Forest[T],
    id: Long = Node.nextId) {
-
   def size: Int = 1 + Node.forestSize(children)
   def height: Int = 1 + Node.forestHeight(children)
   def avgHeight: Double = 1 + Node.avgForestHeight(children)
+  def totalConstraintNumber: Long = children.length + lateral.length
 }
 
 object Node {
@@ -33,6 +33,7 @@ object Node {
   def forestSize[T <: Condition](forest: Forest[T]): Int = forest.map(_.size).sum
   def forestHeight[T <: Condition](forest: Forest[T]): Int = if (forest.nonEmpty) forest.map(_.height).max else 0
   def avgForestHeight[T <: Condition](forest: Forest[T]): Double = forest.map(_.height).sum / forest.length.toDouble
+  def totalConstraintNumber[T <: Condition](forest: Forest[T]): Long = forest.map(_.totalConstraintNumber).sum
 
   def makeForest[T <: Condition](conditions: Seq[T]): Forest[T] = {
     // TODO: Assert it is sorted properly
