@@ -916,6 +916,19 @@ public class OpenflowBaseListener implements OpenflowListener {
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
+	@Override public void enterNxCtState(@NotNull OpenflowParser.NxCtStateContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitNxCtState(@NotNull OpenflowParser.NxCtStateContext ctx) { }
+
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
 	@Override public void enterSetTunnel(@NotNull OpenflowParser.SetTunnelContext ctx) { }
 	/**
 	 * {@inheritDoc}

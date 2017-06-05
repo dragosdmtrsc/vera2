@@ -1,0 +1,16 @@
+-P PREROUTING ACCEPT
+-P INPUT ACCEPT
+-P OUTPUT ACCEPT
+-P POSTROUTING ACCEPT
+-N nova-api-OUTPUT
+-N nova-api-POSTROUTING
+-N nova-api-PREROUTING
+-N nova-api-float-snat
+-N nova-api-snat
+-N nova-postrouting-bottom
+-A PREROUTING -j nova-api-PREROUTING
+-A OUTPUT -j nova-api-OUTPUT
+-A POSTROUTING -j nova-api-POSTROUTING
+-A POSTROUTING -j nova-postrouting-bottom
+-A nova-api-snat -j nova-api-float-snat
+-A nova-postrouting-bottom -j nova-api-snat

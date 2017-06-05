@@ -61,7 +61,7 @@ public class FlowEntry implements FlowAcceptor {
 	
 	@Override
 	public String toString() {
-		return "FlowEntry [priority=" +  priority + ", table=" + table + ", cookie=" + cookie + ", matches=" + 
+		return "FlowEntry [table=" +  table + ", priority=" + priority + ", matches=" + 
 				matches.stream()
 					.map(Object::toString)
                 	.collect(Collectors.joining(", "))

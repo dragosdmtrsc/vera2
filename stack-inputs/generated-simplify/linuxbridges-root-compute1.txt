@@ -1,0 +1,2 @@
+bridge name	bridge id		STP enabled	interfaces
+virbr0		8000.52540018a070	yes		virbr0-nic

@@ -51,7 +51,7 @@ fieldName : 'in_port'
    | 'tun_id' 
    | 'tun_src' 
    | 'tun_dst' 
-   | 'regidx' 
+   | 'reg' NUMBER 
    | 'pkt_mark' 
    | 'ipv6'   
    | 'tcp6'   
@@ -61,6 +61,7 @@ fieldName : 'in_port'
    | 'send_flow_rem'   
    | 'check_overlap'   
    | 'out_port'
+   | 'ct_state'
    | nxm_reg;
 
 value : MAC | IP | NUMBER | IP6 | varName; 
@@ -125,7 +126,8 @@ nxm_reg :
 | 'NXM_NX_ND_SLL' #ndSll
 | 'NXM_NX_ND_TLL' #ndTll
 | 'NXM_OF_VLAN_TCI' #vlanTci
-| 'NXM_NX_REG' NUMBER  #nxRegIdx;//for idx in the switch's accepted range.
+| 'NXM_NX_REG' NUMBER  #nxRegIdx
+| 'NXM_NX_CT_STATE' #nxCtState;//for idx in the switch's accepted range.
 
 target : 'output:' port #outputPort
 |  'output:' fieldName '[' (NUMBER '..' NUMBER)? ']' #outputReg

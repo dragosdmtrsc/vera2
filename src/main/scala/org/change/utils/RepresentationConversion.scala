@@ -9,6 +9,20 @@ object RepresentationConversion {
       ((bytes       ) & 0xff).asInstanceOf[Byte]
     )
   }
+  
+  def numberToMac(mac : Long) = {
+    var startStr = ""
+    var start = mac
+    for (i <- 0 until 6)
+    {
+      val crt = start & 0xff
+      start = start >> 8
+      startStr = crt.toHexString + (if (i > 0) ":" else "") + startStr
+    }
+    startStr
+  }
+  
+  
   def numberToIp(ip : Long) = {
     var startStr = ""
     val start = unpack(ip.asInstanceOf[Int])

@@ -31,7 +31,7 @@ class Z3Translator(context : Z3Context) extends Translator[Z3Solver] {
       case Plus(a, b) => context.mkAdd(translate(slv, a)._1, translate(slv, b)._1)
       case Minus(a, b) => context.mkSub(translate(slv, a)._1, translate(slv, b)._1)
       case Reference(what) => translate(slv,what)._1
-      case ConstantValue(v, _) => context.mkInt(v.asInstanceOf[Int], context.mkIntSort)
+      case ConstantValue(v, _, _) => context.mkInt(v.asInstanceOf[Int], context.mkIntSort)
       case SymbolicValue(_) => context.mkConst(e.id.toString, context.mkIntSort)
     }
     (ast, slv)

@@ -31,7 +31,7 @@ public class Decoder {
 		String[] ofVals = value.split(":");
 		for (String ofVal : ofVals)
 		{
-			v = v * 16 + Long.parseUnsignedLong(ofVal, 16);
+			v = v * 256 + Long.parseUnsignedLong(ofVal, 16);
 		}
 		return v;
 	}
@@ -87,7 +87,7 @@ public class Decoder {
 		String[] ofVals = value.split("\\.");
 		for (String ofVal : ofVals)
 		{
-			v = v * 16 + Long.parseUnsignedLong(ofVal);
+			v = v * 256 + Long.parseUnsignedLong(ofVal);
 		}
 		return v;
 	}

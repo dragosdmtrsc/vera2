@@ -37,7 +37,7 @@ public class Namespace {
 	/**
 	 * Description of the property symnetNICs.
 	 */
-	public HashSet<NIC> symnetNICs = new HashSet<NIC>();
+	public List<NIC> symnetNICs = new ArrayList<NIC>();
 	
 	/**
 	 * Description of the property symnetComputers.
@@ -96,7 +96,7 @@ public class Namespace {
 	 * Returns symnetNICs.
 	 * @return symnetNICs 
 	 */
-	public HashSet<NIC> getNICs() {
+	public List<NIC> getNICs() {
 		return this.symnetNICs;
 	}
 

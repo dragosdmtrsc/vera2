@@ -896,6 +896,19 @@ public interface OpenflowListener extends ParseTreeListener {
 	void exitArpTpa(@NotNull OpenflowParser.ArpTpaContext ctx);
 
 	/**
+	 * Enter a parse tree produced by the {@code nxCtState}
+	 * labeled alternative in {@link OpenflowParser#nxm_reg}.
+	 * @param ctx the parse tree
+	 */
+	void enterNxCtState(@NotNull OpenflowParser.NxCtStateContext ctx);
+	/**
+	 * Exit a parse tree produced by the {@code nxCtState}
+	 * labeled alternative in {@link OpenflowParser#nxm_reg}.
+	 * @param ctx the parse tree
+	 */
+	void exitNxCtState(@NotNull OpenflowParser.NxCtStateContext ctx);
+
+	/**
 	 * Enter a parse tree produced by the {@code setTunnel}
 	 * labeled alternative in {@link OpenflowParser#target}.
 	 * @param ctx the parse tree

@@ -186,7 +186,8 @@ public class MatchListener extends IptablesBaseListener {
 	    {
 	     PortOption portOption = new PortOption (udpOpts.sport(0).neg != null,
 	         "sport", 
-	         Integer.parseInt(udpOpts.sport(0).portno().INT().getText()));
+	         Integer.parseInt(udpOpts.sport(0).portno().INT().getText()), 
+	         PortOption.PortType.UDP);
 	     match.getMatchOptions().add(portOption);
 	    }
 	    
@@ -194,7 +195,8 @@ public class MatchListener extends IptablesBaseListener {
 	    {
 	      PortOption portOption = new PortOption (udpOpts.dport(0).neg != null,
 	         "dport", 
-	         Integer.parseInt(udpOpts.dport(0).portno().INT().getText()));
+	         Integer.parseInt(udpOpts.dport(0).portno().INT().getText()), 
+	         PortOption.PortType.UDP);
 	      match.getMatchOptions().add(portOption);
 	    }
 	  }  

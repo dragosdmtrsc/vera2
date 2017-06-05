@@ -1,0 +1,6 @@
+NXST_FLOW reply (xid=0x4):
+table=0, priority=3,in_port=1,vlan_tci=0x0000 actions=mod_vlan_vid:3,NORMAL
+table=0, priority=2,in_port=1 actions=drop
+table=0, priority=0 actions=NORMAL
+table=23, priority=0 actions=drop
+table=24, priority=0 actions=drop

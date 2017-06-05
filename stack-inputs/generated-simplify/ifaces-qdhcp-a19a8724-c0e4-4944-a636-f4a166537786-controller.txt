@@ -1,0 +1,14 @@
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default 
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+    inet6 ::1/128 scope host 
+       valid_lft forever preferred_lft forever
+19: tapa61e24db-b6: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1450 qdisc noqueue state UNKNOWN group default 
+    link/ether fa:16:3e:56:c6:4e brd ff:ff:ff:ff:ff:ff
+    inet 192.168.13.2/24 brd 192.168.13.255 scope global tapa61e24db-b6
+       valid_lft forever preferred_lft forever
+    inet 169.254.169.254/16 brd 169.254.255.255 scope global tapa61e24db-b6
+       valid_lft forever preferred_lft forever
+    inet6 fe80::f816:3eff:fe56:c64e/64 scope link 
+       valid_lft forever preferred_lft forever

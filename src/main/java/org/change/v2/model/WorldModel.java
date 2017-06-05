@@ -10,16 +10,18 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.Optional;
 
 import junit.framework.Assert;
 
 import org.change.v2.listeners.iptables.TableMatcher;
-import org.change.v2.model.openflow.PortParser;
+import org.change.v2.model.openflow.FlowEntry;
+import org.change.v2.model.openflow.Match;
 import org.change.v2.model.ovs.OVSParser;
 import org.change.v2.model.routing.InterfaceParser;
 import org.change.v2.util.conversion.RepresentationConversion;
+
+import com.google.common.collect.ImmutableMap;
 
 public class WorldModel {
 
@@ -61,8 +63,11 @@ public class WorldModel {
 			{
 				for (NIC nic : ns.getNICs())
 				{
-					if (nic.getIPAddresss().getAddress() == theAddress)
-						return c;
+					for (IPAddress ipa : nic.getIPAddresss())
+					{
+						if (ipa.getAddress() == theAddress)
+							return c;
+					}
 				}
 			}
 		}
@@ -81,8 +86,11 @@ public class WorldModel {
 			{
 				for (NIC nic : ns.getNICs())
 				{
-					if (nic.getIPAddresss().getAddress() == theAddress)
-						return nic;
+					for (IPAddress ipa : nic.getIPAddresss())
+					{
+						if (ipa.getAddress() == theAddress)
+							return nic;
+					}
 				}
 			}
 		}
@@ -165,6 +173,62 @@ public class WorldModel {
 		return world;
 	}
 	
+	private Map<Long, Long> inferredArpTable = null;
+	private static final int ARP_SPOOF_TABLE = 24;
+	private void inferArpTables() {
+		inferredArpTable=  new HashMap<Long, Long>();
+		for (Computer pc : this.getPcs())
+		{
+			for (Bridge br : pc.getBridges())
+			{
+				if (br instanceof OVSBridge)
+				{
+					OVSBridge ovbr = (OVSBridge) br;
+					if (ovbr.getName().equals("br-int"))
+					{
+						List<OpenFlowNIC> nics = ovbr.getConfig().getNics();
+						Optional<OpenFlowTable> tab = ovbr.getConfig().getTables().stream().filter(s -> s.getTableId() == ARP_SPOOF_TABLE).findAny();
+						if (tab.isPresent()) {
+							OpenFlowTable table = tab.get();
+							for (FlowEntry fe : table.getEntries()) {
+								if (fe.getPriority() == 2) {
+									boolean isArp = false;
+									long ipaddr = 0;
+									long port = -1024;
+									List<Match> matches = fe.getMatches();
+									for (Match m : matches) {
+										String name = m.getField().getName();
+										if (name.equals("dl_type")) {
+											if (m.getValue() == 0x806) {
+												isArp = true;
+											}
+										} else if (name.equals("arp_spa")) {
+											ipaddr = m.getValue();
+										} else if (name.equals("in_port")) {
+											port = m.getValue();
+										}
+									}
+									if (isArp && port >= 0 && ipaddr != 0) {
+										OVSNIC ovsNic = ovbr.getOvsNic((int) port);
+										long mac = ovsNic.getVmMac(); 
+										if (ovsNic.isVmConnected() && mac != -1) {
+											this.inferredArpTable.put(ipaddr, mac);
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	
+	public Map<Long, Long> getInferredArpTables() {
+		if (this.inferredArpTable == null)
+			this.inferArpTables();
+		return this.inferredArpTable;
+	}
 	
 	public static void main(String[] argv) throws IOException
 	{

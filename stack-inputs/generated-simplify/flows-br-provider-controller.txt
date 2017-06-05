@@ -1,0 +1,4 @@
+NXST_FLOW reply (xid=0x4):
+table=0, priority=4,in_port=1,dl_vlan=3 actions=strip_vlan,NORMAL
+table=0, priority=2,in_port=1 actions=drop
+table=0, priority=0 actions=NORMAL

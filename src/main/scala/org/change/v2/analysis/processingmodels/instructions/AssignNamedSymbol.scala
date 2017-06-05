@@ -35,6 +35,9 @@ case class AssignNamedSymbol(id: String, exp: FloatingExpression, t: NumericType
       case Right(err) => Fail(err).apply(s, v)
     }
   }
+  
+  override def toString = s"$id <- $exp"
+
 }
 
 case class AssignRaw(a: Intable, exp: FloatingExpression, t: NumericType = LongType) extends Instruction {
@@ -54,6 +57,9 @@ case class AssignRaw(a: Intable, exp: FloatingExpression, t: NumericType = LongT
     }}
     case None => Fail(TagExp.brokenTagExpErrorMessage)(s,v)
   }
+  
+  
+  override def toString = s"$a <- $exp"
 }
 
 object Assign {
@@ -68,6 +74,10 @@ object Assign {
     AssignNamedSymbol(id, exp, kind)
   def apply(id: String, exp: FloatingExpression): Instruction =
     apply(id, exp, LongType)
+    
+  def apply (id : String, exp : Int) : Instruction = 
+    apply(id, ConstantValue(exp))
+  def apply(a : Intable, exp : Int) : Instruction = apply(a, ConstantValue(exp))
   def apply(id: String, ip : String) : Instruction = 
     apply(id, ConstantValue(ipToNumber(ip)), IP4Type)
 }

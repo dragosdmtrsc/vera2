@@ -7,8 +7,7 @@ public class QualifiedField {
 
 	@Override
 	public String toString() {
-		return "QualifiedField [name=" + name + ", type=" + type
-				+ ", startBit=" + startBit + ", endBit=" + endBit + "]";
+		return name + "[" + startBit + ".." + endBit + "]";
 	}
 	public String getName() {
 		return name;

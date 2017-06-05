@@ -168,6 +168,7 @@ public class TargetMatcher extends IptablesBaseListener {
 		{
 			target.setToPortEnd(Integer.decode(context.INT(1).getText()));
 		}
+		this.target = target;
 	}
 	public void enterRejectTarget(RejectTargetContext context) { 
 		this.target = new JumpyTarget("REJECT");

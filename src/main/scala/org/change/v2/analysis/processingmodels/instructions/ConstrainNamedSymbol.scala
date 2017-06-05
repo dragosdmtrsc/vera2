@@ -25,14 +25,14 @@ case class ConstrainNamedSymbol (id: String, dc: FloatingConstraint, c: Option[C
       s.memory.addConstraint(id, c)
     })
   }
+  
+  
+  override def toString = s"Constrain($id, $dc)"
 }
 
 
 
 case class ConstrainRaw (a: Intable, dc: FloatingConstraint, c: Option[Constraint] = None) extends Instruction {
-  override def toString = {
-    "Constrain(" + a + dc + ")"
-  }
   override def apply(s: State, v: Boolean): (List[State], List[State]) = a(s) match {
     case Some(int) => c match {
         case None => dc instantiate s match {
@@ -47,6 +47,7 @@ case class ConstrainRaw (a: Intable, dc: FloatingConstraint, c: Option[Constrain
       }
     case None => Fail(TagExp.brokenTagExpErrorMessage)(s,v)
   }
+  override def toString = s"Constrain($a, $dc)"
 }
 
 object Constrain {
@@ -62,6 +63,17 @@ object Constrain {
   property = "type")
 trait FloatingConstraint {
   def instantiate(s: State): Either[Constraint, String]
+}
+
+
+object :|: {
+  def apply(cstrs : List[FloatingConstraint]) : FloatingConstraint = {
+    cstrs match {
+      case head :: Nil => head
+      case head :: tail => :|:(head, apply(tail))
+      case _ => throw new UnsupportedOperationException("Cannot support empty list of constraints")
+    }
+  }
 }
 
 case class :|:(a: FloatingConstraint, b: FloatingConstraint) extends FloatingConstraint {

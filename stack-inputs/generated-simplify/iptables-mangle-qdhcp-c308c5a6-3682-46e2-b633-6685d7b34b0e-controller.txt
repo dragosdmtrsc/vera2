@@ -1,0 +1,25 @@
+-P PREROUTING ACCEPT
+-P INPUT ACCEPT
+-P FORWARD ACCEPT
+-P OUTPUT ACCEPT
+-P POSTROUTING ACCEPT
+-N neutron-dhcp-age-FORWARD
+-N neutron-dhcp-age-INPUT
+-N neutron-dhcp-age-OUTPUT
+-N neutron-dhcp-age-POSTROUTING
+-N neutron-dhcp-age-PREROUTING
+-N neutron-dhcp-age-float-snat
+-N neutron-dhcp-age-floatingip
+-N neutron-dhcp-age-mark
+-N neutron-dhcp-age-scope
+-A PREROUTING -j neutron-dhcp-age-PREROUTING
+-A INPUT -j neutron-dhcp-age-INPUT
+-A FORWARD -j neutron-dhcp-age-FORWARD
+-A OUTPUT -j neutron-dhcp-age-OUTPUT
+-A POSTROUTING -j neutron-dhcp-age-POSTROUTING
+-A neutron-dhcp-age-POSTROUTING -p udp -m udp --dport 68 -j CHECKSUM --checksum-fill
+-A neutron-dhcp-age-PREROUTING -j neutron-dhcp-age-mark
+-A neutron-dhcp-age-PREROUTING -j neutron-dhcp-age-scope
+-A neutron-dhcp-age-PREROUTING -m connmark ! --mark 0x0/0xffff0000 -j CONNMARK --restore-mark --nfmask 0xffff0000 --ctmask 0xffff0000
+-A neutron-dhcp-age-PREROUTING -j neutron-dhcp-age-floatingip
+-A neutron-dhcp-age-float-snat -m connmark --mark 0x0/0xffff0000 -j CONNMARK --save-mark --nfmask 0xffff0000 --ctmask 0xffff0000

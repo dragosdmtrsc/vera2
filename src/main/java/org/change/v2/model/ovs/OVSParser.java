@@ -351,6 +351,13 @@ public class OVSParser {
 				lookup.nicOptions.put(nnn.path(0).asText(), 
 							nnn.path(1).asText());
 			}
+			JsonNode externalIds = getData(br, headers, "external_ids").path(1);
+			for (JsonNode nnn : externalIds)
+			{
+				lookup.nicOptions.put(nnn.path(0).asText(), 
+						nnn.path(1).asText());
+			}
+			
 			bridges.add(lookup);
 			System.out.println(lookup.nicOptions);
 		}

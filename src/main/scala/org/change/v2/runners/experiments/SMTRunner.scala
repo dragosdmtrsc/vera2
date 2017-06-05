@@ -187,7 +187,7 @@ object SMTRunner {
             hitMe(left, smt, mappings, set, right, factory, "+")
           case Minus(left, right) =>
             hitMe(left, smt, mappings, set, right, factory, "-")
-          case ConstantValue(v, _) =>
+          case ConstantValue(v, _, _) =>
             (factory.numeral(v), List[ICommand](), Set[String]())
           case SymbolicValue(_) => {
             val symId = "Symbol_" + expression.id

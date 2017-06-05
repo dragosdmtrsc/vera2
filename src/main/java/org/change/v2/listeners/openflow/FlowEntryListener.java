@@ -255,6 +255,8 @@ public class FlowEntryListener extends OpenflowBaseListener {
 					String smask = vmask[1];
 					mask =Decoder.decodeType(qf.getName(), smask);
 					isMasked = true;
+					theMatch.setValue(Decoder.decodeType(qf.getName(), value));
+					theMatch.setMask(mask);
 				}
 				else if (value.contains("["))
 				{
@@ -312,7 +314,8 @@ public class FlowEntryListener extends OpenflowBaseListener {
 	
 	public void enterTable(TableContext ctx)
 	{
-		this.currentEntry.setTable(Integer.decode(ctx.NUMBER().getText()));
+		String tabNum = ctx.NUMBER().getText();
+		this.currentEntry.setTable(Integer.decode(tabNum));
 	}
 	
 	

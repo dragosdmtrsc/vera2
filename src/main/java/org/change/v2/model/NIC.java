@@ -8,6 +8,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.change.v2.model.openflow.Decoder;
+
 // Start of user code (user defined imports)
 
 // End of user code
@@ -25,11 +27,22 @@ public class NIC {
 	public Map<String, String> getOptions() {
 		return options;
 	}
+	
+	
+	public boolean isVmConnected() {
+		return getOptions().containsKey("attached-mac");
+	}
+	
+	public long getVmMac() {
+		if (this.isVmConnected())
+			return Decoder.decodeMAC(getOptions().get("attached-mac"));
+		return -1;
+	}
 
 	
 	@Override
 	public String toString() {
-		return "NIC [symnetIPAddresss=" + symnetIPAddresss + ", macAddress="
+		return "NIC [symnetIPAddresss=" + symnetIPAddresses + ", macAddress="
 				+ macAddress + ", Name=" + Name + "]";
 	}
 
@@ -46,7 +59,7 @@ public class NIC {
 	/**
 	 * Description of the property symnetIPAddresss.
 	 */
-	private IPAddress symnetIPAddresss = new IPAddress();
+	private List<IPAddress> symnetIPAddresses = new ArrayList<IPAddress>();
 	
 
 	/**
@@ -89,8 +102,8 @@ public class NIC {
 	 * Returns symnetIPAddresss.
 	 * @return symnetIPAddresss 
 	 */
-	public IPAddress getIPAddresss() {
-		return this.symnetIPAddresss;
+	public List<IPAddress> getIPAddresss() {
+		return this.symnetIPAddresses;
 	}
 
 	/**

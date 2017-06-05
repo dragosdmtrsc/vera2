@@ -10,9 +10,10 @@ import com.fasterxml.jackson.annotation.JsonIgnore
 /**
  * Created by radu on 3/24/15.
  */
-case class ConstantValue(value: Long, isIp : Boolean  = false) extends Expression with FloatingExpression {
+case class ConstantValue(value: Long, isIp : Boolean  = false, isMac : Boolean = false) 
+  extends Expression with FloatingExpression {
   @JsonIgnore
-  def ast = Z3Util.z3Context.mkInt(value.asInstanceOf[Int], Z3Util.defaultSort)
+  def ast = Z3Util.z3Context.mkNumeral(value.toString(), Z3Util.defaultSort)
 
   override def toZ3(solver: Option[Z3Solver] = None): (Z3AST, Option[Z3Solver]) = (ast, solver)
 
@@ -26,9 +27,11 @@ case class ConstantValue(value: Long, isIp : Boolean  = false) extends Expressio
   override def instantiate(s: State): Either[Expression, String] = Left(this)
 
   override def toString = {
-    if (!isIp)
-      s"[Constant $value]"
+    if (isMac)
+      "[" + numberToMac(value) +  "]"
+    else if (!isIp)
+      s"[$value]"
     else
-      "[Constant " + numberToIp(value) +  "]"
+      "[" + numberToIp(value) +  "]"
   }
 }

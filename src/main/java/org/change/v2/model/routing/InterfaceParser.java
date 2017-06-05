@@ -91,13 +91,14 @@ public class InterfaceParser {
 						{
 							String theGroup = m.group(1);
 							String[] ipmask= theGroup.split("/");
-							nic.getIPAddresss().setAddress(Decoder.decodeIP4(ipmask[0]));
-							nic.getIPAddresss().setMask(Decoder.decodeLong(ipmask[1]));
+							IPAddress addr = new IPAddress();
+							addr.setAddress(Decoder.decodeIP4(ipmask[0]));
+							addr.setMask(Decoder.decodeLong(ipmask[1]));
+							nic.getIPAddresss().add(addr);
 						}
 					}
 				}
 			}
-			
 		}
 		return nics;
 	}

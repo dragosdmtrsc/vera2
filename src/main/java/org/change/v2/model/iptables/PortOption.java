@@ -15,6 +15,19 @@ import org.change.v2.model.iptables.SimpleOption;
  * @author Dragos
  */
 public class PortOption extends SimpleOption {
+	
+	public static enum PortType {
+		TCP, UDP
+	}
+	
+	private PortType pt;
+	
+	public PortType getPortType() {
+		return pt;
+	}
+	public void setPortType(PortType pt) {
+		this.pt = pt;
+	}
 	/**
 	 * Description of the property name.
 	 */
@@ -41,8 +54,18 @@ public class PortOption extends SimpleOption {
 	// Start of user code (user defined methods for PortOption)
 	
 	public PortOption(boolean b, String string, int parseInt) {
+//		this.name = string;
+//		this.portNo = parseInt;
+//		this.pt = PortType.TCP;
+//		this.setNeg(b);
+		this(b, string, parseInt, PortType.TCP);
+	}
+	
+	
+	public PortOption(boolean b, String string, int parseInt, PortType pt) {
 		this.name = string;
 		this.portNo = parseInt;
+		this.pt = pt;
 		this.setNeg(b);
 	}
 

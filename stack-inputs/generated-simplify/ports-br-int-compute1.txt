@@ -1,0 +1,18 @@
+OFPST_PORT_DESC reply (xid=0x2):
+ 1(patch-tun): addr:06:ed:d2:cf:bc:83
+     config:     0
+     state:      0
+     speed: 0 Mbps now, 0 Mbps max
+ 2(int-br-provider): addr:6e:fc:56:4b:21:f6
+     config:     0
+     state:      0
+     speed: 0 Mbps now, 0 Mbps max
+ 3(tap737565c0-2c): addr:fe:16:3e:42:5d:ed
+     config:     0
+     state:      0
+     current:    10MB-FD COPPER
+     speed: 10 Mbps now, 0 Mbps max
+ LOCAL(br-int): addr:46:cd:64:bc:8a:4d
+     config:     PORT_DOWN
+     state:      LINK_DOWN
+     speed: 0 Mbps now, 0 Mbps max

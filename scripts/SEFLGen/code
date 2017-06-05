@@ -1,0 +1,59 @@
+val blll = new EnterIPTablesChain(pc, nic, "raw", "PREROUTING", worldModel)
+val str = blll.toString
+val exitPort = blll.toString + "/exit/0"
+
+val blll = new Conntrack(pc, nic, worldModel)
+val str = blll.toString
+val exitPort = blll.toString + "/exit/0"
+
+val blll = new EnterIPTablesChain(pc, nic, "mangle", "PREROUTING", worldModel)
+val str = blll.toString
+val exitPort = blll.toString + "/exit/0"
+
+val blll = new EnterIPTablesChain(pc, nic, "nat", "PREROUTING", worldModel)
+val str = blll.toString
+val exitPort = blll.toString + "/exit/0"
+
+val blll = new ConntrackRedo(pc, nic, worldModel)
+val str = blll.toString
+val exitPort = blll.toString + "/exit/0"
+
+val blll = new RoutingDecision(pc, nic, worldModel)
+val str = blll.toString
+val exitPort = blll.toString + "/exit/0"
+
+val blll = new EnterIPTablesChain(pc, nic, "mangle", "INPUT", worldModel)
+val str = blll.toString
+val exitPort = blll.toString + "/exit/0"
+
+val blll = new EnterIPTablesChain(pc, nic, "filter", "INPUT" worldModel)
+val str = blll.toString
+val exitPort = blll.toString + "/exit/0"
+
+val blll = new EnterIPTablesChain(pc, nic, "mangle", "FORWARD", worldModel)
+val str = blll.toString
+val exitPort = blll.toString + "/exit/0"
+
+val blll = new EnterIPTablesChain(pc, nic, "filter", "FORWARD", worldModel)
+val str = blll.toString
+val exitPort = blll.toString + "/exit/0"
+
+val blll = new RoutingDecision(pc, nic, worldModel)
+val str = blll.toString
+val exitPort = blll.toString + "/exit/0"
+
+val blll = new EnterIPTablesChain(pc, nic, "mangle", "POSTROUTING", worldModel)
+val str = blll.toString
+val exitPort = blll.toString + "/exit/0"
+
+val blll = new EnterIPTablesChain(pc, nic, "nat", "POSTROUTING" worldModel)
+val str = blll.toString
+val exitPort = blll.toString + "/exit/0"
+
+val blll = ConntrackSnat(pc, nic, worldModel)
+val str = blll.toString
+val exitPort = blll.toString + "/exit/0"
+
+val blll = new EnterARPTable(pc, nic worldModel)
+val str = blll.toString
+val exitPort = blll.toString + "/exit/0"

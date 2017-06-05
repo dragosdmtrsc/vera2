@@ -84,7 +84,7 @@ public class IfaceOption extends SimpleOption {
 
 	@Override
 	public String toString() {
-		return "IfaceOption [ifaceNo=" + ifaceNo + ", io=" + io + "]";
+		return "IfaceOption [ifaceName=" + name + ", io=" + io + "]";
 	}
 
 }

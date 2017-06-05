@@ -1,0 +1,16 @@
+-P PREROUTING ACCEPT
+-P INPUT ACCEPT
+-P OUTPUT ACCEPT
+-P POSTROUTING ACCEPT
+-N neutron-dhcp-age-OUTPUT
+-N neutron-dhcp-age-POSTROUTING
+-N neutron-dhcp-age-PREROUTING
+-N neutron-dhcp-age-float-snat
+-N neutron-dhcp-age-snat
+-N neutron-postrouting-bottom
+-A PREROUTING -j neutron-dhcp-age-PREROUTING
+-A OUTPUT -j neutron-dhcp-age-OUTPUT
+-A POSTROUTING -j neutron-dhcp-age-POSTROUTING
+-A POSTROUTING -j neutron-postrouting-bottom
+-A neutron-dhcp-age-snat -j neutron-dhcp-age-float-snat
+-A neutron-postrouting-bottom -m comment --comment "Perform source NAT on outgoing traffic." -j neutron-dhcp-age-snat

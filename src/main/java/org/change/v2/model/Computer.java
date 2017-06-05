@@ -3,11 +3,12 @@
  *******************************************************************************/
 package org.change.v2.model;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import java.util.Map.Entry;
 
 // Start of user code (user defined imports)
 
@@ -22,12 +23,12 @@ public class Computer implements Acceptor {
 	/**
 	 * Description of the property bridges.
 	 */
-	public HashSet<Bridge> bridges = new HashSet<Bridge>();
+	public List<Bridge> bridges = new ArrayList<Bridge>();
 	
 	/**
 	 * Description of the property symnetNamespaces.
 	 */
-	public HashSet<Namespace> symnetNamespaces = new HashSet<Namespace>();
+	public List<Namespace> symnetNamespaces = new ArrayList<Namespace>();
 	
 	/**
 	 * Description of the property name.
@@ -59,7 +60,7 @@ public class Computer implements Acceptor {
 	 * Returns bridges.
 	 * @return bridges 
 	 */
-	public HashSet<Bridge> getBridges() {
+	public List<Bridge> getBridges() {
 		return this.bridges;
 	}
 
@@ -67,7 +68,7 @@ public class Computer implements Acceptor {
 	 * Returns symnetNamespaces.
 	 * @return symnetNamespaces 
 	 */
-	public HashSet<Namespace> getNamespaces() {
+	public List<Namespace> getNamespaces() {
 		return this.symnetNamespaces;
 	}
 
@@ -109,16 +110,40 @@ public class Computer implements Acceptor {
 	}
 	
 	private Map<String, NIC> preloaded = null;
+	private Map<String, NIC> ipIfaces = null;
+	
+	
+	public NIC getIpNic(String name)
+	{
+		preloadNICs();
+		if (ipIfaces.containsKey(name))
+		{
+			return ipIfaces.get(name);
+		}
+		return null;
+	}
+	
 	public NIC getNic(String name)
 	{
+		preloadNICs();
+		if (preloaded.containsKey(name))
+		{
+			return preloaded.get(name);
+		}
+		return null;
+	}
+
+	private void preloadNICs() {
 		if (preloaded == null)
 		{
+			ipIfaces = new HashMap<String, NIC>();
 			preloaded = new HashMap<String, NIC>();
 			for (Namespace ns : symnetNamespaces)
 			{
-				HashSet<NIC> nics = ns.getNICs();
+				List<NIC> nics = ns.getNICs();
 				for (NIC nic : nics)
 				{
+					ipIfaces.put(nic.getName(), nic);
 					preloaded.put(nic.getName(), nic);
 				}
 			}
@@ -135,11 +160,6 @@ public class Computer implements Acceptor {
 			}
 			
 		}
-		if (preloaded.containsKey(name))
-		{
-			return preloaded.get(name);
-		}
-		return null;
 	}
 	
 	
@@ -191,6 +211,27 @@ public class Computer implements Acceptor {
 		}
 		return null;
 	}
+	 
+	
+	public List<NIC> getNicsByFilter(String filter)
+	{
+		preloadNICs();
+		List<NIC> lst = new ArrayList<NIC>();
+		if (filter.endsWith("+"))
+		{
+			filter = filter.substring(0, filter.length() - 1);
+			for (Entry<String, NIC> sn : preloaded.entrySet())
+			{
+				if (sn.getKey().startsWith(filter))
+					lst.add(sn.getValue());
+			}
+		}
+		else
+		{
+			lst.add(getNic(filter));
+		} 
+		return lst;
+	}
 	
 	private Map<String, Namespace> nicToNamespace;
 	public Namespace getNamespaceForNic(String nicName)
@@ -217,4 +258,27 @@ public class Computer implements Acceptor {
 		}
 	}
 	
+	public NIC getNICListeningOnIP(String ipAddress)
+	{
+		for (Bridge br : this.getBridges()) {
+			for (NIC n : br.getNICs())
+			{
+				if (n.getOptions().containsKey("local_ip"))
+				{
+					if (n.getOptions().get("local_ip").trim().equals(ipAddress.trim()))
+						return n;
+				}
+			}
+		}
+		return null;
+	}
+	
+	
+	public List<NIC> getBridgedNICs() {
+		List<NIC> nics = new ArrayList<NIC>();
+		for (Bridge br : this.getBridges())
+			for (NIC n : br.getNICs())
+				nics.add(n);
+		return nics;
+	}
 }
