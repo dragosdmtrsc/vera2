@@ -48,7 +48,8 @@ import org.change.v2.model.iptables.PortOption
 import org.change.v2.model.iptables.RedirectTarget
 import org.change.v2.model.iptables.NATConfig
 import org.change.v2.model.iptables.ChecksumTarget
-
+import org.change.v2.abstractnet.linux.iptables.VariableNameExtensions._
+import org.change.v2.analysis.expression.concrete.ConstantStringValue
 
 
 case class EnterIPInterface(pcName : String, 
@@ -68,26 +69,30 @@ case class EnterIPInterface(pcName : String,
       Allocate("InputInterface"),
       Allocate("ShouldTrack"),
       Assign("ShouldTrack", ConstantValue(1)),
-      Assign("InputInterface", ConstantValue(iface.hashCode())),
+      Assign("InputInterface", ConstantStringValue(iface)),
+      Allocate(IPTablesConstants.NFMARK_BOTTOM),
+      Allocate(IPTablesConstants.NFMARK_TOP),
+      Assign(IPTablesConstants.NFMARK_BOTTOM, ConstantValue(0)),
+      Assign(IPTablesConstants.NFMARK_TOP, ConstantValue(0)),
       Constrain(EtherDst, :==:(ConstantValue(RepresentationConversion.macToNumber(nic.getMacAddress), isMac = true))),
-      new EnterIPTablesChain(pc, nic, "raw", "PREROUTING", worldModel),
+      new EnterIPTablesChain(pc, nic, "raw", "PREROUTING", worldModel).generateInstruction(),
       new ConntrackTrack(pc, nic, worldModel).generateInstruction(),
       new ConntrackUnSnat(pc, nic, worldModel).generateInstruction(),
-      new EnterIPTablesChain(pc, nic, "mangle", "PREROUTING", worldModel),
+      new EnterIPTablesChain(pc, nic, "mangle", "PREROUTING", worldModel).generateInstruction,
       new DoNatPrerouting(pc, nic, worldModel).generateInstruction(),
       new ConntrackDnat(pc, nic, worldModel).generateInstruction(),
       new RoutingDecision(pc, nic, worldModel),
       If (Constrain("Decision", :==:(ConstantValue(0))),
         InstructionBlock(
-            new EnterIPTablesChain(pc, nic, "mangle", "INPUT", worldModel),
-            new EnterIPTablesChain(pc, nic, "filter", "INPUT", worldModel),
-            new DeliverToLocalIface(pc, nic, worldModel)
+            new EnterIPTablesChain(pc, nic, "mangle", "INPUT", worldModel).generateInstruction,
+            new EnterIPTablesChain(pc, nic, "filter", "INPUT", worldModel).generateInstruction,
+            new DeliverToLocalIface(pc, nic, worldModel).generateInstruction
         ),
         InstructionBlock(
-            new EnterIPTablesChain(pc, nic, "mangle", "FORWARD", worldModel),
-            new EnterIPTablesChain(pc, nic, "filter", "FORWARD", worldModel),
-            new RoutingDecision(pc, nic, worldModel),
-            new EnterIPTablesChain(pc, nic, "mangle", "POSTROUTING", worldModel),
+            new EnterIPTablesChain(pc, nic, "mangle", "FORWARD", worldModel).generateInstruction,
+            new EnterIPTablesChain(pc, nic, "filter", "FORWARD", worldModel).generateInstruction,
+            new RoutingDecision(pc, nic, worldModel).generateInstruction,
+            new EnterIPTablesChain(pc, nic, "mangle", "POSTROUTING", worldModel).generateInstruction,
             // do NAT iptables if first packet, else do ConntrackSnat()
             new DoNatPostRouting(pc, nic, worldModel).generateInstruction(),
             new ConntrackUnDnat(pc, nic, worldModel).generateInstruction(),
@@ -101,7 +106,7 @@ case class EnterIPInterface(pcName : String,
                   x.getMacAddress.length != 0).foldRight(Fail("No such output interface") : Instruction)( (nnn, acc) => {
                     val x = nnn.getName
                     val mac = nnn.getMacAddress
-                    If (Constrain("OutputInterface", :==:(ConstantValue(x.hashCode))),
+                    If (Constrain("OutputInterface", :==:(ConstantStringValue(x))),
                         Assign(EtherSrc, ConstantValue(RepresentationConversion.macToNumber(mac), isMac = true)),
                         acc
                     )
@@ -109,9 +114,9 @@ case class EnterIPInterface(pcName : String,
                   pc.getBridgedNICs().foldRight(Forward("External World...") : Instruction)( (nnn, acc) =>  
                     {
                       val x = nnn.getName
-                      If (Constrain("OutputInterface", :==:(ConstantValue(x.hashCode))),
+                      If (Constrain("OutputInterface", :==:(ConstantStringValue(x))),
                           InstructionBlock(
-                            new EnterIface(pc.getName, x, worldModel)
+                            new EnterIface(pc.getName, x, worldModel).generateInstruction()
                           ),
                           acc
                       )
@@ -120,6 +125,8 @@ case class EnterIPInterface(pcName : String,
           )
               
       ),
+      Deallocate(IPTablesConstants.NFMARK_BOTTOM),
+      Deallocate(IPTablesConstants.NFMARK_TOP),
       Deallocate("InputInterface"),
       Deallocate("ShouldTrack")
     )
@@ -149,55 +156,113 @@ case class ConntrackTrack(pc : Computer, nic : NIC, worldModel : WorldModel)
   import ConntrackConstants._
   
   lazy val ct = new Conntrack(pc, nic, worldModel)
-  
+  override def toString = ct.toString() + ".track()"
   def generateInstruction() : Instruction = {
     val assignFwExpectations = InstructionBlock(
-            Forward("InstallForward"),
             ct.installForward(),
-            Assign("IsTracked", ConstantValue(1)),
-            Assign("IsFirst", ConstantValue(1)),
-            Assign("State", ConstantValue(StateDefinitions.NAMES.get("NEW").intValue()))
+            Assign("IsTracked".scopeTo(ct.ns), ConstantValue(1)),
+            Assign("IsFirst".scopeTo(ct.ns), ConstantValue(1)),
+            Assign("State".scopeTo(ct.ns), ConstantValue(StateDefinitions.NAMES.get("NEW").intValue()))
         )
     If (Constrain("ShouldTrack", :==:(ConstantValue(1))),
-      If (Constrain("IsTracked", :==:(ConstantValue(0))),
-        assignFwExpectations,
-        If (Constrain("IsTracked", :==:(ConstantValue(1))),
-          InstructionBlock(
-            ct.checkIfForward(),
-            ct.checkIfBackward(),
-            // if IsBackward == 0 && IsForward == 0 =>
-            // Wrong mapping => the packet is assumed new => install forward expectations
-            If (Constrain("IsForward", :==:(ConstantValue(0))),
-              If (Constrain("IsBackward", :==:(ConstantValue(0))),
-                assignFwExpectations
+      InstructionBlock(
+        Forward(toString),
+        If (Constrain("IsTracked".scopeTo(ct.ns), :==:(ConstantValue(0))),
+          assignFwExpectations,
+          If (Constrain("IsTracked".scopeTo(ct.ns), :==:(ConstantValue(1))),
+            InstructionBlock(
+              ct.checkIfForward(),
+              ct.checkIfBackward(),
+              // if IsBackward == 0 && IsForward == 0 =>
+              // Wrong mapping => the packet is assumed new => install forward expectations
+              If (Constrain("IsForward".scopeTo(ct.ns), :==:(ConstantValue(0))),
+                If (Constrain("IsBackward".scopeTo(ct.ns), :==:(ConstantValue(0))),
+                  assignFwExpectations,
+                  Assign("IsFirst".scopeTo(ct.ns), ConstantValue(0))
+                ),
+                Assign("IsFirst".scopeTo(ct.ns), ConstantValue(0))
               )
-            )
-          ),
-          // i.e. "IsTracked" is not allocated => install forward expectation
-          assignFwExpectations
-        )
+            ),
+            // i.e. "IsTracked" is not allocated => install forward expectation
+            assignFwExpectations
+          )
+        ),
+        ct.handleState
       )
     )
   }
   
   
   def apply(state : State, verbose : Boolean) : (List[State], List[State]) = {
-    println(toString)
     generateInstruction()(state, verbose)
   }
 }
+
+// if packet is first => set forward expectation + set state = NEW + set packet IsFirst <- true
+// if packet matches FW expectation => set IsForward = true, IsFirst <- false
+// if packet matches BK expectation => set IsBackward <- true, IsFirst <- false if (State == NEW) => State <- ESTABLISHED
+case class ConntrackTrackZone(pc : Computer, zone : Int, worldModel : WorldModel) 
+  extends Instruction {
+  import ConntrackConstants._
+  
+  lazy val ct = new ConntrackZone(pc, zone, worldModel)
+  override def toString = ct.toString() + ".track()"
+  def generateInstruction() : Instruction = {
+    val assignFwExpectations = InstructionBlock(
+            ct.installForward(),
+            Assign("IsTracked".scopeTo(ct.getPrefix()), ConstantValue(1)),
+            Assign("IsFirst".scopeTo(ct.getPrefix()), ConstantValue(1)),
+            Assign("IsForward".scopeTo(ct.getPrefix()), ConstantValue(1)),
+            Assign("IsBackward".scopeTo(ct.getPrefix()), ConstantValue(0)),
+            Assign("State".scopeTo(ct.getPrefix()), ConstantValue(StateDefinitions.NAMES.get("NEW").intValue()))
+        )
+    If (Constrain("ShouldTrack", :==:(ConstantValue(1))),
+      InstructionBlock(
+        Forward(toString),
+        If (Constrain("IsTracked".scopeTo(ct.getPrefix()), :==:(ConstantValue(0))),
+          assignFwExpectations,
+          If (Constrain("IsTracked".scopeTo(ct.getPrefix()), :==:(ConstantValue(1))),
+            InstructionBlock(
+              ct.checkIfForward(),
+              ct.checkIfBackward(),
+              // if IsBackward == 0 && IsForward == 0 =>
+              // Wrong mapping => the packet is assumed new => install forward expectations
+              If (Constrain("IsForward".scopeTo(ct.getPrefix()), :==:(ConstantValue(0))),
+                If (Constrain("IsBackward".scopeTo(ct.getPrefix()), :==:(ConstantValue(0))),
+                  assignFwExpectations,
+                  Assign("IsFirst".scopeTo(ct.getPrefix()), ConstantValue(0))
+                ),
+                Assign("IsFirst".scopeTo(ct.getPrefix()), ConstantValue(0))
+              )
+            ),
+            // i.e. "IsTracked" is not allocated => install forward expectation
+            assignFwExpectations
+          )
+        ),
+        ct.handleState
+      )
+    )
+  }
+  
+  
+  def apply(state : State, verbose : Boolean) : (List[State], List[State]) = {
+    generateInstruction()(state, verbose)
+  }
+}
+
 
 
 case class ConntrackCommit(pc : Computer, nic : NIC, worldModel : WorldModel) 
   extends Instruction
 {
   lazy val ct = new Conntrack(pc, nic, worldModel)
-  
+  override def toString = ct.toString() + ".commit()"
+
   def generateInstruction() : Instruction = {
-    If (Constrain("IsTracked", :==:(ConstantValue(1))),
-       If (Constrain("IsFirst", :==:(ConstantValue(1))),
+    If (Constrain("IsTracked".scopeTo(ct.ns), :==:(ConstantValue(1))),
+       If (Constrain("IsFirst".scopeTo(ct.ns), :==:(ConstantValue(1))),
            InstructionBlock(
-               Forward("ConntrackCommit"),
+               Forward(toString),
                ct.installBackward()
            )
        )
@@ -206,19 +271,47 @@ case class ConntrackCommit(pc : Computer, nic : NIC, worldModel : WorldModel)
   
   
   def apply(state : State, verbose : Boolean) : (List[State], List[State]) = {
-    println(toString)
     generateInstruction()(state, verbose)
   }
-} 
+}
+
+case class ConntrackCommitZone(pc : Computer, zone : Int, worldModel : WorldModel) 
+  extends Instruction {
+  
+  lazy val ct = new ConntrackZone(pc, zone, worldModel)
+  override def toString = ct.toString() + ".commit()"
+
+  def generateInstruction() : Instruction = {
+    If (Constrain("IsTracked".scopeTo(ct.getPrefix), :==:(ConstantValue(1))),
+       If (Constrain("IsFirst".scopeTo(ct.getPrefix), :==:(ConstantValue(1))),
+           InstructionBlock(
+               Forward(toString),
+               ct.installBackward()
+           )
+       )
+    )
+  }
+  
+  
+  def apply(state : State, verbose : Boolean) : (List[State], List[State]) = {
+    generateInstruction()(state, verbose)
+  }
+
+}
+
 
 
 case class ConntrackUnSnat(pc : Computer, nic : NIC, worldModel : WorldModel) 
   extends Instruction
 {
   lazy val ct = new Conntrack(pc, nic, worldModel)
-  
+  override def toString = ct.toString() + ".unsnat()"
+
   def generateInstruction() : Instruction = {
-    ct.unSnatBack()
+    InstructionBlock(
+      Forward(toString),
+      ct.unSnatBack()
+    )
   }
   
   
@@ -233,14 +326,17 @@ case class ConntrackSnat(pc : Computer, nic : NIC, worldModel : WorldModel)
   extends Instruction
 {
   lazy val ct = new Conntrack(pc, nic, worldModel)
-  
+  override def toString = ct.toString() + ".snat()"
+
   def generateInstruction() : Instruction = {
-    ct.snatApplyFw()
+    InstructionBlock(
+      Forward(toString),
+      ct.snatApplyFw()
+    )
   }
   
   
   def apply(state : State, verbose : Boolean) : (List[State], List[State]) = {
-    println(toString)
     generateInstruction()(state, verbose)
   }
 }
@@ -250,14 +346,16 @@ case class ConntrackUnDnat(pc : Computer, nic : NIC, worldModel : WorldModel)
   extends Instruction
 {
   lazy val ct = new Conntrack(pc, nic, worldModel)
-  
+  override def toString = ct.toString() + ".undnat()"
   def generateInstruction() : Instruction = {
-    ct.unDnatBack()
+    InstructionBlock(
+      Forward(toString),
+      ct.unDnatBack()
+    )
   }
   
   
   def apply(state : State, verbose : Boolean) : (List[State], List[State]) = {
-    println(toString)
     generateInstruction()(state, verbose)
   }
 }
@@ -267,14 +365,17 @@ case class ConntrackDnat(pc : Computer, nic : NIC, worldModel : WorldModel)
   extends Instruction
 {
   lazy val ct = new Conntrack(pc, nic, worldModel)
-  
+  override def toString = ct.toString() + ".dnat()"
   def generateInstruction() : Instruction = {
-    ct.dnatApplyFw()
+    InstructionBlock(
+      Forward(toString),
+      ct.dnatApplyFw()
+    )
+    
   }
   
   
   def apply(state : State, verbose : Boolean) : (List[State], List[State]) = {
-    println(toString)
     generateInstruction()(state, verbose)
   }
 }
@@ -310,13 +411,15 @@ case class DoNatPostRouting(pc : Computer, nic : NIC, worldModel : WorldModel)
 {
   override def toString = s"DoNatPostRouting(${pc.getName}, ${nic.getName})"
 
+  lazy val ns = pc.getNamespaceForNic(nic.getName)
+  
   def generateInstruction() : Instruction = {
     println(toString)
     InstructionBlock(
         Forward(toString),
-        If (Constrain("IsFirst", :==:(ConstantValue(1))),
+        If (Constrain("IsFirst".scopeTo(ns), :==:(ConstantValue(1))),
           // first packet goes through nat postrouting.
-          new EnterIPTablesChain(pc, nic, "nat", "POSTROUTING", worldModel)
+          new EnterIPTablesChain(pc, nic, "nat", "POSTROUTING", worldModel).generateInstruction()
         )
     )
   }
@@ -330,14 +433,15 @@ case class DoNatPostRouting(pc : Computer, nic : NIC, worldModel : WorldModel)
 
 case class DoNatPrerouting(pc : Computer, nic : NIC, worldModel : WorldModel) 
   extends Instruction {
-  override def toString = s"EnterARPTable(${pc.getName}, ${nic.getName})"
+  override def toString = s"DoNatPrerouting(${pc.getName}, ${nic.getName})"
+  lazy val ns = pc.getNamespaceForNic(nic.getName)
 
   def generateInstruction() : Instruction = {
     InstructionBlock(
       Forward(toString),
-      If (Constrain("IsFirst", :==:(ConstantValue(1))),
+      If (Constrain("IsFirst".scopeTo(ns), :==:(ConstantValue(1))),
           // i.e. the packet is the first one in the connection
-          new EnterIPTablesChain(pc, nic, "nat", "PREROUTING", worldModel)
+          new EnterIPTablesChain(pc, nic, "nat", "PREROUTING", worldModel).generateInstruction()
       )
     )
   }
@@ -354,11 +458,10 @@ case class EnterARPTable(pc : Computer, iface : NIC, worldModel : WorldModel)
   
   def inferArpRules() : Instruction = {
     val arps = worldModel.getInferredArpTables()
-    arps.foldRight(Forward("ExternalWorld maybe...") : Instruction)( (x, acc) => {
+    arps.foldRight(Assign(EtherDst, ConstantValue(150, isMac = true)) : Instruction)( (x, acc) => {
       If (Constrain("RoutingNextHop", :==:(ConstantValue(x._1, isIp = true))),
         InstructionBlock(
           Assign(EtherDst, (ConstantValue(x._2, isMac = true)))
-//          new EnterIface(pc.getName, iface.getName, worldModel)
         ),
         acc
       )
@@ -366,7 +469,7 @@ case class EnterARPTable(pc : Computer, iface : NIC, worldModel : WorldModel)
   }
   
   
-  def generateInstructions() : Instruction = {
+  def generateInstruction() : Instruction = {
     println(toString)
     InstructionBlock(
       Forward(toString),
@@ -387,46 +490,23 @@ case class EnterARPTable(pc : Computer, iface : NIC, worldModel : WorldModel)
     )
   }
   override def apply(state : State, verbose : Boolean) : (List[State], List[State]) = {
-    val arp = generateInstructions()
+    val arp = generateInstruction()
     arp(state, verbose)
   }
 }
 
 
-
+object VariableNameExtensions {
+  class VariableName(str : String) {
+    def scopeTo(ns : Namespace) : String = this.scopeTo(s"${ns.getComputer.getName}.${ns.getName}")
+    def scopeTo(prefix : String) : String = (if (prefix == null || prefix.length() == 0 || prefix.endsWith(".")) prefix else prefix + ".") + str
+  }
+  implicit def varString(str : String) : VariableName= {
+    new VariableName(str)
+  }
+}
 
 object SNATExtension {
-  
-  def snatV2(prefix : String, to : Long, portRange : (Long, Long)) : Instruction = {
-    InstructionBlock(
-      Assign("SNAT", ConstantValue(1)),
-      Assign("SNAT.IPSrc", ConstantValue(to)),
-      Assign("SNAT.Proto", :@(Proto)),
-      If (Constrain(Proto, :==:(ConstantValue(TCPProto))),
-          If(Constrain("BK.TCPDst", :==:(:@(TcpDst))),
-            If (Constrain("FW.TCPSrc", :==:(:@(TcpSrc))),
-              Assign("IsForward", ConstantValue(1))
-            )
-          ),
-          If (Constrain(Proto, :==:(ConstantValue(UDPProto))),
-            If(Constrain("FW.UDPDst", :==:(:@(UDPDst))),
-              If (Constrain("FW.UDPSrc", :==:(:@(UDPSrc))),
-                Assign("IsForward", ConstantValue(1))
-              )
-            ),
-            If (Constrain(Proto, :==:(ConstantValue(ICMPProto))),
-              If (Constrain("FW.ICMPCode", :==:(:@(ICMPCode))),
-                If (Constrain("FW.ICMPType", :==:(:@(ICMPType))),
-                  Assign("IsForward", ConstantValue(1))
-                )
-              ),
-              Assign("IsForward", ConstantValue(1))
-            )
-          )
-        )
-    )
-  }
-  
   
   def dnat(prefix : String, 
       nc : NATConfig = NATConfig.create(), 
@@ -442,7 +522,6 @@ object SNATExtension {
       manip : String, 
       changeIp : Boolean = true) : Instruction = {
     val defaultInstr = default
-    val pprefix = if (prefix == "" || prefix.endsWith(".")) prefix else prefix + "." 
     val modIp = if (manip == "DNAT")
                 IPDst
               else
@@ -460,32 +539,32 @@ object SNATExtension {
                 
     
     InstructionBlock(
-      Forward(s"${manip}($pprefix)"),
-      Assign(pprefix + s"$manip.IPSrcOrig", :@(IPSrc)),
-      Assign(pprefix + s"$manip.IPDstOrig", :@(IPDst)),
+      Forward(s"${manip}($prefix)"),
+      Assign(s"$manip.IPSrcOrig".scopeTo(prefix), :@(IPSrc)),
+      Assign(s"$manip.IPDstOrig".scopeTo(prefix), :@(IPDst)),
       IfProto(TCPProto,
         InstructionBlock(
-          Assign(pprefix + s"$manip.TCPSrcOrig", :@(TcpSrc)),
-          Assign(pprefix + s"$manip.TCPDstOrig", :@(TcpDst)),
+          Assign(s"$manip.TCPSrcOrig".scopeTo(prefix), :@(TcpSrc)),
+          Assign(s"$manip.TCPDstOrig".scopeTo(prefix), :@(TcpDst)),
           Assign(modTcp, SymbolicValue()),
           Constrain(modTcp, 
               if (!nc.isUniquePort)
                 :&:(:<=:(ConstantValue(nc.getPortEnd)), :>=:(ConstantValue(nc.getPortStart)))
               else
                 :==:(ConstantValue(nc.getPort))),
-          Assign(pprefix + s"$manip.TCPMod", :@(TcpSrc))
+          Assign(s"$manip.TCPMod".scopeTo(prefix), :@(TcpSrc))
         ),
         IfProto(UDPProto,
           InstructionBlock(
-            Assign(pprefix + s"$manip.UDPSrcOrig", :@(UDPSrc)),
-            Assign(pprefix + s"$manip.UDPDstOrig", :@(UDPDst)),
+            Assign(s"$manip.UDPSrcOrig".scopeTo(prefix), :@(UDPSrc)),
+            Assign(s"$manip.UDPDstOrig".scopeTo(prefix), :@(UDPDst)),
             Assign(modUdp, SymbolicValue()),
             Constrain(modUdp, 
               if (!nc.isUniquePort)
                 :&:(:<=:(ConstantValue(nc.getPortEnd)), :>=:(ConstantValue(nc.getPortStart)))
               else
                 :==:(ConstantValue(nc.getPort))),
-            Assign(pprefix + s"$manip.UDPMod", :@(UDPSrc))
+            Assign(s"$manip.UDPMod".scopeTo(prefix), :@(UDPSrc))
           )
         )
       ),
@@ -505,9 +584,9 @@ object SNATExtension {
       {
         NoOp
       },
-      Assign(pprefix + s"$manip.IPMod", :@(modIp)),
-      Assign(pprefix + s"$manip.IPProto", :@(Proto)),
-      Assign(pprefix + s"$manip.Is$manip", ConstantValue(1)),
+      Assign(s"$manip.IPMod".scopeTo(prefix), :@(modIp)),
+      Assign(s"$manip.IPProto".scopeTo(prefix), :@(Proto)),
+      Assign(s"$manip.Is$manip".scopeTo(prefix), ConstantValue(1)),
       defaultInstr
     )
   }
@@ -541,9 +620,9 @@ object SNATExtension {
     else
       "Src"
     
-    If (Constrain(pprefix + s"$manip.Is$manip", :==:(ConstantValue(1))),
-      If (Constrain("IsTracked", :==:(ConstantValue(1))),
-         If (Constrain("IsBackward", :==:(ConstantValue(1))),
+    If (Constrain(s"$manip.Is$manip".scopeTo(pprefix), :==:(ConstantValue(1))),
+      If (Constrain("IsTracked".scopeTo(pprefix), :==:(ConstantValue(1))),
+         If (Constrain("IsBackward".scopeTo(pprefix), :==:(ConstantValue(1))),
            InstructionBlock( 
              Forward(s"Un${manip}($pprefix)"),
              IfProto (TCPProto,
@@ -590,22 +669,22 @@ object SNATExtension {
                 UDPDst
               else
                 UDPSrc
-    If (Constrain(pprefix + s"$manip.Is$manip", :==:(ConstantValue(1))),
-      If (Constrain("IsTracked", :==:(ConstantValue(1))),
-         If (Constrain("IsForward", :==:(ConstantValue(1))),
+    If (Constrain(s"$manip.Is$manip".scopeTo(pprefix), :==:(ConstantValue(1))),
+      If (Constrain("IsTracked".scopeTo(pprefix), :==:(ConstantValue(1))),
+         If (Constrain("IsForward".scopeTo(pprefix), :==:(ConstantValue(1))),
            InstructionBlock(
              Forward(s"${manip}Existing($pprefix)"),
              IfProto (TCPProto,
                 InstructionBlock(
-                  Assign(modTcp, :@(pprefix + s"$manip.TCPMod"))
+                  Assign(modTcp, :@(s"$manip.TCPMod".scopeTo(pprefix)))
                 ),
                 IfProto(UDPProto,
                   InstructionBlock(
-                    Assign(modUdp, :@(pprefix + s"$manip.UDPMod"))
+                    Assign(modUdp, :@(s"$manip.UDPMod".scopeTo(pprefix)))
                   )
                 )
               ),
-              Assign(modIp, :@(pprefix + s"$manip.IPMod"))
+              Assign(modIp, :@(s"$manip.IPMod".scopeTo(pprefix)))
            )
          )
       )
@@ -614,49 +693,41 @@ object SNATExtension {
   
   def snatExisting(prefix : String) : Instruction = {
     val manip = "SNAT"
-    val pprefix = if (prefix == "" || prefix.endsWith(".")) prefix else prefix + "." 
-    natExisting(pprefix, manip)
+    natExisting(prefix, manip)
   }
   def dnatExisting(prefix : String) : Instruction = {
     val manip = "DNAT"
-    val pprefix = if (prefix == "" || prefix.endsWith(".")) prefix else prefix + "." 
-    natExisting(pprefix, manip)
+    natExisting(prefix, manip)
   }
   
   
 }
 
 
-case class Conntrack(pc : Computer, iface : NIC, worldModel : WorldModel)
-  extends Instruction
-{
-  lazy val ns = pc.getNamespaceForNic(iface.getName)
-  lazy val prefix =  ns.getComputer.getName + "." + ns.getName
-  
-  override def toString = s"Conntrack(${pc.getName}, ${iface.getName})"
+class ConntrackGeneric (prefix : String) {
   
   def installForward() : Instruction = {
     InstructionBlock(
-      Assign(IPTablesConstants.CTMARK_BOTTOM, ConstantValue(0)),
-      Assign(IPTablesConstants.CTMARK_TOP, ConstantValue(0)),
-      Assign("FW.IPSrc", :@(IPSrc)),
-      Assign("FW.IPDst", :@(IPDst)),
-      Assign("FW.Proto", :@(Proto)),
+      Assign(IPTablesConstants.CTMARK_BOTTOM.scopeTo(prefix), ConstantValue(0)),
+      Assign(IPTablesConstants.CTMARK_TOP.scopeTo(prefix), ConstantValue(0)),
+      Assign("FW.IPSrc".scopeTo(prefix), :@(IPSrc)),
+      Assign("FW.IPDst".scopeTo(prefix), :@(IPDst)),
+      Assign("FW.Proto".scopeTo(prefix), :@(Proto)),
       If (Constrain(Proto, :==:(ConstantValue(TCPProto))),
         InstructionBlock(
-          Assign("FW.TCPSrc", :@(TcpSrc)),
-          Assign("FW.TCPDst", :@(TcpDst))
+          Assign("FW.TCPSrc".scopeTo(prefix), :@(TcpSrc)),
+          Assign("FW.TCPDst".scopeTo(prefix), :@(TcpDst))
         ),
         If (Constrain(Proto, :==:(ConstantValue(UDPProto))),
           InstructionBlock(
-            Assign("FW.UDPSrc", :@(UDPSrc)),
-            Assign("FW.UDPDst", :@(UDPDst))
+            Assign("FW.UDPSrc".scopeTo(prefix), :@(UDPSrc)),
+            Assign("FW.UDPDst".scopeTo(prefix), :@(UDPDst))
           ),
           If (Constrain(Proto, :==:(ConstantValue(ICMPProto))),
             InstructionBlock(
-              Assign("FW.ICMPType", :@(ICMPType)),
-              Assign("FW.ICMPCode", :@(ICMPCode)),
-              Assign("FW.ICMPId", :@(ICMPIdentifier))
+              Assign("FW.ICMPType".scopeTo(prefix), :@(ICMPType)),
+              Assign("FW.ICMPCode".scopeTo(prefix), :@(ICMPCode)),
+              Assign("FW.ICMPId".scopeTo(prefix), :@(ICMPIdentifier))
             )
           )
         )
@@ -666,24 +737,24 @@ case class Conntrack(pc : Computer, iface : NIC, worldModel : WorldModel)
   
   def installBackward() : Instruction = {
     InstructionBlock(
-      Assign("BK.IPSrc", :@(IPDst)),
-      Assign("BK.IPDst", :@(IPSrc)),
-      Assign("BK.Proto", :@(Proto)),
+      Assign("BK.IPSrc".scopeTo(prefix), :@(IPDst)),
+      Assign("BK.IPDst".scopeTo(prefix), :@(IPSrc)),
+      Assign("BK.Proto".scopeTo(prefix), :@(Proto)),
       If (Constrain(Proto, :==:(ConstantValue(TCPProto))),
         InstructionBlock(
-          Assign("BK.TCPDst", :@(TcpSrc)),
-          Assign("BK.TCPSrc", :@(TcpDst))
+          Assign("BK.TCPDst".scopeTo(prefix), :@(TcpSrc)),
+          Assign("BK.TCPSrc".scopeTo(prefix), :@(TcpDst))
         ),
         If (Constrain(Proto, :==:(ConstantValue(UDPProto))),
           InstructionBlock(
-            Assign("BK.UDPDst", :@(UDPSrc)),
-            Assign("BK.UDPSrc", :@(UDPDst))
+            Assign("BK.UDPDst".scopeTo(prefix), :@(UDPSrc)),
+            Assign("BK.UDPSrc".scopeTo(prefix), :@(UDPDst))
           ),
           If (Constrain(Proto, :==:(ConstantValue(ICMPProto))),
             InstructionBlock(
-              Assign("BK.ICMPType", :@(ICMPType)),
-              Assign("BK.ICMPCode", :@(ICMPCode)),
-              Assign("BK.ICMPId", :@(ICMPIdentifier))
+              Assign("BK.ICMPType".scopeTo(prefix), :@(ICMPType)),
+              Assign("BK.ICMPCode".scopeTo(prefix), :@(ICMPCode)),
+              Assign("BK.ICMPId".scopeTo(prefix), :@(ICMPIdentifier))
             )
           )
         )
@@ -694,40 +765,40 @@ case class Conntrack(pc : Computer, iface : NIC, worldModel : WorldModel)
   
   def checkIfForward() : Instruction = {
     InstructionBlock(
-      Assign("IsForward", ConstantValue(0)),
-      If (Constrain("FW.IPSrc", :==:(:@(IPSrc))),
-       If (Constrain("FW.IPDst", :==:(:@(IPDst))),
-         If (Constrain("FW.Proto", :==:(:@(Proto))),
+      Assign("IsForward".scopeTo(prefix), ConstantValue(0)),
+      If (Constrain("FW.IPSrc".scopeTo(prefix), :==:(:@(IPSrc))),
+       If (Constrain("FW.IPDst".scopeTo(prefix), :==:(:@(IPDst))),
+         If (Constrain("FW.Proto".scopeTo(prefix), :==:(:@(Proto))),
            If (Constrain(Proto, :==:(ConstantValue(TCPProto))),
-            If(Constrain("FW.TCPDst", :==:(:@(TcpDst))),
-              If (Constrain("FW.TCPSrc", :==:(:@(TcpSrc))),
+            If(Constrain("FW.TCPDst".scopeTo(prefix), :==:(:@(TcpDst))),
+              If (Constrain("FW.TCPSrc".scopeTo(prefix), :==:(:@(TcpSrc))),
                 InstructionBlock(
-                  Assign("IsForward", ConstantValue(1)),
-                  Assign("IsFirst", ConstantValue(0))
+                  Assign("IsForward".scopeTo(prefix), ConstantValue(1)),
+                  Assign("IsFirst".scopeTo(prefix), ConstantValue(0))
                 )
               )
             ),
             If (Constrain(Proto, :==:(ConstantValue(UDPProto))),
-              If(Constrain("FW.UDPDst", :==:(:@(UDPDst))),
-                If (Constrain("FW.UDPSrc", :==:(:@(UDPSrc))),
+              If(Constrain("FW.UDPDst".scopeTo(prefix), :==:(:@(UDPDst))),
+                If (Constrain("FW.UDPSrc".scopeTo(prefix), :==:(:@(UDPSrc))),
                   InstructionBlock(
-                    Assign("IsForward", ConstantValue(1)),
-                    Assign("IsFirst", ConstantValue(0))
+                    Assign("IsForward".scopeTo(prefix), ConstantValue(1)),
+                    Assign("IsFirst".scopeTo(prefix), ConstantValue(0))
                   )
                 )
               ),
               If (Constrain(Proto, :==:(ConstantValue(ICMPProto))),
-                If (Constrain("FW.ICMPCode", :==:(:@(ICMPCode))),
-                  If (Constrain("FW.ICMPType", :==:(:@(ICMPType))),
+                If (Constrain("FW.ICMPCode".scopeTo(prefix), :==:(:@(ICMPCode))),
+                  If (Constrain("FW.ICMPType".scopeTo(prefix), :==:(:@(ICMPType))),
                     InstructionBlock(
-                      Assign("IsForward", ConstantValue(1)),
-                      Assign("IsFirst", ConstantValue(0))
+                      Assign("IsForward".scopeTo(prefix), ConstantValue(1)),
+                      Assign("IsFirst".scopeTo(prefix), ConstantValue(0))
                     )
                   )
                 ),
                 InstructionBlock(
-                  Assign("IsForward", ConstantValue(1)),
-                  Assign("IsFirst", ConstantValue(0))
+                  Assign("IsForward".scopeTo(prefix), ConstantValue(1)),
+                  Assign("IsFirst".scopeTo(prefix), ConstantValue(0))
                 )
               )
             )
@@ -737,33 +808,39 @@ case class Conntrack(pc : Computer, iface : NIC, worldModel : WorldModel)
       )
     )
   }
-  
+  def handleState() : Instruction = {
+    If (Constrain("IsBackward".scopeTo(prefix), :==:(ConstantValue(1))),
+        If (Constrain("State".scopeTo(prefix), :==:(ConstantValue(StateDefinitions.NEW))),
+            Assign("State".scopeTo(prefix), ConstantValue(StateDefinitions.ESTABLISHED))
+        )
+    )
+  }
   
   def checkIfBackward() : Instruction = {
     InstructionBlock(
-      Assign("IsBackward", ConstantValue(0)),
-      If (Constrain("BK.IPSrc", :==:(:@(IPSrc))),
-       If (Constrain("BK.IPDst", :==:(:@(IPDst))),
-         If (Constrain("BK.Proto", :==:(:@(Proto))),
+      Assign("IsBackward".scopeTo(prefix), ConstantValue(0)),
+      If (Constrain("BK.IPSrc".scopeTo(prefix), :==:(:@(IPSrc))),
+       If (Constrain("BK.IPDst".scopeTo(prefix), :==:(:@(IPDst))),
+         If (Constrain("BK.Proto".scopeTo(prefix), :==:(:@(Proto))),
            If (Constrain(Proto, :==:(ConstantValue(TCPProto))),
-              If(Constrain("BK.TCPDst", :==:(:@(TcpDst))),
-                If (Constrain("BK.TCPSrc", :==:(:@(TcpSrc))),
-                  Assign("IsBackward", ConstantValue(1))
+              If(Constrain("BK.TCPDst".scopeTo(prefix), :==:(:@(TcpDst))),
+                If (Constrain("BK.TCPSrc".scopeTo(prefix), :==:(:@(TcpSrc))),
+                  Assign("IsBackward".scopeTo(prefix), ConstantValue(1))
                 )
               ),
               If (Constrain(Proto, :==:(ConstantValue(UDPProto))),
-                If(Constrain("BK.UDPDst", :==:(:@(UDPDst))),
-                  If (Constrain("BK.UDPSrc", :==:(:@(UDPSrc))),
-                    Assign("IsBackward", ConstantValue(1))
+                If(Constrain("BK.UDPDst".scopeTo(prefix), :==:(:@(UDPDst))),
+                  If (Constrain("BK.UDPSrc".scopeTo(prefix), :==:(:@(UDPSrc))),
+                    Assign("IsBackward".scopeTo(prefix), ConstantValue(1))
                   )
                 ),
                 If (Constrain(Proto, :==:(ConstantValue(ICMPProto))),
-                  If (Constrain("BK.ICMPCode", :==:(:@(ICMPCode))),
-                    If (Constrain("BK.ICMPType", :==:(:@(ICMPType))),
-                      Assign("IsBackward", ConstantValue(1))
+                  If (Constrain("BK.ICMPCode".scopeTo(prefix), :==:(:@(ICMPCode))),
+                    If (Constrain("BK.ICMPType".scopeTo(prefix), :==:(:@(ICMPType))),
+                      Assign("IsBackward".scopeTo(prefix), ConstantValue(1))
                     )
                   ),
-                  Assign("IsBackward", ConstantValue(1))
+                  Assign("IsBackward".scopeTo(prefix), ConstantValue(1))
                 )
               )
             )
@@ -794,8 +871,31 @@ case class Conntrack(pc : Computer, iface : NIC, worldModel : WorldModel)
   }
   
   def dnatApplyFw() : Instruction = {
-    SNATExtension.snatExisting(prefix)
+    SNATExtension.dnatExisting(prefix)
   }
+  def getPrefix() : String = {
+    prefix
+  }
+  
+}
+
+
+case class ConntrackZone(pc : Computer, zone : Int, worldModel : WorldModel)
+  extends ConntrackGeneric(pc.getName + "." + zone) {
+  override def toString = s"ConntrackZ(${pc.getName}, ${zone})"
+
+}
+
+
+case class Conntrack(pc : Computer, iface : NIC, worldModel : WorldModel)
+  extends ConntrackGeneric(pc.getName + "." + pc.getNamespaceForNic(iface.getName).getName)
+{
+  lazy val ns = pc.getNamespaceForNic(iface.getName)
+  lazy val prefix =  ns.getComputer.getName + "." + ns.getName
+  
+  
+  override def toString = s"Conntrack(${pc.getName}, ${iface.getName})"
+  
   
   
   def generateInstruction() : Instruction = {
@@ -804,9 +904,9 @@ case class Conntrack(pc : Computer, iface : NIC, worldModel : WorldModel)
      Forward(toString),
      checkIfBackward,
      checkIfForward,
-     If (Constrain("IsBackward", :==:(ConstantValue(1))),
+     If (Constrain("IsBackward".scopeTo(ns), :==:(ConstantValue(1))),
        unSnatBack,
-       If (Constrain("IsForward", :==:(ConstantValue(0))),
+       If (Constrain("IsForward".scopeTo(ns), :==:(ConstantValue(0))),
          InstructionBlock(
            installBackward,
            installForward
@@ -828,7 +928,7 @@ case class Conntrack(pc : Computer, iface : NIC, worldModel : WorldModel)
 case class RoutingDecision(pc : Computer, iface : NIC, worldModel : WorldModel)
   extends Instruction
 {
-  
+  lazy val ns = pc.getNamespaceForNic(iface.getName)
   override def toString = s"RoutingDecision(${pc.getName}, ${iface.getName})"
   
   def getRouteToLocal(continueWith : Instruction) : Instruction = {
@@ -842,21 +942,21 @@ case class RoutingDecision(pc : Computer, iface : NIC, worldModel : WorldModel)
             If (Constrain(EtherDst, :==:(ConstantValue(RepresentationConversion.macToNumber(x.getMacAddress)))),
               InstructionBlock(
                 Assign("Decision", ConstantValue(0)),
-                Assign("OutputInterface", ConstantValue(x.getName.hashCode())), 
-                Assign("EtherSourceFinal", ConstantValue(RepresentationConversion.macToNumber(x.getMacAddress)))
+                Assign("OutputInterface", ConstantStringValue(x.getName)), 
+                Assign("EtherSourceFinal", ConstantValue(RepresentationConversion.macToNumber(x.getMacAddress), isMac = true))
               ),
               Fail("Wrong IPDst/EtherDst combination")
             )
           else 
             InstructionBlock(
               Assign("Decision", ConstantValue(0)),
-              Assign("OutputInterface", ConstantValue(x.getName.hashCode())),
+              Assign("OutputInterface", ConstantStringValue(x.getName)),
               if (x.getMacAddress != null && x.getMacAddress.length > 0)
                 Assign("EtherSourceFinal", ConstantValue(RepresentationConversion.macToNumber(x.getMacAddress)))
               else
                 NoOp
             ),
-          acc
+          acc2
         )
       })
 
@@ -879,7 +979,7 @@ case class RoutingDecision(pc : Computer, iface : NIC, worldModel : WorldModel)
                 {
                   Assign("RoutingNextHop", ConstantValue(x.getNextHop.getAddress))
                 },
-                Assign("OutputInterface", ConstantValue(x.getNic.getName.hashCode())), 
+                Assign("OutputInterface", ConstantStringValue(x.getNic.getName)), 
                 if (x.getNic.getMacAddress != null && x.getNic.getMacAddress.length > 0)
                   Assign("EtherSourceFinal", ConstantValue(RepresentationConversion.macToNumber(x.getNic.getMacAddress)))
                 else
@@ -960,7 +1060,9 @@ case class EnterIPTablesChain(pc : Computer,
               {
                 List[Instruction](Constrain("InputInterface", 
                     {
-                      val nicNames = :|:(pc.getNicsByFilter(y.getIfaceName).map { x => :==:(ConstantValue(x.getName.hashCode)) }.toList)
+                      val nicNames = :|:(pc.getNicsByFilter(y.getIfaceName).map { 
+                          x => :==:(ConstantStringValue(x.getName)) 
+                        }.toList)
                       if (y.getNeg)
                       {
                         :~:(nicNames)
@@ -977,7 +1079,7 @@ case class EnterIPTablesChain(pc : Computer,
               {
                 List[Instruction](Constrain("OutputInterface", 
                     {
-                      val nicNames = :|:(pc.getNicsByFilter(y.getIfaceName).map { x => :==:(ConstantValue(x.getName.hashCode)) }.toList)
+                      val nicNames = :|:(pc.getNicsByFilter(y.getIfaceName).map { x => :==:(ConstantStringValue(x.getName)) }.toList)
                       if (y.getNeg)
                       {
                         :~:(nicNames)
@@ -1031,9 +1133,41 @@ case class EnterIPTablesChain(pc : Computer,
                 case head :: tail => :|:(computeOr(head :: Nil), computeOr(tail))
                 case Nil => throw new UnsupportedOperationException("Can't be")
               }
+              val nonat = tagList.map { y => 
+                  if (y.intValue == StateDefinitions.RELATED)
+                    StateDefinitions.ESTABLISHED
+                  else
+                    y.intValue
+                }. filter { x => x != StateDefinitions.SNAT && 
+                  x != StateDefinitions.INVALID &&  
+                  x != StateDefinitions.DNAT && 
+                  x != StateDefinitions.UNTRACKED
+                }
               val ored = computeOr(tagList)
-              
-               List[Instruction](Constrain("State", if (y.getNeg) :~:(ored) else ored))
+              var lst = List[Instruction](Constrain("State".scopeTo(ns), if (y.getNeg) :~:(ored) else ored))
+              if (tagList.exists { x => x.intValue() == StateDefinitions.SNAT })
+                lst = (Constrain("SNAT.IsSNAT".scopeTo(ns),
+                  if (!y.getNeg) 
+                    :==:(ConstantValue(1))
+                  else
+                    :~:(:==:(ConstantValue(1))))) :: lst
+              if (tagList.exists { x => x.intValue() == StateDefinitions.DNAT })
+                lst = (Constrain("DNAT.IsDNAT".scopeTo(ns), 
+                  if (!y.getNeg) 
+                    :==:(ConstantValue(1))
+                  else
+                    :~:(:==:(ConstantValue(1))))) :: lst
+              if (tagList.exists { x => x.intValue() == StateDefinitions.INVALID})
+                lst = (Constrain("IsTracked", if (!y.getNeg) 
+                    :==:(ConstantValue(0))
+                  else
+                    :~:(:==:(ConstantValue(0))))) :: lst
+              if (tagList.exists { x => x.intValue() == StateDefinitions.INVALID})
+                lst = (Constrain("ShouldTrack", if (!y.getNeg) 
+                  :==:(ConstantValue(0))
+                else
+                  :~:(:==:(ConstantValue(0))))) :: lst
+              lst
             }
             case y : MarkOption => {
               if (y.getName == "nfmark")
@@ -1067,7 +1201,7 @@ case class EnterIPTablesChain(pc : Computer,
               {
                 if (y.getMask == 0xFFFFL)
                 {
-                  List[Instruction](Constrain(IPTablesConstants.CTMARK_BOTTOM,  
+                  List[Instruction](Constrain(IPTablesConstants.CTMARK_BOTTOM.scopeTo(ns),  
                       if (!y.getNeg)
                         :==:(ConstantValue(y.getValue))
                       else
@@ -1077,7 +1211,7 @@ case class EnterIPTablesChain(pc : Computer,
                 }
                 else if (y.getMask == 0xFFFF0000L)
                 {
-                   List[Instruction](Constrain(IPTablesConstants.CTMARK_TOP,  
+                   List[Instruction](Constrain(IPTablesConstants.CTMARK_TOP.scopeTo(ns),  
                       if (!y.getNeg)
                         :==:(ConstantValue(y.getValue))
                       else
@@ -1115,6 +1249,7 @@ case class EnterIPTablesChain(pc : Computer,
     val ib = InstructionBlock(
       Forward(toString),
       Allocate("Continue"),
+      Assign("IsAccept", ConstantValue(0)),
       Assign("Continue", ConstantValue(1)),
       InstructionBlock(rules.map (x => {
         val matches = x.getIPTablesMatches.flatMap {mapMatch}.foldRight(
@@ -1192,17 +1327,18 @@ case class EnterIPTablesChain(pc : Computer,
       }
       case target : SNATTarget => {
         val nc = NATConfig.create().setIp(target.getIpAddress)
-        SNATExtension.snat(prefix = 
-//          ns.getComputer.getName + "." + ns.getName,
-            "",
-          nc = nc)
+        InstructionBlock(
+            SNATExtension.snat(prefix = ns.getComputer.getName + "." + ns.getName, nc = nc),
+            Assign("IsAccept", ConstantValue(1))
+        )
       }
       case target : DNATTarget => {
         val nc = NATConfig.create().setIp(target.getIpAddress)
-        SNATExtension.dnat(prefix = 
-//          ns.getComputer.getName + "." + ns.getName,
-            "",
-          nc = nc)
+        InstructionBlock(
+          SNATExtension.dnat(prefix = ns.getComputer.getName + "." + ns.getName,
+            nc = nc),
+          Assign("IsAccept", ConstantValue(1))
+        )
       }
       case target : ConnmarkTarget => {
         val mask = target.getCtMask
@@ -1213,11 +1349,11 @@ case class EnterIPTablesChain(pc : Computer,
           // ctmark = nfmark
           if (mask == 0xFFFF)
           {
-             Assign(IPTablesConstants.NFMARK_BOTTOM, :@(IPTablesConstants.CTMARK_BOTTOM))
+             Assign(IPTablesConstants.NFMARK_BOTTOM, :@(IPTablesConstants.CTMARK_BOTTOM.scopeTo(ns)))
           }
           else if (mask == 0xFFFF0000)
           {
-             Assign(IPTablesConstants.NFMARK_BOTTOM, :@(IPTablesConstants.CTMARK_TOP))
+             Assign(IPTablesConstants.NFMARK_TOP, :@(IPTablesConstants.CTMARK_TOP.scopeTo(ns)))
           }
           else 
           {
@@ -1229,11 +1365,11 @@ case class EnterIPTablesChain(pc : Computer,
           // nfmark = ctmark
           if (mask == 0xFFFF)
           {
-              Assign(IPTablesConstants.NFMARK_BOTTOM, :@(IPTablesConstants.CTMARK_BOTTOM))
+              Assign(IPTablesConstants.CTMARK_BOTTOM.scopeTo(ns), :@(IPTablesConstants.NFMARK_BOTTOM))
           }
           else if (mask == 0xFFFF0000)
           {
-              Assign(IPTablesConstants.NFMARK_TOP, :@(IPTablesConstants.CTMARK_TOP))
+              Assign(IPTablesConstants.CTMARK_TOP.scopeTo(ns), :@(IPTablesConstants.NFMARK_TOP))
           }
           else 
           {
@@ -1261,8 +1397,7 @@ case class EnterIPTablesChain(pc : Computer,
         val toPortEnd = target.getToPortEnd
         val nc = NATConfig.create().setPortStart(toPortStart).setPortEnd(toPortEnd)
         SNATExtension.dnat(prefix = 
-//          ns.getComputer.getName + "." + ns.getName,
-            "",
+          ns.getComputer.getName + "." + ns.getName,
           nc = nc, 
           changeIp = false)
       }

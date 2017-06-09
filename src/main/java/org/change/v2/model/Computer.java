@@ -5,10 +5,14 @@ package org.change.v2.model;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+
+import org.change.v2.model.openflow.Action;
+import org.change.v2.model.openflow.ActionType;
+import org.change.v2.model.openflow.FlowEntry;
+import org.change.v2.model.openflow.actions.LoadAction;
 
 // Start of user code (user defined imports)
 
@@ -272,6 +276,44 @@ public class Computer implements Acceptor {
 		}
 		return null;
 	}
+	
+	
+	private List<Integer> _zones = null;
+	public List<Integer> getCtZones() {
+		if (_zones == null)
+		{
+			this._zones = new ArrayList<Integer>();
+			for (Bridge br : this.bridges)
+			{
+				if (br instanceof OVSBridge)
+				{
+					OVSBridge ovs = (OVSBridge) br;
+					for (OpenFlowTable oft : ovs.getConfig().getTables())
+					{
+						for (FlowEntry fe : oft.getEntries())
+						{
+							for (Action a : fe.getActions())
+							{
+								if (a.getType() == ActionType.Load)
+								{
+									LoadAction la = (LoadAction) a;
+									if (la.getTo().isPresent() && 
+											(la.getTo().get().getName().equals("NXM_NX_REG6") ||
+										    la.getTo().get().getName().equals("reg6")) && 
+										    la.getValue().isPresent())
+									{
+										_zones.add(la.getValue().get().intValue());
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+		return this._zones;
+	}
+	
 	
 	
 	public List<NIC> getBridgedNICs() {

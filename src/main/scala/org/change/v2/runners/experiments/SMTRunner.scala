@@ -209,7 +209,7 @@ object SMTRunner {
             }
 
           }
-          case Reference(value) =>
+          case Reference(value, _) =>
             (factory.symbol(mappings.find(s => s._2 == value).get._1),
                 List[ICommand](), set)
         }

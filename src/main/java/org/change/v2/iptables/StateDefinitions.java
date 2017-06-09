@@ -6,15 +6,24 @@ import java.util.Map;
 public class StateDefinitions {
 	public static final Map<String, Integer> NAMES = new HashMap<String, Integer>();
 	
+	public static final int NEW = 1,
+			INVALID = 0,
+			ESTABLISHED = 2,
+			RELATED = 3,
+			UNTRACKED = 4,
+			SNAT = 5,
+			DNAT = 6;
+	
+	
 	static
 	{
-		NAMES.put("INVALID", 0);
-		NAMES.put("NEW" , 1);
-		NAMES.put("ESTABLISHED", 2);
-		NAMES.put("RELATED", 3);
-		NAMES.put("UNTRACKED", 4);
-		NAMES.put("SNAT" , 5);
-		NAMES.put("DNAT", 6);
+		NAMES.put("INVALID", INVALID);
+		NAMES.put("NEW" , NEW);
+		NAMES.put("ESTABLISHED", ESTABLISHED);
+		NAMES.put("RELATED", RELATED);
+		NAMES.put("UNTRACKED", UNTRACKED);
+		NAMES.put("SNAT" , SNAT);
+		NAMES.put("DNAT", DNAT);
 	}
 	
 

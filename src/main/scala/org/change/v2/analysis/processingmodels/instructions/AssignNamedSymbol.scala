@@ -63,6 +63,15 @@ case class AssignRaw(a: Intable, exp: FloatingExpression, t: NumericType = LongT
 }
 
 object Assign {
+  
+  def apply(a : Either[String, Intable], exp : FloatingExpression) : Instruction = {
+    apply(a, exp, LongType)
+  }
+  def apply(a : Either[String, Intable], exp : FloatingExpression, kind : NumericType) : Instruction = 
+  a match {
+    case Left(x) => apply(x, exp, kind)
+    case Right(x) => apply(x, exp, kind)
+  }
   def apply(a: Intable, exp: FloatingExpression): Instruction =
     apply(a, exp, LongType)
   def apply(a : Intable, exp : FloatingExpression, kind : NumericType) : Instruction = 

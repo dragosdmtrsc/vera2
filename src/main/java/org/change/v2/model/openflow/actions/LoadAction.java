@@ -53,7 +53,7 @@ public class LoadAction extends Action {
 				}
 				else
 				{
-					mAction.value = Optional.of(Decoder.decodeType(secondField.getName(), firstOne));
+					mAction.value = Optional.of(Decoder.decodeType(secondField.getType(), firstOne));
 				}
 				mAction.to = Optional.of(secondField);
 				return mAction;

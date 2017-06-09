@@ -14,9 +14,9 @@ import z3.scala.Z3Solver
  * Author: Radu Stoenescu
  * Don't be a stranger to symnet.radustoe@spamgourmet.com
  */
-case class Reference(what: Value) extends Expression(what.e.id) {
+case class Reference(what: Value, name : String = "") extends Expression(what.e.id) {
   override def toZ3(solver: Option[Z3Solver] = None): (Z3AST, Option[Z3Solver]) = what.toZ3(solver)
-  override def toString = what.e.toString
+  override def toString = if (name == "") "" else { name + "=" } + what.e.toString
 }
 
 /**
@@ -34,7 +34,7 @@ case class Symbol(id: String) extends FloatingExpression {
    */
   override def instantiate(s: State): Either[Expression, String] = {
     s.memory.eval(id) match {
-      case Some(v) => Left(Reference(v))
+      case Some(v) => Left(Reference(v, name=id))
       case None => Right(s"Cannot resolve reference to symbol: $id")
     }
   }
@@ -50,7 +50,7 @@ case class Address(a: Intable) extends FloatingExpression {
    */
   override def instantiate(s: State): Either[Expression, String] = a(s) match {
     case Some(int) => s.memory.eval(int) match {
-      case Some(v) => Left(Reference(v))
+      case Some(v) => Left(Reference(v, name=int + ""))
       case None => Right(s"Cannot resolve reference to $int")
     }
     case None => Right(TagExp.brokenTagExpErrorMessage)

@@ -1,3 +1,0 @@
-NXST_FLOW reply (xid=0x4):
-table=0, priority=2,in_port=1 actions=drop
-table=0, priority=0 actions=NORMAL

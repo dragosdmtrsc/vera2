@@ -40,7 +40,12 @@ public class QualifiedField {
 		}
 		try
 		{
-			return fromString(decode, TypeMappings.LEN_MAPPINGS.get(name));
+			if (name.contains("NXM_NX_REG"))
+				return fromString(decode, 64);
+			else if (name.startsWith("reg"))
+				return fromString(decode, 64);
+			else
+				return fromString(decode, TypeMappings.LEN_MAPPINGS.get(name));
 		}
 		catch (Exception ex)
 		{
@@ -86,11 +91,14 @@ public class QualifiedField {
 			
 		}
 		
-		if (endBit < 0) endBit = TypeMappings.LEN_MAPPINGS.get(name);
+		if (endBit < 0) endBit = maxLen;
 		QualifiedField theField = new QualifiedField();
 		theField.endBit = endBit;
 		theField.startBit = startBit;
-		theField.type = TypeMappings.TYPE_MAPPINGS.get(name);
+		if (name.startsWith("NXM_NX_REG") || name.startsWith("reg"))
+			theField.type = FormatType.Hexadecimal;
+		else
+			theField.type = TypeMappings.TYPE_MAPPINGS.get(name);
 		theField.name = name;
 		
 		return theField;

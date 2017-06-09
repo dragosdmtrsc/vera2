@@ -55,6 +55,12 @@ object Constrain {
     ConstrainNamedSymbol(id, dc, None)
   def apply (a: Intable, dc: FloatingConstraint): Instruction =
     ConstrainRaw(a, dc, None)
+    
+  def apply(a : Either[String, Intable], dc : FloatingConstraint) : Instruction = 
+    a match {
+      case Left(s) => apply(s, dc)
+      case Right(s) => apply(s, dc)
+    }
 }
 
 @JsonTypeInfo(

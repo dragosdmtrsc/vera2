@@ -5,6 +5,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -20,8 +21,6 @@ import org.change.v2.model.openflow.Match;
 import org.change.v2.model.ovs.OVSParser;
 import org.change.v2.model.routing.InterfaceParser;
 import org.change.v2.util.conversion.RepresentationConversion;
-
-import com.google.common.collect.ImmutableMap;
 
 public class WorldModel {
 
@@ -114,7 +113,7 @@ public class WorldModel {
 			pc.setName(currentHost);
 			world.getPcs().add(pc);
 			
-			File nss = new File(dir, String.format("namespaces-%s.txt", currentHost));
+			File nss = new File(dir, String.format("symnet-namespaces-%s.txt", currentHost));
 			BufferedReader brNs = new BufferedReader(new FileReader(nss));
 			String currentNs = null;
 			List<String> namespaces = new ArrayList<String>();
@@ -129,25 +128,25 @@ public class WorldModel {
 				ns.setComputer(pc);
 				pc.getNamespaces().add(ns);
 				
-				File ifaceFile = new File(dir, String.format("ifaces-%s-%s.txt", crtNs, currentHost));
+				File ifaceFile = new File(dir, String.format("symnet-ifaces-%s-%s.txt", crtNs, currentHost));
 				FileInputStream fis = new FileInputStream(ifaceFile);
 				List<NIC> nics = InterfaceParser.parseNics(fis);
 				ns.getNICs().addAll(nics);
 				fis.close();
 				
-				fis = new FileInputStream(new File(dir, String.format("routes-%s-%s.txt", crtNs, currentHost)));
+				fis = new FileInputStream(new File(dir, String.format("symnet-routes-%s-%s.txt", crtNs, currentHost)));
 				RoutingTable table = InterfaceParser.parseRoutingTable(fis);
 				ns.getRoutingTables().add(table);
 				fis.close();
 				
 				for (String t : TABLES)
 				{
-					fis = new FileInputStream(new File(dir, String.format("iptables-%s-%s-%s.txt", t, crtNs, currentHost)));
+					fis = new FileInputStream(new File(dir, String.format("symnet-iptables-%s-%s-%s.txt", t, crtNs, currentHost)));
 					ns.getIPTablesTables().add(TableMatcher.fromFile(fis, t));
 				}
 			}
 			brNs.close();
-			FileInputStream fis = new FileInputStream(new File(dir, String.format("ovs-%s.txt", currentHost)));
+			FileInputStream fis = new FileInputStream(new File(dir, String.format("symnet-ovs-%s.txt", currentHost)));
 			List<OVSBridge> bridges = OVSParser.getBridges(fis, 
 					new HashSet<NIC>(), 
 					new HashSet<Link>());
@@ -159,11 +158,13 @@ public class WorldModel {
 				{
 					
 					OVSBridge ovsbr = (OVSBridge) bridge;
-					fis = new FileInputStream(new File(dir, String.format("flows-%s-%s.txt", ovsbr.getName(), currentHost)));
+					
+					fis = new FileInputStream(new File(dir, String.format("symnet-flows-%s-%s.txt", ovsbr.getName(), currentHost)));
+					System.err.println(String.format("symnet-flows-%s-%s.txt", ovsbr.getName(), currentHost));
 					OpenFlowTable.fromStream(fis, ovsbr.getConfig());
 					fis.close();
 					
-					fis = new FileInputStream(new File(dir, String.format("ports-%s-%s.txt", ovsbr.getName(), currentHost)));
+					fis = new FileInputStream(new File(dir, String.format("symnet-ports-%s-%s.txt", ovsbr.getName(), currentHost)));
 					OpenFlowTable.appendPorts(fis, ovsbr.getConfig());
 					fis.close();
 				}
@@ -174,7 +175,7 @@ public class WorldModel {
 	}
 	
 	private Map<Long, Long> inferredArpTable = null;
-	private static final int ARP_SPOOF_TABLE = 24;
+	private static final int ARP_SPOOF_TABLE1 = 24, ARP_SPOOF_TABLE2 = 71;
 	private void inferArpTables() {
 		inferredArpTable=  new HashMap<Long, Long>();
 		for (Computer pc : this.getPcs())
@@ -186,12 +187,8 @@ public class WorldModel {
 					OVSBridge ovbr = (OVSBridge) br;
 					if (ovbr.getName().equals("br-int"))
 					{
-						List<OpenFlowNIC> nics = ovbr.getConfig().getNics();
-						Optional<OpenFlowTable> tab = ovbr.getConfig().getTables().stream().filter(s -> s.getTableId() == ARP_SPOOF_TABLE).findAny();
-						if (tab.isPresent()) {
-							OpenFlowTable table = tab.get();
-							for (FlowEntry fe : table.getEntries()) {
-								if (fe.getPriority() == 2) {
+						ovbr.getConfig().getTables().stream().forEach(table -> {
+								for (FlowEntry fe : table.getEntries()) {
 									boolean isArp = false;
 									long ipaddr = 0;
 									long port = -1024;
@@ -216,8 +213,7 @@ public class WorldModel {
 										}
 									}
 								}
-							}
-						}
+							});
 					}
 				}
 			}
@@ -232,6 +228,7 @@ public class WorldModel {
 	
 	public static void main(String[] argv) throws IOException
 	{
+		System.setErr(new PrintStream("generated.err"));
 		WorldModel wm = fromFolder("stack-inputs/generated");
 		Assert.assertNotNull(wm.getComputer("controller"));
 	}

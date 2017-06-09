@@ -1,8 +1,7 @@
 package org.change.v2.listeners.openflow;
 
 import generated.openflow_grammar.OpenflowBaseListener;
-import generated.openflow_grammar.OpenflowLexer;
-import generated.openflow_grammar.OpenflowParser;
+import generated.openflow_grammar.OpenflowParser.ActionContext;
 import generated.openflow_grammar.OpenflowParser.AllContext;
 import generated.openflow_grammar.OpenflowParser.ApplyActionsContext;
 import generated.openflow_grammar.OpenflowParser.ClearActionsContext;
@@ -10,6 +9,10 @@ import generated.openflow_grammar.OpenflowParser.ControllerContext;
 import generated.openflow_grammar.OpenflowParser.ControllerWithIdContext;
 import generated.openflow_grammar.OpenflowParser.ControllerWithParamsContext;
 import generated.openflow_grammar.OpenflowParser.CookieContext;
+import generated.openflow_grammar.OpenflowParser.CtArgedContext;
+import generated.openflow_grammar.OpenflowParser.CtContext;
+import generated.openflow_grammar.OpenflowParser.CtargActionContext;
+import generated.openflow_grammar.OpenflowParser.CtargContext;
 import generated.openflow_grammar.OpenflowParser.DecMplsTTLContext;
 import generated.openflow_grammar.OpenflowParser.DecTTLContext;
 import generated.openflow_grammar.OpenflowParser.DecTTLWithParamsContext;
@@ -60,16 +63,10 @@ import generated.openflow_grammar.OpenflowParser.StripVlanContext;
 import generated.openflow_grammar.OpenflowParser.TableContext;
 import generated.openflow_grammar.OpenflowParser.WriteMetadataContext;
 
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Stack;
 
-import org.antlr.v4.runtime.ANTLRInputStream;
-import org.antlr.v4.runtime.CommonTokenStream;
-import org.antlr.v4.runtime.tree.ParseTreeWalker;
 import org.change.v2.model.openflow.Action;
 import org.change.v2.model.openflow.Decoder;
 import org.change.v2.model.openflow.FlowEntry;
@@ -77,6 +74,8 @@ import org.change.v2.model.openflow.Match;
 import org.change.v2.model.openflow.QualifiedField;
 import org.change.v2.model.openflow.actions.AllAction;
 import org.change.v2.model.openflow.actions.ApplyActionsAction;
+import org.change.v2.model.openflow.actions.CTAction;
+import org.change.v2.model.openflow.actions.CTAction.ExecAction;
 import org.change.v2.model.openflow.actions.ClearActionsAction;
 import org.change.v2.model.openflow.actions.ControllerAction;
 import org.change.v2.model.openflow.actions.DropAction;
@@ -100,6 +99,7 @@ import org.change.v2.model.openflow.actions.OutputAction;
 import org.change.v2.model.openflow.actions.ResubmitAction;
 import org.change.v2.model.openflow.actions.SetFieldAction;
 import org.change.v2.model.openflow.actions.SetTunnelAction;
+import org.change.v2.model.openflow.actions.StripVlanAction;
 
 public class FlowEntryListener extends OpenflowBaseListener {
 
@@ -247,28 +247,86 @@ public class FlowEntryListener extends OpenflowBaseListener {
 				QualifiedField qf = QualifiedField.fromString(matchName);
 				Match theMatch = new Match();
 				theMatch.setField(qf);
-
-				if (value.contains("/"))
+				if (qf.getName().equals("ct_state") || qf.getName().equals("NXM_NX_CT_STATE"))
 				{
-					String[] vmask = value.split("/");
-					value = vmask[0];
-					String smask = vmask[1];
-					mask =Decoder.decodeType(qf.getName(), smask);
-					isMasked = true;
-					theMatch.setValue(Decoder.decodeType(qf.getName(), value));
-					theMatch.setMask(mask);
-				}
-				else if (value.contains("["))
-				{
-					theMatch.setValue(QualifiedField.fromString(value));
+//					OF_STATE_NOT_TRACKED = "-trk"
+//					OF_STATE_TRACKED = "+trk"
+//					OF_STATE_NEW_NOT_ESTABLISHED = "+new-est"
+//					OF_STATE_NOT_ESTABLISHED = "-est"
+//					OF_STATE_ESTABLISHED = "+est"
+//					OF_STATE_ESTABLISHED_NOT_REPLY = "+est-rel-rpl"
+//					OF_STATE_ESTABLISHED_REPLY = "+est-rel+rpl"
+//					OF_STATE_RELATED = "-new-est+rel-inv"
+//					OF_STATE_INVALID = "+trk+inv"
+//					OF_STATE_NEW = "+new"
+//					OF_STATE_NOT_REPLY_NOT_NEW = "-new-rpl"
+					
+					
+					int trkmb = 0;
+					int trkpb = 1;
+					int newmb = 2;
+					int newpb = 3;
+					int estmb = 4;
+					int estpb = 5;
+					int rplmb = 6;
+					int rplpb = 7;
+					int relmb = 8;
+					int relpb = 9;
+					int invmb = 10;
+					int invpb = 11;
+					long forWhat = 0;
+					if (value.contains("+trk"))
+						forWhat |= (1 << trkpb);
+					if (value.contains("-trk"))
+						forWhat |= (1 << trkmb);
+					if (value.contains("-inv"))
+						forWhat |= (1 << invmb);
+					if (value.contains("+inv"))
+						forWhat |= (1 << invpb);
+					if (value.contains("+new"))
+						forWhat |= (1 << newpb);
+					if (value.contains("-new"))
+						forWhat |= (1 << newmb);
+					if (value.contains("+rpl"))
+						forWhat |= (1 << rplpb);
+					if (value.contains("-rpl"))
+						forWhat |= (1 << rplmb);
+					if (value.contains("+est"))
+						forWhat |= (1 << estpb);
+					if (value.contains("-est"))
+						forWhat |= (1 << estmb);
+					if (value.contains("+rel"))
+						forWhat |= (1 << relpb);
+					if (value.contains("-rel"))
+						forWhat |= (1 << relmb);
+					
+					theMatch.setValue(forWhat);
 				}
 				else
 				{
-					long ivalue =Decoder.decodeType(qf.getName(), value);
-					theMatch.setValue(ivalue);
-					theMatch.setMask(mask);
+					if (value.contains("/"))
+					{
+						String[] vmask = value.split("/");
+						value = vmask[0];
+						String smask = vmask[1];
+						mask =Decoder.decodeType(qf.getName(), smask);
+						isMasked = true;
+						theMatch.setValue(Decoder.decodeType(qf.getName(), value));
+						theMatch.setMask(mask);
+					}
+					else if (value.contains("["))
+					{
+						theMatch.setValue(QualifiedField.fromString(value));
+					}
+					else
+					{
+						long ivalue =Decoder.decodeType(qf.getType(), value);
+						theMatch.setValue(ivalue);
+						theMatch.setMask(mask);
+					}
+					theMatch.setMasked(isMasked);
 				}
-				theMatch.setMasked(isMasked);
+				
 
 				this.currentEntry.getMatches().add(theMatch);
 
@@ -383,6 +441,7 @@ public class FlowEntryListener extends OpenflowBaseListener {
 		//TODO: No action
 	}
 	public void enterStripVlan(StripVlanContext ctx) {
+		this.currentEntry.getActions().add(new StripVlanAction());
 	}
 	public void enterPushVlan(PushVlanContext ctx) {
 		//TODO: No action
@@ -556,4 +615,73 @@ public class FlowEntryListener extends OpenflowBaseListener {
 		oa.setPort(Decoder.decodePort(ctx.port().getText()));
 		this.currentEntry.getActions().add(oa);
 	}
+
+	
+	private CTAction act = null;
+	
+	@Override
+	public void enterCtArged(CtArgedContext ctx) {
+		super.enterCtArged(ctx);
+		this.act = new CTAction();
+	}
+	
+	@Override
+	public void exitCtArged(CtArgedContext ctx) {
+		super.enterCtArged(ctx);
+		this.currentEntry.getActions().add(act);
+	}
+	
+	public void enterCtarg(CtargContext ctx) {
+		if (ctx.getText().equals("commit"))
+			act.setCommit(true);
+		else if (ctx.getText().equals("force"))
+			act.setForce(true);
+		else if (ctx.getText().startsWith("zone")) {
+			String txt = ctx.getText();
+			String[] splitme = txt.split("=");
+			try
+			{
+				this.act.setZoneVal(Decoder.decodeLong(splitme[1]).intValue());
+			}
+			catch (NumberFormatException nfe)
+			{
+				this.act.setZoneReg(QualifiedField.fromString(splitme[1]));
+			}
+		} else if (ctx.getText().startsWith("table")) {
+			String txt = ctx.getText();
+			String[] splitme = txt.split("=");
+			this.act.setTable(Decoder.decodeLong(splitme[1]).intValue());
+		}
+	}
+	
+	public void enterCtargAction(CtargActionContext ctx) {
+		String[] now = ctx.getText().split(":");
+		String[] splitMe = now[1].split("->");
+		ExecAction ea = new ExecAction();
+		ea.setTo(QualifiedField.fromString(splitMe[1]));
+		ea.setValue(Decoder.decodeLong(splitMe[0]));
+		this.act.getActions().add(ea);
+	}
+	
+	
+	
+
+	@Override
+	public void enterCt(CtContext ctx) {
+		super.enterCt(ctx);
+		this.act = new CTAction();
+		this.currentEntry.getActions().add(act);
+	}
+
+	@Override
+	public void enterAction(ActionContext ctx) {
+		super.enterAction(ctx);
+	}
+	
+	
+	
+	
+	
+	
+	
 }

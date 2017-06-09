@@ -49,6 +49,8 @@ package object  canonicalnames {
   val DEI = L2Tag + DEIOffset
   val VLANTagOffset = 116
   val VLANTag = L2Tag + VLANTagOffset
+  val VLANEtherTypeOffset = 128
+  val VLANEtherType = L2Tag + VLANEtherTypeOffset
 
   // TODO: Dunno what is the desc for these
   val EtherProtoIP = 2048

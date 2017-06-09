@@ -86,7 +86,7 @@ class SMTTranslator(smt : SMT)
                  set)
             }
           }
-          case Reference(value) =>
+          case Reference(value, _) =>
             {
               val visited = visit(value.e, smt, set)
               (visited._1, visited._2, visited._3)

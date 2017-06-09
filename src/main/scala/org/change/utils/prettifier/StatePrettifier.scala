@@ -198,7 +198,7 @@ class StatePrettifier {
         prettify(left, oAlready) + " - " + prettify(right, Option(already + ("ignore" -> true)))
       case Plus(left, right) =>
         prettify(left, oAlready) + " + " + prettify(right, Option(already + ("ignore" -> true)))
-      case Reference(value) =>
+      case Reference(value, _) =>
         prettify(value)
       case v : ConstantValue =>
         v.toString

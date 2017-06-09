@@ -1,4 +1,0 @@
--A nova-api-INPUT -d 172.16.0.11/32 -p tcp -m tcp --sport 1234 --dport 8775 --sport 123 -j ACCEPT
--A nova-api-INPUT -s 172.16.0.12/32 -p tcp -m tcp --dport 8775 --sport 123 -j ACCEPT
--N nova-chain-INPUT
--P INPUT ACCEPT

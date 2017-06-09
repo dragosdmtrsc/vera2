@@ -51,7 +51,9 @@ fieldName : 'in_port'
    | 'tun_id' 
    | 'tun_src' 
    | 'tun_dst' 
-   | 'reg' NUMBER 
+   | 'reg5'
+   | 'reg6'
+   | 'reg7'
    | 'pkt_mark' 
    | 'ipv6'   
    | 'tcp6'   
@@ -62,9 +64,12 @@ fieldName : 'in_port'
    | 'check_overlap'   
    | 'out_port'
    | 'ct_state'
+   | 'ct_zone'
+   | 'ct_mark'
    | nxm_reg;
 
-value : MAC | IP | NUMBER | IP6 | varName; 
+value : MAC | IP | NUMBER | IP6 | varName | STATE_LIST; 
+STATE_LIST : ( ('-' | '+') ('trk' | 'new' | 'rel' | 'rpl' | 'inv' | 'est') )+;
 
 flowMetadata :    'idle_timeout' EQUALS NUMBER   #idle_timeout
    | 'hard_timeout' EQUALS NUMBER   #hard_timeout
@@ -102,7 +107,7 @@ port : 'LOCAL' | 'CONTROLLER' | 'ALL' | 'NORMAL' | 'FLOOD' | NUMBER;
 nxm_reg : 
 'NXM_OF_IN_PORT' #nxInPort
 | 'NXM_OF_ETH_DST' #ethDst
-| 'NXM_OF_ETH_SRC' #ethSrc
+| 'NXM_OF_ETH_SRC' #ethSrc 
 | 'NXM_OF_ETH_TYPE' #ethType
 | 'NXM_OF_VLAN_TCI' #vlanTci
 | 'NXM_OF_IP_TOS' #ipTos
@@ -126,7 +131,9 @@ nxm_reg :
 | 'NXM_NX_ND_SLL' #ndSll
 | 'NXM_NX_ND_TLL' #ndTll
 | 'NXM_OF_VLAN_TCI' #vlanTci
-| 'NXM_NX_REG' NUMBER  #nxRegIdx
+| 'NXM_NX_REG5' #reg5
+| 'NXM_NX_REG6' #reg6
+| 'NXM_NX_REG7'#reg7
 | 'NXM_NX_CT_STATE' #nxCtState;//for idx in the switch's accepted range.
 
 target : 'output:' port #outputPort
@@ -166,21 +173,36 @@ target : 'output:' port #outputPort
 |  'set_mpls_ttl:' NUMBER #setMplsTTL
 |  'dec_mpls_ttl' #decMplsTTL
 |  'move:' fieldName '[' (NUMBER '..' NUMBER)? ']' '->' fieldName '[' NUMBER '..' NUMBER ']' #move
-|  'load:' value '->' varName #load
 |  'push:' fieldName '[' (NUMBER '..' NUMBER)? ']' #push
 |  'pop:' fieldName '[' (NUMBER '..' NUMBER)? ']' #pop
 |  'set_field:' NAME '->' fieldName ('[' (NUMBER '..' NUMBER)? ']')? #setField
 |  'apply_actions(' actionset ')' #applyActions
-|  'clear_actions' #clearActions 
+|  'clear_actions' #clearActions  
 |  'write_metadata:' NUMBER ('/' NUMBER)? #writeMetadata 
 |  'goto_table:' NUMBER #goto 
 |  'fin_timeout('timeoutParam timeoutParam ')' #finTimeout
 |  'sample(' sampleParam+ ')' #sample
 |  'learn' '(' (match | argument | flowMetadata | target)*  ')'  #learn
+|  'ct' '(' ctarg+ ')' #ctArged
+|  'ct' #ct
 |  'exit' #exit 
 |  port #forwardToPortTarget 
-;
+| loadAction  #load
+; 
 
+loadAction :  'load' ':' value '->' varName;
+
+
+ctarg : 'commit' |
+'force' |
+'table' EQUALS NUMBER |
+'zone' EQUALS NUMBER |
+'zone' EQUALS  varName |
+'exec' '(' ctargAction+ ')';
+
+ctargAction : 'set_field' ':' NUMBER ('/' NUMBER)? '->' ('ct_mark' | 'NXM_NX_CT_MARK') |
+    'set_field' ':' NUMBER ('/' NUMBER)? '->' 'ct_label' |
+    'load' ':' NUMBER ('/' NUMBER)? '->' ('ct_mark' | 'NXM_NX_CT_MARK') ('[' (NUMBER '..' NUMBER)? ']')?;
 
 argument : 'fin_idle_timeout' EQUALS NUMBER #learnFinIdleTo
 | 'fin_hard_timeout' EQUALS NUMBER #learnFinHardTo

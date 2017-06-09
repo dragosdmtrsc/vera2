@@ -11,7 +11,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore
  */
 case class SymbolicValue(name : String = "") extends Expression with FloatingExpression {
   @JsonIgnore
-  def ast = Z3Util.z3Context.mkConst(id.toString, Z3Util.defaultSort)
+  def ast = Z3Util.z3Context.mkConst(s"sym${id.toString}", Z3Util.defaultSort)
   override def toZ3(solver: Option[Z3Solver] = None): (Z3AST, Option[Z3Solver]) = (ast, solver)
 
   /**

@@ -62,54 +62,177 @@ import org.change.v2.abstractnet.linux.iptables.IPTablesConstants
 import org.change.v2.abstractnet.linux.iptables.ConntrackTrack
 import org.change.v2.abstractnet.linux.iptables.ConntrackUnDnat
 import org.change.v2.abstractnet.linux.iptables.ConntrackUnSnat
+import org.change.v2.analysis.expression.concrete.ConstantStringValue
+import org.change.v2.abstractnet.linux.iptables.VariableNameExtensions._
+import scala.util.matching.Regex._
+import org.change.v2.model.openflow.actions.CTAction
+import org.change.v2.abstractnet.linux.iptables.ConntrackZone
+import org.change.v2.abstractnet.linux.iptables.ConntrackCommitZone
+import org.change.v2.abstractnet.linux.iptables.ConntrackTrackZone
+
+
+
+object PacketMirror {
+  def apply() : Instruction = {
+    InstructionBlock(
+      Allocate("tmp"),
+      Assign("tmp", :@(EtherSrc)),
+      Assign(EtherSrc,:@(EtherDst)),
+      Assign(EtherDst,:@("tmp")),
+      Assign("tmp",:@(IPSrc)),
+      Assign(IPSrc,:@(IPDst)),
+      Assign(IPDst,:@("tmp")),
+      If (Constrain(Proto, :==:(ConstantValue(TCPProto))),
+          InstructionBlock(
+            Assign("tmp",:@(TcpSrc)),
+            Assign(TcpSrc,:@(TcpDst)),
+            Assign(TcpDst,:@("tmp"))
+          ),
+          If (Constrain(Proto, :==:(ConstantValue(UDPProto))),
+              InstructionBlock(
+                Assign("tmp",:@(UDPSrc)),
+                Assign(UDPSrc,:@(UDPDst)),
+                Assign(UDPDst,:@("tmp"))
+              )
+          )
+      ),
+      Deallocate("tmp")
+    )
+  }
+}
+
+object VLANOps {
+  def encap() : Instruction = InstructionBlock(
+      Forward("VLANEncap()"),
+      Allocate("s"),
+      Assign("s",:@(EtherSrc)),
+      Allocate("d"),
+      Assign("d",:@(EtherDst)),
+      Allocate("et"),
+      Assign("et", :@(EtherType)),
+      Deallocate(EtherSrc, 48),
+      Deallocate(EtherDst, 48),
+      CreateTag("L2",Tag("L2")-32),
+      Allocate(EtherSrc,48),
+      Assign(EtherSrc,:@("s")),
+      Allocate(EtherDst,48),
+      Assign(EtherDst,:@("d")),
+      Allocate(EtherType,16),
+      Allocate(VLANEtherType, 16),
+      Assign(VLANEtherType, :@("et")),
+      Assign(EtherType, ConstantValue(EtherProtoVLAN)),
+      Allocate(PCP,3),
+      Assign(PCP,ConstantValue(0)),
+      Allocate(DEI,1),
+      Assign(DEI,ConstantValue(0)),
+      Allocate(VLANTag,12),
+      Assign(VLANTag, SymbolicValue()),
+      Deallocate("s"),
+      Deallocate("d"),
+      Deallocate("et")
+  )
+  
+  def decap() : Instruction = InstructionBlock(
+      Forward("VLANDecap()"),
+      Constrain(EtherType,:==:(ConstantValue(EtherProtoVLAN))),
+      Allocate("s"),
+      Assign("s",:@(EtherSrc)),
+      Allocate("d"),
+      Assign("d",:@(EtherDst)),
+      Deallocate(EtherSrc, 48),
+      Deallocate(EtherDst, 48),
+      Deallocate(EtherType, 16),
+      Deallocate(PCP,3),
+      Deallocate(DEI,1),
+      Deallocate(VLANTag,12),
+      CreateTag("L2",Tag("L2")+32),
+      Allocate(EtherSrc,48),
+      Assign(EtherSrc,:@("s")),
+      Allocate(EtherDst,48),
+      Assign(EtherDst,:@("d")),
+      Deallocate("s"),
+      Deallocate("d")
+    )
+}
 
 object TestThatCrap
 {
+  
   def main(argv : Array[String]) {
-//    val enterIface = "tap737565c0-2c"
+    val ipsrc = "192.168.13.3"
+    val enterIface = "tap72d5355f-c6"
     //ingress traffic example:
 //    val enterIface = "qg-09d66f0a-46"
     
     //floating ip example:
-    val enterIface = "eth2"
+//    val enterIface = "eth2"
     
-//    val pcName = "compute1"
-    val pcName = "controller"
+    val pcName = "compute1"
+//    val pcName = "controller"
 //    val ipDst = "192.168.13.1"
     //floating ip example
-    val ipDst = "203.0.113.103"
+    val ipDst = "8.8.8.8"
+//    val ipDst = "192.168.13.3"
+//    val macDst = "fa:16:3e:9c:99:77"
+//    System.setErr(new PrintStream("generated.err"))
+    var init = System.currentTimeMillis()
+    val world = WorldModel.fromFolder("stack-inputs/generated")
+    val initcode = InstructionBlock(world.getPcs.flatMap { x => { 
+          x.getNamespaces.map { y => InstructionBlock(
+              Allocate(IPTablesConstants.CTMARK_BOTTOM.scopeTo(y)),
+              Assign(IPTablesConstants.CTMARK_BOTTOM.scopeTo(y), ConstantValue(0)),
+              Allocate(IPTablesConstants.CTMARK_TOP.scopeTo(y)),
+              Assign(IPTablesConstants.CTMARK_TOP.scopeTo(y), ConstantValue(0)),
+              Assign("IsTracked".scopeTo(y), ConstantValue(0))
+            )
+          }
+        }
+      } ++ world.getPcs.flatMap { x => {
+          x.getCtZones.map { y => {
+              val prefix = x.getName + "." + y.intValue
+              InstructionBlock(
+                Allocate(IPTablesConstants.CTMARK_BOTTOM.scopeTo(prefix)),
+                Assign(IPTablesConstants.CTMARK_BOTTOM.scopeTo(prefix), ConstantValue(0)),
+                Allocate(IPTablesConstants.CTMARK_TOP.scopeTo(prefix)),
+                Assign(IPTablesConstants.CTMARK_TOP.scopeTo(prefix), ConstantValue(0)),
+                Assign("IsTracked".scopeTo(prefix), ConstantValue(0))
+              )
+            }
+          }
+        }
+      }
+    )
+    
+    
     val initials = 
       InstructionBlock(
         State.eher,
         State.tunnel,
+        initcode,
         Assign("IsUnicast", ConstantValue(1)),
+        Assign(IPSrc, ConstantValue(ipToNumber(ipsrc), isIp = true)),
         Assign(IPDst, ConstantValue(ipToNumber(ipDst), isIp = true))
-      )(State.bigBang, false)._1
-    var init = System.currentTimeMillis()
-    val world = WorldModel.fromFolder("stack-inputs/generated")
+//        , Assign(IPSrc, ConstantValue(ipToNumber("8.8.8.8"), isIp = true))
+//        , Assign(EtherDst, ConstantValue(macToNumber(macDst), isMac = true))
+      )(State.bigBang, true)._1
     System.out.println(System.currentTimeMillis() - init)
     init =System.currentTimeMillis()
     val pc = world.getComputer(pcName)
     val nic = pc.getNic(enterIface)
+    val ns = pc.getNamespaceForNic(enterIface)
+    
+    
+    
     //ingress example
-//    val iib = new EnterIPInterface(pcName, enterIface, world)
-    val iib = new EnterIface(pcName, enterIface, world).generateInstruction()
+    val iib = new EnterIface(pcName, enterIface, world).generateInstruction
+    val worldModel = world
+//    val iib = new EnterIPTablesChain(pc, nic, "nat", "PREROUTING", worldModel).generateInstruction()
     val iip = InstructionBlock(
-      Assign("ShouldTrack", ConstantValue(1)),
-      Assign("IsTracked", ConstantValue(0)),
-      Assign("InputInterface", enterIface.hashCode()),
+      Assign("InputInterface", ConstantStringValue(enterIface)),
       Allocate("OutputInterface"),
-      Assign("OutputInterface", SymbolicValue()),
-      Allocate(IPTablesConstants.NFMARK_BOTTOM),
-      Assign(IPTablesConstants.NFMARK_BOTTOM, SymbolicValue()),
-      Allocate(IPTablesConstants.CTMARK_BOTTOM),
-      Assign(IPTablesConstants.CTMARK_BOTTOM, SymbolicValue()),
-      Allocate(IPTablesConstants.CTMARK_TOP),
-      Assign(IPTablesConstants.CTMARK_TOP, SymbolicValue()),
-      Allocate(IPTablesConstants.NFMARK_TOP),
-      Assign(IPTablesConstants.NFMARK_TOP, SymbolicValue()),
-      Assign("ShouldTrack", ConstantValue(1)),
-      Assign("IsTracked", ConstantValue(0)),
+//      Assign("OutputInterface", SymbolicValue()),
+//      Allocate("ShouldTrack"),
+//      Assign("ShouldTrack", ConstantValue(1)),
       iib
     )
     val psCode = new PrintStream("generated-code.out")
@@ -117,16 +240,66 @@ object TestThatCrap
     psCode.close
     val psFailed = new PrintStream("generated-fail.out")
     val psout = new PrintStream("generated.out")
+    val psCodeRev = new PrintStream("generated-code-rev.out")
+    val psOutRev = new PrintStream("generated-reverse.out")
+    val psFailedRev = new PrintStream("generated-reverse-fail.out")
+    
     initials.map { initial => 
       val (ok, fail) =  iip(initial, true)
 //        new EnterIPInterface(pcName, enterIface, world)(initial, false)
       System.out.println(ok.size + " " + fail.size)
       System.out.println(System.currentTimeMillis() - init)
 
-      (ok, fail)
-      ok.foreach { x => psout.println(x) }
-      fail.foreach { x => psFailed.println(x) }
+      psout.println("[" + ok.mkString(",") + "]")
+      psFailed.println("[" + fail.mkString(",") + "]")
+      val success = ok.filter { x => x.history.head.startsWith("MaybeOutbound") }
+      val ib = 
+          // floating ip => local vm acts like a responder
+//          "DeliveredLocallyVM\\((.*),[ ]*(.*)\\)".r.
+          // external interface acts as a
+          success.foldLeft((List[State](), List[State]())){ (acc, x) => 
+            "MaybeOutbound\\((.*),(.*),(.*)\\)".r.
+                findAllIn(x.history.head).matchData.foldRight(acc) {
+                  (r, acc2) => {
+  //                  floating example:
+  //                  val tap = r.group(1)
+  //                  val machine = r.group(2)
+  //                  println(s"Entering $tap at $machine")
+  //                  InstructionBlock(
+  //                      PacketMirror(),
+  //                      Assign("InputInterface", ConstantStringValue(tap)),
+  //                      new EnterIface(machine, tap, world).generateInstruction()
+  //                  )
+  //                  northbound example
+                    val tap = r.group(1)
+                    val br = r.group(2)
+                    val machine = r.group(3)
+                    println(s"Entering $tap at $machine")
+                    val ii = InstructionBlock(
+                        PacketMirror(),
+                        Assign("InputInterface", ConstantStringValue(tap)),
+                        new EnterIface(machine, tap, world).generateInstruction()
+                    )(x, true)
+                    (acc2._1 ++ ii._1, acc2._2 ++ ii._2)
+                }
+            }
+          }
+      psCodeRev.println(ib)
+      val (okRev, failedRev) = ib
+      println("Reverse path: " + okRev.length + "," + failedRev.length)
+      psOutRev.println("[" + okRev.mkString(",") + "]")
+      psFailedRev.println("[" + failedRev.mkString(",") + "]")
+      
+      val ps1 = new PrintStream("outcomes.out")
+      
+      ps1.println("[" + okRev.filter { x => x.history.head.startsWith("MaybeOutbound") }.
+          map { x => x.toString() }.mkString(",") + "]")
+      ps1.close
     }
+    psOutRev.close()
+    psFailedRev.close()
+    psCodeRev.close()
+    
     psout.close()
     psFailed.close()
   }
@@ -134,10 +307,6 @@ object TestThatCrap
 
 class EnterIface(pcName : String, iface : String, world : WorldModel) extends Instruction {
   override def toString : String = "EnterIface(" + iface + "," + pcName + ")" 
-  
-  
-  var portNum : Int = 0;
-  var mapTo : Map[String, String] = Map[String, String]()
   
   def generateInstruction() : Instruction = {
     val pc = world.getComputer(pcName)
@@ -147,8 +316,6 @@ class EnterIface(pcName : String, iface : String, world : WorldModel) extends In
       val br = pc.getBridge(iface)
       if (br != null && br.isInstanceOf[OVSBridge])
       {
-        mapTo = mapTo + (this.toString() + s"/$portNum/exit" -> new EnterBridge(br.asInstanceOf[OVSBridge], nic, world).toString())
-        portNum += 1
         new EnterBridge(br.asInstanceOf[OVSBridge], nic, world).generateInstruction
       }
       else
@@ -156,18 +323,14 @@ class EnterIface(pcName : String, iface : String, world : WorldModel) extends In
     }
     else
     {
-      val eii = new EnterIPInterface(pcName, iface, world)
-      mapTo = mapTo + (this.toString() + s"/$portNum/exit" -> eii.toString)
-      portNum += 1
-      Forward(this.toString() + s"/$portNum/exit")
+      val eii = new EnterIPInterface(pcName, iface, world).generateInstruction
+      eii
     }
   }
   
   override def apply(state2 : State, verbose : Boolean) : 
     (List[State], List[State]) = {
-    System.out.println(toString)
-    val state = Forward(toString)(state2)._1(0)
-    generateInstruction()(state, verbose)
+    generateInstruction()(state2, verbose)
   }
 }
 
@@ -202,42 +365,47 @@ case class EnterBridgeNormal(br : OVSBridge, iface : NIC, world : WorldModel) ex
   
   def generateInstruction() : Instruction = {
     val collected = br.getDistinctVlans()
+    
     InstructionBlock(
       Forward(toString),
       if (iface.isAccess())
       {
         val vlan = iface.getVlans().get(0).intValue
         InstructionBlock(
-          Allocate(VLANTag, 4),
+          VLANOps.encap(),
           Assign(VLANTag, ConstantValue(vlan))
         )
       }
       else
         NoOp,
-      InstructionBlock(
-        if (!collected.isEmpty())
-          collected.toArray().foldRight(Fail("VLAN unknown") : Instruction)((x, acc) =>  {
-            val t  = x.asInstanceOf[Integer].intValue()
-            val isvlans = br.getIfacesForVlan(t).filter { x => x != iface.getName }.map { x => br.getOvsNic(x) }
-            If (Constrain(VLANTag, :==:(ConstantValue(t))),
-              Fork(isvlans.map ( y => {
-                if (y.isAccess())
-                {
-                   InstructionBlock(
-                       Deallocate(VLANTag, 4), 
-                       new ExitBridge(br, y, world)
-                   )
-                }
-                else
-                  new ExitBridge(br, y, world)
-              })),
-              acc
-            )
-          })
-        else
-          // adicatelea: Nu am niciun VLAN declarat => pur si simplu fac fork (ma comport ca un LAN extender)
-          Fork(br.getNICs.filter { x => x != iface.getName }.map { x => new ExitBridge(br, x, world) })
-      )
+        { 
+          val ib = InstructionBlock(
+            if (!collected.isEmpty())
+              collected.toArray().foldRight(Fail("VLAN unknown") : Instruction)((x, acc) =>  {
+                val t  = x.asInstanceOf[Integer].intValue()
+                val isvlans = br.getIfacesForVlan(t).filter { x => x != iface.getName && x != br.getName }.map { x => br.getOvsNic(x) }
+                If (Constrain(VLANTag, :==:(ConstantValue(t))),
+                  Fork(isvlans.map ( y => {
+                    if (y.isAccess())
+                    {
+                       InstructionBlock(
+                           VLANOps.decap(), 
+                           new ExitBridge(br, y, world)
+                       )
+                    }
+                    else
+                      new ExitBridge(br, y, world)
+                  })),
+                  acc
+                )
+              })
+            else
+              // adicatelea: Nu am niciun VLAN declarat => pur si simplu fac fork (ma comport ca un LAN extender)
+              Fork(br.getNICs.filter { x => x.getName != iface.getName && x.getName != br.getName }.
+                  map { x => new ExitBridge(br, x, world) })
+          )
+          ib
+        }
     )
   }
   
@@ -245,12 +413,16 @@ case class EnterBridgeNormal(br : OVSBridge, iface : NIC, world : WorldModel) ex
     (List[State], List[State]) = {
     System.out.println(toString)
     val ib = generateInstruction()
-    ib(state2, verbose)
+    val ret = ib(state2, verbose)
+    ret
   }
 }
 
 class ExitOFPort(ofPort : OpenFlowNIC, br : OVSBridge, iface : NIC, world : WorldModel) extends Instruction
 {
+  
+  override def toString = s"ExitOFPort(${ofPort.getPortNo}, ${br.getName}, ${br.getComputer.getName})"
+  
   def generateInstruction() : Instruction = {
     val thePort = br.getOvsNic(ofPort)
     InstructionBlock(
@@ -319,7 +491,7 @@ class ExitBridge(br : OVSBridge, iface : NIC, world : WorldModel)
       {
         val ipIface = br.getComputer.getIpNic(iface.getName)
         if (ipIface == null  || ipIface.getIPAddresss.size == 0)
-          Fail("DeadEndInternalIface(" + iface.getName + "," + br.getName + "," + br.getComputer.getName + ")")
+          Forward("MaybeOutbound(" + iface.getName + "," + br.getName + "," + br.getComputer.getName + ")")
         else
           new EnterIPInterface(br.getComputer.getName, iface.getName, world)
       }
@@ -355,10 +527,23 @@ class EnterOFPort(ofPort : OpenFlowNIC, br : OVSBridge, iface : NIC, world : Wor
     val table = br.getConfig.getTables.get(0)
     InstructionBlock(
         Forward(toString),
+        Allocate("EtherType"),
+        If (Constrain(EtherType, :==:(ConstantValue(EtherProtoVLAN))),
+            Assign("EtherType", :@(VLANEtherType)),
+            Assign("EtherType", :@(EtherType))
+        ),
+        Allocate("IsTracked"),
+        Assign("IsTracked", ConstantValue(0)),
+        Allocate("IsFirst"),
+        Assign("IsFirst", ConstantValue(1)),
         Allocate("InPort"),
+        Assign("ShouldTrack", ConstantValue(1)),
         Assign("InPort", ConstantValue(ofPort.getPortNo)),
-        new EnterOFTable(Nil, table, ofPort, br, iface, world),
-        Deallocate("InPort")
+        new EnterOFTable(Nil, table, ofPort, br, iface, world).generateInstruction,
+        Deallocate("InPort"),
+        Deallocate("IsTracked"),
+        Deallocate("IsFirst"),
+        Deallocate("EtherType")
     )
   }
   
@@ -385,12 +570,12 @@ class EnterOFTable(actionSet : List[Action], table : OpenFlowTable, ofPort : Ope
          Assign("FFFMatched", ConstantValue(-1)),
          InstructionBlock(
            flows.zipWithIndex.map { 
-            v => new EnterFlowEntry(v._1, v._2, table, ofPort, br, iface, world)
+            v => new EnterFlowEntry(v._1, v._2, table, ofPort, br, iface, world).generateInstruction
            }
          )
        ), 
-       new EnterTableMiss(table, ofPort, br, iface, world), 
-       Deallocate("FFFMatched") 
+       new EnterTableMiss(table, ofPort, br, iface, world).generateInstruction, 
+       Deallocate("FFFMatched")
      )
      doFlows
   }
@@ -405,6 +590,20 @@ class ApplyAction(action : Action, table : OpenFlowTable,
     ofPort : OpenFlowNIC, br : OVSBridge, iface : NIC, world : WorldModel)
   extends Instruction
 {
+  
+  def trackMe(u : Int, prefix : String) = {
+    InstructionBlock(
+        ConntrackTrackZone(br.getComputer, u, world).generateInstruction(),
+        Assign("State", :@("State".scopeTo(prefix))),
+        Assign(IPTablesConstants.CTMARK_BOTTOM, :@(IPTablesConstants.CTMARK_BOTTOM.scopeTo(prefix))),
+        Assign(IPTablesConstants.CTMARK_TOP, :@(IPTablesConstants.CTMARK_TOP.scopeTo(prefix))),
+        Assign("IsBackward", :@("IsBackward".scopeTo(prefix))),
+        Assign("IsForward", :@("IsForward".scopeTo(prefix))),
+        Assign("IsFirst", :@("IsFirst".scopeTo(prefix))),
+        Assign("IsTracked", :@("IsTracked".scopeTo(prefix))),
+        Assign("CtZone", ConstantValue(u))
+      )
+  }
   
   def generateInstruction() : Instruction = {
     InstructionBlock(
@@ -423,33 +622,36 @@ class ApplyAction(action : Action, table : OpenFlowTable,
       		  if (action.getPort == 0xfffffffa)
       		  {
       		    // NORMAL goes here
-              new EnterBridgeNormal(br, iface, world)
+              new EnterBridgeNormal(br, iface, world).generateInstruction()
       		  }
       		  else
       		  {
-        		  new ExitOFPort(br.getOpenFlowPort(action.getPort.intValue()), br, iface, world)
+        		  new ExitOFPort(br.getOpenFlowPort(action.getPort.intValue()), br, iface, world).generateInstruction()
       		  }
       		}
-        case action : NormalAction => new EnterBridgeNormal(br, iface, world)
+        case action : NormalAction => new EnterBridgeNormal(br, iface, world).generateInstruction()
         case action : DropAction => Fail("Drop action encountered")
-        case action : LoadAction => { val t = 
-              if (action.getTo.isPresent() && action.getFrom.isPresent())
+        case action : LoadAction => {
+           if (action.getTo.isPresent())
+           {
+             val x = FieldNameTranslator(action.getTo.get.getName)
+             if (action.getTo.isPresent() && action.getFrom.isPresent())
           	  {
-          	    Assign(action.getTo.get.getName, :@(action.getFrom.get.getName))
+          	    Assign(x, :@(action.getFrom.get.getName))
           	  }
           	  else if (action.getTo.isPresent() && !action.getFrom.isPresent())
           	  {
-          	    Assign(action.getTo.get.getName, ConstantValue(action.getValue.get))
-          	  }
-          	  else if (!action.getTo.isPresent() && action.getFrom.isPresent)
-          	  {
-          	    Assign(action.getFrom.get.getName, :@(action.getFrom.get.getName))
+          	    Assign(x, ConstantValue(action.getValue.get))
           	  }
           	  else 
           	  {
           	    throw new IllegalArgumentException("Cannot do that, load action must have at least one parameter")
           	  }
-          	  t
+           }
+           else
+           {
+         	    throw new IllegalArgumentException("Cannot do that, load action must have at least one parameter")
+           }
         }
         case action : ModDlDstAction => Assign(EtherDst, ConstantValue(action.getMacAddr, isMac = true))
         case action : ModDlSrcAction => Assign(EtherSrc, ConstantValue(action.getMacAddr, isMac = true))
@@ -469,13 +671,129 @@ class ApplyAction(action : Action, table : OpenFlowTable,
                 If (Constrain(EtherType, :==:(ConstantValue(UDPProto))),
                     Assign(UDPSrc, ConstantValue(action.getIpAddress)),
                     Fail("No such protocol"))))
-        case action : ModVlanVidAction => Assign(VLANTag, ConstantValue(action.getVlanId))
+        case action : ModVlanVidAction => 
+          If(Constrain(EtherType, :==:(ConstantValue(EtherProtoVLAN))),
+            Assign(VLANTag, ConstantValue(action.getVlanId)),
+            InstructionBlock(
+                VLANOps.encap(),
+                Assign(VLANTag, ConstantValue(action.getVlanId))
+            )
+          )
         case action : MoveAction => Assign(action.getTo.getName, :@(action.getFrom.getName))
-        case action : PushVlanAction => Allocate(VLANTag, 4)
+        case action : PushVlanAction => VLANOps.encap()
         case action : SetFieldAction => Assign(action.getField.getName, ConstantValue(action.getValue))
         case action : SetTunnelAction => Assign(TunId, ConstantValue(action.getTunId))
-        case action : StripVlanAction => Deallocate(Tag("VLANId"), 4)
+        case action : StripVlanAction => VLANOps.decap()
         case action : LearnAction => NoOp
+        case action : CTAction => {
+          val ib = 
+          if (action.isCommit())
+          {
+            val zones = br.getComputer.getCtZones()
+            val execs = action.getActions
+            
+            if (action.isZone() && !action.isRegZone())
+            {
+              InstructionBlock(
+                ConntrackCommitZone(br.getComputer, action.getZoneVal, world),
+                InstructionBlock(
+                  execs.map { y => { 
+                      val qf = y.getTo
+                      if (qf.getName == "ct_label" || qf.getName == "NXM_NX_CT_LABEL")
+                      {
+                        Assign("CtLabel".scopeTo(br.getComputer.getName + "." + action.getZoneVal), ConstantValue(y.getValue))
+                      }
+                      else if (qf.getName == "ct_mark" || qf.getName == "NXM_NX_CT_MARK")
+                      {
+                        InstructionBlock(
+                          Assign(IPTablesConstants.CTMARK_TOP.scopeTo(br.getComputer.getName + "." + action.getZoneVal), 
+                            ConstantValue(y.getValue & 0xFFFF0000)),
+                          Assign(IPTablesConstants.CTMARK_BOTTOM.scopeTo(br.getComputer.getName + "." + action.getZoneVal), 
+                            ConstantValue(y.getValue & 0x0000FFFF))
+                        )
+                      }
+                      else 
+                        NoOp
+                    }
+                  }
+                )
+              )
+            }
+            else
+            {
+              val ii = zones.foldRight(Fail("No zone matched") : Instruction)( (x, acc) => {
+                val fff = FieldNameTranslator(action.getZoneReg.getName)
+                val ct = fff match {
+                  case Right(t) => Constrain(t, :==:(ConstantValue(x.intValue)))
+                  case Left(t) => Constrain(t, :==:(ConstantValue(x.intValue)))
+                }
+                If (ct,
+                    InstructionBlock(
+                        ConntrackCommitZone(br.getComputer, x.intValue, world).generateInstruction(),
+                        InstructionBlock(
+                          execs.map { y => { 
+                              val qf = y.getTo
+                              if (qf.getName == "ct_label" || qf.getName == "NXM_NX_CT_LABEL")
+                              {
+                                Assign("CtLabel".scopeTo(br.getComputer.getName + "." + x.intValue), ConstantValue(y.getValue))
+                              }
+                              else if (qf.getName == "ct_mark" || qf.getName == "NXM_NX_CT_MARK")
+                              {
+                                InstructionBlock(
+                                  Assign(IPTablesConstants.CTMARK_TOP.scopeTo(br.getComputer.getName + "." + x.intValue), 
+                                    ConstantValue(y.getValue & 0xFFFF0000)),
+                                  Assign(IPTablesConstants.CTMARK_BOTTOM.scopeTo(br.getComputer.getName + "." + x.intValue), 
+                                    ConstantValue(y.getValue & 0x0000FFFF))
+                                )
+                              }
+                              else 
+                                NoOp
+                            }
+                          }
+                        )
+                    ),
+                    acc
+                  )
+              })
+              ii
+            }
+          }
+          else
+          {
+            val zones = br.getComputer.getCtZones()
+            if (action.isZone() && !action.isRegZone())
+            {
+              val u = action.getZoneVal
+              val prefix = br.getComputer.getName + "." + u
+              trackMe(u, prefix)
+            }
+            else
+            {
+              val ii = zones.foldRight(Fail("No zone matched") : Instruction)( (x, acc) => {
+                val fff = FieldNameTranslator(action.getZoneReg.getName)
+                If (Constrain(fff, :==:(ConstantValue(x.intValue))),
+                  InstructionBlock(
+                    trackMe(x.intValue, br.getComputer.getName + "." + x.intValue),
+                    if (action.hasTable()) {
+                      new EnterOFTable(Nil : List[Action], 
+                          br.getConfig.getTables.find { x => x.getTableId == action.getTable.intValue() }.get, 
+                          ofPort,
+                          br,
+                          iface,
+                          world)
+                    } else {
+                      NoOp
+                    }
+                  ),
+                  acc
+                )
+              })
+              ii
+            }
+          }
+          InstructionBlock(Forward(action.toString()),ib)
+          
+        }
         case _ =>     throw new UnsupportedOperationException("Cannot handle " + action.getClass.getName + "... Yet")
       }
     )
@@ -502,7 +820,7 @@ object FieldNameTranslator
        case "dl_vlan_pcp" => Right(VLANTag)
        case "dl_src" => Right(EtherSrc)
        case "dl_dst" => Right(EtherDst)
-       case "dl_type" => Right(EtherType)
+       case "dl_type" => Left("EtherType")
        case "nw_src" => Right(IPSrc)
        case "nw_dst" => Right(IPDst)
        case "nw_proto" => Right(Proto)
@@ -518,13 +836,15 @@ object FieldNameTranslator
        case "tun_id" => Right(TunId) 
        case "tun_src" => Right(Tag("TunnelSrc"))
        case "tun_dst" => Right(Tag("TunnelDst"))
-       case "pkt_mark" => Left("PacketMark")
+       case "pkt_mark" => Left("NfMark")
        case "out_port" => Left("OutPort")
        case "vlan_tci" => Right(VLANTag)
+       case "nd_target" => Left("NDTarget")
+       case "arp_spa" => Right(ARPProtoSender)
        case "NXM_OF_IN_PORT" => Left("InPort")
        case "NXM_OF_ETH_DST" => Right(EtherSrc)
        case "NXM_OF_ETH_SRC" => Right(EtherDst)
-       case "NXM_OF_ETH_TYPE" => Right(EtherType) 
+       case "NXM_OF_ETH_TYPE" => Left("EtherType") 
        case "NXM_OF_VLAN_TCI" => Right(VLANTag)
        case "NXM_OF_IP_PROTO" => Right(Proto) 
        case "NXM_OF_IP_SRC" => Right(IPSrc)
@@ -536,7 +856,16 @@ object FieldNameTranslator
        case "NXM_OF_ICMP_TYPE" => Right(ICMPType) 
        case "NXM_OF_ICMP_CODE" => Right(ICMPCode)
        case "NXM_NX_TUN_ID" => Right(TunId)
-       case _ =>    throw new UnsupportedOperationException("Field " + name + " is not translatable in Symnet... Yet")
+       case "ct_state" => Left("State")
+       case "ct_mark" => Left("CtMark")
+       case "ct_zone" => Left("CtZone")
+       case _ =>    
+         if (name.matches("reg([0-9]+)"))
+           Left(name)
+         else if (name.matches("NXM_NX_REG([0-9]+)"))
+           Left(name.replace("NXM_NX_REG", "reg"))
+         else
+           throw new UnsupportedOperationException("Field " + name + " is not translatable in Symnet... Yet")
     }
   }
 }
@@ -605,7 +934,7 @@ class EnterFlowEntry(flowEntry : FlowEntry, index : Int, table : OpenFlowTable, 
         {
           table
         }
-        new EnterOFTable(Nil : List[Action], destTable, destPort, br, iface, world)
+        new EnterOFTable(Nil : List[Action], destTable, destPort, br, iface, world).generateInstruction
       }
       else
       {
@@ -615,7 +944,7 @@ class EnterFlowEntry(flowEntry : FlowEntry, index : Int, table : OpenFlowTable, 
       InstructionBlock(
           Assign("FFFMatched", ConstantValue(index)),
           InstructionBlock(
-              filteredActions.toList.map { x => new ApplyAction(x, table, ofPort, br, iface, world) }
+              filteredActions.toList.map { x => new ApplyAction(x, table, ofPort, br, iface, world).generateInstruction }
           ),
           jumpTarget
       )
@@ -626,18 +955,170 @@ class EnterFlowEntry(flowEntry : FlowEntry, index : Int, table : OpenFlowTable, 
         InstructionBlock(
           Forward(toString),
           matches.map { x => FieldNameTranslator(x.getField.getName) match {
-              case Right(tag) if tag == EtherDst && x.getMask == 0x010000000000L  => {
-                println("Found unicast/broadcast stuff")
-                if (x.getValue == 0x010000000000L)
-                  Constrain("IsUnicast", :==:(ConstantValue(0)))
-                else
-                  Constrain("IsUnicast", :==:(ConstantValue(1)))
+            
+              case Left(v) if x.getField.getName == "ct_mark" || x.getField.getName == "NXM_NX_CT_STATE" =>
+              {
+                List[Instruction](
+                  Constrain(IPTablesConstants.CTMARK_BOTTOM, :==:(ConstantValue(x.getValue & 0xFFFFL))),
+                  Constrain(IPTablesConstants.CTMARK_TOP, :==:(ConstantValue(x.getValue & 0xFFFF0000L)))
+                )
               }
-              case Right(tag) => Constrain(tag, :==:(ConstantValue(x.getValue))) 
-              case Left(mem) => Constrain(mem, :==:(ConstantValue(x.getValue)))
+              case Left(v) if x.getField.getName == "ct_state" || x.getField.getName == "NXM_NX_CT_STATE" => {
+
+      					val trkmb = 0l;
+      					val trkpb = 1l;
+      					val newmb = 2l;
+      					val newpb = 3l;
+      					val estmb = 4l;
+      					val estpb = 5l;
+      					val rplmb = 6l;
+      					val rplpb = 7l;
+      					val relmb = 8l;
+      					val relpb = 9l;
+      					val invmb = 10l;
+      					val invpb = 11l;
+      					val forWhat = x.getValue
+      					if ((forWhat & (1 << trkmb)) != 0L &&
+      					    (forWhat & ~(1 << trkmb)) == 0L)
+      					{
+      					  //					OF_STATE_NOT_TRACKED = "-trk"
+      					  List[Instruction](
+      					    Constrain("IsTracked", :==:(ConstantValue(0)))
+      					  )
+      					}
+      					else if ((forWhat & (1 << trkpb)) != 0L &&
+      					    (forWhat & ~(1 << trkpb)) == 0L)
+      					{
+      					  //					OF_STATE_TRACKED = "+trk"
+      					  List[Instruction](
+        					  Constrain("IsTracked", :==:(ConstantValue(1)))
+        					)
+      					}
+      					else if ((forWhat & (1 << newpb)) != 0L &&
+      					    (forWhat & (1 << estmb)) != 0L && 
+      					    (forWhat & ~(1 << newpb | 1 << estmb)) == 0L)
+      					{
+      					  //					OF_STATE_NEW_NOT_ESTABLISHED = "+new-est"
+      					  List[Instruction](
+    					      Constrain("IsFirst", :==:(ConstantValue(1))),
+    					      Constrain("IsTracked", :==:(ConstantValue(1)))
+  					      )
+      					}
+      					else if ((forWhat & (1 << estmb)) != 0L && 
+      					    (forWhat & ~(1 << estmb)) == 0L)
+      					{
+                  //					OF_STATE_NOT_ESTABLISHED = "-est"
+                  List[Instruction](
+    					      Constrain("IsFirst", :==:(ConstantValue(1))),
+    					      Constrain("IsTracked", :==:(ConstantValue(1)))
+  					      )
+      					}
+      					else if ((forWhat & (1 << estpb)) != 0L && 
+      					    (forWhat & ~(1 << estpb)) == 0L)
+      					{
+                //					OF_STATE_ESTABLISHED = "+est"
+                  List[Instruction](
+    					      Constrain("IsFirst", :==:(ConstantValue(0))),
+    					      Constrain("IsTracked", :==:(ConstantValue(1)))
+  					      )
+      					}
+      					else if ((forWhat & (1 << estpb)) != 0L &&
+        					(forWhat & (1 << relmb)) != 0L &&
+        					(forWhat & (1 << rplmb)) != 0L &&
+        					(forWhat & ~(1 << estpb | 1 << relmb | 1 << rplmb)) == 0L)
+      					{
+                //					OF_STATE_ESTABLISHED_NOT_REPLY = "+est-rel-rpl"
+                  List[Instruction](
+    					      Constrain("IsFirst", :==:(ConstantValue(0))),
+    					      Constrain("IsTracked", :==:(ConstantValue(1))),
+    					      Constrain("IsForward", :==:(ConstantValue(1)))
+  					      )
+      					}
+      					else if ((forWhat & (1 << estpb)) != 0L &&
+        					(forWhat & (1 << relmb)) != 0L &&
+        					(forWhat & (1 << rplpb)) != 0L &&
+        					(forWhat & ~(1 << estpb | 1 << relmb | 1 << rplpb)) == 0L)
+      					{
+                //					OF_STATE_ESTABLISHED_REPLY = "+est-rel+rpl"
+                   List[Instruction](
+    					      Constrain("IsFirst", :==:(ConstantValue(0))),
+    					      Constrain("IsTracked", :==:(ConstantValue(1))),
+    					      Constrain("IsBackward", :==:(ConstantValue(1)))
+  					       )     					  
+      					}
+      					else if ((forWhat & (1 << newmb)) != 0L &&
+        					(forWhat & (1 << relpb)) != 0L &&
+        					(forWhat & (1 << estmb)) != 0L &&
+        					(forWhat & (1 << invmb)) != 0L &&
+        					(forWhat & ~(1 << newmb | 1 << relpb | 1 << estmb | 1 << invmb)) == 0L)
+      					{
+                //					OF_STATE_RELATED = "-new-est+rel-inv"
+                   List[Instruction](
+    					      Constrain("IsFirst", :==:(ConstantValue(0))),
+    					      Constrain("IsTracked", :==:(ConstantValue(1))),
+    					      Constrain("IsBackward", :==:(ConstantValue(1)))
+  					       )
+      					}
+      					else if ((forWhat & (1 << trkpb)) != 0L &&
+      					    (forWhat & (1 << invpb)) != 0L &&
+      					    (forWhat & ~(1 << trkpb | 1 << invpb)) == 0L)
+      					{
+                //					OF_STATE_INVALID = "+trk+inv"
+      					  List[Instruction](
+    					      Constrain("IsTracked", :==:(ConstantValue(0)))
+      					  )
+      					}
+      					else if ((forWhat & (1 << newpb)) != 0L &&
+      					    (forWhat & ~(1 << newpb)) == 0L)
+      					{
+                //					OF_STATE_NEW = "+new"
+      					  List[Instruction](
+    					      Constrain("IsTracked", :==:(ConstantValue(0))),
+    					      Constrain("IsFirst", :==:(ConstantValue(0)))
+      					  )
+      					}
+      					else if ((forWhat & (1 << newmb)) != 0L &&
+      					    (forWhat & (1 << rplmb)) != 0L &&
+      					    (forWhat & ~(1 << newmb | 1 << rplmb)) == 0L)
+      					{
+                //					OF_STATE_NOT_REPLY_NOT_NEW = "-new-rpl"
+      					  List[Instruction](
+    					      Constrain("IsFirst", :==:(ConstantValue(0))),
+    					      Constrain("IsBackward", :==:(ConstantValue(0)))
+      					  )
+      					}
+      					else throw new UnsupportedOperationException(s"Cannot handle this state ${forWhat}... Yet")
+              }
+              case Right(tag) if tag == EtherDst && x.getMask == 0x010000000000L  => {
+                List[Instruction](
+                  if (x.getValue == 0x010000000000L)
+                    Constrain("IsUnicast", :==:(ConstantValue(0)))
+                  else
+                    Constrain("IsUnicast", :==:(ConstantValue(1)))
+                )
+              }
+              case Right(tag) if x.getField.getName == "vlan_tci" => {
+                List[Instruction](
+                  if (x.getValue == 0)
+                  {
+                    Constrain(EtherType, :~:(:==:(ConstantValue(EtherProtoVLAN))))
+                  }
+                  else
+                  {
+                    if (x.getValue == 0x1000L && x.getMask == 0x1000L)
+                      Constrain(EtherType, :==:(ConstantValue(EtherProtoVLAN)))
+                    else
+                      Constrain(VLANTag, :==:(ConstantValue(x.getValue)))
+                  }
+                )
+              }
+              case Right(tag) => List[Instruction](Constrain(tag, :==:(ConstantValue(x.getValue))))
+              case Left(mem) => List[Instruction](Constrain(mem, :==:(ConstantValue(x.getValue))))
             }
           }.foldRight(listOfInstructions)((u, acc) => {
-            If (u, acc, NoOp)
+            u.foldRight(acc)( (t, acc2) => 
+              If (t, acc2, NoOp)
+            )
           })
         ),
         NoOp)

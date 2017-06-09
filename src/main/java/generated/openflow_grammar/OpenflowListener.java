@@ -74,6 +74,45 @@ public interface OpenflowListener extends ParseTreeListener {
 	void exitModVlanPcp(@NotNull OpenflowParser.ModVlanPcpContext ctx);
 
 	/**
+	 * Enter a parse tree produced by the {@code reg5}
+	 * labeled alternative in {@link OpenflowParser#nxm_reg}.
+	 * @param ctx the parse tree
+	 */
+	void enterReg5(@NotNull OpenflowParser.Reg5Context ctx);
+	/**
+	 * Exit a parse tree produced by the {@code reg5}
+	 * labeled alternative in {@link OpenflowParser#nxm_reg}.
+	 * @param ctx the parse tree
+	 */
+	void exitReg5(@NotNull OpenflowParser.Reg5Context ctx);
+
+	/**
+	 * Enter a parse tree produced by the {@code reg7}
+	 * labeled alternative in {@link OpenflowParser#nxm_reg}.
+	 * @param ctx the parse tree
+	 */
+	void enterReg7(@NotNull OpenflowParser.Reg7Context ctx);
+	/**
+	 * Exit a parse tree produced by the {@code reg7}
+	 * labeled alternative in {@link OpenflowParser#nxm_reg}.
+	 * @param ctx the parse tree
+	 */
+	void exitReg7(@NotNull OpenflowParser.Reg7Context ctx);
+
+	/**
+	 * Enter a parse tree produced by the {@code reg6}
+	 * labeled alternative in {@link OpenflowParser#nxm_reg}.
+	 * @param ctx the parse tree
+	 */
+	void enterReg6(@NotNull OpenflowParser.Reg6Context ctx);
+	/**
+	 * Exit a parse tree produced by the {@code reg6}
+	 * labeled alternative in {@link OpenflowParser#nxm_reg}.
+	 * @param ctx the parse tree
+	 */
+	void exitReg6(@NotNull OpenflowParser.Reg6Context ctx);
+
+	/**
 	 * Enter a parse tree produced by the {@code udpDst}
 	 * labeled alternative in {@link OpenflowParser#nxm_reg}.
 	 * @param ctx the parse tree
@@ -428,6 +467,19 @@ public interface OpenflowListener extends ParseTreeListener {
 	 * @param ctx the parse tree
 	 */
 	void exitCollectorSetParam(@NotNull OpenflowParser.CollectorSetParamContext ctx);
+
+	/**
+	 * Enter a parse tree produced by the {@code ctArged}
+	 * labeled alternative in {@link OpenflowParser#target}.
+	 * @param ctx the parse tree
+	 */
+	void enterCtArged(@NotNull OpenflowParser.CtArgedContext ctx);
+	/**
+	 * Exit a parse tree produced by the {@code ctArged}
+	 * labeled alternative in {@link OpenflowParser#target}.
+	 * @param ctx the parse tree
+	 */
+	void exitCtArged(@NotNull OpenflowParser.CtArgedContext ctx);
 
 	/**
 	 * Enter a parse tree produced by the {@code pushVlan}
@@ -805,6 +857,19 @@ public interface OpenflowListener extends ParseTreeListener {
 	void exitSetTunnel64(@NotNull OpenflowParser.SetTunnel64Context ctx);
 
 	/**
+	 * Enter a parse tree produced by the {@code ct}
+	 * labeled alternative in {@link OpenflowParser#target}.
+	 * @param ctx the parse tree
+	 */
+	void enterCt(@NotNull OpenflowParser.CtContext ctx);
+	/**
+	 * Exit a parse tree produced by the {@code ct}
+	 * labeled alternative in {@link OpenflowParser#target}.
+	 * @param ctx the parse tree
+	 */
+	void exitCt(@NotNull OpenflowParser.CtContext ctx);
+
+	/**
 	 * Enter a parse tree produced by the {@code notLaterFrag}
 	 * labeled alternative in {@link OpenflowParser#frag_type}.
 	 * @param ctx the parse tree
@@ -1091,19 +1156,6 @@ public interface OpenflowListener extends ParseTreeListener {
 	void exitSetTpDst(@NotNull OpenflowParser.SetTpDstContext ctx);
 
 	/**
-	 * Enter a parse tree produced by the {@code nxRegIdx}
-	 * labeled alternative in {@link OpenflowParser#nxm_reg}.
-	 * @param ctx the parse tree
-	 */
-	void enterNxRegIdx(@NotNull OpenflowParser.NxRegIdxContext ctx);
-	/**
-	 * Exit a parse tree produced by the {@code nxRegIdx}
-	 * labeled alternative in {@link OpenflowParser#nxm_reg}.
-	 * @param ctx the parse tree
-	 */
-	void exitNxRegIdx(@NotNull OpenflowParser.NxRegIdxContext ctx);
-
-	/**
 	 * Enter a parse tree produced by the {@code reasonParam}
 	 * labeled alternative in {@link OpenflowParser#ctrlParam}.
 	 * @param ctx the parse tree
@@ -1189,6 +1241,17 @@ public interface OpenflowListener extends ParseTreeListener {
 	 * @param ctx the parse tree
 	 */
 	void exitDrop(@NotNull OpenflowParser.DropContext ctx);
+
+	/**
+	 * Enter a parse tree produced by {@link OpenflowParser#loadAction}.
+	 * @param ctx the parse tree
+	 */
+	void enterLoadAction(@NotNull OpenflowParser.LoadActionContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link OpenflowParser#loadAction}.
+	 * @param ctx the parse tree
+	 */
+	void exitLoadAction(@NotNull OpenflowParser.LoadActionContext ctx);
 
 	/**
 	 * Enter a parse tree produced by the {@code nxInPort}
@@ -1465,6 +1528,17 @@ public interface OpenflowListener extends ParseTreeListener {
 	void exitSetMplsTTL(@NotNull OpenflowParser.SetMplsTTLContext ctx);
 
 	/**
+	 * Enter a parse tree produced by {@link OpenflowParser#ctarg}.
+	 * @param ctx the parse tree
+	 */
+	void enterCtarg(@NotNull OpenflowParser.CtargContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link OpenflowParser#ctarg}.
+	 * @param ctx the parse tree
+	 */
+	void exitCtarg(@NotNull OpenflowParser.CtargContext ctx);
+
+	/**
 	 * Enter a parse tree produced by the {@code obsDomainParam}
 	 * labeled alternative in {@link OpenflowParser#sampleParam}.
 	 * @param ctx the parse tree
@@ -1489,6 +1563,17 @@ public interface OpenflowListener extends ParseTreeListener {
 	 * @param ctx the parse tree
 	 */
 	void exitEnqueue(@NotNull OpenflowParser.EnqueueContext ctx);
+
+	/**
+	 * Enter a parse tree produced by {@link OpenflowParser#ctargAction}.
+	 * @param ctx the parse tree
+	 */
+	void enterCtargAction(@NotNull OpenflowParser.CtargActionContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link OpenflowParser#ctargAction}.
+	 * @param ctx the parse tree
+	 */
+	void exitCtargAction(@NotNull OpenflowParser.CtargActionContext ctx);
 
 	/**
 	 * Enter a parse tree produced by the {@code setNwTos}

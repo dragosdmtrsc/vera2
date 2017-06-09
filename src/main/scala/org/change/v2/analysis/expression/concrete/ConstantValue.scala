@@ -35,3 +35,31 @@ case class ConstantValue(value: Long, isIp : Boolean  = false, isMac : Boolean =
       "[" + numberToIp(value) +  "]"
   }
 }
+
+/**
+ * For testing purposes only!!!! Note that this is just for better visualization
+ * No string logic, just hashcode as a quick hack
+ */
+case class ConstantStringValue(value: String) 
+  extends Expression with FloatingExpression {
+  @JsonIgnore
+  def ast = Z3Util.z3Context.mkNumeral(value.hashCode.toString(), Z3Util.defaultSort)
+
+  def getNumber = value.hashCode()
+  override def toZ3(solver: Option[Z3Solver] = None): (Z3AST, Option[Z3Solver]) = (ast, solver)
+
+  /**
+   * A floating expression may include unbounded references (e.g. symbol ids)
+   *
+   * Given a context (the state) it can produce an evaluable expression.
+   * @param s
+   * @return
+   */
+  override def instantiate(s: State): Either[Expression, String] = Left(this)
+
+  override def toString = {
+    value
+  }
+}
+
+

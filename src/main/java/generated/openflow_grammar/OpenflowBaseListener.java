@@ -84,6 +84,45 @@ public class OpenflowBaseListener implements OpenflowListener {
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
+	@Override public void enterReg5(@NotNull OpenflowParser.Reg5Context ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitReg5(@NotNull OpenflowParser.Reg5Context ctx) { }
+
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void enterReg7(@NotNull OpenflowParser.Reg7Context ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitReg7(@NotNull OpenflowParser.Reg7Context ctx) { }
+
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void enterReg6(@NotNull OpenflowParser.Reg6Context ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitReg6(@NotNull OpenflowParser.Reg6Context ctx) { }
+
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
 	@Override public void enterUdpDst(@NotNull OpenflowParser.UdpDstContext ctx) { }
 	/**
 	 * {@inheritDoc}
@@ -442,6 +481,19 @@ public class OpenflowBaseListener implements OpenflowListener {
 	 * <p>The default implementation does nothing.</p>
 	 */
 	@Override public void exitCollectorSetParam(@NotNull OpenflowParser.CollectorSetParamContext ctx) { }
+
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void enterCtArged(@NotNull OpenflowParser.CtArgedContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitCtArged(@NotNull OpenflowParser.CtArgedContext ctx) { }
 
 	/**
 	 * {@inheritDoc}
@@ -825,6 +877,19 @@ public class OpenflowBaseListener implements OpenflowListener {
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
+	@Override public void enterCt(@NotNull OpenflowParser.CtContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitCt(@NotNull OpenflowParser.CtContext ctx) { }
+
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
 	@Override public void enterNotLaterFrag(@NotNull OpenflowParser.NotLaterFragContext ctx) { }
 	/**
 	 * {@inheritDoc}
@@ -1111,19 +1176,6 @@ public class OpenflowBaseListener implements OpenflowListener {
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void enterNxRegIdx(@NotNull OpenflowParser.NxRegIdxContext ctx) { }
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
-	@Override public void exitNxRegIdx(@NotNull OpenflowParser.NxRegIdxContext ctx) { }
-
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
 	@Override public void enterReasonParam(@NotNull OpenflowParser.ReasonParamContext ctx) { }
 	/**
 	 * {@inheritDoc}
@@ -1209,6 +1261,19 @@ public class OpenflowBaseListener implements OpenflowListener {
 	 * <p>The default implementation does nothing.</p>
 	 */
 	@Override public void exitDrop(@NotNull OpenflowParser.DropContext ctx) { }
+
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void enterLoadAction(@NotNull OpenflowParser.LoadActionContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitLoadAction(@NotNull OpenflowParser.LoadActionContext ctx) { }
 
 	/**
 	 * {@inheritDoc}
@@ -1501,6 +1566,19 @@ public class OpenflowBaseListener implements OpenflowListener {
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
+	@Override public void enterCtarg(@NotNull OpenflowParser.CtargContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitCtarg(@NotNull OpenflowParser.CtargContext ctx) { }
+
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
 	@Override public void enterObsDomainParam(@NotNull OpenflowParser.ObsDomainParamContext ctx) { }
 	/**
 	 * {@inheritDoc}
@@ -1521,6 +1599,19 @@ public class OpenflowBaseListener implements OpenflowListener {
 	 * <p>The default implementation does nothing.</p>
 	 */
 	@Override public void exitEnqueue(@NotNull OpenflowParser.EnqueueContext ctx) { }
+
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void enterCtargAction(@NotNull OpenflowParser.CtargActionContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitCtargAction(@NotNull OpenflowParser.CtargActionContext ctx) { }
 
 	/**
 	 * {@inheritDoc}

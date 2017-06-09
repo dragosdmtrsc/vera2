@@ -178,7 +178,7 @@ val eher = InstructionBlock(
 )
 
 val tunnel = InstructionBlock(
-      CreateTag("Tunnel", Tag("L2") - 32),
+      CreateTag("Tunnel", Tag("L2") - 96),
       Allocate(Tag("Tunnel"), 32)
     )
     

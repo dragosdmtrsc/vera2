@@ -11,6 +11,9 @@ import z3.scala.{Z3Model, Z3Solver}
 import spray.json._
 
 import scala.collection.mutable.{Map => MutableMap}
+import org.change.v2.analysis.expression.concrete.nonprimitive.Reference
+import org.change.v2.analysis.expression.concrete.ConstantValue
+import org.change.v2.analysis.expression.concrete.ConstantStringValue
 
 /**
 *  Author: Radu Stoenescu
@@ -128,34 +131,92 @@ case class MemorySpace(val symbols: Map[String, MemoryObject] = Map.empty,
    * @param exp
    * @return
    */
-  def Assign(id: String, exp: Expression, eType: NumericType): Option[MemorySpace] = { assignNewValue(id, exp, eType) }
+  def Assign(id: String, exp: Expression, eType: NumericType): Option[MemorySpace] = { 
+    assignNewValue(id, exp, eType) 
+  }
   def Assign(id: String, exp: Expression): Option[MemorySpace] = Assign(id, exp, TypeUtils.canonicalForSymbol(id))
   def Assign(a: Int, exp: Expression): Option[MemorySpace] = 
     if (isAllocated(a))
     {
-      val nm = Some(MemorySpace(
-        symbols,
-        rawObjects + (a -> rawObjects(a).addValue(Value(exp))),
-        memTags
-      ))
-      nm
+      exp match {
+        case Reference(v, _) => {
+          val nm = Some(MemorySpace(
+            symbols,
+            rawObjects + (a -> rawObjects(a).addValue(v.copy())),
+            memTags
+          ))
+          nm
+        }
+        case _ => {
+          val nm = Some(MemorySpace(
+            symbols,
+            rawObjects + (a -> rawObjects(a).addValue(Value(exp))),
+            memTags
+          ))
+          nm
+        }
+      }
     }
   else
     None
+  
     
-    
+ 
   def addConstraint(id : String, c : Constraint) : Option[MemorySpace] = eval(id).flatMap(smb => {
     val newSmb = smb.constrain(c)
     val newMem = replaceValue(id, newSmb).get
     val subject = newMem.eval(id).get
 
-    c match {
-      case EQ_E(someE) if someE.id == subject.e.id => Some(newMem)
-      case GT_E(someE) if someE.id == subject.e.id => None
-      case GTE_E(someE) if someE.id == subject.e.id => Some(newMem)
-      case LT_E(someE) if someE.id == subject.e.id => None
-      case LTE_E(someE) if someE.id == subject.e.id => Some(newMem)
-      case _ => memoryToOption(newMem)
+    subject.e match {
+      case ConstantValue(x, _, _) => {
+        c match {
+          case E(y) if x == y => Some(newMem)
+          case GT(y) if x > y => Some(newMem)
+          case GTE(y) if x >= y => Some(newMem)
+          case LT(y) if x < y => Some(newMem)
+          case LTE(y)  if x <= y => Some(newMem)
+          case EQ_E(ConstantValue(y, _, _)) if x == y => Some(newMem)
+          case GT_E(ConstantValue(y, _, _)) if x > y => Some(newMem)
+          case GTE_E(ConstantValue(y, _, _)) if x >= y => Some(newMem)
+          case LT_E(ConstantValue(y, _, _)) if x < y => Some(newMem)
+          case LTE_E(ConstantValue(y, _, _))  if x <= y => Some(newMem)
+          
+          case E(y) if x != y => None
+          case GT(y) if x <= y => None
+          case GTE(y) if x < y => None
+          case LT(y) if x >= y => None
+          case LTE(y)  if x > y => None
+          case EQ_E(ConstantValue(y, _, _)) if x != y => None
+          case GT_E(ConstantValue(y, _, _)) if x <= y => None
+          case GTE_E(ConstantValue(y, _, _)) if x < y => None
+          case LT_E(ConstantValue(y, _, _)) if x >= y => None
+          case LTE_E(ConstantValue(y, _, _))  if x > y => None
+          
+          case _ => memoryToOption(newMem)
+        }
+      }
+      case v : ConstantStringValue => {
+        val x = v.getNumber
+        c match {
+          case E(y) if x == y => Some(newMem)
+          case EQ_E(ConstantValue(y, _, _)) if x == y => Some(newMem)
+          case E(y) if x != y => None
+          case EQ_E(ConstantValue(y, _, _)) if x != y => None
+          case EQ_E(z : ConstantStringValue) if x == z.getNumber => Some(newMem)
+          case EQ_E(z : ConstantStringValue) if x != z.getNumber => None
+          case _ => memoryToOption(newMem)
+        }
+      }
+      case _ => {
+        c match {
+          case EQ_E(someE) if someE.id == subject.e.id => Some(newMem)
+          case GT_E(someE) if someE.id == subject.e.id => None
+          case GTE_E(someE) if someE.id == subject.e.id => Some(newMem)
+          case LT_E(someE) if someE.id == subject.e.id => None
+          case LTE_E(someE) if someE.id == subject.e.id => Some(newMem)
+          case _ => memoryToOption(newMem)
+        }
+      }
     }
   })
   
@@ -164,13 +225,44 @@ case class MemorySpace(val symbols: Map[String, MemoryObject] = Map.empty,
     val newMem = replaceValue(a, newSmb).get
     val subject = newMem.eval(a).get
 
-    c match {
-      case EQ_E(someE) if someE.id == subject.e.id => Some(newMem)
-      case GT_E(someE) if someE.id == subject.e.id => None
-      case GTE_E(someE) if someE.id == subject.e.id => Some(newMem)
-      case LT_E(someE) if someE.id == subject.e.id => None
-      case LTE_E(someE) if someE.id == subject.e.id => Some(newMem)
-      case _ => memoryToOption(newMem)
+    subject.e match {
+      case ConstantValue(x, _, _) => {
+        c match {
+          case E(y) if x == y => Some(newMem)
+          case GT(y) if x > y => Some(newMem)
+          case GTE(y) if x >= y => Some(newMem)
+          case LT(y) if x < y => Some(newMem)
+          case LTE(y)  if x <= y => Some(newMem)
+          case EQ_E(ConstantValue(y, _, _)) if x == y => Some(newMem)
+          case GT_E(ConstantValue(y, _, _)) if x > y => Some(newMem)
+          case GTE_E(ConstantValue(y, _, _)) if x >= y => Some(newMem)
+          case LT_E(ConstantValue(y, _, _)) if x < y => Some(newMem)
+          case LTE_E(ConstantValue(y, _, _))  if x <= y => Some(newMem)
+          
+          case E(y) if x != y => None
+          case GT(y) if x <= y => None
+          case GTE(y) if x < y => None
+          case LT(y) if x >= y => None
+          case LTE(y)  if x > y => None
+          case EQ_E(ConstantValue(y, _, _)) if x != y => None
+          case GT_E(ConstantValue(y, _, _)) if x <= y => None
+          case GTE_E(ConstantValue(y, _, _)) if x < y => None
+          case LT_E(ConstantValue(y, _, _)) if x >= y => None
+          case LTE_E(ConstantValue(y, _, _))  if x > y => None
+          
+          case _ => memoryToOption(newMem)
+        }
+      }
+      case _ => {
+        c match {
+          case EQ_E(someE) if someE.id == subject.e.id => Some(newMem)
+          case GT_E(someE) if someE.id == subject.e.id => None
+          case GTE_E(someE) if someE.id == subject.e.id => Some(newMem)
+          case LT_E(someE) if someE.id == subject.e.id => None
+          case LTE_E(someE) if someE.id == subject.e.id => Some(newMem)
+          case _ => memoryToOption(newMem)
+        }
+      }
     }
   })
   
@@ -236,7 +328,12 @@ case class MemorySpace(val symbols: Map[String, MemoryObject] = Map.empty,
    * @param exp
    * @return
    */
-  def assignNewValue(id: String, exp: Expression, eType: NumericType): Option[MemorySpace] = assignNewValue(id, Value(exp, eType))
+  def assignNewValue(id: String, exp: Expression, eType: NumericType): Option[MemorySpace] = {
+      exp match {
+        case Reference(v, _) => assignNewValue(id, v.copy())
+        case _ => assignNewValue(id, Value(exp, eType))
+      }
+    }
 
   def assignNewValue(id: String, v: Value): Option[MemorySpace] =
     Some(MemorySpace(
@@ -285,6 +382,7 @@ case class MemorySpace(val symbols: Map[String, MemoryObject] = Map.empty,
       }
     }
     isZ3SolverCacheValid = true
+//    System.out.println(solverCache)
     solverCache
   }
 

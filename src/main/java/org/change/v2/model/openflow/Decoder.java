@@ -97,45 +97,50 @@ public class Decoder {
 		try
 		{
 			FormatType ft = TypeMappings.TYPE_MAPPINGS.get(field);
-			Long theValue = (long) 0;
-			switch (ft)
-			{
-			case CtState:
-				break;
-			case Decimal:
-				theValue = Long.parseUnsignedLong(value);
-				break;
-			case Ethernet:
-				theValue = decodeMAC(value);
-				break;
-			case Frag:
-				break;
-			case Hexadecimal:
-				theValue = decodeLong(value);
-				break;
-			case IPv4:
-				theValue = decodeIP4(value);
-				break;
-			case IPv6:
-				break;
-			case OpenFlow10port:
-			case OpenFlow11port:
-				theValue = decodePort(value);
-				break;
-			case TCPFlags:
-				break;
-			case TunnelFlags:
-				break;
-			default:
-				break;
-			
-			}
-			return theValue;
+			return decodeType(ft, value);
 		}
 		catch (NullPointerException ex)
 		{
 			throw new NullPointerException(String.format("In decodeType(%s, %s)\n%s", field, value, ex.toString()));
 		}
+	}
+
+	public static Long decodeType(FormatType ft, String value) {
+		Long theValue = (long) 0;
+
+		switch (ft)
+		{
+		case CtState:
+			break;
+		case Decimal:
+			theValue = decodeLong(value);
+			break;
+		case Ethernet:
+			theValue = decodeMAC(value);
+			break;
+		case Frag:
+			break;
+		case Hexadecimal:
+			theValue = decodeLong(value);
+			break;
+		case IPv4:
+			theValue = decodeIP4(value);
+			break;
+		case IPv6:
+			break;
+		case OpenFlow10port:
+		case OpenFlow11port:
+			theValue = decodePort(value);
+			break;
+		case TCPFlags:
+			break;
+		case TunnelFlags:
+			break;
+		default:
+			break;
+		
+		}
+		return theValue;
 	}
 
 	public static Long decodeLong(String value) {
