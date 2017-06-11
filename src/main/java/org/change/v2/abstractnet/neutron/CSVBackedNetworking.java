@@ -127,21 +127,6 @@ public class CSVBackedNetworking implements Networking {
 }
 	 * 
 	 */
-	static class ExAllowedAddressPair extends NeutronAllowedAddressPair {
-		/**
-		 * 
-		 */
-		private static final long serialVersionUID = 829831341913378580L;
-		private String macAddress;
-		public ExAllowedAddressPair(String ip, String macAddress) {
-			super(ip);
-			this.macAddress = macAddress;
-		}
-
-		public String getMacAddress() {
-			return this.macAddress;
-		}
-	}
 	
 	private static void loadSecurityGroup(CSVBackedNetworking nnn,
 			JsonNode node)
@@ -183,7 +168,7 @@ public class CSVBackedNetworking implements Networking {
 			
 			for (int i = 0; i < alaNode.size(); i++) {
 				((Set<NeutronAllowedAddressPair>)p.getAllowedAddressPairs()).add(
-					new ExAllowedAddressPair(alaNode.path(i).path("ip_address").asText(),
+					new NeutronAllowedAddressPair(alaNode.path(i).path("ip_address").asText(),
 						alaNode.path(i).path("mac_address").asText()));
 			}
 		}

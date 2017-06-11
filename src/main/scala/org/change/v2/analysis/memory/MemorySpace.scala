@@ -14,6 +14,11 @@ import scala.collection.mutable.{Map => MutableMap}
 import org.change.v2.analysis.expression.concrete.nonprimitive.Reference
 import org.change.v2.analysis.expression.concrete.ConstantValue
 import org.change.v2.analysis.expression.concrete.ConstantStringValue
+import org.change.v2.analysis.constraint.LTE_E
+import org.change.v2.analysis.constraint.GT_E
+import org.change.v2.analysis.constraint.GTE_E
+import org.change.v2.analysis.constraint.LT_E
+import org.change.v2.analysis.constraint.EQ_E
 
 /**
 *  Author: Radu Stoenescu
@@ -168,45 +173,45 @@ case class MemorySpace(val symbols: Map[String, MemoryObject] = Map.empty,
     val subject = newMem.eval(id).get
 
     subject.e match {
-//      case ConstantValue(x, _, _) => {
-//        c match {
-//          case E(y) if x == y => Some(newMem)
-//          case GT(y) if x > y => Some(newMem)
-//          case GTE(y) if x >= y => Some(newMem)
-//          case LT(y) if x < y => Some(newMem)
-//          case LTE(y)  if x <= y => Some(newMem)
-//          case EQ_E(ConstantValue(y, _, _)) if x == y => Some(newMem)
-//          case GT_E(ConstantValue(y, _, _)) if x > y => Some(newMem)
-//          case GTE_E(ConstantValue(y, _, _)) if x >= y => Some(newMem)
-//          case LT_E(ConstantValue(y, _, _)) if x < y => Some(newMem)
-//          case LTE_E(ConstantValue(y, _, _))  if x <= y => Some(newMem)
-//          
-//          case E(y) if x != y => None
-//          case GT(y) if x <= y => None
-//          case GTE(y) if x < y => None
-//          case LT(y) if x >= y => None
-//          case LTE(y)  if x > y => None
-//          case EQ_E(ConstantValue(y, _, _)) if x != y => None
-//          case GT_E(ConstantValue(y, _, _)) if x <= y => None
-//          case GTE_E(ConstantValue(y, _, _)) if x < y => None
-//          case LT_E(ConstantValue(y, _, _)) if x >= y => None
-//          case LTE_E(ConstantValue(y, _, _))  if x > y => None
-//          
-//          case _ => memoryToOption(newMem)
-//        }
-//      }
-//      case v : ConstantStringValue => {
-//        val x = v.getNumber
-//        c match {
-//          case E(y) if x == y => Some(newMem)
-//          case EQ_E(ConstantValue(y, _, _)) if x == y => Some(newMem)
-//          case E(y) if x != y => None
-//          case EQ_E(ConstantValue(y, _, _)) if x != y => None
-//          case EQ_E(z : ConstantStringValue) if x == z.getNumber => Some(newMem)
-//          case EQ_E(z : ConstantStringValue) if x != z.getNumber => None
-//          case _ => memoryToOption(newMem)
-//        }
-//      }
+      case ConstantValue(x, _, _) => {
+        c match {
+          case E(y) if x == y => Some(newMem)
+          case GT(y) if x > y => Some(newMem)
+          case GTE(y) if x >= y => Some(newMem)
+          case LT(y) if x < y => Some(newMem)
+          case LTE(y)  if x <= y => Some(newMem)
+          case EQ_E(ConstantValue(y, _, _)) if x == y => Some(newMem)
+          case GT_E(ConstantValue(y, _, _)) if x > y => Some(newMem)
+          case GTE_E(ConstantValue(y, _, _)) if x >= y => Some(newMem)
+          case LT_E(ConstantValue(y, _, _)) if x < y => Some(newMem)
+          case LTE_E(ConstantValue(y, _, _))  if x <= y => Some(newMem)
+          
+          case E(y) if x != y => None
+          case GT(y) if x <= y => None
+          case GTE(y) if x < y => None
+          case LT(y) if x >= y => None
+          case LTE(y)  if x > y => None
+          case EQ_E(ConstantValue(y, _, _)) if x != y => None
+          case GT_E(ConstantValue(y, _, _)) if x <= y => None
+          case GTE_E(ConstantValue(y, _, _)) if x < y => None
+          case LT_E(ConstantValue(y, _, _)) if x >= y => None
+          case LTE_E(ConstantValue(y, _, _))  if x > y => None
+          
+          case _ => memoryToOption(newMem)
+        }
+      }
+      case v : ConstantStringValue => {
+        val x = v.getNumber
+        c match {
+          case E(y) if x == y => Some(newMem)
+          case EQ_E(ConstantValue(y, _, _)) if x == y => Some(newMem)
+          case E(y) if x != y => None
+          case EQ_E(ConstantValue(y, _, _)) if x != y => None
+          case EQ_E(z : ConstantStringValue) if x == z.getNumber => Some(newMem)
+          case EQ_E(z : ConstantStringValue) if x != z.getNumber => None
+          case _ => memoryToOption(newMem)
+        }
+      }
       case _ => {
         c match {
           case EQ_E(someE) if someE.id == subject.e.id => Some(newMem)
@@ -226,33 +231,33 @@ case class MemorySpace(val symbols: Map[String, MemoryObject] = Map.empty,
     val subject = newMem.eval(a).get
 
     subject.e match {
-//      case ConstantValue(x, _, _) => {
-//        c match {
-//          case E(y) if x == y => Some(newMem)
-//          case GT(y) if x > y => Some(newMem)
-//          case GTE(y) if x >= y => Some(newMem)
-//          case LT(y) if x < y => Some(newMem)
-//          case LTE(y)  if x <= y => Some(newMem)
-//          case EQ_E(ConstantValue(y, _, _)) if x == y => Some(newMem)
-//          case GT_E(ConstantValue(y, _, _)) if x > y => Some(newMem)
-//          case GTE_E(ConstantValue(y, _, _)) if x >= y => Some(newMem)
-//          case LT_E(ConstantValue(y, _, _)) if x < y => Some(newMem)
-//          case LTE_E(ConstantValue(y, _, _))  if x <= y => Some(newMem)
-//          
-//          case E(y) if x != y => None
-//          case GT(y) if x <= y => None
-//          case GTE(y) if x < y => None
-//          case LT(y) if x >= y => None
-//          case LTE(y)  if x > y => None
-//          case EQ_E(ConstantValue(y, _, _)) if x != y => None
-//          case GT_E(ConstantValue(y, _, _)) if x <= y => None
-//          case GTE_E(ConstantValue(y, _, _)) if x < y => None
-//          case LT_E(ConstantValue(y, _, _)) if x >= y => None
-//          case LTE_E(ConstantValue(y, _, _))  if x > y => None
-//          
-//          case _ => memoryToOption(newMem)
-//        }
-//      }
+      case ConstantValue(x, _, _) => {
+        c match {
+          case E(y) if x == y => Some(newMem)
+          case GT(y) if x > y => Some(newMem)
+          case GTE(y) if x >= y => Some(newMem)
+          case LT(y) if x < y => Some(newMem)
+          case LTE(y)  if x <= y => Some(newMem)
+          case EQ_E(ConstantValue(y, _, _)) if x == y => Some(newMem)
+          case GT_E(ConstantValue(y, _, _)) if x > y => Some(newMem)
+          case GTE_E(ConstantValue(y, _, _)) if x >= y => Some(newMem)
+          case LT_E(ConstantValue(y, _, _)) if x < y => Some(newMem)
+          case LTE_E(ConstantValue(y, _, _))  if x <= y => Some(newMem)
+          
+          case E(y) if x != y => None
+          case GT(y) if x <= y => None
+          case GTE(y) if x < y => None
+          case LT(y) if x >= y => None
+          case LTE(y)  if x > y => None
+          case EQ_E(ConstantValue(y, _, _)) if x != y => None
+          case GT_E(ConstantValue(y, _, _)) if x <= y => None
+          case GTE_E(ConstantValue(y, _, _)) if x < y => None
+          case LT_E(ConstantValue(y, _, _)) if x >= y => None
+          case LTE_E(ConstantValue(y, _, _))  if x > y => None
+          
+          case _ => memoryToOption(newMem)
+        }
+      }
       case _ => {
         c match {
           case EQ_E(someE) if someE.id == subject.e.id => Some(newMem)

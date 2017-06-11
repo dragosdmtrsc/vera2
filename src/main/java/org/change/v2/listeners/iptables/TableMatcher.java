@@ -20,7 +20,6 @@ import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.tree.ParseTreeWalker;
 import org.change.v2.model.iptables.IPTablesChain;
 import org.change.v2.model.iptables.IPTablesTable;
-import org.junit.Assert;
 
 public class TableMatcher extends IptablesBaseListener {
 	private String name;
@@ -140,7 +139,8 @@ public class TableMatcher extends IptablesBaseListener {
 		{
 			try
 			{
-				Assert.assertNotNull(TableMatcher.fromFile(f, "nat"));
+				if (TableMatcher.fromFile(f, "nat") == null)
+					throw new IllegalArgumentException();
 			}
 			catch (Exception ex)
 			{

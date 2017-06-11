@@ -13,7 +13,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import junit.framework.Assert;
 
 import org.change.v2.listeners.iptables.TableMatcher;
 import org.change.v2.model.openflow.FlowEntry;
@@ -230,7 +229,7 @@ public class WorldModel {
 	{
 		System.setErr(new PrintStream("generated.err"));
 		WorldModel wm = fromFolder("stack-inputs/generated");
-		Assert.assertNotNull(wm.getComputer("controller"));
+//		Assert.assertNotNull(wm.getComputer("controller"));
 	}
 	
 }
