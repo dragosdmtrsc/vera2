@@ -72,6 +72,16 @@ case class :|:(a: FloatingConstraint, b: FloatingConstraint) extends FloatingCon
   }
 }
 
+object :|: {
+  def apply(constrs : List[FloatingConstraint]) : FloatingConstraint = {
+    constrs match {
+      case head :: Nil => head
+      case head :: tail => :|:(apply(head :: Nil), apply(tail))
+      case _ => throw new IllegalArgumentException("Cannot handle empty constraint set")
+    }
+  }
+}
+
 case class :&:(a: FloatingConstraint, b: FloatingConstraint) extends FloatingConstraint {
   override def instantiate(s: State): Either[Constraint, String] = a instantiate s match {
     case Left(ac) => b instantiate s match {

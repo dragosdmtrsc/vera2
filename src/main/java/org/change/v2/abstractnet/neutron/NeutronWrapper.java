@@ -20,7 +20,7 @@ public class NeutronWrapper extends Creator {
 	private Map<String, FirewallRule> rules = new HashMap<String, FirewallRule>();
 
 	public NeutronWrapper(String host, String userName, String password, String project) {
-		super(org.openstack4j.openstack.OSFactory.builder()
+		super(org.openstack4j.openstack.OSFactory.builderV2()
                 .endpoint(host)
                 .credentials(userName, password)
                 .tenantName(project)

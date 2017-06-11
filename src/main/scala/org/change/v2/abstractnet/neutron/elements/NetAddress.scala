@@ -21,6 +21,13 @@ class NetAddress(fullCidr : String) {
     val sp = split
     Integer.parseInt(sp(1))
   }
+
+
+  def inRange(ip : String) = {
+    val ar = addressRange
+    val toNum = ipToNumber(ip)
+    toNum <= ar._2 && toNum >= ar._1
+  }
   
   def addressRange = {
      ipAndMaskToInterval(split(0), split(1))
