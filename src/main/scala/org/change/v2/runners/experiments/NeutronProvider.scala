@@ -214,7 +214,9 @@ object L2Connectivity
               Assign(IPTablesConstants.CTMARK_BOTTOM.scopeTo(y), ConstantValue(0)),
               Allocate(IPTablesConstants.CTMARK_TOP.scopeTo(y)),
               Assign(IPTablesConstants.CTMARK_TOP.scopeTo(y), ConstantValue(0)),
-              Assign("IsTracked".scopeTo(y), ConstantValue(0))
+              Assign("IsTracked".scopeTo(y), ConstantValue(0)),
+              Assign("SNAT.IsSNAT".scopeTo(y), ConstantValue(0)),
+              Assign("DNAT.IsDNAT".scopeTo(y), ConstantValue(0))
             )
           }
         }

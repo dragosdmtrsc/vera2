@@ -1128,8 +1128,8 @@ case class EnterIPTablesChain(pc : Computer,
             }
             case y : CtStateOption => {
               val tagList = y.getList.toList
-              def computeOr (list : List[Integer]) : FloatingConstraint = list match {
-                case head :: Nil => :==:(ConstantValue(head.intValue()))
+              def computeOr (list : List[Int]) : FloatingConstraint = list match {
+                case head :: Nil => :==:(ConstantValue(head))
                 case head :: tail => :|:(computeOr(head :: Nil), computeOr(tail))
                 case Nil => throw new UnsupportedOperationException("Can't be")
               }
@@ -1143,8 +1143,16 @@ case class EnterIPTablesChain(pc : Computer,
                   x != StateDefinitions.DNAT && 
                   x != StateDefinitions.UNTRACKED
                 }
-              val ored = computeOr(tagList)
-              var lst = List[Instruction](Constrain("State".scopeTo(ns), if (y.getNeg) :~:(ored) else ored))
+              var lst = if (nonat.isEmpty)
+                {
+                  List[Instruction]()
+                }
+                else
+                {
+                  val ored = computeOr(nonat)
+                  List[Instruction](Constrain("State".scopeTo(ns), 
+                      if (y.getNeg) :~:(ored) else ored))
+                }
               if (tagList.exists { x => x.intValue() == StateDefinitions.SNAT })
                 lst = (Constrain("SNAT.IsSNAT".scopeTo(ns),
                   if (!y.getNeg) 
@@ -1158,7 +1166,7 @@ case class EnterIPTablesChain(pc : Computer,
                   else
                     :~:(:==:(ConstantValue(1))))) :: lst
               if (tagList.exists { x => x.intValue() == StateDefinitions.INVALID})
-                lst = (Constrain("IsTracked", if (!y.getNeg) 
+                lst = (Constrain("IsTracked".scopeTo(ns), if (!y.getNeg) 
                     :==:(ConstantValue(0))
                   else
                     :~:(:==:(ConstantValue(0))))) :: lst
