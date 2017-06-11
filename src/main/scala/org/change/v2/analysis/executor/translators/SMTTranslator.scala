@@ -65,7 +65,7 @@ class SMTTranslator(smt : SMT)
             hitMe(left, smt, set, right, factory, "+")
           case Minus(left, right) =>
             hitMe(left, smt, set, right, factory, "-")
-          case ConstantValue(v, _) =>
+          case ConstantValue(v, _, _) =>
             (factory.numeral(v), List[ICommand](), Set[String]())
           case SymbolicValue(_) => {
             val symId = "Symbol_" + expression.id
@@ -86,7 +86,7 @@ class SMTTranslator(smt : SMT)
                  set)
             }
           }
-          case Reference(value) =>
+          case Reference(value, _) =>
             {
               val visited = visit(value.e, smt, set)
               (visited._1, visited._2, visited._3)

@@ -1,0 +1,7 @@
+meta.matched = false;
+val range = range(route);
+if (packet.IPDst >= range._1 && packet.IPDst <= range._2) {
+    meta.matched = true;
+    meta.routing.decision.nextHop = route.nextHop;
+    meta.routing.decision.outInterface = route.outInterface;
+}

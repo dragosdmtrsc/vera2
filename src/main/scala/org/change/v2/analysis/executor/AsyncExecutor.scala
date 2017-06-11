@@ -237,6 +237,10 @@ class AsyncExecutor(syncExec : InstructionExecutor,
     executeInstructionBlock(InstructionBlock(instruction), s, v)
   }
   
-  
+  def executeExoticInstruction(instruction : Instruction,
+      s : State,
+      v : Boolean = false) : Unit = {
+    this.executeInstructionBlock(InstructionBlock(instruction), s, v)
+  }
 
 }

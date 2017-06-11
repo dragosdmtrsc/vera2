@@ -93,6 +93,15 @@ case class E(v: Long) extends Constraint{
     Z3Util.z3Context.mkEq(ast, Z3Util.z3Context.mkInt(v.asInstanceOf[Int], Z3Util.defaultSort))
 }
 
+
+case class Truth() extends Constraint {
+  override def asSet(valueType: NumericType): List[(Long, Long)] =
+    List((valueType.min, valueType.max))
+
+  override def z3Constrain(ast: Z3AST): Z3AST =
+    Z3Util.z3Context.mkTrue()
+}
+
 case class Range(v1: Long, v2: Long) extends Constraint {
   override def asSet(valueType: NumericType): List[(Long, Long)] = {
     List((Math.max(v1, valueType.min), Math.min(v2, valueType.max)))

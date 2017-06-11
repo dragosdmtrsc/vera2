@@ -31,6 +31,7 @@ outputs/
 .cache-tests
 .gitignore.swp
 nohup.out
+.tmpBin/
 
 credentials\.txt
 
@@ -41,5 +42,19 @@ fail\.txt
 ok\.txt
 
 instructionmap\.txt
+
+stack-inputs/
+
+generated\.out
+
+*.xlsx
+
+new 8
+
+*.out
+
+generated\.err
+
+*.pyc
 
 stack-inputs/

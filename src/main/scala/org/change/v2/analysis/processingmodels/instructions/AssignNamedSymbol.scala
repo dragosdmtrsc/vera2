@@ -15,7 +15,6 @@ import org.change.v2.analysis.expression.abst.{FloatingExpression, Expression}
 import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.analysis.memory.{State, TagExp, Intable}
 
-
 /**
  * Author: Radu Stoenescu
  * Don't be a stranger,  symnetic.7.radustoe@spamgourmet.com
@@ -36,6 +35,9 @@ case class AssignNamedSymbol(id: String, exp: FloatingExpression, t: NumericType
       case Right(err) => Fail(err).apply(s, v)
     }
   }
+  
+  override def toString = s"$id <- $exp"
+
 }
 
 case class AssignRaw(a: Intable, exp: FloatingExpression, t: NumericType = LongType) extends Instruction {
@@ -55,9 +57,21 @@ case class AssignRaw(a: Intable, exp: FloatingExpression, t: NumericType = LongT
     }}
     case None => Fail(TagExp.brokenTagExpErrorMessage)(s,v)
   }
+  
+  
+  override def toString = s"$a <- $exp"
 }
 
 object Assign {
+  
+  def apply(a : Either[String, Intable], exp : FloatingExpression) : Instruction = {
+    apply(a, exp, LongType)
+  }
+  def apply(a : Either[String, Intable], exp : FloatingExpression, kind : NumericType) : Instruction = 
+  a match {
+    case Left(x) => apply(x, exp, kind)
+    case Right(x) => apply(x, exp, kind)
+  }
   def apply(a: Intable, exp: FloatingExpression): Instruction =
     apply(a, exp, LongType)
   def apply(a : Intable, exp : FloatingExpression, kind : NumericType) : Instruction = 
@@ -69,6 +83,10 @@ object Assign {
     AssignNamedSymbol(id, exp, kind)
   def apply(id: String, exp: FloatingExpression): Instruction =
     apply(id, exp, LongType)
+    
+  def apply (id : String, exp : Int) : Instruction = 
+    apply(id, ConstantValue(exp))
+  def apply(a : Intable, exp : Int) : Instruction = apply(a, ConstantValue(exp))
   def apply(id: String, ip : String) : Instruction = 
     apply(id, ConstantValue(ipToNumber(ip)), IP4Type)
 }

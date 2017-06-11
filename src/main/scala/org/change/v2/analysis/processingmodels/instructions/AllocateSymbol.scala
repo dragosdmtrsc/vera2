@@ -20,6 +20,8 @@ case class AllocateSymbol(id: String) extends Instruction {
       s.memory.Allocate(id)
     })
   }
+ override def toString = s"Allocate($id)"
+
 }
 
 case class AllocateRaw(a: Intable, size: Int) extends Instruction {
@@ -36,6 +38,9 @@ case class AllocateRaw(a: Intable, size: Int) extends Instruction {
     })
     case None => Fail(TagExp.brokenTagExpErrorMessage)(s,v)
   }
+  
+  override def toString = s"Allocate($a, $size)"
+  
 }
 
 object Allocate {
