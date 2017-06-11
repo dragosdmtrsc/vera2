@@ -15,8 +15,8 @@ import org.openstack4j.model.network.Router
 import org.openstack4j.openstack.networking.domain.NeutronRouter
 import org.change.v2.analysis.memory.State
 
-class NetExternalRouterIn(wrapper : NeutronWrapper, router : NeutronRouter, already : List[String] = Nil) 
-    extends NetRouter(wrapper, router, already) {
+class NetExternalRouterIn(wrapper : NeutronWrapper, router : NeutronRouter)
+    extends NetRouter(wrapper, router) {
 
     override def symnetCode() : Instruction = {
     if (router.getExternalGatewayInfo == null)
@@ -36,7 +36,7 @@ object NetExternalRouterIn {
   }
   
   def apply(wrapper : NeutronWrapper, router : NeutronRouter, already : List[String]) : Instruction = {
-    new NetExternalRouterIn(wrapper, router, already).symnetCode()
+    new NetExternalRouterIn(wrapper, router).symnetCode()
   }
   
   def main(argv : Array[String]) = {

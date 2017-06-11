@@ -14,13 +14,15 @@ import org.openstack4j.model.network.Subnet
 import org.openstack4j.openstack.networking.domain.NeutronRouter
 import org.change.v2.analysis.expression.concrete._
 import org.change.v2.analysis.memory.Tag
+import org.change.v2.util.canonicalnames._
+
 
 class NetSubnetIn (wrapper : NeutronWrapper, subnet : Subnet) extends BaseNetElement(wrapper) {
   def symnetCode : Instruction = {
     val (start, end) = NetAddress(subnet.getCidr).addressRange
-    If(Constrain(Tag("IPSrc"), :|:(:>:(ConstantValue(end, true)), :<:(ConstantValue(start, true)))),
+    If(Constrain(IPSrc, :|:(:>:(ConstantValue(end, true)), :<:(ConstantValue(start, true)))),
         Fail("IPSrc not for this subnet " + subnet.getCidr),
-        If(Constrain(Tag("IPDst"), :&:(:<=:(ConstantValue(end, true)), :>=:(ConstantValue(start, true)))),
+        If(Constrain(IPDst, :&:(:<=:(ConstantValue(end, true)), :>=:(ConstantValue(start, true)))),
             NoOp,
             parseLocalTable))
   }
@@ -30,7 +32,7 @@ class NetSubnetIn (wrapper : NeutronWrapper, subnet : Subnet) extends BaseNetEle
   def parseLocalTable(routes : List[HostRoute]) : Instruction = routes match {
     case h::tail => {
       val (start, end) = NetAddress(h.getDestination).addressRange
-      If (Constrain(Tag("IPDst"),:&:(:<=:(ConstantValue(end, true)), :>=:(ConstantValue(start, true)))),
+      If (Constrain(IPDst,:&:(:<=:(ConstantValue(end, true)), :>=:(ConstantValue(start, true)))),
           lookForNextElement(h.getNexthop),
           parseLocalTable(tail))
     }

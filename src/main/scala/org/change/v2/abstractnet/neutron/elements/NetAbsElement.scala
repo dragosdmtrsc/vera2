@@ -13,14 +13,14 @@ trait NetAbsElement {
 
 
 abstract class BaseNetElement(wrapper : NeutronWrapper) extends NetAbsElement {
-  
-  
-  
-  def os = wrapper.getOs
-  def routers = os.networking.router.list
+
+
+
+  lazy val os = wrapper.getOs
+  lazy val routers = os.networking.router.list
   def router(v : String) = os.networking().router().get(v)
-  def ports = os.networking.port.list
-  def subnet = os.networking.subnet
+  lazy val ports = os.networking.port.list
+  lazy val subnetService = os.networking.subnet
   
   def portByIp(ip : String) : Port = {
     val thePorts = ports.filter { x => x.getFixedIps.toSet.filter { x => x.getIpAddress == ip }.size != 0 }

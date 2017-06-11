@@ -48,7 +48,6 @@ object SecurityGroupsCrawler {
           userName,
           password,
           project)
-    
     val pcs = wrapper.getOs.compute().servers().list()
     for (pc <- pcs)
     {

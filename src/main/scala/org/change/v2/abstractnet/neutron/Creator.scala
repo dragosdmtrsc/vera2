@@ -7,9 +7,10 @@ import org.openstack4j.model.network.Router
 import org.openstack4j.openstack.networking.domain.NeutronNetwork
 import org.openstack4j.openstack.networking.domain.NeutronRouter
 import org.openstack4j.openstack.networking.domain.NeutronSubnet
+import org.openstack4j.api.OSClient.OSClientV2
 
 
-class Creator(osClient : OSClient) {
+class Creator(osClient : OSClientV2) {
   
   def routerService = osClient.networking.router
   def portService = osClient.networking.port
@@ -56,7 +57,7 @@ class Creator(osClient : OSClient) {
 
 object Creator {
   def apply(host : String, userName :String, password : String, project : String) : Creator = {
-    new Creator(org.openstack4j.openstack.OSFactory.builder()
+    new Creator(org.openstack4j.openstack.OSFactory.builderV2()
                 .endpoint(host)
                 .credentials(userName, password)
                 .tenantName(project)

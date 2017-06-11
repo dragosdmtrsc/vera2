@@ -2,9 +2,9 @@ package org.change.v2.abstractnet.neutron.elements
 
 import scala.collection.JavaConversions._
 import scala.collection.mutable.Buffer
-
 import org.change.v2.abstractnet.neutron.NeutronWrapper
-import org.change.v2.analysis.expression.concrete.ConstantValue
+import org.change.v2.analysis.expression.concrete.{ConstantValue, SymbolicValue}
+import org.change.v2.analysis.expression.concrete.nonprimitive.:@
 import org.change.v2.analysis.memory.Tag
 import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.analysis.processingmodels.Instruction
@@ -17,12 +17,14 @@ import org.change.v2.util.conversion.RepresentationConversion._
 import org.change.v2.util.conversion.RepresentationConversion._
 import org.openstack4j.api.OSClient
 import org.openstack4j.model.network.Router
+import org.openstack4j.model.network.Port
 import org.openstack4j.model.network.Subnet
 import org.openstack4j.openstack.networking.domain.NeutronRouter
-
-class NetRouter(wrapper : NeutronWrapper, router : NeutronRouter, already : List[String] = Nil) 
+import org.change.v2.util.canonicalnames._
+class NetRouter(wrapper : NeutronWrapper,
+                router : Router,
+                throughExt : Boolean = false)
     extends BaseNetElement(wrapper) {
-  
   
   
   def checkDestNearby() : Instruction = {
@@ -33,24 +35,17 @@ class NetRouter(wrapper : NeutronWrapper, router : NeutronRouter, already : List
     null
   }
   
-  def routerNets() = {
-    ports.filter { z => z.getDeviceId == router.getId }.map { x => 
-            val ips = x.getFixedIps.iterator()
-            if (ips.hasNext()) {
-              val ip = ips.next
-              val theSubnet = subnet.get(ip.getSubnetId)
-              (ip.getIpAddress, new NetAddress(theSubnet.getCidr), theSubnet);
-            } else {
-              null
-            }
-         }.sortBy { u => - u._2.mask }
-  }
-  
-  
-  private def checkMyDestination(list : List[(String, NetAddress, Subnet)]) : Instruction = 
-  list match {
-    case h :: tail => If (Constrain(Tag("IPDst"),  :==:(ConstantValue(ipToNumber(h._1), true))),
-        NoOp,
+  lazy val routerNets = ports.filter { z => z.getDeviceId == router.getId }.flatMap { x =>
+              x.getFixedIps.map ( ip => {
+                  val theSubnet = wrapper.getOs.networking().subnet().get(ip.getSubnetId)
+                  (ip.getIpAddress, new NetAddress(theSubnet.getCidr), theSubnet, x)
+                }
+              )
+            }.sortBy { u => - u._2.mask }
+
+  private def checkMyDestination(list : List[(String, NetAddress, Subnet, Port)]) : Instruction = list match {
+    case h :: tail => If (Constrain(IPDst,  :==:(ConstantValue(ipToNumber(h._1), true))),
+        Forward(s"Router/${router.getId}/cpu/in"), // se numeste succes
         checkMyDestination(tail))
     case Nil => checkConnectedSubnet
   }
@@ -59,11 +54,11 @@ class NetRouter(wrapper : NeutronWrapper, router : NeutronRouter, already : List
     checkMyDestination(this.routerNets.toList)
   }
   
-  private def checkConnectedSubnet(list :  List[(String, NetAddress, Subnet)]) : Instruction = 
+  private def checkConnectedSubnet(list :  List[(String, NetAddress, Subnet, Port)]) : Instruction =
   list match {
-    case h :: tail => If (Constrain(Tag("IPDst"), :&:(:>:(ConstantValue(h._2.addressRange._1, true)),
-        :<:(ConstantValue(h._2.addressRange._2, true)))),
-        NetSubnet(wrapper, h._3),
+    case h :: tail => If (Constrain(IPDst, :&:(:>=:(ConstantValue(h._2.addressRange._1, true)),
+        :<=:(ConstantValue(h._2.addressRange._2, true)))),
+        Forward(s"Router/${router.getId}/${h._4.getId}/${h._3.getId}/out"),
         checkConnectedSubnet(tail))
     case Nil => checkRoutingTable
   }
@@ -71,33 +66,28 @@ class NetRouter(wrapper : NeutronWrapper, router : NeutronRouter, already : List
   private def checkConnectedSubnet() : Instruction = {
     checkConnectedSubnet(this.routerNets.toList)
   }
-  
+  // arg 2 = next hop
+  // arg 1 = cidr to dest
   private def checkRoutingTable(list : List[(NetAddress, String)]) : Instruction = 
   list match {
-    case h :: tail => If (Constrain(Tag("IPDst"), :&:(:>:(ConstantValue(h._1.addressRange._1, true)),
-        :<:(ConstantValue(h._1.addressRange._2, true)))),
+    case h :: tail => If (Constrain(IPDst, :&:(:>=:(ConstantValue(h._1.addressRange._1, true)),
+        :<=:(ConstantValue(h._1.addressRange._2, true)))),
         {
-          val rip = routerByIp(h._2)
-          if (rip != null)
-          {
-            NetRouter(wrapper, rip.asInstanceOf[NeutronRouter], (already.::(router.getId)))
-          }
+          val rnets = routerNets.filter(x => x._2.inRange(h._2))
+          if (rnets.isEmpty)
+            Fail("Unknown next hop")
           else
-          {
-            Fail("No router at address " + h._2)
-          }
+            Forward(s"Router/${router.getId}/${rnets(0)._4.getId}/${rnets(0)._3.getId}/out")
         },
         checkRoutingTable(tail))
     case Nil => checkExternalGateway
   }
+
   
   private def checkExternalGateway() : Instruction = {
-//    Fail("No route to host")
-
     if (this.router.getExternalGatewayInfo != null)
     {
-      // TBD : what to do when external router is there
-      NoOp
+      Forward(s"Router/${router.getId}/external/out")
     }
     else
     {
@@ -109,40 +99,117 @@ class NetRouter(wrapper : NeutronWrapper, router : NeutronRouter, already : List
     checkRoutingTable(this.router.getRoutes.map { x => 
       (new NetAddress(x.getDestination), x.getNexthop) 
     }.toList)
-    
   }
   
 
+
+
   
   def symnetCode() : Instruction = {
-    if (already.contains(router.getId))
-    {
-      Fail("Already been there")
-    }
-    else
-    {
-      checkMyDestination
-    }
+    checkMyDestination
   }
+}
+
+class SNAT (router : Router,
+            wrapper : NeutronWrapper,
+           fromOutside : Boolean) extends BaseNetElement(wrapper) {
+  override def symnetCode(): Instruction = {
+    if (fromOutside)
+      unSnat()
+    else
+      snat()
+  }
+
+
+  def snat() : Instruction = {
+    InstructionBlock(
+      Assign(router.getId + ".SNAT.IPSrcOrig", :@(IPSrc)),
+      Assign(router.getId + ".SNAT.IPDstOrig", :@(IPDst)),
+      IfProto(TCPProto,
+        InstructionBlock(Assign(router.getId + ".SNAT.TCPSrcOrig", :@(TcpSrc)),
+          Assign(router.getId + ".SNAT.TCPDstOrig", :@(TcpDst)),
+          Assign(TcpSrc, SymbolicValue()),
+          Constrain(TcpSrc, :&:(:<=:(ConstantValue(65536)), :>=:(ConstantValue(0)))),
+          Assign(router.getId + ".SNAT.TCPSrcMod", :@(TcpSrc))
+        ),
+        IfProto(UDPProto,
+          InstructionBlock(
+            Assign(router.getId + ".SNAT.UDPSrcOrig", :@(TcpSrc)),
+            Assign(router.getId + ".SNAT.UDPDstOrig", :@(TcpDst)),
+            Assign(UDPSrc, SymbolicValue()),
+            Constrain(UDPSrc, :&:(:<=:(ConstantValue(65536)), :>=:(ConstantValue(0)))),
+            Assign(router.getId + ".SNAT.UDPSrcMod", :@(UDPSrc))
+          )
+        )
+      ),
+      Assign(IPSrc, SymbolicValue()), // TODO: nu uita sa faci ai sa ai si ip src de la external gw
+      Assign(router.getId + ".SNAT.IPSrcMod", :@(IPSrc)),
+      Assign(router.getId + ".SNAT.IPProto", :@(Proto)),
+      Assign(router.getId + ".SNAT", ConstantValue(1)),
+      Forward(s"SNAT/${router.getId}/external/out")
+    )
+  }
+
+  def unSnat() : Instruction = {
+    If (Constrain(router.getId + ".SNAT", :==:(ConstantValue(1))),
+      If (Constrain(Proto, :==:(:@(router.getId + ".SNAT.IPProto"))),
+        If (Constrain(IPDst, :==:(:@(router.getId + ".SNAT.IPSrcMod"))),
+          If (Constrain(IPSrc, :==:(:@(router.getId + ".SNAT.IPDstOrig"))),
+            IfProto (TCPProto,
+              If (Constrain(TcpSrc, :==:(:@(router.getId + ".SNAT.TCPDstOrig"))),
+                If (Constrain(TcpDst, :==:(:@(router.getId + ".SNAT.TCPSrcMod"))),
+                  InstructionBlock(
+                    Assign(TcpDst, :@(router.getId + ".SNAT.TCPSrcOrig")),
+                    Assign(IPDst, :@(router.getId + ".SNAT.IPSrcOrig")),
+                    Forward(s"SNAT/${router.getId}/internal/out")
+                  ),
+                  Fail(s"No SNAT found at ${router.getId}, because TcpDst is not the same with the modified TCPSrc")
+                ),
+                Fail(s"No SNAT found at ${router.getId}, because TcpSrc is not the same with the original TCPDst")
+              ),
+              IfProto(UDPProto,
+                If (Constrain(UDPSrc, :==:(:@(router.getId + ".SNAT.UDPDstOrig"))),
+                  If (Constrain(UDPDst, :==:(:@(router.getId + ".SNAT.UDPSrcMod"))),
+                    InstructionBlock(
+                      Assign(UDPDst, :@(router.getId + ".SNAT.UDPSrcOrig")),
+                      Assign(IPDst, :@(router.getId + ".SNAT.IPSrcOrig")),
+                      Forward(s"SNAT/${router.getId}/internal/out")
+                    ),
+                    Fail(s"No SNAT found at ${router.getId}, because UDPDst is not the same with the modified UDPSrc")
+                  ),
+                  Fail(s"No SNAT found at ${router.getId}, because UDPSrc is not the same with the original UDPDst")
+                ),
+                InstructionBlock(
+                  Assign(IPDst, :@(router.getId + ".SNAT.IPSrcOrig")),
+                  Forward(s"SNAT/${router.getId}/internal/out")
+                )
+              )
+            ),
+            Fail(s"No SNAT found at ${router.getId}, because IPSrc is not the same with the original IPDst")
+          ),
+          Fail(s"No SNAT found at ${router.getId}, because IPDst is not the same with the modified IPSrc")
+        ),
+        Fail(s"No SNAT found at ${router.getId}, because Proto is not the same")
+      ),
+      Fail(s"No SNAT found at ${router.getId}")
+    )
+  }
+
 }
 
 
 
 object NetRouter {
-  def apply(wrapper : NeutronWrapper, router : NeutronRouter) : Instruction = {
-    apply(wrapper, router, Nil)
-  }
-  
-  def apply(wrapper : NeutronWrapper, router : NeutronRouter, already : List[String]) : Instruction = {
-    new NetRouter(wrapper, router, already).symnetCode()
+
+  def apply(wrapper : NeutronWrapper, router : Router) : Instruction = {
+    new NetRouter(wrapper, router).symnetCode()
   }
   
   def main(argv : Array[String]) = {
-   val wrapper = new NeutronWrapper("https://cloud-controller.grid.pub.ro:5000/v2.0",
-        "dragos.dumitrescu92",
-        "Oximoron_16092", "dragos.dumitrescu92_prj");
-   val r = wrapper.getOs.networking.router.list.get(0).asInstanceOf[NeutronRouter]
-   System.out.println(NetRouter(wrapper, r))    
+   val wrapper = NeutronHelper.neutronWrapperFromFile()
+   val r = wrapper.getOs.networking.router.list.get(0)
+   System.out.println(new SNAT(r, wrapper, true).symnetCode())
+   System.out.println(new SNAT(r, wrapper, false).symnetCode())
   }
   
 }

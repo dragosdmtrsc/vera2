@@ -59,12 +59,14 @@ import java.io.PrintWriter
 import org.change.v2.analysis.executor.InstructionExecutor
 import org.change.v2.analysis.executor.DecoratedInstructionExecutor
 import org.change.v2.analysis.executor.solvers.Z3Solver
+import org.change.v2.abstractnet.generic.GenericElement
+import org.change.v2.abstractnet.generic.GenericElementBuilder
+import org.change.v2.abstractnet.generic.ElementBuilder
+import org.change.v2.abstractnet.generic.Port
 
 
-class SecurityGroup(wrapper : NeutronWrapper, forPc : String, ingress : Boolean = false) extends BaseNetElement(wrapper) {
-  lazy val secGrps = wrapper.getOs.compute().securityGroups().listServerGroups(forPc).
-      map { _.getId }.distinct.
-      map { x => wrapper.getOs.networking().securitygroup().get(x) }.toList
+class SecurityGroup(wrapper : NeutronWrapper, forPort : String, ingress : Boolean = false) extends BaseNetElement(wrapper) {
+  lazy val secGrps = wrapper.getOs.networking().port().get(forPort).getSecurityGroups.map(f => wrapper.getOs.networking().securitygroup().get(f))
   lazy val secRules = if (ingress)
   {
     secGrps.flatMap { x => x.getRules.filter { y => y.getDirection == "ingress" }.toList }
@@ -307,9 +309,13 @@ class SecurityGroup(wrapper : NeutronWrapper, forPc : String, ingress : Boolean 
       
   
   def symnetCode() : Instruction = {
-    val lst = (Assign("Matched", ConstantValue(0)) :: secRules.map { getInstruction } ) :+  (If (Constrain("Matched", :==:(ConstantValue(0))),
-          Fail("No matches"),
-          NoOp))
+    val lst = (Assign("Matched", ConstantValue(0)) :: secRules.map { getInstruction }.toList ) :+  (If (Constrain("Matched", :==:(ConstantValue(0))),
+          Fail("No matches for security groups of " + this.forPort),
+          if (ingress) {
+            Forward(s"SecurityGroup/$forPort/ingress/out")
+          } else {
+            Forward(s"SecurityGroup/$forPort/egress/out")
+          }))
     InstructionBlock(lst)
   }
 }
@@ -321,7 +327,7 @@ object SecurityGroup {
           userName,
           password,
           project)
-    val server = wrapper.getOs.compute().servers().list()(0)
+    val server = wrapper.getOs.networking().port().list(PortListOptions.create().deviceOwner("compute:None")).get(0)
     val sec = new SecurityGroup(wrapper, server.getId, true)
     var pw = new PrintWriter("code.txt")
     
