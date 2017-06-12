@@ -9,17 +9,18 @@ import org.change.v2.util.canonicalnames._
 
 import scala.collection.JavaConversions._
 import org.change.v2.util.conversion.RepresentationConversion._
+import org.change.v2.abstractnet.neutron.Networking
+import org.openstack4j.model.network.Subnet
+
 /**
   * Created by Dragos on 5/25/2017.
   */
-class NeutronSubnet(subnetId : String, wrapper : NeutronWrapper) extends BaseNetElement(wrapper) {
+class NeutronSubnet(subnet : Subnet, service : Networking) {
 
-  lazy val subnet = wrapper.getOs.networking().subnet().get(subnetId)
   lazy val networkId = subnet.getNetworkId
-
-  lazy val portsForNet = wrapper.getOs.networking().port().list(PortListOptions.create().networkId(networkId))
-
-  override def symnetCode(): Instruction = {
+  lazy val portsForNet = service.getPorts.filter { x => x.getNetworkId == networkId }
+  lazy val subnetId = subnet.getId
+  def symnetCode(): Instruction = {
     portsForNet.foldRight(Fail("No ARP entry found") : Instruction)( (x, acc) => {
       if (x.getFixedIps.exists(u => u.getSubnetId == subnetId))
       {

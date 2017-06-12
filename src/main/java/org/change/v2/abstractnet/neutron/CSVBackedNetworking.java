@@ -5,12 +5,14 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Scanner;
 import java.util.Set;
 
 import org.change.v2.util.CSVUtils;
+import org.junit.Assert;
 import org.openstack4j.model.network.NetFloatingIP;
 import org.openstack4j.model.network.Network;
 import org.openstack4j.model.network.Port;
@@ -72,61 +74,20 @@ public class CSVBackedNetworking implements Networking {
 		 * 
 		 */
 		private static final long serialVersionUID = 7770399990769101150L;
-		private String networkId;
-		private boolean enableSnat;
 		private ArrayList<NeutronIP> ips = new ArrayList<NeutronIP>();
 		public ExtendedExternalGWInfo(String networkId, boolean enableSnat,
 				ArrayList<NeutronIP> ips) {
-			super();
-			this.networkId = networkId;
-			this.enableSnat = enableSnat;
+			super(networkId, enableSnat);
 			this.ips = ips;
 		}
 		
 		public ExtendedExternalGWInfo(String networkId, boolean enableSnat) {
 			this(networkId, enableSnat, new ArrayList<NeutronIP>());
 		} 
-		public String getNetworkId() {
-			return networkId;
-		}
-		public boolean isEnableSnat() {
-			return enableSnat;
-		}
 		public Collection<NeutronIP> getIps() {
 			return ips;
 		}
-		
-		public String toString() {
-			return Objects.toStringHelper(this).omitNullValues()
-				    .add("networkId", networkId).add("enable_snat", enableSnat).toString();		
-		}
 	}
-	
-	/*
-	 * {
-  "allowed_address_pairs": "", 
-  "extra_dhcp_opts": "", 
-  "updated_at": "2017-06-08T14:16:00", 
-  "device_owner": "network:floatingip", 
-  "binding:profile": "{}", 
-  "port_security_enabled": false, 
-  "fixed_ips": "{\"subnet_id\": \"d9b48087-72ed-4c99-95cd-466f46b0c361\", \"ip_address\": \"203.0.113.104\"}", 
-  "id": "1ae02527-0d0e-45be-b771-8f066f87bb7f", 
-  "security_groups": "", 
-  "mac_address": "fa:16:3e:4b:f2:2e", 
-  "status": "N/A", 
-  "binding:host_id": "", 
-  "description": "", 
-  "device_id": "ee887ba3-59c0-40de-b847-bb3ac32303eb", 
-  "name": "", 
-  "admin_state_up": true, 
-  "network_id": "0267647d-80ff-4e2a-afbd-76ade85fa731", 
-  "tenant_id": "", 
-  "created_at": "2017-06-08T14:16:00", 
-  "binding:vnic_type": "normal"
-}
-	 * 
-	 */
 	
 	private static void loadSecurityGroup(CSVBackedNetworking nnn,
 			JsonNode node)
@@ -135,6 +96,23 @@ public class CSVBackedNetworking implements Networking {
 		p.setId(node.path("id").asText());
 		p.setName(node.path("name").asText());
 		p.setTenantId(node.path("tenant_id").asText());
+		if (p.getRules() == null) {
+			if (p.getClass().equals(NeutronSecurityGroup.class)) {
+				try {
+					for (java.lang.reflect.Field f : NeutronSecurityGroup.class.getDeclaredFields())
+					{
+						if (f.getName().equals("rules")) {
+							f.setAccessible(true);
+							f.set(p, new ArrayList<NeutronSecurityGroupRule>());
+							break;
+						}
+					}
+				} catch (IllegalArgumentException | IllegalAccessException
+						| SecurityException e) {
+					e.printStackTrace();
+				}
+			}
+		}
 		nnn.secGroups.put(node.path("id").asText(), p);
 	}
 	
@@ -160,16 +138,45 @@ public class CSVBackedNetworking implements Networking {
 			}
 		}
 		
+		String secGrps = node.path("security_groups").asText();
+		if (!secGrps.isEmpty()) {
+			if (!secGrps.startsWith("["))
+				secGrps = "[\"" + secGrps + "\"]";
+			JsonNode sNode = mapper.readTree(secGrps);
+			for (JsonNode child : sNode)
+				pb = pb.securityGroup(child.asText());
+		}
+
 		Port p = pb.build();
+		p.setId(node.path("id").asText());
+		if (p.getAllowedAddressPairs() == null) {
+			if (p.getClass().equals(NeutronPort.class)) {
+				try {
+					for (java.lang.reflect.Field f : NeutronPort.class.getDeclaredFields())
+					{
+						if (f.getName().equals("allowedAddressPairs")) {
+							f.setAccessible(true);
+							f.set(p, new HashSet<NeutronAllowedAddressPair>());
+						} else if (f.getName().equals("securityGroups")) {
+							f.setAccessible(true);
+							if (f.get(p) == null) {
+								f.set(p, new ArrayList<String>());
+							}
+						}
+					}
+				} catch (IllegalArgumentException | IllegalAccessException
+						| SecurityException e) {
+					e.printStackTrace();
+				}
+			}
+		}
 		if (ala != null && ala.length() != 0)
 		{
 			JsonNode alaNode = mapper.readTree(ala);
-			
-			
-			for (int i = 0; i < alaNode.size(); i++) {
+			for (JsonNode child : alaNode) {
 				((Set<NeutronAllowedAddressPair>)p.getAllowedAddressPairs()).add(
-					new NeutronAllowedAddressPair(alaNode.path(i).path("ip_address").asText(),
-						alaNode.path(i).path("mac_address").asText()));
+					new NeutronAllowedAddressPair(child.path("ip_address").asText(),
+							child.path("mac_address").asText()));
 			}
 		}
 		nnn.ports.put(node.path("id").asText(), p);
@@ -178,28 +185,38 @@ public class CSVBackedNetworking implements Networking {
 	private static void loadRouterFromNode(CSVBackedNetworking nnn, JsonNode node) throws JsonProcessingException, IOException {
 		String egs = node.path("external_gateway_info").asText();
 		String id = node.path("id").asText();
-		JsonNode egNode = mapper.readTree(egs);
-		ExtendedExternalGWInfo eg = new ExtendedExternalGWInfo(egNode.path("network_id").asText(),
-    			egNode.path("enable_snat").asBoolean());
-		int l = egNode.path("external_fixed_ips").size(); 
-		for (int i = 0; i < l; i++) {
-			JsonNode ipNode = egNode.path(i);
-			NeutronIP nip = new NeutronIP(ipNode.path("ip_address").asText(),
-					ipNode.path("subnet_id").asText());
-			eg.getIps().add(nip);
+		ExtendedExternalGWInfo eg = null;
+		
+		if (egs != null && !egs.isEmpty()) {
+			JsonNode egNode = mapper.readTree(egs);
+			
+			eg = new ExtendedExternalGWInfo(egNode.path("network_id").asText(),
+	    			egNode.path("enable_snat").asBoolean());
+			int l = egNode.path("external_fixed_ips").size(); 
+			for (int i = 0; i < l; i++) {
+				JsonNode ipNode = egNode.path("external_fixed_ips").path(i);
+				NeutronIP nip = new NeutronIP(ipNode.path("ip_address").asText(),
+						ipNode.path("subnet_id").asText());
+				eg.getIps().add(nip);
+			}
 		}
+		
 		String routesAsText = node.path("routes").asText();
 		RouterBuilder bld = NeutronRouter.builder();
 
 		if (routesAsText != null && routesAsText.length() != 0)
 		{
 			JsonNode routesNode = mapper.readTree(routesAsText);
-    		l = routesNode.size();
+    		int l = routesNode.size();
     		for (int i = 0; i < l; i++)
     		{
     			bld = bld.route(routesNode.path(i).path("destination").asText(), 
     					routesNode.path(i).path("nexthop").asText());
     		}
+		}
+		else {
+			bld.route("", "");
+			bld.build().getRoutes().clear();
 		}
 		nnn.routers.put(id, 
 				bld.adminStateUp(node.path("admin_state_up").asBoolean())
@@ -211,9 +228,15 @@ public class CSVBackedNetworking implements Networking {
 	}
 	
 	
+	@SuppressWarnings("unchecked")
 	private static void loadSecurityGroupRule(CSVBackedNetworking nnn, JsonNode node) throws JsonProcessingException, IOException {
 		String id = node.path("id").asText();
-		nnn.secGroupRules.put(id, mapper.readerFor(NeutronSecurityGroupRule.class).readValue(node));
+		NeutronSecurityGroupRule nsgr =  mapper.readerFor(NeutronSecurityGroupRule.class).readValue(node);
+		nnn.secGroupRules.put(id, nsgr);
+		SecurityGroup grp = nnn.getSecurityGroup(nsgr.getSecurityGroupId());
+		Assert.assertNotNull(grp);
+		Assert.assertNotNull(grp.getRules());
+		((List<NeutronSecurityGroupRule>)grp.getRules()).add(nsgr);
 	}
 	
 	private static void loadNetwork(CSVBackedNetworking nnn, JsonNode node) throws JsonProcessingException, IOException {

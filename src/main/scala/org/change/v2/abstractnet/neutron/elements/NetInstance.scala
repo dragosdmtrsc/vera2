@@ -31,19 +31,18 @@ import org.openstack4j.model.network.AllowedAddressPair
 
 
 
-class ExitNetInstance(portId : String, wrapper : NeutronWrapper) {
+class ExitNetInstance(port : Port) {
+  lazy val portId = port.getId
   
-  lazy val port = wrapper.getOs.networking().port()get(portId)
-
   def symnetCode() : Instruction = {
     val x = port
     val alld = x.getMacAddress :: x.getAllowedAddressPairs.toArray().map { x => x.asInstanceOf[AllowedAddressPair].getMacAddress }.toList
     val alldIps = x.getFixedIps.map(x => x.getIpAddress).toList ++ x.getAllowedAddressPairs.toArray().map { x => x.asInstanceOf[AllowedAddressPair].getIpAddress }.toList
     val netid = x.getNetworkId
     val allowed =
-      If (Constrain(EtherSrc, :|:(alld.map {y => :==:(ConstantValue(RepresentationConversion.macToNumber(y))) }.toList)),
+      If (Constrain(EtherSrc, :|:(alld.map {y => :==:(ConstantValue(RepresentationConversion.macToNumber(y), isMac = true)) }.toList)),
         if (!alldIps.isEmpty)
-          If (Constrain(IPSrc, :|:(alldIps.map(y => :==:(ConstantValue(RepresentationConversion.ipToNumber(y)))))),
+          If (Constrain(IPSrc, :|:(alldIps.map(y => :==:(ConstantValue(RepresentationConversion.ipToNumber(y), isIp = true))))),
             Forward(s"AntiSpoof/$portId/egress/out"),
             Fail("No match for IP Source")
           )
@@ -56,8 +55,8 @@ class ExitNetInstance(portId : String, wrapper : NeutronWrapper) {
 }
 
 
-class EnterNetInstance(portId : String, wrapper : NeutronWrapper) {
-  lazy val port = wrapper.getOs.networking().port().get(portId)
+class EnterNetInstance(port : Port) {
+  lazy val portId = port.getId
 
   def symnetCode(): Instruction = {
     val acc : Instruction =
@@ -85,7 +84,7 @@ object ExitNetInstance {
     val machine = neutronWrapper.getOs.compute().servers().list()(0)
     val port = neutronWrapper.getOs.networking().port().list().find(p => p.getDeviceId == machine.getId).get
     println(port.getDeviceOwner)
-    val eni = new ExitNetInstance(port.getId, neutronWrapper)
+    val eni = new ExitNetInstance(port)
     println(eni.symnetCode())
   }
 }

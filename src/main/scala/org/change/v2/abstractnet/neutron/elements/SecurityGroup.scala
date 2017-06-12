@@ -62,14 +62,29 @@ import org.change.v2.analysis.executor.solvers.Z3Solver
 import org.change.v2.abstractnet.generic.GenericElement
 import org.change.v2.abstractnet.generic.GenericElementBuilder
 import org.change.v2.abstractnet.generic.ElementBuilder
-import org.change.v2.abstractnet.generic.Port
+import org.change.v2.abstractnet.neutron.Networking
+import org.openstack4j.model.network.Port
+import org.change.v2.abstractnet.neutron.ServiceBackedNetworking
+import org.junit.Assert
+import org.change.v2.abstractnet.linux.iptables.ConntrackGeneric
+import org.change.v2.model.WorldModel
+import org.change.v2.abstractnet.linux.iptables.ConntrackZone
+import org.change.v2.iptables.StateDefinitions
+import org.change.v2.abstractnet.linux.iptables.ConntrackConstants
+import org.change.v2.model.Computer
+import org.change.v2.abstractnet.linux.iptables.VariableNameExtensions._
 
+class SecurityGroup(networking : Networking, port : Port, ingress : Boolean = false)  {
+  lazy val secGrps = port.getSecurityGroups.map { x => networking.getSecurityGroup(x) }
 
-class SecurityGroup(wrapper : NeutronWrapper, forPort : String, ingress : Boolean = false) extends BaseNetElement(wrapper) {
-  lazy val secGrps = wrapper.getOs.networking().port().get(forPort).getSecurityGroups.map(f => wrapper.getOs.networking().securitygroup().get(f))
   lazy val secRules = if (ingress)
   {
-    secGrps.flatMap { x => x.getRules.filter { y => y.getDirection == "ingress" }.toList }
+
+    secGrps.flatMap { x => 
+      x.getRules.filter { 
+        y => y.getDirection == "ingress" 
+      }.toList 
+    }
   }
   else
   {
@@ -220,9 +235,8 @@ class SecurityGroup(wrapper : NeutronWrapper, forPort : String, ingress : Boolea
   def translateIPs(secRule: SecurityGroupRule, continueWith: Instruction) = {
     if (secRule.getRemoteGroupId != null && secRule.getRemoteGroupId.length() != 0)
     {
-      val remoteSg = wrapper.getOs.networking().securitygroup().get(secRule.getRemoteGroupId)
-      val poptions = PortListOptions.create().deviceOwner("compute:None")
-      val all = wrapper.getOs.networking().port().list(poptions)
+      val remoteSg = networking.getSecurityGroup(secRule.getRemoteGroupId)
+      val all = networking.getPorts.filter { x => x.getDeviceOwner == "compute:None" }
       val filtered = all.filter { x => x.getSecurityGroups.contains(secRule.getRemoteGroupId) }
       val ips = filtered.flatMap { x => {
           val ips1 = x.getFixedIps.toArray().map { x => x.asInstanceOf[IP] }.map { y => 
@@ -265,7 +279,7 @@ class SecurityGroup(wrapper : NeutronWrapper, forPort : String, ingress : Boolea
       }.toList
       
       def ruleOut(list : List[Long]) : FloatingConstraint = list match {
-        case head :: Nil => :==:(ConstantValue(head))
+        case head :: Nil => :==:(ConstantValue(head, isIp = true))
         case head :: tail => :|:(ruleOut(head :: Nil), ruleOut(tail))
         case _ => throw new UnsupportedOperationException()
       }
@@ -296,9 +310,9 @@ class SecurityGroup(wrapper : NeutronWrapper, forPort : String, ingress : Boolea
               }
       If (
       if (ingress)
-        Constrain(IPSrc, :&:(:<=:(ConstantValue(interval._2)), :>=:(ConstantValue(interval._1))))
+        Constrain(IPSrc, :&:(:<=:(ConstantValue(interval._2, isIp = true)), :>=:(ConstantValue(interval._1, isIp = true))))
       else
-        Constrain(IPDst, :&:(:<=:(ConstantValue(interval._2)), :>=:(ConstantValue(interval._1)))),
+        Constrain(IPDst, :&:(:<=:(ConstantValue(interval._2, isIp = true)), :>=:(ConstantValue(interval._1, isIp = true)))),
         continueWith, NoOp)
     }
     else
@@ -306,19 +320,123 @@ class SecurityGroup(wrapper : NeutronWrapper, forPort : String, ingress : Boolea
       continueWith
     }
   }
-      
   
+  lazy val forPort = port.getId
   def symnetCode() : Instruction = {
-    val lst = (Assign("Matched", ConstantValue(0)) :: secRules.map { getInstruction }.toList ) :+  (If (Constrain("Matched", :==:(ConstantValue(0))),
+    if (!this.secGrps.isEmpty) {
+      val lst = (Assign("Matched", ConstantValue(0)) :: secRules.map { getInstruction }.toList ) :+  (If (Constrain("Matched", :==:(ConstantValue(0))),
           Fail("No matches for security groups of " + this.forPort),
           if (ingress) {
-            Forward(s"SecurityGroup/$forPort/ingress/out")
+            InstructionBlock(
+              ConntrackCommit(port, networking).generateInstruction,
+              Forward(s"SecurityGroup/$forPort/ingress/out")
+            )
           } else {
-            Forward(s"SecurityGroup/$forPort/egress/out")
+            InstructionBlock(
+              ConntrackCommit(port, networking).generateInstruction,
+              Forward(s"SecurityGroup/$forPort/egress/out")
+            )
           }))
-    InstructionBlock(lst)
+      val ib = InstructionBlock(lst)
+      InstructionBlock(
+        Assign("ShouldTrack", ConstantValue(1)),
+        ConntrackTrackZone(this.port, networking).generateInstruction(),
+        If (Constrain("IsTracked".scopeTo(s"Port.${forPort}"), :==:(ConstantValue(1))),
+          If (Constrain("IsFirst".scopeTo(s"Port.${forPort}"), :==:(ConstantValue(1))),
+            ib,
+            If (Constrain("IsForward".scopeTo(s"Port.${forPort}"), :==:(ConstantValue(1))),
+                if (ingress)
+                  Forward(s"SecurityGroup/$forPort/ingress/out")
+                else
+                  Forward(s"SecurityGroup/$forPort/egress/out"),
+                If (Constrain("IsBackward".scopeTo(s"Port.${forPort}"), :==:(ConstantValue(1))),
+                    if (ingress)
+                      Forward(s"SecurityGroup/$forPort/ingress/out")
+                    else
+                      Forward(s"SecurityGroup/$forPort/egress/out")
+                )
+            )
+          )
+        )
+      )
+    } else {
+      if (ingress) {
+        Forward(s"SecurityGroup/$forPort/ingress/out")
+      } else {
+        Forward(s"SecurityGroup/$forPort/egress/out")
+      }
+    }
   }
 }
+
+// if packet is first => set forward expectation + set state = NEW + set packet IsFirst <- true
+// if packet matches FW expectation => set IsForward = true, IsFirst <- false
+// if packet matches BK expectation => set IsBackward <- true, IsFirst <- false if (State == NEW) => State <- ESTABLISHED
+case class ConntrackTrackZone(port : Port, 
+    networking : Networking) {
+  import ConntrackConstants._
+  
+  lazy val ct = new ConntrackGeneric("Port." + port.getId)
+  override def toString = ct.toString() + ".track()"
+  def generateInstruction() : Instruction = {
+    val assignFwExpectations = InstructionBlock(
+            ct.installForward(),
+            Assign("IsTracked".scopeTo(ct.getPrefix()), ConstantValue(1)),
+            Assign("IsFirst".scopeTo(ct.getPrefix()), ConstantValue(1)),
+            Assign("IsForward".scopeTo(ct.getPrefix()), ConstantValue(1)),
+            Assign("IsBackward".scopeTo(ct.getPrefix()), ConstantValue(0)),
+            Assign("State".scopeTo(ct.getPrefix()), ConstantValue(StateDefinitions.NAMES.get("NEW").intValue()))
+        )
+    If (Constrain("ShouldTrack", :==:(ConstantValue(1))),
+      InstructionBlock(
+        Forward(toString),
+        If (Constrain("IsTracked".scopeTo(ct.getPrefix()), :==:(ConstantValue(0))),
+          assignFwExpectations,
+          If (Constrain("IsTracked".scopeTo(ct.getPrefix()), :==:(ConstantValue(1))),
+            InstructionBlock(
+              ct.checkIfForward(),
+              ct.checkIfBackward(),
+              // if IsBackward == 0 && IsForward == 0 =>
+              // Wrong mapping => the packet is assumed new => install forward expectations
+              If (Constrain("IsForward".scopeTo(ct.getPrefix()), :==:(ConstantValue(0))),
+                If (Constrain("IsBackward".scopeTo(ct.getPrefix()), :==:(ConstantValue(0))),
+                  assignFwExpectations,
+                  Assign("IsFirst".scopeTo(ct.getPrefix()), ConstantValue(0))
+                ),
+                Assign("IsFirst".scopeTo(ct.getPrefix()), ConstantValue(0))
+              )
+            ),
+            // i.e. "IsTracked" is not allocated => install forward expectation
+            assignFwExpectations
+          )
+        ),
+        ct.handleState
+      )
+    )
+  }
+}
+
+
+
+case class ConntrackCommit(port : Port, networking : Networking) 
+{
+  lazy val ct = new ConntrackGeneric("Port." + port.getId)
+  override def toString = ct.toString() + ".commit()"
+
+  def generateInstruction() : Instruction = {
+    If (Constrain("IsTracked".scopeTo(ct.getPrefix()), :==:(ConstantValue(1))),
+       If (Constrain("IsFirst".scopeTo(ct.getPrefix()), :==:(ConstantValue(1))),
+           InstructionBlock(
+               Forward(toString),
+               ct.installBackward()
+           )
+       )
+    )
+  }
+}
+
+
+
 
 object SecurityGroup {
   def main(argv : Array[String]) {
@@ -328,7 +446,8 @@ object SecurityGroup {
           password,
           project)
     val server = wrapper.getOs.networking().port().list(PortListOptions.create().deviceOwner("compute:None")).get(0)
-    val sec = new SecurityGroup(wrapper, server.getId, true)
+    val nw = new ServiceBackedNetworking(wrapper.getOs)
+    val sec = new SecurityGroup(nw, server, true)
     var pw = new PrintWriter("code.txt")
     
     val exec = new DecoratedInstructionExecutor(new Z3Solver())

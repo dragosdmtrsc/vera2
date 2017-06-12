@@ -71,9 +71,9 @@ case class ClickExecutionContext(
       stateLocation = s.location
     } yield {
         if (instructions contains stateLocation) {
-          val r1 = executor.execute(instructions(stateLocation), s, verbose)
+          val r1 = instructions(stateLocation)(s, verbose)
           val (toCheck, r2) = r1._1.partition(s => checkInstructions.contains(s.location))
-          val r3 = toCheck.map(s => executor.execute(checkInstructions(s.location), s,verbose)).unzip
+          val r3 = toCheck.map(s => checkInstructions(s.location)(s,verbose)).unzip
           (r2 ++ r3._1.flatten, r1._2 ++ r3._2.flatten, Nil)
         } else
           (Nil, Nil, List(s))

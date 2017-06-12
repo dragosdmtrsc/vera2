@@ -5,6 +5,7 @@ import java.io.InputStreamReader
 import java.io.FileInputStream
 import java.io.BufferedInputStream
 import org.change.v2.abstractnet.neutron.NeutronWrapper
+import org.openstack4j.api.OSClient
 
 object NeutronHelper {
     def readCredentials(file : String = "credentials.txt") = {
@@ -17,7 +18,18 @@ object NeutronHelper {
       (apiAddr, userName, password, project)
     }
     
-    def neutronWrapperFromFile(file : String = "credentials.txt") = {
+    
+    def osFromFile(file : String = "credentials.txt") = {
+      
+       val (apiAddr, userName, password, project) = NeutronHelper.readCredentials(file)
+        new NeutronWrapper(apiAddr,
+            userName,
+            password,
+            project).getOs
+      
+    }
+    
+    def neutronWrapperFromFile(file : String = "credentials.txt") : NeutronWrapper = {
        val (apiAddr, userName, password, project) = NeutronHelper.readCredentials(file)
     
       new NeutronWrapper(apiAddr,

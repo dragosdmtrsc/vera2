@@ -21,23 +21,26 @@ import org.openstack4j.model.network.Port
 import org.openstack4j.model.network.Subnet
 import org.openstack4j.openstack.networking.domain.NeutronRouter
 import org.change.v2.util.canonicalnames._
-class NetRouter(wrapper : NeutronWrapper,
+import org.change.v2.abstractnet.neutron.Networking
+import org.change.v2.abstractnet.neutron.ServiceBackedNetworking
+import org.change.v2.abstractnet.neutron.CSVBackedNetworking.ExtendedExternalGWInfo
+
+class NetRouter(service : Networking,
                 router : Router,
-                throughExt : Boolean = false)
-    extends BaseNetElement(wrapper) {
+                throughExt : Boolean = false) {
   
   
   def checkDestNearby() : Instruction = {
-    val thList = wrapper.getOs().networking().port().list
+    val thList = service.getPorts
     val filtered = thList.filter { x => 
       x.getDeviceId == router.getId 
     }
-    null
+    NoOp
   }
   
-  lazy val routerNets = ports.filter { z => z.getDeviceId == router.getId }.flatMap { x =>
+  lazy val routerNets = service.getPorts.filter { z => z.getDeviceId == router.getId }.flatMap { x =>
               x.getFixedIps.map ( ip => {
-                  val theSubnet = wrapper.getOs.networking().subnet().get(ip.getSubnetId)
+                  val theSubnet = service.getSubnet(ip.getSubnetId)
                   (ip.getIpAddress, new NetAddress(theSubnet.getCidr), theSubnet, x)
                 }
               )
@@ -111,13 +114,34 @@ class NetRouter(wrapper : NeutronWrapper,
 }
 
 class SNAT (router : Router,
-            wrapper : NeutronWrapper,
-           fromOutside : Boolean) extends BaseNetElement(wrapper) {
-  override def symnetCode(): Instruction = {
+            networking : Networking,
+           fromOutside : Boolean)  {
+  def symnetCode(): Instruction = {
     if (fromOutside)
       unSnat()
     else
       snat()
+  }
+  
+  lazy val fips = networking.getFloatingIps.filter { x => x.getRouterId == router.getId }
+  
+  
+  
+  def setExternalIp = {
+    val extIp = if (router.getExternalGatewayInfo.isInstanceOf[ExtendedExternalGWInfo])
+    {
+      ConstantValue(ipToNumber(router.getExternalGatewayInfo.asInstanceOf[ExtendedExternalGWInfo].getIps.head.getIpAddress))
+    }
+    else
+    {
+      SymbolicValue()
+    }
+    fips.foldRight(Assign(IPDst, extIp) : Instruction)((x, acc) => {
+      If (Constrain(IPSrc, :==:(ConstantValue(ipToNumber(x.getFixedIpAddress), isIp = true))),
+          Assign(IPDst, ConstantValue(ipToNumber(x.getFloatingIpAddress), isIp = true)),
+          acc
+      )
+    })
   }
 
 
@@ -142,7 +166,7 @@ class SNAT (router : Router,
           )
         )
       ),
-      Assign(IPSrc, SymbolicValue()), // TODO: nu uita sa faci ai sa ai si ip src de la external gw
+      setExternalIp,
       Assign(router.getId + ".SNAT.IPSrcMod", :@(IPSrc)),
       Assign(router.getId + ".SNAT.IPProto", :@(Proto)),
       Assign(router.getId + ".SNAT", ConstantValue(1)),
@@ -202,14 +226,14 @@ class SNAT (router : Router,
 object NetRouter {
 
   def apply(wrapper : NeutronWrapper, router : Router) : Instruction = {
-    new NetRouter(wrapper, router).symnetCode()
+    new NetRouter(new ServiceBackedNetworking(wrapper.getOs), router).symnetCode()
   }
   
   def main(argv : Array[String]) = {
    val wrapper = NeutronHelper.neutronWrapperFromFile()
    val r = wrapper.getOs.networking.router.list.get(0)
-   System.out.println(new SNAT(r, wrapper, true).symnetCode())
-   System.out.println(new SNAT(r, wrapper, false).symnetCode())
+   System.out.println(new SNAT(r, new ServiceBackedNetworking(wrapper.getOs), true).symnetCode())
+   System.out.println(new SNAT(r, new ServiceBackedNetworking(wrapper.getOs), false).symnetCode())
   }
   
 }

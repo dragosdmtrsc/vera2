@@ -64,16 +64,18 @@ import org.change.v2.analysis.processingmodels.instructions._
 import org.change.v2.util.canonicalnames._
 import org.change.v2.analysis.processingmodels.instructions.:|:
 import org.openstack4j.model.network.options.PortListOptions
+import org.change.v2.abstractnet.neutron.Networking
+import org.change.v2.abstractnet.neutron.ServiceBackedNetworking
 
-class NeutronNetwork(netId : String, throughPort : String, wrapper : NeutronWrapper) extends BaseNetElement(wrapper) {
-  val network = wrapper.getOs.networking().network().get(netId)
-  lazy val allPorts = wrapper.getOs.networking().port().list().filter { x => x.getNetworkId == netId }
-  val inPort = wrapper.getOs.networking().port().get(throughPort)
-
-  override def symnetCode(): Instruction = {
+class NeutronNetwork(network : Network, inPort : Port, networking : Networking)
+{
+  lazy val allPorts = networking.getPorts.filter { x => x.getNetworkId == network.getId }
+  lazy val netId = network.getId
+  
+  def symnetCode(): Instruction = {
     val macPerPort = allPorts.foldRight(Fail(s"Network $netId - no match for EtherDst") : Instruction)((x, acc) => {
       val macs = x.getMacAddress :: x.getAllowedAddressPairs.map(y => y.getMacAddress).toList
-      If (Constrain(EtherDst, :|:(macs.map(y => :==:(ConstantValue(RepresentationConversion.macToNumber(y)))).toList)),
+      If (Constrain(EtherDst, :|:(macs.map(y => :==:(ConstantValue(RepresentationConversion.macToNumber(y), isMac = true))).toList)),
         Forward(s"Network/${netId}/${x.getId}/out"),
         acc)
     })
@@ -87,7 +89,7 @@ object NeutronNetwork {
     val wrapper = NeutronHelper.neutronWrapperFromFile()
     val nw = wrapper.getOs.networking().network().list().get(0)
     val port = wrapper.getOs.networking().port().list(PortListOptions.create().deviceOwner("compute:None").networkId(nw.getId)).get(0)
-    val nn  =new NeutronNetwork(netId = nw.getId, throughPort = port.getId, wrapper = wrapper)
+    val nn  = new NeutronNetwork(nw, port, new ServiceBackedNetworking(wrapper.getOs))
     println(nn.symnetCode())
   }
 }

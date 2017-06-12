@@ -14,9 +14,10 @@ import org.change.v2.util.conversion.RepresentationConversion._
 import org.openstack4j.model.network.Router
 import org.openstack4j.openstack.networking.domain.NeutronRouter
 import org.change.v2.analysis.memory.State
+import org.change.v2.abstractnet.neutron.ServiceBackedNetworking
 
 class NetExternalRouterIn(wrapper : NeutronWrapper, router : NeutronRouter)
-    extends NetRouter(wrapper, router) {
+    extends NetRouter(new ServiceBackedNetworking(wrapper.getOs), router) {
 
     override def symnetCode() : Instruction = {
     if (router.getExternalGatewayInfo == null)
