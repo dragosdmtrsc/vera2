@@ -27,9 +27,9 @@ class NeutronSubnet(subnet : Subnet, service : Networking) {
         val allowedStuff = x.getAllowedAddressPairs.foldRight(acc)((s, acc2) => {
           val ip = s.getIpAddress
           val mac = s.getMacAddress
-          If (Constrain(IPDst, :==:(ConstantValue(ipToNumber(ip)))),
+          If (Constrain(IPDst, :==:(ConstantValue(ipToNumber(ip), isIp = true))),
             InstructionBlock(
-              Assign(EtherDst, ConstantValue(macToNumber(mac))),
+              Assign(EtherDst, ConstantValue(macToNumber(mac), isIp = true)),
               Forward(s"Subnet/${subnetId}//out")
             ),
             acc2
@@ -41,9 +41,9 @@ class NeutronSubnet(subnet : Subnet, service : Networking) {
               f.getIpAddress.split("/")(0)
             else
               f.getIpAddress
-          If (Constrain(IPDst, :==:(ConstantValue(ipToNumber(ip)))),
+          If (Constrain(IPDst, :==:(ConstantValue(ipToNumber(ip), isIp = true))),
             InstructionBlock(
-              Assign(EtherDst, ConstantValue(macToNumber(x.getMacAddress))),
+              Assign(EtherDst, ConstantValue(macToNumber(x.getMacAddress), isMac = true)),
               Forward(s"Subnet/${subnetId}//out")
             ),
             acc3

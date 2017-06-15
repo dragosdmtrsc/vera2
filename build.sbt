@@ -18,9 +18,16 @@ libraryDependencies ++= {
     "org.apache.commons" % "commons-lang3" % "3.5",
     "com.fasterxml.jackson.core" % "jackson-databind" % "2.8.3",
     "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.8.3",
-    "com.regblanc" %% "scala-smtlib" % "0.2"
+    "com.regblanc" %% "scala-smtlib" % "0.2",
+    "junit" % "junit" % "4.12"
   )
 }
+
+
+unmanagedResourceDirectories in Compile += baseDirectory.value / "lib"
+
+includeFilter in (Compile, unmanagedResourceDirectories):= ".dll,.so"
+
 
 lazy val sample = taskKey[Unit]("Interpreting")
 
@@ -46,4 +53,22 @@ lazy val sefl = taskKey[Unit]("SEFL execution")
 
 fullRunTask(sefl, Compile, "org.change.v2.runners.sefl.SEFLExecutor")
 
+
+lazy val neutron_tenant_l2 = taskKey[Unit]("Neutron in-tenant stress test")
+
+fullRunTask(neutron_tenant_l2, Compile, "org.change.v2.runners.experiments.L2Connectivity")
+
+lazy val neutron_tenant_fip = taskKey[Unit]("Neutron fip")
+
+fullRunTask(neutron_tenant_fip, Compile, "org.change.v2.runners.experiments.IngressToMachine")
+
+lazy val neutron_tenant_egress = taskKey[Unit]("Neutron egress")
+
+fullRunTask(neutron_tenant_egress, Compile, "org.change.v2.runners.experiments.EgressFromMachine")
+
+javaOptions in neutron_tenant_l2 += s"-Djava.library.path=lib"
+
 seq(Revolver.settings: _*)
+
+
+

@@ -16,6 +16,10 @@ object Z3Util {
     }
   }
   
+  def refreshCache {
+    threadLocalContext.set(new Z3Context(new Z3Config("MODEL" -> true)))
+  }
+  
 	def z3Context = threadLocalContext.get
 
   private def intSort = z3Context.mkIntSort()

@@ -28,6 +28,7 @@ import org.openstack4j.model.network.Port
 import org.change.v2.util.conversion.RepresentationConversion
 import org.change.v2.analysis.expression.concrete.ConstantValue
 import org.openstack4j.model.network.AllowedAddressPair
+import org.openstack4j.openstack.networking.domain.NeutronIP
 
 
 
@@ -42,10 +43,15 @@ class ExitNetInstance(port : Port) {
     val allowed =
       If (Constrain(EtherSrc, :|:(alld.map {y => :==:(ConstantValue(RepresentationConversion.macToNumber(y), isMac = true)) }.toList)),
         if (!alldIps.isEmpty)
-          If (Constrain(IPSrc, :|:(alldIps.map(y => :==:(ConstantValue(RepresentationConversion.ipToNumber(y), isIp = true))))),
-            Forward(s"AntiSpoof/$portId/egress/out"),
-            Fail("No match for IP Source")
-          )
+        {
+          if (port.getDeviceOwner != "network:router_interface")
+            If (Constrain(IPSrc, :|:(alldIps.map(y => :==:(ConstantValue(RepresentationConversion.ipToNumber(y), isIp = true))))),
+              Forward(s"AntiSpoof/$portId/egress/out"),
+              Fail("No match for IP Source")
+            )
+          else
+            Forward(s"AntiSpoof/$portId/egress/out")
+        }
         else
           Forward(s"AntiSpoof/$portId/egress/out"),
         Fail("No match for Eth Source")
@@ -59,21 +65,40 @@ class EnterNetInstance(port : Port) {
   lazy val portId = port.getId
 
   def symnetCode(): Instruction = {
-    val acc : Instruction =
-    If (Constrain(EtherDst, :==:(ConstantValue(macToNumber(port.getMacAddress)))),
-      Forward(s"AntiSpoof/$portId/ingress/out"),
-      Fail("AntiSpoofing failed")
-    )
-    val allowedAddressPair = port.getAllowedAddressPairs().foldRight(acc)((p, acc2) => {
-      If (Constrain(IPDst, :==:(ConstantValue(ipToNumber(p.getIpAddress)))),
-        If (Constrain(EtherDst, :==:(ConstantValue(macToNumber(p.getMacAddress)))),
+    val fip = port.getFixedIps
+
+    val allowedAddressPair = port.getAllowedAddressPairs().foldRight(Fail("AntiSpoofing failed") : Instruction)((p, acc2) => {
+      If (Constrain(IPDst, :==:(ConstantValue(ipToNumber(p.getIpAddress), isIp = true))),
+        If (Constrain(EtherDst, :==:(ConstantValue(macToNumber(p.getMacAddress), isMac = true))),
           Forward(s"AntiSpoof/$portId/ingress/out"),
           acc2
         ),
         acc2
       )
     })
-    allowedAddressPair
+    val acc : Instruction =
+      If (Constrain(EtherDst, :==:(ConstantValue(macToNumber(port.getMacAddress), isMac = true))),
+        Forward(s"AntiSpoof/$portId/ingress/out"),
+        allowedAddressPair
+      )
+    
+    if (port.getFixedIps.isEmpty())
+    {
+      allowedAddressPair
+    }
+    else
+    {
+      port.getFixedIps.toArray().foldRight(allowedAddressPair)((x, acc2) => {
+        val ip = x.asInstanceOf[NeutronIP].getIpAddress
+        if (port.getDeviceOwner == "network:router_interface")
+          acc
+        else
+          If (Constrain(IPDst, :==:(ConstantValue(ipToNumber(ip), isIp = true))),
+              acc,
+              acc2
+          )
+      })
+    }
   }
 }
 

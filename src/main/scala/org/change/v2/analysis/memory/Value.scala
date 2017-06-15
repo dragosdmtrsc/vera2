@@ -6,6 +6,10 @@ import org.change.v2.analysis.types.{LongType, NumericType}
 import org.change.v2.analysis.z3.Z3Able
 import z3.scala.{Z3Solver, Z3AST}
 import spray.json._
+import org.change.v2.analysis.constraint.EQ_E
+import org.change.v2.analysis.expression.concrete.nonprimitive.Reference
+import org.change.v2.analysis.expression.concrete.ConstantValue
+import org.change.symbolicexec.E
 
 /**
  * Author: Radu Stoenescu
@@ -16,6 +20,12 @@ import spray.json._
 case class Value(e: Expression, eType: NumericType = LongType, cts: List[Constraint] = Nil)
   extends Z3Able {
 
+  private var isStale : Boolean = true
+  private var computed : Option[Long] = None
+  def setComputed(v : Long) {
+    computed = Some(v)
+  }
+  
   override def toZ3(solver: Option[Z3Solver] = None): (Z3AST, Option[Z3Solver]) = {
     val (ast, afterAstBuildSolver) = e.toZ3(solver)
 

@@ -29,7 +29,6 @@ class NetRouter(service : Networking,
                 router : Router,
                 throughExt : Boolean = false) {
   
-  
   def checkDestNearby() : Instruction = {
     val thList = service.getPorts
     val filtered = thList.filter { x => 
@@ -61,7 +60,13 @@ class NetRouter(service : Networking,
   list match {
     case h :: tail => If (Constrain(IPDst, :&:(:>=:(ConstantValue(h._2.addressRange._1, true)),
         :<=:(ConstantValue(h._2.addressRange._2, true)))),
-        Forward(s"Router/${router.getId}/${h._4.getId}/${h._3.getId}/out"),
+        {
+          InstructionBlock(
+            new org.change.v2.abstractnet.neutron.elements.NeutronSubnet(h._3, service).symnetCode(),
+            Assign(EtherSrc, ConstantValue(macToNumber(h._4.getMacAddress), isMac = true)),
+            Forward(s"Router/${router.getId}/${h._4.getId}/out")
+          )
+        },
         checkConnectedSubnet(tail))
     case Nil => checkRoutingTable
   }
@@ -80,7 +85,11 @@ class NetRouter(service : Networking,
           if (rnets.isEmpty)
             Fail("Unknown next hop")
           else
-            Forward(s"Router/${router.getId}/${rnets(0)._4.getId}/${rnets(0)._3.getId}/out")
+            InstructionBlock(
+              new org.change.v2.abstractnet.neutron.elements.NeutronSubnet(rnets(0)._3, service).symnetCode(),
+              Assign(EtherSrc, ConstantValue(macToNumber(rnets(0)._4.getMacAddress), isMac = true)),
+              Forward(s"Router/${router.getId}/${rnets(0)._4.getId}/out")
+            )
         },
         checkRoutingTable(tail))
     case Nil => checkExternalGateway
@@ -118,7 +127,9 @@ class SNAT (router : Router,
            fromOutside : Boolean)  {
   def symnetCode(): Instruction = {
     if (fromOutside)
-      unSnat()
+      InstructionBlock(
+        unSnat()
+      )
     else
       snat()
   }
@@ -136,9 +147,9 @@ class SNAT (router : Router,
     {
       SymbolicValue()
     }
-    fips.foldRight(Assign(IPDst, extIp) : Instruction)((x, acc) => {
+    fips.foldRight(Assign(IPSrc, extIp) : Instruction)((x, acc) => {
       If (Constrain(IPSrc, :==:(ConstantValue(ipToNumber(x.getFixedIpAddress), isIp = true))),
-          Assign(IPDst, ConstantValue(ipToNumber(x.getFloatingIpAddress), isIp = true)),
+          Assign(IPSrc, ConstantValue(ipToNumber(x.getFloatingIpAddress), isIp = true)),
           acc
       )
     })
@@ -173,6 +184,23 @@ class SNAT (router : Router,
       Forward(s"SNAT/${router.getId}/external/out")
     )
   }
+  
+  // floating ips
+  def dnat() : Instruction = {
+    val fipm = fips.foldRight(Fail("Cannot route external traffic invwards") : Instruction)((z, acc) => {
+      If (Constrain(IPDst, :==:(ConstantValue(ipToNumber(z.getFloatingIpAddress), isIp = true))),
+          InstructionBlock(
+            Assign(IPDst, ConstantValue(ipToNumber(z.getFixedIpAddress), isIp = true)),
+            Forward(s"SNAT/${router.getId}/internal/out")
+          ),
+          acc
+      )
+    })
+    If (Constrain(router.getId + ".SNAT", :==:(ConstantValue(0))),
+        fipm
+    )
+  }
+  
 
   def unSnat() : Instruction = {
     If (Constrain(router.getId + ".SNAT", :==:(ConstantValue(1))),
@@ -215,7 +243,7 @@ class SNAT (router : Router,
         ),
         Fail(s"No SNAT found at ${router.getId}, because Proto is not the same")
       ),
-      Fail(s"No SNAT found at ${router.getId}")
+      dnat
     )
   }
 

@@ -72,11 +72,16 @@ import org.change.v2.abstractnet.linux.iptables.ConntrackTrackZone
 import org.change.v2.abstractnet.linux.ovs.PacketMirror
 import org.change.v2.abstractnet.linux.ovs.EnterIface
 import org.change.v2.abstractnet.linux.ovs.EnterIface
+import org.change.v2.abstractnet.neutron.elements.Experiment._
+import org.change.v2.abstractnet.neutron.CSVBackedNetworking
+import java.io.PrintWriter
+import org.change.v2.analysis.z3.Z3Util
 
 
 
 object IngressToMachine
 {
+  
   def main(argv : Array[String]) {
     val ipsrc = "8.8.8.8"
     val enterIface = "eth2"
@@ -150,7 +155,7 @@ object IngressToMachine
     val psFailedRev = new PrintStream(s"$dir/generated-reverse-fail-$expName.out")
     
     init = System.currentTimeMillis()
-    initials.map { initial => 
+    val okProvider = initials.map { initial => 
       val (ok, fail) =  iip(initial, true)
       System.out.println(System.currentTimeMillis() - init)
       psStats.println("Forward runtime: " + (System.currentTimeMillis() - init) + " ms")
@@ -181,12 +186,21 @@ object IngressToMachine
       val (okRev, failedRev) = ib
       psOutRev.println("[" + okRev.mkString(",") + "]")
       psFailedRev.println("[" + failedRev.mkString(",") + "]")
+      ok
     }
     psOutRev.close()
     psFailedRev.close()
     psStats.close()
     psout.close()
     psFailed.close()
+//    
+//    
+//    val okTenant = runInbound(dir)
+//    EquivalenceProver((l1, l2) => {
+//      
+//    }).areEquivalent(okTenant, )
+//    
+//    
   }
 }
 
@@ -195,118 +209,163 @@ object IngressToMachine
 
 object L2Connectivity
 {
-  def main(argv : Array[String]) {
-    val ipsrc = "192.168.13.3"
-    val enterIface = "tap72d5355f-c6"
-    val pcName = "compute1"
-//    val ipDst = "192.168.13.4"
-    
-    val expName = "eastwest"
-    val dir = "stack-inputs/generated2"
-    var init = System.currentTimeMillis()
-    val psStats = new PrintStream(s"$dir/stats-$expName.txt")
-    val world = WorldModel.fromFolder(dir)
-    psStats.println("Parsing time: " + (System.currentTimeMillis() - init) + " ms")
-    init = System.currentTimeMillis()
-    val initcode = InstructionBlock(world.getPcs.flatMap { x => { 
-          x.getNamespaces.map { y => InstructionBlock(
-              Allocate(IPTablesConstants.CTMARK_BOTTOM.scopeTo(y)),
-              Assign(IPTablesConstants.CTMARK_BOTTOM.scopeTo(y), ConstantValue(0)),
-              Allocate(IPTablesConstants.CTMARK_TOP.scopeTo(y)),
-              Assign(IPTablesConstants.CTMARK_TOP.scopeTo(y), ConstantValue(0)),
-              Assign("IsTracked".scopeTo(y), ConstantValue(0)),
-              Assign("SNAT.IsSNAT".scopeTo(y), ConstantValue(0)),
-              Assign("DNAT.IsDNAT".scopeTo(y), ConstantValue(0))
-            )
-          }
-        }
-      } ++ world.getPcs.flatMap { x => {
-          x.getCtZones.map { y => {
-              val prefix = x.getName + "." + y.intValue
-              InstructionBlock(
-                Allocate(IPTablesConstants.CTMARK_BOTTOM.scopeTo(prefix)),
-                Assign(IPTablesConstants.CTMARK_BOTTOM.scopeTo(prefix), ConstantValue(0)),
-                Allocate(IPTablesConstants.CTMARK_TOP.scopeTo(prefix)),
-                Assign(IPTablesConstants.CTMARK_TOP.scopeTo(prefix), ConstantValue(0)),
-                Assign("IsTracked".scopeTo(prefix), ConstantValue(0))
+  
+  def experiment(ipsrc : String, 
+      enterIface : String, 
+      pcName : String,
+      dir : String,
+      exp : String = "eastwest") = {
+    val expName = s"$exp-$enterIface-$pcName"
+    try
+    {
+      var init = System.currentTimeMillis()
+      val psStats = new PrintStream(s"$dir/stats-$expName.txt")
+      val world = WorldModel.fromFolder(dir)
+      psStats.println("Parsing time: " + (System.currentTimeMillis() - init) + " ms")
+      init = System.currentTimeMillis()
+      val initcode = InstructionBlock(world.getPcs.flatMap { x => { 
+            x.getNamespaces.map { y => InstructionBlock(
+                Allocate(IPTablesConstants.CTMARK_BOTTOM.scopeTo(y)),
+                Assign(IPTablesConstants.CTMARK_BOTTOM.scopeTo(y), ConstantValue(0)),
+                Allocate(IPTablesConstants.CTMARK_TOP.scopeTo(y)),
+                Assign(IPTablesConstants.CTMARK_TOP.scopeTo(y), ConstantValue(0)),
+                Assign("IsTracked".scopeTo(y), ConstantValue(0)),
+                Assign("SNAT.IsSNAT".scopeTo(y), ConstantValue(0)),
+                Assign("DNAT.IsDNAT".scopeTo(y), ConstantValue(0))
               )
             }
           }
-        }
-      }
-    )
-    
-    val initials = 
-      InstructionBlock(
-        State.eher,
-        State.tunnel,
-        initcode,
-        Assign("IsUnicast", ConstantValue(1)),
-        Assign(IPSrc, ConstantValue(ipToNumber(ipsrc), isIp = true)),
-        Assign(IPDst, SymbolicValue()),
-        Constrain(IPDst, :&:(:<=:(ConstantValue(ipToNumber("192.168.13.254"))), 
-            :>=:(ConstantValue(ipToNumber("192.168.13.1")))))
-      )(State.bigBang, true)._1
-    init =System.currentTimeMillis()
-    val pc = world.getComputer(pcName)
-    val nic = pc.getNic(enterIface)
-    val ns = pc.getNamespaceForNic(enterIface)
-    
-    //ingress example
-    val iib = new EnterIface(pcName, enterIface, world).generateInstruction
-    val worldModel = world
-//    val iib = new EnterIPTablesChain(pc, nic, "nat", "PREROUTING", worldModel).generateInstruction()
-    val iip = InstructionBlock(
-      Assign("InputInterface", ConstantStringValue(enterIface)),
-      Allocate("OutputInterface"),
-      iib
-    )
-    val psCode = new PrintStream(s"$dir/generated-code-$expName.out")
-    psCode.println(iib)
-    psCode.close
-    val psFailed = new PrintStream(s"$dir/generated-fail-$expName.out")
-    val psout = new PrintStream(s"$dir/generated-$expName.out")
-    val psOutRev = new PrintStream(s"$dir/generated-reverse-$expName.out")
-    val psFailedRev = new PrintStream(s"$dir/generated-reverse-fail-$expName.out")
-    
-    init = System.currentTimeMillis()
-    initials.map { initial => 
-      val (ok, fail) =  iip(initial, true)
-      System.out.println(System.currentTimeMillis() - init)
-      psStats.println("Forward runtime: " + (System.currentTimeMillis() - init) + " ms")
-      psStats.println("Forward number of states: " + ok.size + "," + fail.size)
-      psout.println("[" + ok.mkString(",") + "]")
-      psFailed.println("[" + fail.mkString(",") + "]")
-      val success = ok.filter { x => x.history.head.startsWith("DeliveredLocallyVM") }
-      init = System.currentTimeMillis()
-      val ib = 
-          success.foldLeft((List[State](), List[State]())){ (acc, x) => 
-            "DeliveredLocallyVM\\((.*),[ ]*(.*)\\)".r.
-                findAllIn(x.history.head).matchData.foldRight(acc) {
-                  (r, acc2) => {
-                    val tap = r.group(1)
-                    val machine = r.group(2)
-                    println(s"Entering $tap at $machine")
-                    val ii = InstructionBlock(
-                        PacketMirror(),
-                        Assign("InputInterface", ConstantStringValue(tap)),
-                        new EnterIface(machine, tap, world).generateInstruction()
-                    )(x, true)
-                    (acc2._1 ++ ii._1, acc2._2 ++ ii._2)
-                }
+        } ++ world.getPcs.flatMap { x => {
+            x.getCtZones.map { y => {
+                val prefix = x.getName + "." + y.intValue
+                InstructionBlock(
+                  Allocate(IPTablesConstants.CTMARK_BOTTOM.scopeTo(prefix)),
+                  Assign(IPTablesConstants.CTMARK_BOTTOM.scopeTo(prefix), ConstantValue(0)),
+                  Allocate(IPTablesConstants.CTMARK_TOP.scopeTo(prefix)),
+                  Assign(IPTablesConstants.CTMARK_TOP.scopeTo(prefix), ConstantValue(0)),
+                  Assign("IsTracked".scopeTo(prefix), ConstantValue(0))
+                )
+              }
             }
           }
-      psStats.println("Backward runtime: " + (System.currentTimeMillis() - init) + " ms")
-      psStats.println("Backward number of states: " + ib._1.size + "," + ib._2.size)
-      val (okRev, failedRev) = ib
-      psOutRev.println("[" + okRev.mkString(",") + "]")
-      psFailedRev.println("[" + failedRev.mkString(",") + "]")
+        }
+      )
+      
+      val initials = 
+        InstructionBlock(
+          State.eher,
+          State.tunnel,
+          initcode,
+          Assign("IsUnicast", ConstantValue(1)),
+          Assign(IPSrc, ConstantValue(ipToNumber(ipsrc), isIp = true)),
+          Assign(IPDst, SymbolicValue()),
+          Constrain(IPDst, :&:(:<=:(ConstantValue(ipToNumber("192.168.13.254"))), 
+              :>=:(ConstantValue(ipToNumber("192.168.13.1")))))
+        )(State.bigBang, true)._1
+      init =System.currentTimeMillis()
+      val pc = world.getComputer(pcName)
+      val nic = pc.getNic(enterIface)
+      val ns = pc.getNamespaceForNic(enterIface)
+      
+      //ingress example
+      val iib = new EnterIface(pcName, enterIface, world).generateInstruction
+      val worldModel = world
+  //    val iib = new EnterIPTablesChain(pc, nic, "nat", "PREROUTING", worldModel).generateInstruction()
+      val iip = InstructionBlock(
+        Assign("InputInterface", ConstantStringValue(enterIface)),
+        Allocate("OutputInterface"),
+        iib
+      )
+      val psCode = new PrintStream(s"$dir/generated-code-$expName.out")
+      psCode.println(iib)
+      psCode.close
+      val psFailed = new PrintStream(s"$dir/generated-fail-$expName.out")
+      val psout = new PrintStream(s"$dir/generated-$expName.out")
+      val psOutRev = new PrintStream(s"$dir/generated-reverse-$expName.out")
+      val psFailedRev = new PrintStream(s"$dir/generated-reverse-fail-$expName.out")
+      
+      init = System.currentTimeMillis()
+      initials.map { initial => 
+        val (ok, fail) =  iip(initial, true)
+        System.out.println(System.currentTimeMillis() - init)
+        psStats.println("Forward runtime: " + (System.currentTimeMillis() - init) + " ms")
+        psStats.println("Forward number of states: " + ok.size + "," + fail.size)
+        psout.println("[" + ok.mkString(",") + "]")
+        psFailed.println("[" + fail.mkString(",") + "]")
+        val success = ok.filter { x => x.history.head.startsWith("DeliveredLocallyVM") }
+        init = System.currentTimeMillis()
+        val ib = 
+            success.foldLeft((List[State](), List[State]())){ (acc, x) => 
+              "DeliveredLocallyVM\\((.*),[ ]*(.*)\\)".r.
+                  findAllIn(x.history.head).matchData.foldRight(acc) {
+                    (r, acc2) => {
+                      val tap = r.group(1)
+                      val machine = r.group(2)
+                      println(s"Entering $tap at $machine")
+                      val ii = InstructionBlock(
+                          PacketMirror(),
+                          Assign("InputInterface", ConstantStringValue(tap)),
+                          new EnterIface(machine, tap, world).generateInstruction()
+                      )(x, true)
+                      (acc2._1 ++ ii._1, acc2._2 ++ ii._2)
+                  }
+              }
+            }
+        psStats.println("Backward runtime: " + (System.currentTimeMillis() - init) + " ms")
+        psStats.println("Backward number of states: " + ib._1.size + "," + ib._2.size)
+        val (okRev, failedRev) = ib
+        psOutRev.println("[" + okRev.mkString(",") + "]")
+        psFailedRev.println("[" + failedRev.mkString(",") + "]")
+      }
+      psOutRev.close()
+      psFailedRev.close()
+      psStats.close()
+      psout.close()
+      psFailed.close()
     }
-    psOutRev.close()
-    psFailedRev.close()
-    psStats.close()
-    psout.close()
-    psFailed.close()
+    catch {
+      case e : Exception => e.printStackTrace(new PrintWriter(s"$expName.err"))
+    }
+    
+  }
+  
+  
+  def main(argv : Array[String]) {
+    var ipsrc = "192.168.13.3"
+    var enterIface = "tap72d5355f-c6"
+    var pcName = "compute1"
+    var dir = "stack-inputs/generated2"
+    var neutroncfg = CSVBackedNetworking.loadFromFolder(dir)
+
+    var ports = neutroncfg.getPorts.filter { x => x.getDeviceOwner == "compute:None" }
+    
+    ports.foreach { x => {
+        ipsrc = x.getFixedIps.iterator().next().getIpAddress
+        enterIface = "tap" + x.getId.take("72d5355f-c6".length())
+        pcName = "compute1"
+        experiment(ipsrc, enterIface, pcName, dir)
+        Z3Util.z3Context.finalize()
+        Z3Util.refreshCache
+      }
+    }
+    
+    
+    dir = "stack-inputs/generated4"
+    neutroncfg = CSVBackedNetworking.loadFromFolder(dir)
+
+    ports = neutroncfg.getPorts.filter { x => x.getDeviceOwner == "compute:None" }
+    
+    ports.foreach { x => {
+        ipsrc = x.getFixedIps.iterator().next().getIpAddress
+        enterIface = "tap" + x.getId.take("72d5355f-c6".length())
+        pcName = "compute1"
+        experiment(ipsrc, enterIface, pcName, dir)
+        Z3Util.z3Context.finalize()
+        Z3Util.refreshCache
+      }
+    }
+//    val ipDst = "192.168.13.4"
+//    experiment(ipsrc, enterIface, pcName, dir)
   }
 }
 
