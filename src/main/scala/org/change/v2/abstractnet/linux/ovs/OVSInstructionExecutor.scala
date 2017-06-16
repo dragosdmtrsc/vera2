@@ -69,6 +69,7 @@ import org.change.v2.model.openflow.actions.CTAction
 import org.change.v2.abstractnet.linux.iptables.ConntrackZone
 import org.change.v2.abstractnet.linux.iptables.ConntrackCommitZone
 import org.change.v2.abstractnet.linux.iptables.ConntrackTrackZone
+import org.change.v2.abstractnet.linux.Translatable
 
 
 
@@ -134,24 +135,27 @@ object VLANOps {
   
   def decap() : Instruction = InstructionBlock(
       Forward("VLANDecap()"),
-      Constrain(EtherType,:==:(ConstantValue(EtherProtoVLAN))),
-      Allocate("s"),
-      Assign("s",:@(EtherSrc)),
-      Allocate("d"),
-      Assign("d",:@(EtherDst)),
-      Deallocate(EtherSrc, 48),
-      Deallocate(EtherDst, 48),
-      Deallocate(EtherType, 16),
-      Deallocate(PCP,3),
-      Deallocate(DEI,1),
-      Deallocate(VLANTag,12),
-      CreateTag("L2",Tag("L2")+32),
-      Allocate(EtherSrc,48),
-      Assign(EtherSrc,:@("s")),
-      Allocate(EtherDst,48),
-      Assign(EtherDst,:@("d")),
-      Deallocate("s"),
-      Deallocate("d")
+      If (Constrain(EtherType,:==:(ConstantValue(EtherProtoVLAN))),
+          InstructionBlock(
+            Allocate("s"),
+            Assign("s",:@(EtherSrc)),
+            Allocate("d"),
+            Assign("d",:@(EtherDst)),
+            Deallocate(EtherSrc, 48),
+            Deallocate(EtherDst, 48),
+            Deallocate(EtherType, 16),
+            Deallocate(PCP,3),
+            Deallocate(DEI,1),
+            Deallocate(VLANTag,12),
+            CreateTag("L2",Tag("L2")+32),
+            Allocate(EtherSrc,48),
+            Assign(EtherSrc,:@("s")),
+            Allocate(EtherDst,48),
+            Assign(EtherDst,:@("d")),
+            Deallocate("s"),
+            Deallocate("d")
+         )
+      )
     )
 }
 
@@ -305,7 +309,8 @@ object TestThatCrap
   }
 }
 
-class EnterIface(pcName : String, iface : String, world : WorldModel) extends Instruction {
+
+class EnterIface(pcName : String, iface : String, world : WorldModel) extends Instruction with Translatable {
   override def toString : String = "EnterIface(" + iface + "," + pcName + ")" 
   
   def generateInstruction() : Instruction = {
@@ -336,6 +341,7 @@ class EnterIface(pcName : String, iface : String, world : WorldModel) extends In
 
 
 case class EnterBridge(br : OVSBridge, iface : NIC, world : WorldModel) extends Instruction
+  with Translatable
 {
   
   def generateInstruction() : Instruction = {
@@ -356,7 +362,7 @@ case class EnterBridge(br : OVSBridge, iface : NIC, world : WorldModel) extends 
 }
 
 
-case class EnterBridgeNormal(br : OVSBridge, iface : NIC, world : WorldModel) extends Instruction {
+case class EnterBridgeNormal(br : OVSBridge, iface : NIC, world : WorldModel) extends Instruction with Translatable {
   override def toString : String = "EnterL2(" + br.getName + "," + iface.getName + "," + br.getComputer.getName + ")"
   
   def visit() : (Map[String, Instruction], Map[String, String]) = {
@@ -418,7 +424,7 @@ case class EnterBridgeNormal(br : OVSBridge, iface : NIC, world : WorldModel) ex
   }
 }
 
-class ExitOFPort(ofPort : OpenFlowNIC, br : OVSBridge, iface : NIC, world : WorldModel) extends Instruction
+class ExitOFPort(ofPort : OpenFlowNIC, br : OVSBridge, iface : NIC, world : WorldModel) extends Instruction with Translatable
 {
   
   override def toString = s"ExitOFPort(${ofPort.getPortNo}, ${br.getName}, ${br.getComputer.getName})"
@@ -439,7 +445,7 @@ class ExitOFPort(ofPort : OpenFlowNIC, br : OVSBridge, iface : NIC, world : Worl
 
 
 class ExitBridge(br : OVSBridge, iface : NIC, world : WorldModel)
-  extends Instruction
+  extends Instruction with Translatable
 {
   override def toString : String = "ExitBridge(" + br.getName + "," + iface.getName + ")"
   
@@ -517,7 +523,7 @@ object Scope {
   
 }
 
-class EnterOFPort(ofPort : OpenFlowNIC, br : OVSBridge, iface : NIC, world : WorldModel) extends Instruction
+class EnterOFPort(ofPort : OpenFlowNIC, br : OVSBridge, iface : NIC, world : WorldModel) extends Instruction with Translatable
 {
   override def toString : String = {
     "EnterOFPort(" + ofPort.getPortNo + "," + br.getName + ")"
@@ -555,7 +561,7 @@ class EnterOFPort(ofPort : OpenFlowNIC, br : OVSBridge, iface : NIC, world : Wor
 }
 
 class EnterOFTable(actionSet : List[Action], table : OpenFlowTable, ofPort : OpenFlowNIC, br : OVSBridge, iface : NIC, world : WorldModel)
-    extends Instruction {
+    extends Instruction with Translatable {
   
   override def toString : String = {
     "EnterOFTable(" + table.getTableId + "," + ofPort.getPortNo + "," +br.getName + "," + br.getComputer.getName + ")"
@@ -570,11 +576,11 @@ class EnterOFTable(actionSet : List[Action], table : OpenFlowTable, ofPort : Ope
          Assign("FFFMatched", ConstantValue(-1)),
          InstructionBlock(
            flows.zipWithIndex.map { 
-            v => new EnterFlowEntry(v._1, v._2, table, ofPort, br, iface, world).generateInstruction
+            v => new EnterFlowEntry(v._1, v._2, table, ofPort, br, iface, world)
            }
          )
        ), 
-       new EnterTableMiss(table, ofPort, br, iface, world).generateInstruction, 
+       new EnterTableMiss(table, ofPort, br, iface, world), 
        Deallocate("FFFMatched")
      )
      doFlows
@@ -588,7 +594,7 @@ class EnterOFTable(actionSet : List[Action], table : OpenFlowTable, ofPort : Ope
 
 class ApplyAction(action : Action, table : OpenFlowTable, 
     ofPort : OpenFlowNIC, br : OVSBridge, iface : NIC, world : WorldModel)
-  extends Instruction
+  extends Instruction with Translatable
 {
   
   def trackMe(u : Int, prefix : String) = {
@@ -622,14 +628,14 @@ class ApplyAction(action : Action, table : OpenFlowTable,
       		  if (action.getPort == 0xfffffffa)
       		  {
       		    // NORMAL goes here
-              new EnterBridgeNormal(br, iface, world).generateInstruction()
+              new EnterBridgeNormal(br, iface, world)
       		  }
       		  else
       		  {
-        		  new ExitOFPort(br.getOpenFlowPort(action.getPort.intValue()), br, iface, world).generateInstruction()
+        		  new ExitOFPort(br.getOpenFlowPort(action.getPort.intValue()), br, iface, world)
       		  }
       		}
-        case action : NormalAction => new EnterBridgeNormal(br, iface, world).generateInstruction()
+        case action : NormalAction => new EnterBridgeNormal(br, iface, world)
         case action : DropAction => Fail("Drop action encountered")
         case action : LoadAction => {
            if (action.getTo.isPresent())
@@ -872,7 +878,7 @@ object FieldNameTranslator
 
 
 class EnterTableMiss(table : OpenFlowTable, ofPort : OpenFlowNIC, br : OVSBridge, iface : NIC, world : WorldModel)
-  extends Instruction
+  extends Instruction with Translatable
 {
   override def toString = s"EnterTableMiss(${table.getTableId}, ${ofPort.getPortNo}, ${ofPort.getName}, ${br.getName}, ${br.getComputer.getName})"
   
@@ -889,7 +895,7 @@ class EnterTableMiss(table : OpenFlowTable, ofPort : OpenFlowNIC, br : OVSBridge
 }
 
 class EnterFlowEntry(flowEntry : FlowEntry, index : Int, table : OpenFlowTable, ofPort : OpenFlowNIC, br : OVSBridge, iface : NIC, world : WorldModel)
-  extends Instruction {
+  extends Instruction with Translatable {
   
   override def toString : String = {
     "EnterFlowEntry(" + index + "," + table.getTableId + "," + ofPort.getPortNo + "," + br.getName +"," + br.getComputer.getName + ")"
@@ -905,6 +911,11 @@ class EnterFlowEntry(flowEntry : FlowEntry, index : Int, table : OpenFlowTable, 
       x.getType != ActionType.ApplyActions &&
       x.getType != ActionType.Resubmit && 
       x.getType != ActionType.GotoTable
+    }
+    
+    if (table.getTableId == 73 && index == 53)
+    {
+      println("Reached table " + 73 + " at index " + 53)
     }
     
     val listOfInstructions = 
@@ -934,7 +945,7 @@ class EnterFlowEntry(flowEntry : FlowEntry, index : Int, table : OpenFlowTable, 
         {
           table
         }
-        new EnterOFTable(Nil : List[Action], destTable, destPort, br, iface, world).generateInstruction
+        new EnterOFTable(Nil : List[Action], destTable, destPort, br, iface, world)
       }
       else
       {
@@ -944,7 +955,7 @@ class EnterFlowEntry(flowEntry : FlowEntry, index : Int, table : OpenFlowTable, 
       InstructionBlock(
           Assign("FFFMatched", ConstantValue(index)),
           InstructionBlock(
-              filteredActions.toList.map { x => new ApplyAction(x, table, ofPort, br, iface, world).generateInstruction }
+              filteredActions.toList.map { x => new ApplyAction(x, table, ofPort, br, iface, world) }
           ),
           jumpTarget
       )

@@ -52,7 +52,9 @@ class Z3Solver extends AbstractSolver[z3.scala.Z3Solver] {
   
   
   override def decide(ctx : z3.scala.Z3Solver) : Boolean = {
-    ctx.check.getOrElse(false)
+    val decision = ctx.check.getOrElse(false)
+    ctx.context.finalize()
+    decision
   }
 }
 

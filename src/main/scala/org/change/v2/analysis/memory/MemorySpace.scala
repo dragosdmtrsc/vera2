@@ -218,36 +218,11 @@ case class MemorySpace(val symbols: Map[String, MemoryObject] = Map.empty,
   
   def checkSat(value : Value, c : Constraint) : (Option[Value], Boolean) = {
     tryEval(value).foldLeft((Some(value.constrain(c)), false) :  (Option[Value], Boolean)) { (acc, x) => {
-      val newVal = 
-        if (!value.e.isInstanceOf[ConstantValue])
-          Value(ConstantValue(x))
-        else
-          value
+        val newVal = value
         c match {
           case EQ_E(ConstantValue(y, _, _)) if y == x => (Some(newVal), true)
           case EQ_E(ConstantValue(y, _, _)) if y != x => (None, true)
           case NOT(EQ_E(ConstantValue(y, _, _))) if y == x => (None, true)
-          case NOT(EQ_E(ConstantValue(y, _, _))) if y != x => (Some(newVal), true)
-          case AND(c1 :: tail) => {
-            val maybeNone = checkSat(value, c1)._1.flatMap { z => checkSat(z, AND(tail))._1 }
-            if (maybeNone.isDefined)
-              acc
-            else
-              (None, true)
-          }
-          case AND(Nil) => (Some(newVal), true)
-          case OR(c1 :: tail) => {
-            val vvv = checkSat(newVal, c1)
-            val maybeNone = if (vvv._1.isDefined)
-              vvv._1
-            else
-              checkSat(newVal, OR(tail))._1
-            if (maybeNone.isDefined)
-             acc
-            else
-              (None, true)
-          }
-          case OR(Nil) => (Some(newVal), true)
           case LTE_E(ConstantValue(y, _, _)) if x > y => (None, true)
           case GTE_E(ConstantValue(y, _, _)) if x < y => (None, true)
           case LT_E(ConstantValue(y, _, _)) if x >= y => (None, true)

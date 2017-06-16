@@ -123,9 +123,9 @@ class SecurityGroup(networking : Networking, port : Port, ingress : Boolean = fa
         If (Constrain(Proto, :==:(ConstantValue(TCPProto))),
             If (Constrain(
                 if (ingress)
-                  TcpSrc
+                  TcpDst
                 else
-                  TcpDst, 
+                  TcpSrc, 
                   if (rg._1.intValue != rg._2.intValue())
                     :&:(:<=:(ConstantValue(rg._2.intValue())), 
                               :>=:(ConstantValue(rg._1.intValue())))
@@ -152,9 +152,9 @@ class SecurityGroup(networking : Networking, port : Port, ingress : Boolean = fa
         If (Constrain(Proto, :==:(ConstantValue(UDPProto))),
             If (Constrain(
                 if (ingress)
-                  UDPSrc
+                  UDPDst
                 else
-                  UDPDst,
+                  UDPSrc,
                   if (rg._1.intValue != rg._2.intValue())
                     :&:(:<=:(ConstantValue(rg._2.intValue())), 
                               :>=:(ConstantValue(rg._1.intValue())))
@@ -286,9 +286,9 @@ class SecurityGroup(networking : Networking, port : Port, ingress : Boolean = fa
       if (ips.size > 0)
         If(
         if (ingress)
-          Constrain(IPSrc, ruleOut(ips))
+          Constrain(IPDst, ruleOut(ips))
         else
-          Constrain(IPDst, ruleOut(ips)),
+          Constrain(IPSrc, ruleOut(ips)),
           continueWith,
           NoOp)
       else

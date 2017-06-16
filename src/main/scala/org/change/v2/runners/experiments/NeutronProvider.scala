@@ -76,8 +76,22 @@ import org.change.v2.abstractnet.neutron.elements.Experiment._
 import org.change.v2.abstractnet.neutron.CSVBackedNetworking
 import java.io.PrintWriter
 import org.change.v2.analysis.z3.Z3Util
+import org.change.v2.analysis.executor.DecoratedInstructionExecutor
+import org.change.v2.analysis.executor.solvers.Z3Solver
+import org.change.v2.analysis.executor.solvers.Solver
+import org.change.v2.abstractnet.linux.Translatable
+import org.change.v2.analysis.processingmodels.instructions.ConstrainRaw
+import org.change.v2.analysis.processingmodels.instructions.ConstrainNamedSymbol
+import org.change.v2.analysis.memory.TagExp
 
-
+import org.change.v2.analysis.constraint._
+import org.change.v2.analysis.processingmodels.instructions._
+import org.change.v2.analysis.memory.MemorySpace
+import org.change.v2.analysis.expression.concrete.nonprimitive.Plus
+import org.change.v2.analysis.expression.abst.Expression
+import org.change.v2.analysis.memory.MemoryObject
+import org.change.v2.analysis.expression.concrete.nonprimitive.Minus
+import org.change.v2.analysis.memory.ValueStack
 
 object IngressToMachine
 {
@@ -207,13 +221,161 @@ object IngressToMachine
 
 
 
+class OVSExecutor(solver : Solver) extends DecoratedInstructionExecutor(solver)
+{
+  override def executeExoticInstruction(instruction : Instruction, s : State, v : Boolean) : 
+    (List[State], List[State]) = {
+    if (instruction.isInstanceOf[Translatable])
+    {
+      this.execute(instruction.asInstanceOf[Translatable].generateInstruction(), s, v)
+    }
+    else
+      throw new UnsupportedOperationException("Cannot handle this kind of instruction. Make it Translatable " + instruction)
+  }
+  
+  
+  override def executeConstrainRaw(instruction : ConstrainRaw, s : State, v : Boolean = false): 
+    (List[State], List[State]) = { 
+    val ConstrainRaw(a, dc, c) = instruction
+    a(s) match {
+      case Some(int) => c match {
+          case None => dc instantiate s match {
+            case Left(c) => optionToStatePair(s, s"Memory object @ $a cannot $dc") (s => {
+              val maybeNewMem = s.memory.addConstraint(int, c, true)
+              getNewMemory(maybeNewMem, Left(int), c)
+            })
+            case Right(err) => Fail(err)(s, v)
+          }
+          case Some(c) => optionToStatePair(s, s"Memory object @ $a cannot $dc") (s => {
+            val maybeNewMem = s.memory.addConstraint(int, c, true)
+            getNewMemory(maybeNewMem, Left(int), c)
+          })
+        }
+      case None => execute(Fail(TagExp.brokenTagExpErrorMessage), s, v)
+    }
+  }
+  def mapMemory(mem : MemorySpace, id : Long, value : Long) : MemorySpace = {
+    mem.copy(rawObjects = mem.rawObjects.map(x => {
+        (x._1, mapMemoryObject(x._2, id, value))
+      }).toMap,
+      symbols = mem.symbols.map(x => {
+        (x._1, mapMemoryObject(x._2, id, value))
+      }).toMap
+    )
+  }
+  
+  def mapExpression(expr : Expression, id : Long, value : Long) : Expression = {
+    expr match {
+      case y : SymbolicValue if y.id == id => ConstantValue(value)
+      case Plus(a, b) => Plus(mapValue(a, id, value), mapValue(b, id, value))
+      case Minus(a, b) => Minus(mapValue(a, id, value), mapValue(b, id, value))
+      case _ => expr
+    }
+  }
+  
+  def mapConstraint(ct : Constraint, id : Long, value : Long) : Constraint = {
+    ct match {
+      case OR(cs) => OR(cs.map(mapConstraint(_, id, value)))
+      case AND(cs) => AND(cs.map(mapConstraint(_, id, value)))
+      case LTE_E(expr) => LTE_E(mapExpression(expr, id, value))
+      case GTE_E(expr) => GTE_E(mapExpression(expr, id, value))
+      case GT_E(expr) => GT_E(mapExpression(expr, id, value))
+      case LT_E(expr) => LT_E(mapExpression(expr, id, value))
+      case EQ_E(expr) => EQ_E(mapExpression(expr, id, value))
+      case NOT(c) => NOT(mapConstraint(c, id, value))
+      case _ => ct
+    }
+  }
+  
+  def mapValue(v : Value, id : Long, value : Long) : Value = {
+    v.copy(e = mapExpression(v.e, id, value), cts = v.cts.map(mapConstraint(_, id, value)))
+  }
+  def mapValueStack(vs : ValueStack, id : Long, value : Long) : ValueStack = {
+    vs.vs match {
+      case head :: tail => vs.copy(vs = mapValue(head, id, value) :: tail)
+      case Nil => vs
+    }
+  }
+  
+  def mapMemoryObject(mo : MemoryObject, id : Long, value : Long) : MemoryObject = {
+    mo.valueStack match {
+      case head :: tail => {
+        mo.copy(valueStack = mapValueStack(head, id, value) :: tail)
+      }
+      case Nil => mo
+    }
+  }
+
+  protected def getNewMemory(maybeNewMem: Option[MemorySpace], a : Either[Int, String], c : Constraint) = {
+    maybeNewMem match {
+      case None => None
+      case Some(m) => {
+        val value = a match {
+          case Right(s) => m.eval(s).get
+          case Left(s) => m.eval(s).get
+        }
+        c match {
+          case EQ_E(ConstantValue(v, _, _)) => {
+            value.e match {
+              case y : SymbolicValue => {
+                Some(mapMemory(m, y.id, v))
+              }
+              case _ => {
+                if (isSat(m))
+                {
+                  Some(m)
+                }
+                else
+                {
+                  None
+                }
+              }
+            }
+          }
+          case _ => {
+            if (isSat(m))
+            {
+              Some(m)
+            }
+            else
+            {
+              None
+            }
+          }
+        }
+        
+      }
+    }
+  }
+  
+  override def executeConstrainNamedSymbol(instruction : ConstrainNamedSymbol, s : State, v : Boolean = false) : 
+    (List[State], List[State]) = {
+    val ConstrainNamedSymbol(id, dc, c) = instruction
+    c match {
+      case None => dc instantiate s match {
+        case Left(c) => optionToStatePair(s, s"Symbol $id cannot $dc") (s => {
+          val maybeNewMem = s.memory.addConstraint(id, c, true)
+          getNewMemory(maybeNewMem, Right(id), c)
+        })
+        case Right(err) => Fail(err)(s, v)
+      }
+      case Some(c) => optionToStatePair(s, s"Symbol $id cannot $dc") (s => {
+          val maybeNewMem = s.memory.addConstraint(id, c, true)
+          getNewMemory(maybeNewMem, Right(id), c)
+      })
+    }
+  }
+  
+}
+
+
 object L2Connectivity
 {
   
-  def experiment(ipsrc : String, 
-      enterIface : String, 
+  def experiment(enterIface : String, 
       pcName : String,
       dir : String,
+      codeFirst : Instruction = NoOp,
       exp : String = "eastwest") = {
     val expName = s"$exp-$enterIface-$pcName"
     try
@@ -250,17 +412,14 @@ object L2Connectivity
           }
         }
       )
-      
+      def decorated = new OVSExecutor(new Z3Solver())
       val initials = 
         InstructionBlock(
           State.eher,
           State.tunnel,
           initcode,
-          Assign("IsUnicast", ConstantValue(1)),
-          Assign(IPSrc, ConstantValue(ipToNumber(ipsrc), isIp = true)),
-          Assign(IPDst, SymbolicValue()),
-          Constrain(IPDst, :&:(:<=:(ConstantValue(ipToNumber("192.168.13.254"))), 
-              :>=:(ConstantValue(ipToNumber("192.168.13.1")))))
+          codeFirst,
+          Assign("IsUnicast", ConstantValue(1))
         )(State.bigBang, true)._1
       init =System.currentTimeMillis()
       val pc = world.getComputer(pcName)
@@ -268,7 +427,7 @@ object L2Connectivity
       val ns = pc.getNamespaceForNic(enterIface)
       
       //ingress example
-      val iib = new EnterIface(pcName, enterIface, world).generateInstruction
+      val iib = new EnterIface(pcName, enterIface, world)
       val worldModel = world
   //    val iib = new EnterIPTablesChain(pc, nic, "nat", "PREROUTING", worldModel).generateInstruction()
       val iip = InstructionBlock(
@@ -276,9 +435,6 @@ object L2Connectivity
         Allocate("OutputInterface"),
         iib
       )
-      val psCode = new PrintStream(s"$dir/generated-code-$expName.out")
-      psCode.println(iib)
-      psCode.close
       val psFailed = new PrintStream(s"$dir/generated-fail-$expName.out")
       val psout = new PrintStream(s"$dir/generated-$expName.out")
       val psOutRev = new PrintStream(s"$dir/generated-reverse-$expName.out")
@@ -286,7 +442,7 @@ object L2Connectivity
       
       init = System.currentTimeMillis()
       initials.map { initial => 
-        val (ok, fail) =  iip(initial, true)
+        val (ok, fail) =  decorated.execute(iip, initial, true)
         System.out.println(System.currentTimeMillis() - init)
         psStats.println("Forward runtime: " + (System.currentTimeMillis() - init) + " ms")
         psStats.println("Forward number of states: " + ok.size + "," + fail.size)
@@ -302,11 +458,11 @@ object L2Connectivity
                       val tap = r.group(1)
                       val machine = r.group(2)
                       println(s"Entering $tap at $machine")
-                      val ii = InstructionBlock(
+                      val ii = decorated.execute(InstructionBlock(
                           PacketMirror(),
                           Assign("InputInterface", ConstantStringValue(tap)),
-                          new EnterIface(machine, tap, world).generateInstruction()
-                      )(x, true)
+                          new EnterIface(machine, tap, world)
+                      ), x, true)
                       (acc2._1 ++ ii._1, acc2._2 ++ ii._2)
                   }
               }
@@ -324,7 +480,7 @@ object L2Connectivity
       psFailed.close()
     }
     catch {
-      case e : Exception => e.printStackTrace(new PrintWriter(s"$expName.err"))
+      case e : Exception => e.printStackTrace()
     }
     
   }
@@ -343,7 +499,13 @@ object L2Connectivity
         ipsrc = x.getFixedIps.iterator().next().getIpAddress
         enterIface = "tap" + x.getId.take("72d5355f-c6".length())
         pcName = "compute1"
-        experiment(ipsrc, enterIface, pcName, dir)
+        val codeFirst = InstructionBlock(
+          Assign(IPSrc, ConstantValue(ipToNumber(ipsrc), isIp = true)),
+//          Assign(IPDst, ConstantValue(ipToNumber("8.8.8.8"), isIp = true)),
+//          Assign(EtherDst, ConstantValue(macToNumber("fa:16:3e:f8:03:e4"), isMac = true)),
+          Assign(EtherSrc, ConstantValue(macToNumber(x.getMacAddress), isMac = true))
+        )
+        experiment(enterIface, pcName, dir, codeFirst = codeFirst)
         Z3Util.z3Context.finalize()
         Z3Util.refreshCache
       }
@@ -354,12 +516,18 @@ object L2Connectivity
     neutroncfg = CSVBackedNetworking.loadFromFolder(dir)
 
     ports = neutroncfg.getPorts.filter { x => x.getDeviceOwner == "compute:None" }
-    
+    ports = ports.filter { x => x.getId == "d66e3d2e-2fe7-41ee-b1e9-2229b1a5cfd3" }
     ports.foreach { x => {
         ipsrc = x.getFixedIps.iterator().next().getIpAddress
         enterIface = "tap" + x.getId.take("72d5355f-c6".length())
         pcName = "compute1"
-        experiment(ipsrc, enterIface, pcName, dir)
+        val codeFirst = InstructionBlock(
+          Assign(IPSrc, ConstantValue(ipToNumber(ipsrc), isIp = true)),
+//          Assign(IPDst, ConstantValue(ipToNumber("8.8.8.8"), isIp = true)),
+//          Assign(EtherDst, ConstantValue(macToNumber("fa:16:3e:f8:03:e4"), isMac = true)),
+          Assign(EtherSrc, ConstantValue(macToNumber(x.getMacAddress), isMac = true))
+        )
+        experiment(enterIface, pcName, dir, codeFirst = codeFirst)
         Z3Util.z3Context.finalize()
         Z3Util.refreshCache
       }
@@ -377,7 +545,7 @@ object L2Connectivity
 object EgressFromMachine
 {
   def main(argv : Array[String]) {
-    val ipsrc = "192.168.13.3"
+    val ipsrc = "192.168.13.5"
     val enterIface = "tap72d5355f-c6"
     val pcName = "compute1"
     val ipDst = "8.8.8.8"

@@ -31,6 +31,10 @@ import org.change.v2.abstractnet.linux.iptables.VariableNameExtensions._
 import org.change.v2.analysis.processingmodels.instructions.Forward
 import org.change.v2.abstractnet.click.sefl.IPMirror
 import org.change.v2.abstractnet.linux.ovs.PacketMirror
+import org.change.v2.analysis.processingmodels.instructions.{:<=:, :>=:, :==:}
+import org.change.v2.analysis.expression.concrete.SymbolicValue
+import org.change.v2.analysis.processingmodels.instructions.Constrain
+import org.change.v2.analysis.z3.Z3Util
 
 /**
   * Created by Dragos on 5/25/2017.
@@ -209,6 +213,176 @@ object Experiment {
   }
   
   
+  def main(argv : Array[String]) {
+    var dir = "stack-inputs/generated4"
+    var neutroncfg = CSVBackedNetworking.loadFromFolder(dir)
+
+    var ipsrc : String = ""
+    var port  : Port = null
+    var ports = neutroncfg.getPorts.filter { x => x.getDeviceOwner == "compute:None" }
+    
+    ports.foreach { x => {
+        println("Run EW for " + x.getId)
+        ipsrc = x.getFixedIps.iterator().next().getIpAddress
+        runEastWest(dir, ipsrc, x)
+        Z3Util.z3Context.finalize()
+        Z3Util.refreshCache
+      }
+    }
+    ports.foreach { x => {
+        println("Run EWWE for " + x.getId)
+        ipsrc = x.getFixedIps.iterator().next().getIpAddress
+        runEastWestThenBack(dir, ipsrc, x)
+        Z3Util.z3Context.finalize()
+        Z3Util.refreshCache
+      }
+    }
+  }
+  
+  def runEastWest(dir : String, 
+      ipSrc : String,
+      port : Port,
+      exp : String = "tenant-east-west") {
+
+    val expName = s"$exp-${port.getId}"
+        val nw = CSVBackedNetworking.loadFromFolder(dir)
+    val (i, links) = generateTopology(nw)
+    val outFile = s"$dir/outcomes-$expName.txt"
+    val startOfBuild = System.currentTimeMillis()
+    val fos = new FileOutputStream(outFile)
+    val solver = new Z3Solver()
+    val executor = new DecoratedInstructionExecutor(solver)
+    
+    var init = System.currentTimeMillis()
+    val psStats = new PrintStream(s"$dir/stats-$expName.txt")
+    init = System.currentTimeMillis()
+    
+    val actual = s"VM/${port.getDeviceId}/${port.getId}/out"
+
+    val initcode = InstructionBlock(nw.getPorts.map { x => {
+          Assign("IsForward".scopeTo(s"Port.${x.getId}"), ConstantValue(0))
+        }
+      } ++ nw.getPorts.map { x => {
+          Assign("IsForward".scopeTo(s"Port.${x.getId}"), ConstantValue(0))
+        }
+      } ++ nw.getPorts.map { x => {
+          Assign("IsFirst".scopeTo(s"Port.${x.getId}"), ConstantValue(1))
+        }
+      } ++ nw.getRouters.map { x => {
+          Assign("SNAT".scopeTo(x.getId), ConstantValue(0)) 
+        } 
+      } ++ nw.getRouters.map { x => {
+          Assign("DNAT".scopeTo(x.getId), ConstantValue(0)) 
+        }
+      }
+    )
+    val initials = 
+      InstructionBlock(
+        State.eher,
+        State.tunnel,
+        initcode,
+        Assign("IsUnicast", ConstantValue(1)),
+        Assign(IPSrc, ConstantValue(ipToNumber(ipSrc), isIp = true)),
+        Assign(IPDst, SymbolicValue()),
+        Constrain(IPDst, :<=:(ConstantValue(ipToNumber("192.168.13.254"), isIp = true))),
+        Constrain(IPDst, :>=:(ConstantValue(ipToNumber("192.168.13.1"), isIp = true))),
+        Forward(actual)
+      )(State.bigBang, true)
+    var ctx = new ClickExecutionContext(i, links.toMap, initials._1, Nil, Nil).setExecutor(executor).setLogger(new JsonLogger(fos))
+    var steps = 0
+    while(! ctx.isDone && steps < 1000) {
+      steps += 1
+      ctx = ctx.execute(true)
+    }
+    psStats.println("Total time: " + (System.currentTimeMillis() - init) + " ms")
+    psStats.println("Number of states forward: " + ctx.okStates.size + "," + ctx.failedStates.size)
+    psStats.close()
+    val psGen = new PrintStream(s"$dir/generated-$expName.out")
+    psGen.println(ctx.stuckStates)
+    psGen.close()
+    
+    val psFailed = new PrintStream(s"$dir/generated-fail-$expName.out")
+    psFailed.println(ctx.failedStates)
+    psFailed.close()
+  }
+  
+  def runEastWestThenBack(dir : String, 
+      ipSrc : String,
+      port : Port,
+      exp : String = "tenant-east-west-2way") {
+
+    val expName = s"$exp-${port.getId}"
+    val nw = CSVBackedNetworking.loadFromFolder(dir)
+    val (i, links) = generateTopology(nw)
+    val outFile = s"$dir/outcomes-$expName.txt"
+    val startOfBuild = System.currentTimeMillis()
+    val fos = new FileOutputStream(outFile)
+    val solver = new Z3Solver()
+    val executor = new DecoratedInstructionExecutor(solver)
+    
+    var init = System.currentTimeMillis()
+    val psStats = new PrintStream(s"$dir/stats-$expName.txt")
+    init = System.currentTimeMillis()
+    
+    val actual = s"VM/${port.getDeviceId}/${port.getId}/out"
+
+    val initcode = InstructionBlock(nw.getPorts.map { x => {
+          Assign("IsForward".scopeTo(s"Port.${x.getId}"), ConstantValue(0))
+        }
+      } ++ nw.getPorts.map { x => {
+          Assign("IsForward".scopeTo(s"Port.${x.getId}"), ConstantValue(0))
+        }
+      } ++ nw.getPorts.map { x => {
+          Assign("IsFirst".scopeTo(s"Port.${x.getId}"), ConstantValue(1))
+        }
+      } ++ nw.getRouters.map { x => {
+          Assign("SNAT".scopeTo(x.getId), ConstantValue(0)) 
+        } 
+      } ++ nw.getRouters.map { x => {
+          Assign("DNAT".scopeTo(x.getId), ConstantValue(0)) 
+        }
+      }
+    )
+    val initials = 
+      InstructionBlock(
+        State.eher,
+        State.tunnel,
+        initcode,
+        Assign("IsUnicast", ConstantValue(1)),
+        Assign(IPSrc, ConstantValue(ipToNumber(ipSrc), isIp = true)),
+        Assign(IPDst, SymbolicValue()),
+        Constrain(IPDst, :<=:(ConstantValue(ipToNumber("192.168.13.254"), isIp = true))),
+        Constrain(IPDst, :>=:(ConstantValue(ipToNumber("192.168.13.1"), isIp = true))),
+        Forward(actual)
+      )(State.bigBang, true)
+      
+      
+    val is = nw.getPorts.filter(x => x.getId != port.getId && x.getDeviceOwner == "compute:None").foldLeft(i)((acc, x) => {
+      acc + (s"VM/${x.getDeviceId}/${x.getId}/in" -> InstructionBlock(
+          PacketMirror(),
+          Forward(s"VM/${x.getDeviceId}/${x.getId}/out")
+        )
+      )
+    })
+    var ctx = new ClickExecutionContext(is, 
+        links.toMap, 
+        initials._1, Nil, Nil).setExecutor(executor).setLogger(new JsonLogger(fos))
+    var steps = 0
+    while(! ctx.isDone && steps < 1000) {
+      steps += 1
+      ctx = ctx.execute(true)
+    }
+    psStats.println("Total time: " + (System.currentTimeMillis() - init) + " ms")
+    psStats.println("Number of states forward: " + ctx.okStates.size + "," + ctx.failedStates.size)
+    psStats.close()
+    val psGen = new PrintStream(s"$dir/generated-$expName.out")
+    psGen.println(ctx.stuckStates)
+    psGen.close()
+    
+    val psFailed = new PrintStream(s"$dir/generated-fail-$expName.out")
+    psFailed.println(ctx.failedStates)
+    psFailed.close()
+  }
   
   def runInbound(dir : String) : List[State] = {
     val expName = "provider-fip"
@@ -242,6 +416,9 @@ object Experiment {
         }
       } ++ nw.getRouters.map { x => {
           Assign("SNAT".scopeTo(x.getId), ConstantValue(0)) 
+        } 
+      } ++ nw.getRouters.map { x => {
+          Assign("DNAT".scopeTo(x.getId), ConstantValue(0)) 
         }
       }
     )

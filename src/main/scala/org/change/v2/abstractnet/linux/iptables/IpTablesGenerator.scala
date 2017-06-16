@@ -50,11 +50,12 @@ import org.change.v2.model.iptables.NATConfig
 import org.change.v2.model.iptables.ChecksumTarget
 import org.change.v2.abstractnet.linux.iptables.VariableNameExtensions._
 import org.change.v2.analysis.expression.concrete.ConstantStringValue
+import org.change.v2.abstractnet.linux.Translatable
 
 
 case class EnterIPInterface(pcName : String, 
     iface : String, 
-    worldModel : WorldModel) extends Instruction {
+    worldModel : WorldModel) extends Instruction with Translatable {
   
   override def toString = s"EnterIPInterface($pcName, $iface)"
   
@@ -152,7 +153,7 @@ object ConntrackConstants {
 // if packet matches FW expectation => set IsForward = true, IsFirst <- false
 // if packet matches BK expectation => set IsBackward <- true, IsFirst <- false if (State == NEW) => State <- ESTABLISHED
 case class ConntrackTrack(pc : Computer, nic : NIC, worldModel : WorldModel) 
-  extends Instruction {
+  extends Instruction with Translatable {
   import ConntrackConstants._
   
   lazy val ct = new Conntrack(pc, nic, worldModel)
@@ -202,7 +203,7 @@ case class ConntrackTrack(pc : Computer, nic : NIC, worldModel : WorldModel)
 // if packet matches FW expectation => set IsForward = true, IsFirst <- false
 // if packet matches BK expectation => set IsBackward <- true, IsFirst <- false if (State == NEW) => State <- ESTABLISHED
 case class ConntrackTrackZone(pc : Computer, zone : Int, worldModel : WorldModel) 
-  extends Instruction {
+  extends Instruction with Translatable {
   import ConntrackConstants._
   
   lazy val ct = new ConntrackZone(pc, zone, worldModel)
@@ -253,7 +254,7 @@ case class ConntrackTrackZone(pc : Computer, zone : Int, worldModel : WorldModel
 
 
 case class ConntrackCommit(pc : Computer, nic : NIC, worldModel : WorldModel) 
-  extends Instruction
+  extends Instruction with Translatable
 {
   lazy val ct = new Conntrack(pc, nic, worldModel)
   override def toString = ct.toString() + ".commit()"
@@ -276,7 +277,7 @@ case class ConntrackCommit(pc : Computer, nic : NIC, worldModel : WorldModel)
 }
 
 case class ConntrackCommitZone(pc : Computer, zone : Int, worldModel : WorldModel) 
-  extends Instruction {
+  extends Instruction with Translatable {
   
   lazy val ct = new ConntrackZone(pc, zone, worldModel)
   override def toString = ct.toString() + ".commit()"
@@ -302,7 +303,7 @@ case class ConntrackCommitZone(pc : Computer, zone : Int, worldModel : WorldMode
 
 
 case class ConntrackUnSnat(pc : Computer, nic : NIC, worldModel : WorldModel) 
-  extends Instruction
+  extends Instruction with Translatable
 {
   lazy val ct = new Conntrack(pc, nic, worldModel)
   override def toString = ct.toString() + ".unsnat()"
@@ -323,7 +324,7 @@ case class ConntrackUnSnat(pc : Computer, nic : NIC, worldModel : WorldModel)
 
 
 case class ConntrackSnat(pc : Computer, nic : NIC, worldModel : WorldModel)
-  extends Instruction
+  extends Instruction with Translatable
 {
   lazy val ct = new Conntrack(pc, nic, worldModel)
   override def toString = ct.toString() + ".snat()"
@@ -343,7 +344,7 @@ case class ConntrackSnat(pc : Computer, nic : NIC, worldModel : WorldModel)
 
 
 case class ConntrackUnDnat(pc : Computer, nic : NIC, worldModel : WorldModel)
-  extends Instruction
+  extends Instruction with Translatable
 {
   lazy val ct = new Conntrack(pc, nic, worldModel)
   override def toString = ct.toString() + ".undnat()"
@@ -362,7 +363,7 @@ case class ConntrackUnDnat(pc : Computer, nic : NIC, worldModel : WorldModel)
 
 
 case class ConntrackDnat(pc : Computer, nic : NIC, worldModel : WorldModel)
-  extends Instruction
+  extends Instruction with Translatable
 {
   lazy val ct = new Conntrack(pc, nic, worldModel)
   override def toString = ct.toString() + ".dnat()"
@@ -383,7 +384,7 @@ case class ConntrackDnat(pc : Computer, nic : NIC, worldModel : WorldModel)
 
 
 case class DeliverToLocalIface(pc : Computer, nic : NIC, worldModel : WorldModel) 
-  extends Instruction {
+  extends Instruction with Translatable {
   override def toString = s"DeliverLocal(${pc.getName}, ${nic.getName})"
   def generateInstruction() : Instruction = {
     val ns = pc.getNamespaceForNic(nic.getName)
@@ -407,7 +408,7 @@ case class DeliverToLocalIface(pc : Computer, nic : NIC, worldModel : WorldModel
 
 
 case class DoNatPostRouting(pc : Computer, nic : NIC, worldModel : WorldModel)
-  extends Instruction
+  extends Instruction with Translatable
 {
   override def toString = s"DoNatPostRouting(${pc.getName}, ${nic.getName})"
 
@@ -432,7 +433,7 @@ case class DoNatPostRouting(pc : Computer, nic : NIC, worldModel : WorldModel)
 
 
 case class DoNatPrerouting(pc : Computer, nic : NIC, worldModel : WorldModel) 
-  extends Instruction {
+  extends Instruction with Translatable {
   override def toString = s"DoNatPrerouting(${pc.getName}, ${nic.getName})"
   lazy val ns = pc.getNamespaceForNic(nic.getName)
 
@@ -452,7 +453,7 @@ case class DoNatPrerouting(pc : Computer, nic : NIC, worldModel : WorldModel)
 }
 
 case class EnterARPTable(pc : Computer, iface : NIC, worldModel : WorldModel) 
-  extends Instruction
+  extends Instruction with Translatable
 {
   override def toString = s"EnterARPTable(${pc.getName}, ${iface.getName})"
   
@@ -926,7 +927,7 @@ case class Conntrack(pc : Computer, iface : NIC, worldModel : WorldModel)
 
 
 case class RoutingDecision(pc : Computer, iface : NIC, worldModel : WorldModel)
-  extends Instruction
+  extends Instruction with Translatable
 {
   lazy val ns = pc.getNamespaceForNic(iface.getName)
   override def toString = s"RoutingDecision(${pc.getName}, ${iface.getName})"
@@ -1012,12 +1013,8 @@ case class EnterIPTablesChain(pc : Computer,
     chain : String, 
     world : WorldModel,
     isInitial : Boolean = true)
-  extends Instruction
+  extends Instruction with Translatable
 {
-  
-  
-  
-  
   override def toString = s"EnterIPTablesChain(${pc.getName}, ${iface.getName}, $table, $chain)"
   
   

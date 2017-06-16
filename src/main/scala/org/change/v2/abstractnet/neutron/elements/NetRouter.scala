@@ -157,32 +157,47 @@ class SNAT (router : Router,
 
 
   def snat() : Instruction = {
-    InstructionBlock(
-      Assign(router.getId + ".SNAT.IPSrcOrig", :@(IPSrc)),
-      Assign(router.getId + ".SNAT.IPDstOrig", :@(IPDst)),
-      IfProto(TCPProto,
-        InstructionBlock(Assign(router.getId + ".SNAT.TCPSrcOrig", :@(TcpSrc)),
-          Assign(router.getId + ".SNAT.TCPDstOrig", :@(TcpDst)),
-          Assign(TcpSrc, SymbolicValue()),
-          Constrain(TcpSrc, :&:(:<=:(ConstantValue(65536)), :>=:(ConstantValue(0)))),
-          Assign(router.getId + ".SNAT.TCPSrcMod", :@(TcpSrc))
-        ),
-        IfProto(UDPProto,
-          InstructionBlock(
-            Assign(router.getId + ".SNAT.UDPSrcOrig", :@(TcpSrc)),
-            Assign(router.getId + ".SNAT.UDPDstOrig", :@(TcpDst)),
-            Assign(UDPSrc, SymbolicValue()),
-            Constrain(UDPSrc, :&:(:<=:(ConstantValue(65536)), :>=:(ConstantValue(0)))),
-            Assign(router.getId + ".SNAT.UDPSrcMod", :@(UDPSrc))
+    If (Constrain(s"{router.getId}.DNAT", :==:(ConstantValue(0))),
+      InstructionBlock(
+        Assign(router.getId + ".SNAT.IPSrcOrig", :@(IPSrc)),
+        Assign(router.getId + ".SNAT.IPDstOrig", :@(IPDst)),
+        IfProto(TCPProto,
+          InstructionBlock(Assign(router.getId + ".SNAT.TCPSrcOrig", :@(TcpSrc)),
+            Assign(router.getId + ".SNAT.TCPDstOrig", :@(TcpDst)),
+            Assign(TcpSrc, SymbolicValue()),
+            Constrain(TcpSrc, :&:(:<=:(ConstantValue(65536)), :>=:(ConstantValue(0)))),
+            Assign(router.getId + ".SNAT.TCPSrcMod", :@(TcpSrc))
+          ),
+          IfProto(UDPProto,
+            InstructionBlock(
+              Assign(router.getId + ".SNAT.UDPSrcOrig", :@(TcpSrc)),
+              Assign(router.getId + ".SNAT.UDPDstOrig", :@(TcpDst)),
+              Assign(UDPSrc, SymbolicValue()),
+              Constrain(UDPSrc, :&:(:<=:(ConstantValue(65536)), :>=:(ConstantValue(0)))),
+              Assign(router.getId + ".SNAT.UDPSrcMod", :@(UDPSrc))
+            )
           )
-        )
+        ),
+        setExternalIp,
+        Assign(router.getId + ".SNAT.IPSrcMod", :@(IPSrc)),
+        Assign(router.getId + ".SNAT.IPProto", :@(Proto)),
+        Assign(router.getId + ".SNAT", ConstantValue(1)),
+        Forward(s"SNAT/${router.getId}/external/out")
       ),
-      setExternalIp,
-      Assign(router.getId + ".SNAT.IPSrcMod", :@(IPSrc)),
-      Assign(router.getId + ".SNAT.IPProto", :@(Proto)),
-      Assign(router.getId + ".SNAT", ConstantValue(1)),
-      Forward(s"SNAT/${router.getId}/external/out")
+      undnat()
     )
+  }
+  
+  def undnat() : Instruction = {
+    fips.foldRight(Fail("Cannot route internal traffic outvwards") : Instruction)((z, acc) => {
+      If (Constrain(IPSrc, :==:(ConstantValue(ipToNumber(z.getFixedIpAddress), isIp = true))),
+          InstructionBlock(
+            Assign(IPSrc, ConstantValue(ipToNumber(z.getFloatingIpAddress), isIp = true)),
+            Forward(s"SNAT/${router.getId}/external/out")
+          ),
+          acc
+      )
+    })
   }
   
   // floating ips
@@ -190,6 +205,7 @@ class SNAT (router : Router,
     val fipm = fips.foldRight(Fail("Cannot route external traffic invwards") : Instruction)((z, acc) => {
       If (Constrain(IPDst, :==:(ConstantValue(ipToNumber(z.getFloatingIpAddress), isIp = true))),
           InstructionBlock(
+            Assign(router.getId + ".DNAT", ConstantValue(1)),
             Assign(IPDst, ConstantValue(ipToNumber(z.getFixedIpAddress), isIp = true)),
             Forward(s"SNAT/${router.getId}/internal/out")
           ),

@@ -13,7 +13,8 @@ import org.change.v2.analysis.expression.concrete.SymbolicValue
 import org.change.v2.analysis.expression.concrete.ConstantValue
 import org.change.v2.analysis.expression.concrete.nonprimitive.Minus
 import org.change.v2.analysis.expression.concrete.nonprimitive.Reference
-import org.change.v2.analysis.constraint.{E, GT, LT, LTE, GTE, AND, OR, NOT, EQ_E, GT_E, LT_E, LTE_E, GTE_E}
+import org.change.v2.analysis.constraint.{E, GT, LT, LTE, GTE, AND, OR, NOT, EQ_E, GT_E, LT_E, LTE_E, GTE_E}
+import org.change.v2.analysis.expression.concrete.ConstantStringValue
 
 class Z3Translator(context : Z3Context) extends Translator[Z3Solver] {
   override def translate(mem : MemorySpace) : Z3Solver = {
@@ -31,8 +32,8 @@ class Z3Translator(context : Z3Context) extends Translator[Z3Solver] {
       case Plus(a, b) => context.mkAdd(translate(slv, a)._1, translate(slv, b)._1)
       case Minus(a, b) => context.mkSub(translate(slv, a)._1, translate(slv, b)._1)
       case Reference(what, _) => translate(slv,what)._1
-      case ConstantValue(v, _, _) => context.mkInt(v.asInstanceOf[Int], context.mkIntSort)
-      case SymbolicValue(_) => context.mkConst(e.id.toString, context.mkIntSort)
+      case ConstantValue(v, _, _) => context.mkNumeral(v.toString, context.mkIntSort)
+      case SymbolicValue(_) => context.mkConst(e.id.toString, context.mkIntSort)      case ConstantStringValue(v) => context.mkNumeral(v.hashCode.toString, context.mkIntSort)
     }
     (ast, slv)
   }

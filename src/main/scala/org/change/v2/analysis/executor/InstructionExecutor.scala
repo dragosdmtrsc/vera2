@@ -357,13 +357,13 @@ abstract class AbstractInstructionExecutor extends InstructionExecutor {
       case Some(int) => c match {
           case None => dc instantiate s match {
             case Left(c) => optionToStatePair(s, s"Memory object @ $a cannot $dc") (s => {
-              val maybeNewMem = s.memory.addConstraint(int, c)
+              val maybeNewMem = s.memory.addConstraint(int, c, true)
               getNewMemory(maybeNewMem)
             })
             case Right(err) => Fail(err)(s, v)
           }
           case Some(c) => optionToStatePair(s, s"Memory object @ $a cannot $dc") (s => {
-            val maybeNewMem = s.memory.addConstraint(int, c)
+            val maybeNewMem = s.memory.addConstraint(int, c, true)
             getNewMemory(maybeNewMem)
           })
         }
@@ -371,7 +371,7 @@ abstract class AbstractInstructionExecutor extends InstructionExecutor {
     }
   }
 
-  private def getNewMemory(maybeNewMem: Option[org.change.v2.analysis.memory.MemorySpace]) = {
+  protected def getNewMemory(maybeNewMem: Option[org.change.v2.analysis.memory.MemorySpace]) = {
     maybeNewMem match {
       case None => None
       case Some(m) => {
@@ -393,13 +393,13 @@ abstract class AbstractInstructionExecutor extends InstructionExecutor {
     c match {
       case None => dc instantiate s match {
         case Left(c) => optionToStatePair(s, s"Symbol $id cannot $dc") (s => {
-          val maybeNewMem = s.memory.addConstraint(id, c)
+          val maybeNewMem = s.memory.addConstraint(id, c, true)
           getNewMemory(maybeNewMem)
         })
         case Right(err) => Fail(err)(s, v)
       }
       case Some(c) => optionToStatePair(s, s"Symbol $id cannot $dc") (s => {
-          val maybeNewMem = s.memory.addConstraint(id, c)
+          val maybeNewMem = s.memory.addConstraint(id, c, true)
           getNewMemory(maybeNewMem)
       })
     }
