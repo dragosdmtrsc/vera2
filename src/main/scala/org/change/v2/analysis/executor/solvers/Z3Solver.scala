@@ -15,7 +15,7 @@ import org.smtlib.SMT
 
 class ComparisonSolver(z3s : Z3Solver, smt : SerialSMTSolver)
     extends AbstractSolver[(z3.scala.Z3Solver, (IScript, SMT))] {
-  protected def decide(what: (z3.scala.Z3Solver, (IScript, SMT))): Boolean = {
+  override def decide(what: (z3.scala.Z3Solver, (IScript, SMT))): Boolean = {
     val z3res = z3s.decide(what._1)
     val smtres= smt.decide(what._2)
     val (scrs, smts) = what._2
@@ -28,7 +28,7 @@ class ComparisonSolver(z3s : Z3Solver, smt : SerialSMTSolver)
     else
       z3res
   }
-  protected def translate(memory: MemorySpace): (z3.scala.Z3Solver, (IScript, SMT)) = {
+  override def translate(memory: MemorySpace): (z3.scala.Z3Solver, (IScript, SMT)) = {
     (z3s.translate(memory), smt.translate(memory))
   }
 

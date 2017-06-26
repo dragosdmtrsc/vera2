@@ -57,4 +57,9 @@ generated\.err
 
 *.pyc
 
+*.csv
+
+
 stack-inputs/
+
+eastwest-tapd66e3d2e-2f-compute1\.err

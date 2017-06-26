@@ -5,13 +5,9 @@ import org.change.v2.analysis.z3.Z3Util
 import org.change.v2.interval._
 import org.change.v2.interval.IntervalOps._
 import z3.scala.{Z3Solver, Z3AST}
-import com.fasterxml.jackson.annotation.JsonTypeInfo
 
 
-@JsonTypeInfo(
-  use = JsonTypeInfo.Id.NAME, 
-  include = JsonTypeInfo.As.PROPERTY, 
-  property = "type")
+
 trait Constraint {
   /**
    * Materialize a constraint as the set of possible values.

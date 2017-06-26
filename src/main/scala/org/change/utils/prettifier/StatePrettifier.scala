@@ -23,12 +23,44 @@ import org.change.v2.analysis.expression.concrete.nonprimitive.Plus
 import org.change.v2.analysis.expression.concrete.nonprimitive.Reference
 import org.change.v2.analysis.memory.MemoryObject
 import org.change.v2.analysis.memory.MemorySpace
+import org.change.v2.analysis.memory.State
 import org.change.v2.analysis.memory.Value
 import org.change.v2.analysis.memory.ValueStack
-import org.change.v2.analysis.memory.State
+import org.change.v2.analysis.processingmodels.instructions.ConstrainNamedSymbol
+import org.change.v2.analysis.processingmodels.instructions.ConstrainRaw
+import org.change.v2.analysis.types.IP4Type
+import org.change.v2.analysis.types.LongType
+import org.change.v2.analysis.types.MACType
 import org.change.v2.analysis.types.NumericType
-import org.change.v2.analysis.types._
+import org.change.v2.analysis.types.PortType
+import org.change.v2.analysis.types.ProtoType
+import org.change.v2.analysis.types.VLANType
 
+import com.fasterxml.jackson.annotation.JsonTypeInfo
+import com.fasterxml.jackson.databind.DeserializationFeature
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.jsontype.NamedType
+import com.fasterxml.jackson.module.scala.DefaultScalaModule
+import com.fasterxml.jackson.module.scala.experimental.ScalaObjectMapper
+import org.change.v2.analysis.processingmodels.instructions.AssignNamedSymbol
+import org.change.v2.analysis.processingmodels.instructions.AssignRaw
+import org.change.v2.analysis.processingmodels.instructions.AllocateRaw
+import org.change.v2.analysis.processingmodels.instructions.AllocateSymbol
+import org.change.v2.analysis.processingmodels.instructions.If
+import org.change.v2.analysis.processingmodels.instructions.Forward
+import org.change.v2.analysis.processingmodels.instructions.Fork
+import org.change.v2.analysis.processingmodels.instructions.InstructionBlock
+import org.change.v2.analysis.processingmodels.Instruction
+import org.change.v2.analysis.processingmodels.instructions.CreateTag
+import org.change.v2.analysis.expression.abst.FloatingExpression
+import org.change.v2.analysis.processingmodels.instructions.FloatingConstraint
+import org.change.v2.analysis.processingmodels.instructions._
+import org.change.v2.analysis.expression.concrete.nonprimitive.{:+:, :-:, :@, Address}
+import org.change.v2.analysis.memory.TagExp
+import org.change.v2.analysis.memory.Tag
+import org.change.v2.analysis.memory.Intable
+import com.fasterxml.jackson.annotation.JsonIgnore
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 
 
 class StatePrettifier {
@@ -213,14 +245,35 @@ class StatePrettifier {
   }
 }
 
-import com.fasterxml.jackson.databind.jsontype.NamedType
-import com.fasterxml.jackson.module.scala.DefaultScalaModule
-import com.fasterxml.jackson.databind.DeserializationFeature
-import com.fasterxml.jackson.module.scala.experimental.ScalaObjectMapper
-import com.fasterxml.jackson.databind.ObjectMapper
-import org.change.v2.analysis.types.IP4Type
-import org.change.v2.analysis.types.LongType
+@JsonTypeInfo(
+  use = JsonTypeInfo.Id.NAME, 
+  include = JsonTypeInfo.As.PROPERTY, 
+  property = "type")
+@JsonIgnoreProperties(Array("idHash"))
+trait TypeMixin {
 
+}
+
+@JsonIgnoreProperties(Array("t", "idHash"))
+trait ForgetTAssignRaw {
+}
+
+@JsonIgnoreProperties(Array("eType", "idHash"))
+trait ForgetEType {
+}
+
+
+@JsonIgnoreProperties(Array("name"))
+trait ForgetNameSymbolicValue {
+}
+
+@JsonIgnoreProperties(Array("void"))
+trait ForgetValueStackVoid {
+}
+
+@JsonIgnoreProperties(Array("z3Valid"))
+trait ForgetZ3Valid {
+}
 
 
 object JsonUtil {
@@ -241,6 +294,56 @@ object JsonUtil {
       classOf[LTE_E], 
       LongType.getClass, IP4Type.getClass, MACType.getClass,
       PortType.getClass, ProtoType.getClass, VLANType.getClass)
+  mapper.registerSubtypes(
+      new NamedType(classOf[ConstrainRaw], "ConstrainRaw"),
+      new NamedType(classOf[ConstrainNamedSymbol], "ConstrainNamedSymbol"),
+      new NamedType(classOf[AssignNamedSymbol], "AssignNamedSymbol"),
+      new NamedType(classOf[AssignRaw], "AssignRaw"),
+      new NamedType(classOf[AllocateSymbol], "AllocateSymbol"),
+      new NamedType(classOf[AllocateRaw], "AllocateRaw"),
+      new NamedType(classOf[If], "If"),
+      new NamedType(classOf[InstructionBlock], "If"),
+      new NamedType(classOf[Forward], "Forward"),
+      new NamedType(classOf[Fork], "Fork"),
+      new NamedType(classOf[CreateTag], "CreateTag")
+  )
+  
+  
+  mapper.registerSubtypes(
+      new NamedType(classOf[:&:], "f_and"),
+      new NamedType(classOf[:|:], "f_or"),
+      new NamedType(classOf[:~:], "f_not"),
+      new NamedType(classOf[:-:], "f_minus"),
+      new NamedType(classOf[:+:], "f_plus"),
+      new NamedType(classOf[org.change.v2.analysis.expression.concrete.nonprimitive.Symbol], "f_sym"),
+      new NamedType(classOf[Address], "f_adr"),
+      new NamedType(classOf[:<:], "f_lt"),
+      new NamedType(classOf[:>:], "f_gt"),
+      new NamedType(classOf[:>=:], "f_gte"),
+      new NamedType(classOf[:<=:], "f_lte"),
+      new NamedType(classOf[:>=:], "f_gte")
+  )
+  
+  
+  
+  mapper.registerSubtypes(
+      new NamedType(classOf[Tag], "tag"),
+      new NamedType(classOf[TagExp], "tag-expr"),
+      new NamedType(classOf[TagExp.IntImprovements], "int-impr")
+  )
+  
+  mapper.addMixin[AssignRaw, ForgetTAssignRaw]()
+  mapper.addMixin[Constraint, TypeMixin]();
+  mapper.addMixin[Instruction, TypeMixin]();
+  mapper.addMixin[Expression, TypeMixin]();
+  mapper.addMixin[FloatingConstraint, TypeMixin]();
+  mapper.addMixin[FloatingExpression, TypeMixin]();
+  mapper.addMixin[Intable, TypeMixin]();
+  mapper.addMixin[SymbolicValue, ForgetNameSymbolicValue]
+  mapper.addMixin[Value, ForgetEType]
+  mapper.addMixin[MemoryObject, ForgetValueStackVoid]
+  mapper.addMixin[MemorySpace, ForgetZ3Valid]
+  
   def toJson(value: Map[Symbol, Any]): String = {
     toJson(value map { case (k,v) => k.name -> v})
   }
@@ -261,6 +364,14 @@ object SomeWriter {
   def apply(state : Any) =  {
     JsonUtil.toJson(state)
   }
+  
+  def main(strings : Array[String]) {
+    import JsonUtil._
+    println(toJson(State.bigBang(true)))
+    val fromJson = JsonUtil.fromJson[State](toJson(State.bigBang(true)))
+    println(toJson(fromJson))
+  }
+  
 }
 
 object StatePrettifier {

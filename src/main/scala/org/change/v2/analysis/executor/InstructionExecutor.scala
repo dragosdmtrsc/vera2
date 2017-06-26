@@ -33,6 +33,7 @@ import org.change.v2.analysis.executor.solvers.Z3Solver
 import org.change.v2.analysis.executor.solvers.Z3SolverEnhanced
 import org.change.v2.analysis.processingmodels.instructions.NoOp
 import org.change.v2.analysis.processingmodels.instructions.NoOp
+import org.change.v2.abstractnet.linux.Translatable
 
 trait IExecutor[T] {
   def execute(instruction : Instruction, 
@@ -45,7 +46,8 @@ abstract class Executor[T] extends IExecutor[T] {
     val s = if (verbose && 
           !instruction.isInstanceOf[If] && 
           !instruction.isInstanceOf[Fork] &&
-          !instruction.isInstanceOf[InstructionBlock])
+          !instruction.isInstanceOf[InstructionBlock] && 
+          !instruction.isInstanceOf[Translatable])
         state.addInstructionToHistory(instruction)
       else
         state  

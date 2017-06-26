@@ -13,13 +13,32 @@ import org.change.v2.analysis.memory.MemoryObject
 import org.change.v2.analysis.processingmodels.instructions.InstructionBlock
 import z3.scala.Z3Context
 import org.change.v2.analysis.z3.Z3Util
+import z3.scala.Z3Pattern
+import z3.scala.Z3Sort
+import z3.scala.Z3Symbol
 
+
+
+object Z3Test {
+  def main(argv : Array[String]) {
+    val z3 = new Z3Context
+    val symbol = z3.mkIntSymbol(1)
+    val constant = z3.mkIntConst("a")
+    val slv = z3.mkSolver()
+    
+    z3.mkForAll(1, List[Z3Pattern](), 
+        List[(Z3Symbol, Z3Sort)]((symbol, z3.mkIntSort())), 
+        z3.mkBound(1, z3.mkIntSort())    
+    )
+    
+  }
+  
+}
 
 class EquivalenceProver(portMap : (String, String) => Boolean, tags : List[Either[Intable, String]]) { 
   
   def exists(left : State, right : List[State]) : (Boolean, String) = {
     val z3 = Z3Util.z3Context
-    
     
     val validPorts = right.filter { x => portMap(left.history.head, x.history.head) }
     if (validPorts.isEmpty)

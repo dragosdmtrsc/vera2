@@ -38,7 +38,6 @@ import org.change.v2.model.openflow.actions.ResubmitAction
 import org.change.v2.model.openflow.actions.SetFieldAction
 import org.change.v2.model.openflow.actions.SetTunnelAction
 
-import com.fasterxml.jackson.annotation.JsonTypeInfo
 import org.change.v2.model.openflow.actions.StripVlanAction
 import org.change.v2.analysis.processingmodels.instructions.Deallocate
 import org.change.v2.analysis.processingmodels.instructions.Constrain

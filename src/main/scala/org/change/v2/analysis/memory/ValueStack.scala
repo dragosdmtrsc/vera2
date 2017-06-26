@@ -35,7 +35,7 @@ case class ValueStack(val vs: List[Value] = Nil) {
 
   def constrain(cs: List[Constraint]): ValueStack = cs.foldLeft(this) ( _ constrain _ )
 
-  def addDefinition(v: Value): ValueStack = ValueStack( v :: vs)
+  def addDefinition(v: Value): ValueStack = ValueStack( v :: Nil )
 
 }
 

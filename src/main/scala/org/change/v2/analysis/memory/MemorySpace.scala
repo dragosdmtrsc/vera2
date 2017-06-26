@@ -167,75 +167,12 @@ case class MemorySpace(val symbols: Map[String, MemoryObject] = Map.empty,
     }
   else
     None
-  
-    
-  
-  def normalize(c : Constraint) : Constraint = {
-    c match {
-      case NOT(EQ_E(expr)) => NOT(EQ_E(normalize(expr)))
-      case NOT(GT_E(expr)) => LTE_E(normalize(expr))
-      case NOT(GTE_E(expr)) => LT_E(normalize(expr))
-      case NOT(LT_E(expr)) => GTE_E(normalize(expr))
-      case NOT(LTE_E(expr)) => GT_E(normalize(expr))
-      case (EQ_E(expr)) => (EQ_E(normalize(expr)))
-      case (GT_E(expr)) => GT_E(normalize(expr))
-      case (GTE_E(expr)) => GTE_E(normalize(expr))
-      case (LT_E(expr)) => LT_E(normalize(expr))
-      case (LTE_E(expr)) => LTE_E(normalize(expr))
-      case NOT(OR(instrs)) => AND(instrs.map { x => NOT(x) })
-      case NOT(AND(instrs)) => OR(instrs.map { x => NOT(x) })
-      case NOT(NOT(z)) => normalize(z)
-      case _ => c
-    }
-  }
-  
-  def normalize(expr : Expression) : Expression = expr match {
-    case ConstantStringValue(x) => ConstantValue(x.hashCode())
-    case Plus(Value(e1, _, _), Value(e2, _, _)) => Plus(Value(normalize(e1)), Value(normalize(e2)))
-    case Minus(Value(e1, _, _), Value(e2, _, _)) => Minus(Value(normalize(e1)), Value(normalize(e2)))
-    case _ => expr
-  }
-  
-  def tryEval(value : Value) : Option[Long] = {
-    normalize(value.e) match {
-      case ConstantValue(x, _, _) => Some(x)
-      case Reference(v, _) => tryEval(v)
-      case _ => {
-        value.cts.foldLeft(None : Option[Long]) { (acc, x) => 
-          if (acc.isDefined)
-            acc
-          else
-            x match {
-              case EQ_E(ConstantValue(z, _, _)) => Some(z)
-              case E(z) => Some(z) 
-              case EQ_E(Reference(v, _)) => tryEval(v)
-              case _ => None
-            }
-        }
-      }
-    }
-  }
-  
-  def checkSat(value : Value, c : Constraint) : (Option[Value], Boolean) = {
-    tryEval(value).foldLeft((Some(value.constrain(c)), false) :  (Option[Value], Boolean)) { (acc, x) => {
-        val newVal = value
-        c match {
-          case EQ_E(ConstantValue(y, _, _)) if y == x => (Some(newVal), true)
-          case EQ_E(ConstantValue(y, _, _)) if y != x => (None, true)
-          case NOT(EQ_E(ConstantValue(y, _, _))) if y == x => (None, true)
-          case LTE_E(ConstantValue(y, _, _)) if x > y => (None, true)
-          case GTE_E(ConstantValue(y, _, _)) if x < y => (None, true)
-          case LT_E(ConstantValue(y, _, _)) if x >= y => (None, true)
-          case GT_E(ConstantValue(y, _, _)) if x <= y => (None, true)
-          case _ => acc
-        }
-      }
-    }
-  }
+
     
   def addConstraint(id : String, c : Constraint) : Option[MemorySpace] = addConstraint(id, c, false)
   def addConstraint(id : String, c : Constraint, defer : Boolean) : Option[MemorySpace] = eval(id).flatMap(smb => {
-    val (newSmb, isSolved) = checkSat(smb.copy(e = normalize(smb.e)), normalize(c))
+//    val (newSmb, isSolved) = checkSat(smb.copy(e = normalize(smb.e)), normalize(c))
+    val (newSmb, isSolved) = (Option[Value](smb.constrain(c)), false)
     if (isSolved)
     {
       if (newSmb.isDefined)
@@ -275,9 +212,15 @@ case class MemorySpace(val symbols: Map[String, MemoryObject] = Map.empty,
     (v.constrain(c), false)
   }
   
+  def addConstraint(r : Either[Int, String], c : Constraint, defer : Boolean) : Option[MemorySpace] = r match {
+    case Left(a) => addConstraint(a, c, defer)
+    case Right(s) => addConstraint(s, c, defer)
+  }
+  
+  
   def addConstraint(a : Int, c : Constraint)  : Option[MemorySpace] = addConstraint(a, c, false)
   def addConstraint(a : Int, c : Constraint, defer : Boolean) : Option[MemorySpace] = eval(a).flatMap(smb => {
-    val (newSmb, isSolved) = checkSat(smb.copy(e = normalize(smb.e)), normalize(c))
+    val (newSmb, isSolved) = (Option[Value](smb.constrain(c)), false)
     if (isSolved)
     {
       if (newSmb.isDefined)

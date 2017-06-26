@@ -415,7 +415,6 @@ case class DoNatPostRouting(pc : Computer, nic : NIC, worldModel : WorldModel)
   lazy val ns = pc.getNamespaceForNic(nic.getName)
   
   def generateInstruction() : Instruction = {
-    println(toString)
     InstructionBlock(
         Forward(toString),
         If (Constrain("IsFirst".scopeTo(ns), :==:(ConstantValue(1))),
@@ -471,7 +470,6 @@ case class EnterARPTable(pc : Computer, iface : NIC, worldModel : WorldModel)
   
   
   def generateInstruction() : Instruction = {
-    println(toString)
     InstructionBlock(
       Forward(toString),
       worldModel.getPcs.flatMap { x => x.getNamespaces }.flatMap { y => y.getNICs }.

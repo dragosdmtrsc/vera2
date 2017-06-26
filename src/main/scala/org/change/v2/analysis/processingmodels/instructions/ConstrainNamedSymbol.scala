@@ -4,8 +4,7 @@ import org.change.v2.analysis.constraint._
 import org.change.v2.analysis.expression.abst.FloatingExpression
 import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.analysis.memory.{State, TagExp, Intable}
-import com.fasterxml.jackson.annotation.JsonTypeInfo
-
+
 /**
  * Author: Radu Stoenescu
  * Don't be a stranger,  symnetic.7.radustoe@spamgourmet.com
@@ -62,16 +61,7 @@ object Constrain {
       case Right(s) => apply(s, dc)
     }
 }
-
-@JsonTypeInfo(
-  use = JsonTypeInfo.Id.CLASS, 
-  include = JsonTypeInfo.As.PROPERTY, 
-  property = "type")
-trait FloatingConstraint {
-  def instantiate(s: State): Either[Constraint, String]
-}
-
-
+trait FloatingConstraint {  def instantiate(s: State): Either[Constraint, String]}
 object :|: {
   def apply(cstrs : List[FloatingConstraint]) : FloatingConstraint = {
     cstrs match {

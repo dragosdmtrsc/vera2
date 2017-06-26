@@ -43,26 +43,32 @@ case class If(testInstr: Instruction, thenWhat: Instruction, elseWhat:Instructio
     case _ => stateToError(s.addInstructionToHistory(this), "Bad test instruction")
   }
   
-  def branch() : (Instruction, Instruction) = {
-    testInstr match {
+  def branch(s: State): List[Instruction] = testInstr match {
     // This is quite inappropriate
-      case i @ ConstrainNamedSymbol(what, withWhat, c) => {
-        (ConstrainNamedSymbol(what, withWhat, c),
-         ConstrainNamedSymbol(what, :~:(withWhat), c match {
-           case Some(cc) => Some(NOT(cc))
-           case None     => None
-             }))
+    case i @ ConstrainNamedSymbol(what, withWhat, _) => {
+      withWhat instantiate s match {
+        case Left(c) if s.memory.symbolIsAssigned(what) => {
+          val ifok = InstructionBlock(ConstrainNamedSymbol(what, withWhat, Some(c)), thenWhat)
+          val ifko = InstructionBlock(ConstrainNamedSymbol(what, :~:(withWhat), Some(NOT(c))), elseWhat)
+          List[Instruction](ifok, ifko)
+        }
+        case _ => List[Instruction](elseWhat)
       }
-      case rawi @ ConstrainRaw(what, withWhat, c) => {
-        (ConstrainRaw(what, withWhat, c),
-         ConstrainRaw(what, :~:(withWhat), c match {
-           case Some(cc) => Some(NOT(cc))
-           case None     => None
-             }))
-      }
-      case _ => (Fail("Some wrong stuff"), Fail("Some wrong stuff"))
     }
+    case rawi @ ConstrainRaw(what, withWhat, _) => what(s) match {
+      case Some(i) => withWhat instantiate s match {
+        case Left(c) if s.memory.canRead(i) => {
+          val ifok = InstructionBlock(ConstrainRaw(what, withWhat, Some(c)), thenWhat)
+          val ifko = InstructionBlock(ConstrainRaw(what, :~:(withWhat), Some(NOT(c))), elseWhat)
+          List[Instruction](ifok, ifko)
+        }
+        case _ => List[Instruction](elseWhat)
+      }
+      case None => List[Instruction](elseWhat)
+    }
+    case _ => List[Instruction](Fail("Some wrong stuff"))
   }
+  
   
   
   override def toString = {

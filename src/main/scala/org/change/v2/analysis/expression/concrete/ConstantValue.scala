@@ -15,8 +15,7 @@ case class ConstantValue(value: Long, isIp : Boolean  = false, isMac : Boolean =
   @JsonIgnore
   def ast = Z3Util.z3Context.mkNumeral(value.toString(), Z3Util.defaultSort)
   override def toZ3(solver: Option[Z3Solver] = None): (Z3AST, Option[Z3Solver]) = (ast, solver)
-
-  /**
+    override def equals(other: Any): Boolean =    other match {        case that : ConstantValue => that.value == this.value        case that : ConstantStringValue => that.value.hashCode() == this.value        case _ => false   }  /**
    * A floating expression may include unbounded references (e.g. symbol ids)
    *
    * Given a context (the state) it can produce an evaluable expression.
