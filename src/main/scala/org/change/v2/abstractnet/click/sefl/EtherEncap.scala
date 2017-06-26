@@ -38,8 +38,8 @@ class EtherEncap(name: String,
         else
           ConstantValue(macToNumber(configParams(2).value))
       ),
-      Constrain(EtherSrc, :~:(:==:(:@(EtherDst)))),
-      Constrain(EtherDst, :~:(:==:(:@(EtherSrc)))),
+      //Constrain(EtherSrc, :~:(:==:(:@(EtherDst)))),
+      //Constrain(EtherDst, :~:(:==:(:@(EtherSrc)))),
       Allocate(Tag("L2")+EtherTypeOffset,16),
       Assign(Tag("L2")+EtherTypeOffset,ConstantValue(java.lang.Long.decode(configParams(0).value))),
       Forward(outputPortName(0))

@@ -15,9 +15,10 @@ object SimpleExecutor {
     val exe = ClickExecutionContext(
       instructions = Map("0" -> InstructionBlock(
         Assign("a", SymbolicValue()),
-        Forward("b")
-      ),
-      "b" -> Fail()),
+        Forward("b"))
+        ,
+        "b" -> Fail())
+      ,
       links = Map("a" -> "b"),
       okStates = List(State.clean.forwardTo("a")),
       logger = JsonLogger
@@ -25,6 +26,10 @@ object SimpleExecutor {
 
     val done = exe.untilDone(true)
     println(done)
+
+
+
+
   }
 
 }

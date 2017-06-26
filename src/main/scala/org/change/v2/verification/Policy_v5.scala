@@ -3,12 +3,7 @@ package org.change.v2.verification
 import org.change.v2.analysis.constraint.NOT
 import org.change.v2.analysis.memory.State
 import org.change.v2.analysis.processingmodels._
-import org.change.v2.analysis.processingmodels.instructions._
-
-import org.change.v2.analysis.processingmodels.instructions.{Fail => SEFLFail}
-import sun.font.TrueTypeFont
-
-
+import org.change.v2.analysis.processingmodels.instructions.{Fail => SEFLFail, _}
 import org.change.v2.verification.Formula._
 
 
@@ -18,7 +13,7 @@ import org.change.v2.verification.Formula._
  */
 
 
-object Policy {
+object Policy_v5 {
 
   type Topology = Map[LocationId,Instruction]
 
@@ -222,7 +217,7 @@ object Policy {
 def check (f : Formula, p: Instruction, s : PolicyState) : Formula = {
 
   verbose_print("Verifying " + f + "\n on program \n" + show(p),OverallMode);
-
+  println("Current history "+s.history)
   /*
   if (s.isInstanceOf[MapState] || s.isInstanceOf[NoMapState])
     verbose_print("State :"+s.state.instructionHistory,OverallMode)
@@ -249,7 +244,7 @@ def check (f : Formula, p: Instruction, s : PolicyState) : Formula = {
 
 
      // this case should be reinspected (for F operator)
-     case (_,_,InstructionBlock(Nil)) => clone(f,s) //clone returns a new formula with "s" as the witness state
+     case (_,_,InstructionBlock(Nil)) => println("At the end of IB, history is:"+f.state.history+" versus "+s.history); clone(f,s)
 
      case (_,_,InstructionBlock(Fork(l) :: rest)) // distribute Fork instructions
          => check(f,
@@ -257,56 +252,48 @@ def check (f : Formula, p: Instruction, s : PolicyState) : Formula = {
            , s)
      case (_,_,InstructionBlock(If(test,then,els) :: rest)) => check(f,InstructionBlock(transform(s,If(test,then,els))::rest),s)
 
-       // the semantics of Forward, or Forward in an instruction block is essentially the same
-       // (the rest of the instruction block, after Forward, is ignored)
+
      case (_,_,InstructionBlock(Forward(_) :: _)) |
           (_,_,Forward(_)) =>
            var fp = f
-           if (changesState(Forward(""))) fp = check_in_state(f,s) // Forward may change state, hence trigger atomic verification
+           if (changesState(Forward(""))) fp = check_in_state(f,s)
            (s,p) match {
-               // the witness state assigned to f is "sp" (containing the new location)
-             case pair@(MapState(_,_,_,_,_), Forward(loc)) => var sp = s.forward(loc); check(clone(fp,sp),s.instructionAt(loc),sp);
-             case pair@(MapState(_,_,_,_,_), InstructionBlock(Forward(loc) :: _)) => var sp = s.forward(loc); check(clone(fp,sp),s.instructionAt(loc),sp);
-             case _ => { /*verbose_print("Skipping \n", MCMode);*/ f}
+             case pair@(MapState(_,_,_,_,_), Forward(loc)) => var sp = s.forward(loc); var fpf = check(clone(fp,sp),s.instructionAt(loc),sp); println("Previous history is "+fpf.state.history); fpf
+             case pair@(MapState(_,_,_,_,_), InstructionBlock(Forward(loc) :: _)) => var sp = s.forward(loc); var fpf = check(clone(fp,sp),s.instructionAt(loc),sp); println("Previous history is "+fpf.state.history); fpf
+             case _ => {verbose_print("Skipping \n", MCMode);f}
            }
 
      case (_,_,InstructionBlock(pr :: rest)) => //take an instruction
-       val sp = s.execute(pr)  // execute program pr in state s,
-       var fval = check(f,pr,sp) // verify the policy in this new state
+       val sp = s.execute(pr)
+       var fval = check(f,pr,sp) // execute program pr in state s, then check it
+       if (fval.state != null)
+          println("Verified first part of IB:"+pr+" Computed history is "+fval.state.history+" versus "+sp.history)
 
        (fval.status,f) match {
          // s, p;rest |= XG f  iff  s,p |= XG f   and p(s),rest |= XG f
-           // the "false" case
-         case (Falsified,Forall(Globally(_))) | (Falsified,Exists(Globally(_))) =>
-           // the witness state is the current state
-           verbose_print ("f is false (failed check of an instruction in an IB)\n",OverallMode); make(f,Falsified,fval.state)
+         case (Falsified,Forall(Globally(_))) | (Falsified,Exists(Globally(_))) => verbose_print ("f is false (failed check of an instruction in an IB)\n",OverallMode); make(f,Falsified,fval.state)
            // otherwise continue verification
-           // the valuation of fval is reset, but the witness state is preserved and passed on
          case (_,Forall(Globally(_))) | (_,Exists(Globally(_))) => check(reeval(fval,fval.state),InstructionBlock(rest),sp)
 
-           // the "true" case
-         case (Satisfied,Forall(Future(_))) | (Satisfied,Exists(Future(_))) =>
-           verbose_print ("f is true (successful check of an instruction in an IB)\n",OverallMode); make(f,Satisfied,fval.state)
-         case (_,Forall(Future(_))) | (_,Exists(Future(_))) => check(reeval(fval,fval.state),InstructionBlock(rest),sp);
+         case (Satisfied,Forall(Future(_))) | (Satisfied,Exists(Future(_))) => verbose_print ("f is true (successful check of an instruction in an IB)\n",OverallMode); make(f,Satisfied,fval.state)
+         case (_,Forall(Future(_))) | (_,Exists(Future(_))) => var fpf = check(reeval(fval,fval.state),InstructionBlock(rest),sp); println("Finished checking "+InstructionBlock(rest)+" history is "+fpf.state.history); fpf
+
          case (_,Forall(_)) | (_,Exists(_)) => throw new Exception("Not a CTL formula")
 
-           // the rest
          case (_,_) => fval // if the formula is not temporal, it has been checked;
 
        }
 
-    // terminal case for Fork. Note that we use the previously-saved "lastState" to report the witness state
+
      case (_,Forall(_),Fork(Nil)) => verbose_print("Final branch checked\n",MCMode); verbose_print ("f is true (finished a Fork)\n",OverallMode); make(f,Satisfied,lastState)
      case (_,Exists(_),Fork(Nil)) => verbose_print("Final branch checked\n",MCMode); verbose_print ("f is false (finished a Fork)\n",OverallMode); make(f,Falsified,lastState)
 
      case (_,_,Fork(pr::rest)) => verbose_print("Checking branch:\n"+show(pr),MCMode);
-       val fp = check(f,pr,s) // we verify a branch of the Fork
-       lastState = fp.state   // we store the witness state built on that branch (if this is the final branch, "lastState" will be the reported witness state)
+       val fp = check(f,pr,s)
+       lastState = fp.state
        (f,fp.status) match {
-           // we evaluate the truth-value of the fork
          case (Exists(_),Satisfied) => verbose_print ("f is true (on a Fork branch)\n",OverallMode); make (f, Satisfied, fp.state)
          case (Forall(_),Pending) | (Forall(_),Falsified) => verbose_print ("f is false (on a Fork branch)\n",OverallMode); make(f,Falsified, fp.state)
-           // if the truth-value cannot be established, then "s" (the state before executing the branch) is used to continue verification on another branch
          case (Exists(_),_) | (Forall(_),Satisfied) =>  check(reeval(f,s),Fork(rest),s) //the formula must be made pending for the next branch verification
 
          case (_,_) => throw new Exception ("Cannot evaluate non-temporal formula on a Fork ")
@@ -317,13 +304,47 @@ def check (f : Formula, p: Instruction, s : PolicyState) : Formula = {
      case (_,_,If(testInstr: Instruction, thenWhat: Instruction, elseWhat:Instruction)) =>
        check(f,transform(s,p),s)
 
+       /*
+       // forwarding instruction received
+     case (_,_,Forward(loc)) => s match {
+       case sp@MapState(_,_,_,_) => check(f,sp.instructionAt(loc),sp.forward(loc))
+       case _ => verbose_print("Ignoring Forward instr.",LocMode); check(f,NoOp,s)
+
+     }
+     */
        // *  *  *  *  *  *  *  *
        // non-branching programs
        // *  *  *  *  *  *  *  *
 
        // if the current instruction does not change state, the status of f is unchanged
-     case _ => if (changesState(p)) check_in_state(f,s) else f
+     case _ => {
+       if (changesState(p)) check_in_state(f,s) else f
+       /*
 
+       var fp : Formula = null;
+       if (changesState(p)) fp = check_in_state(f,s) else fp = f
+       fp
+
+
+       (s,p) match {
+         case pair@(MapState(_,_,_,_,_), Forward(loc)) => var sp = s.forward(loc); var fpf = check(clone(fp,sp),s.instructionAt(loc),sp); println("Previous history is "+fpf.state.history); fpf
+         case _ => {verbose_print("Skipping \n", MCMode);fp}
+       }*/
+
+     }
+
+       /*
+       (f,p) match {
+             // temporal formula on non-branching program
+           case (Exists(Globally(_)),_) | (Forall(Globally(_)),_) |
+                (Exists(Future(_)),_) | (Forall(Future(_)),_)
+                => make(f,check(f.inner.inner,p,s).status)
+
+           case (Atomic(fp),_) => atomic_check(fp,s)
+           case _ => throw new Exception ("non-branching program on non-temporal formula: "+f)
+
+         }
+         */
    }
  }
 
@@ -345,10 +366,11 @@ def check (f : Formula, p: Instruction, s : PolicyState) : Formula = {
     fp.status match {
       case Falsified => verbose_print("Formula is false",OverallMode); println("History: "+fp.state.history); false     // should report the failing path
       case Satisfied => verbose_print("Formula is true",OverallMode); println("History: "+fp.state.history); true
-      case Pending => verbose_print("There are still pending subformulae",OverallMode); println("History: "+fp.state.history); false
+      case Pending => verbose_print("There are still pending subformulae",OverallMode); false
 
     }
   }
+
 
   // "top-level" verification procedure for plain SEFL code
   def verify (f : Formula, model : Instruction) : Boolean = {

@@ -44,7 +44,7 @@ fullRunTask(switch_bench, Compile, "org.change.v2.runners.experiments.ciscoswitc
 
 lazy val policy = taskKey[Unit]("Policy testing")
 
-fullRunTask(policy, Compile, "org.change.v2.verification.Test")
+fullRunTask(policy, Compile, "org.change.v2.verification.Tester")
 
 lazy val btdemo = taskKey[Unit]("BTDemo")
 

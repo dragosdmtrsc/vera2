@@ -3,6 +3,8 @@ package org.change.v2.verification.Formula
 import org.change.v2.analysis.memory.State
 import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.analysis.processingmodels.instructions.ConstrainRaw
+import org.change.v2.verification.{MapState, PolicyState}
+import sun.font.TrueTypeFont
 
 /**
  * Created by matei on 17/01/17.
@@ -18,6 +20,15 @@ trait Formula {
 
   var status : Status = Pending
 
+  var state : PolicyState = null
+
+  //report the reason for the state of this formula
+  def report = {
+    (this,status,state) match {
+      case tr@(Forall(_), Falsified, MapState(_,_,_,_,portHistory)) => println("The formula was invalidated on branch "+state.history);
+    }
+  }
+
   def clear_valuation()
 
 }
@@ -28,13 +39,33 @@ case object Satisfied extends Status { override def toString: String = "S"}
 case object Falsified extends Status { override def toString: String = "F"}
 
 
+case object Success extends Formula {
+  override def inner: Formula = null
+
+  override def clear_valuation(): Unit = {}
+
+  override def subformulaOf(f: Formula): Boolean = f match {
+    case Success => true
+    case _ => false
+  }
+}
+case object Fail extends Formula {
+  override def inner: Formula = null
+
+  override def clear_valuation(): Unit = {}
+
+  override def subformulaOf(f: Formula): Boolean = f match {
+    case Fail => true
+    case _ => false
+  }
+}
+
 
 
 case class Atomic(prog : Instruction) extends Formula {
   override def inner = null
   override def subformulaOf (f : Formula) = this.equals(f)
   override def clear_valuation () = {status = Pending}
-
 
   // equality does not work for any programs !!!!!!
   override def equals(that: Any): Boolean =

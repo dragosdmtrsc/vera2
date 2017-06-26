@@ -239,6 +239,39 @@ object State {
  )(State.clean, true)._1.head
 
  def bigBang: State = {
+
+   var afterBigBang = InstructionBlock(
+     CreateTag("START",0),
+   CreateTag("L3", StartTag + 0),
+
+   Allocate(IPVersion, 4),
+   Assign(IPVersion, SymbolicValue()),
+
+   Allocate(Proto, 8),
+   Assign(Proto, SymbolicValue()),
+
+   Allocate(IPSrc, 32),
+   Assign(IPSrc, SymbolicValue()),
+
+   Allocate(IPDst, 32),
+   Assign(IPDst, SymbolicValue()),
+
+   CreateTag("L4", L3Tag + 160),
+
+   Assign(Proto, ConstantValue(TCPProto)),
+
+   Allocate(TcpSrc, 16),
+      Assign(TcpSrc, SymbolicValue()),
+
+    //   Constrain(TcpSrc, :&:(:>=:(ConstantValue(1000)), :<=:(ConstantValue(65536)))),
+   Allocate(TcpDst, 16),
+      Assign(TcpDst, SymbolicValue())
+
+   )(State(MemorySpace.clean),true)
+
+   afterBigBang._1.head
+
+   /*
    val afterBigBang = InstructionBlock (
      start,
      ip,
@@ -250,5 +283,7 @@ object State {
    )(State(MemorySpace.clean), true)
 
    afterBigBang._1.head
+   */
  }
+
 }
