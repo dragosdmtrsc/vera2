@@ -10,8 +10,7 @@ fork := true
 
 libraryDependencies ++= {
   Seq(
-    "org.antlr" % "antlr4" % "4.3",
-    "commons-io" % "commons-io" % "2.4",
+    "org.antlr" % "antlr4" % "4.6",
     "org.scalatest" % "scalatest_2.11" % "2.2.4" % "test",
     "io.spray" %%  "spray-json" % "1.3.2",
     "org.pacesys" % "openstack4j" % "3.0.4",
@@ -29,6 +28,8 @@ unmanagedResourceDirectories in Compile += baseDirectory.value / "lib"
 includeFilter in (Compile, unmanagedResourceDirectories):= ".dll,.so"
 
 
+test in assembly := {}
+
 lazy val sample = taskKey[Unit]("Interpreting")
 
 fullRunTask(sample, Compile, "org.change.v2.runners.experiments.SEFLRunner")
@@ -37,9 +38,9 @@ lazy val click = taskKey[Unit]("Symbolically running Template.click")
 
 fullRunTask(click, Compile, "org.change.v2.runners.experiments.TemplateRunner")
 
-lazy val click_exampl = taskKey[Unit]("Symbolically running TemplateExampl.click with example generation")
+lazy val symb = taskKey[Unit]("Symbolically running Template.click without validation")
 
-fullRunTask(click_exampl, Compile, "org.change.v2.runners.experiments.TemplateRunnerWithExamples")
+fullRunTask(symb, Compile, "org.change.v2.runners.experiments.TemplateRunnerWithoutValidation")
 
 lazy val mc = taskKey[Unit]("Running multiple VMs")
 
@@ -52,6 +53,18 @@ fullRunTask(neutron, Compile, "org.change.v2.runners.experiments.NeutronFullRunn
 lazy val sefl = taskKey[Unit]("SEFL execution")
 
 fullRunTask(sefl, Compile, "org.change.v2.runners.sefl.SEFLExecutor")
+
+lazy val switch_bench = taskKey[Unit]("Switch Bench")
+
+fullRunTask(switch_bench, Compile, "org.change.v2.runners.experiments.ciscoswitchtest.CiscoSwitchTestBench")
+
+lazy val policy = taskKey[Unit]("Policy testing")
+
+fullRunTask(policy, Compile, "org.change.v2.verification.Tester")
+
+lazy val btdemo = taskKey[Unit]("BTDemo")
+
+fullRunTask(btdemo, Compile, "org.change.v2.runners.experiments.BTDemo")
 
 
 lazy val neutron_tenant_l2 = taskKey[Unit]("Neutron in-tenant stress test")

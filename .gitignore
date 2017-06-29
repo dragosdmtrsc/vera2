@@ -24,6 +24,9 @@ src/main/scala/org/change/v2/runners/Run.scala
 outputs/
 .settings/
 *.json
+.DS_Store
+._.DS_Store
+
 .classpath
 .project
 .settings/
@@ -63,3 +66,5 @@ generated\.err
 stack-inputs/
 
 eastwest-tapd66e3d2e-2f-compute1\.err
+
+*.bak

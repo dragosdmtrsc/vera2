@@ -8,7 +8,7 @@ import org.change.v2.analysis.processingmodels.{Instruction, LocationId}
 import org.change.v2.util.conversion.RepresentationConversion._
 import org.change.v2.util.canonicalnames._
 import org.change.v2.analysis.memory.TagExp._
-import org.change.v2.analysis.memory.Tag
+import org.change.v2.analysis.memory.{State, Tag}
 
 class AddTCPOptions(name: String,
                    elementType: String,
@@ -24,22 +24,7 @@ class AddTCPOptions(name: String,
   override def instructions: Map[LocationId, Instruction] = Map(
     inputPortName(0) -> InstructionBlock(
       //check that TCP header is allocated, modify TCP options field
-      Allocate("OPT8"),
-      Allocate("VAL8"),
-      Assign("OPT8",ConstantValue(1)),
-      Assign("VAL8",SymbolicValue()),
-      Allocate("OPT9"),
-      Allocate("VAL9"),
-      Assign("OPT9",ConstantValue(0)),
-      Assign("VAL9",SymbolicValue()),
-      Allocate("OPT30"),
-      Allocate("VAL30"),
-      Assign("OPT30",SymbolicValue()),
-      Assign("VAL30",SymbolicValue()),
-      Allocate("OPT31"),
-      Allocate("VAL31"),
-      Assign("OPT31",SymbolicValue()),
-      Assign("VAL31",SymbolicValue()),
+      State.tcpOptions,
       Forward(outputPortName(0))
     )
   )

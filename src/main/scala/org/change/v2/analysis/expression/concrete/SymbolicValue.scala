@@ -3,14 +3,12 @@ package org.change.v2.analysis.expression.concrete
 import org.change.v2.analysis.expression.abst.{FloatingExpression, Expression}
 import org.change.v2.analysis.memory.State
 import org.change.v2.analysis.z3.Z3Util
-import z3.scala.{Z3Solver, Z3AST}
-import com.fasterxml.jackson.annotation.JsonIgnore
+import z3.scala.{Z3Sort, Z3Context, Z3Solver, Z3AST}
 
 /**
  * Created by radu on 3/24/15.
  */
 case class SymbolicValue(name : String = "") extends Expression with FloatingExpression {
-  @JsonIgnore
   def ast = Z3Util.z3Context.mkConst(s"sym${id.toString}", Z3Util.defaultSort)
   override def toZ3(solver: Option[Z3Solver] = None): (Z3AST, Option[Z3Solver]) = (ast, solver)
 

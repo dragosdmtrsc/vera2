@@ -36,7 +36,10 @@ case class If(testInstr: Instruction, thenWhat: Instruction, elseWhat:Instructio
           val (sb, fb) = InstructionBlock(ConstrainRaw(what, :~:(withWhat), Some(NOT(c))), elseWhat)(s, v)
           (sa ++ sb, fa ++ fb)
         }
-        case _ => elseWhat(s, v)
+
+        case _ => {
+          elseWhat(s, v)
+        }
       }
       case None => elseWhat(s,v)
     }

@@ -6,6 +6,7 @@ import org.change.v2.analysis.expression.concrete.ConstantValue
 import org.change.v2.analysis.processingmodels._
 import org.change.v2.analysis.processingmodels.instructions._
 import org.change.v2.util.canonicalnames._
+import org.change.v2.util.conversion.RepresentationConversion
 
 /**
  * A small gift from radu to symnetic.
