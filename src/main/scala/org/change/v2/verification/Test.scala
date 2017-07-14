@@ -8,6 +8,9 @@ import org.change.v2.util.canonicalnames._
 import org.change.v2.verification.Policy._
 //import org.change.v2.verification.Formula._
 
+trait Test {
+  def execute : Boolean
+}
 
 /**
  * Created by matei on 12/01/17.
@@ -15,14 +18,12 @@ import org.change.v2.verification.Policy._
 object Test {
   def main(args: Array[String]): Unit = {
 
-
   //extractFork_checker_2
   //test_checker_4
   // fork_checker
 
     costin_example
   }
-
 
   def costin_example = {
 
@@ -43,13 +44,10 @@ object Test {
     //var policy = AG(Or(Constrain(IPSrc,:>=:(ConstantValue(5))),Constrain(TcpSrc,:>=:(ConstantValue(5)))))
     //should be false
 
-
     var policy = And(AG (Or(Constrain(IPSrc,:>=:(ConstantValue(3))),Constrain(TcpSrc,:>=:(ConstantValue(3))))),
                  Or(EF(Constrain(IPSrc,:>=:(ConstantValue(5)))),EF(Constrain(TcpSrc,:>=:(ConstantValue(5))))))
 
-
     verify(policy,model)
-
 
   }
 
@@ -67,7 +65,6 @@ object Test {
 
     var policy = AG(EF(Constrain(IPSrc,:>=:(ConstantValue(2)))))
     verify(policy,model)
-
 
   }
 
@@ -223,7 +220,6 @@ object Test {
 
   }
 
-
   def test_isSatisfied = {
     var i = InstructionBlock(
       Constrain(IPSrc,:>=:(ConstantValue(RepresentationConversion.ipToNumber("10.0.0.1")))),
@@ -244,11 +240,9 @@ object Test {
     //print(l1)
     //print(l2)
 
-    print(Policy.isSatisfied(sp,i))
+    // DD: No idea 
+//    print(Policy.isSatisfied(sp,i))
 
   }
 
-
-
 }
-

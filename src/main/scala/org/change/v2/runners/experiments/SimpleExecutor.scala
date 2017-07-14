@@ -5,6 +5,7 @@ import org.change.v2.analysis.memory.State
 import org.change.v2.analysis.processingmodels.instructions.{Assign, Fail, Forward, InstructionBlock}
 import org.change.v2.executor.clickabstractnetwork.ClickExecutionContext
 import org.change.v2.executor.clickabstractnetwork.executionlogging.JsonLogger
+import org.change.v2.analysis.executor.InstructionExecutor
 
 /**
   * A small gift from radu to symnetic.
@@ -21,7 +22,7 @@ object SimpleExecutor {
       ,
       links = Map("a" -> "b"),
       okStates = List(State.clean.forwardTo("a")),
-      logger = JsonLogger
+      logger = JsonLogger, executor = InstructionExecutor()
     )
 
     val done = exe.untilDone(true)

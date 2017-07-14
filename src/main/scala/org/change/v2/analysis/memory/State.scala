@@ -1,7 +1,5 @@
 package org.change.v2.analysis.memory
 
-
-
 import org.change.v2.analysis.expression.concrete._
 
 import org.change.v2.analysis.memory.TagExp._
@@ -14,8 +12,6 @@ import org.change.v2.util.canonicalnames._
 import org.change.v2.util.conversion.RepresentationConversion._
 
 import spray.json._
-
-
 
 /**
 
@@ -32,63 +28,31 @@ case class State(memory: MemorySpace = MemorySpace.clean,
                  errorCause: Option[ErrorCause] = None,
 
                  instructionHistory: List[Instruction] = Nil) {
-
   def location: LocationId = history.head
-
   def forwardTo(locationId: LocationId): State = State(memory, locationId :: history, errorCause, instructionHistory)
-
   def status = errorCause.getOrElse("OK")
-
   def addInstructionToHistory(i: Instruction) = State(memory, history, errorCause, i :: instructionHistory)
 
-
-
   def jsonString = {
-
     import org.change.v2.analysis.memory.jsonformatters.StateToJson._
     this.toJson.prettyPrint
   }
 
   override def toString = jsonString
-
 }
-
-
 
 object State {
 
-
-
  def clean = State(MemorySpace.clean)
-
-
-
  def bigBang(verbose : Boolean): State = {
-
    val bigBang = State(MemorySpace.clean)
-
-
-
    val afterBigBang = InstructionBlock (
-
      CreateTag("START",0),
-
      CreateTag("L3", 0),
-
-
-
      Allocate(IPVersion, 4),
-
      Assign(IPVersion, SymbolicValue()),
-
-
-
      Allocate(Proto, 8),
-
      Assign(Proto, SymbolicValue()),
-
-
-
      Allocate(IPSrc, 32),
 
      Assign(IPSrc, SymbolicValue()),
@@ -101,41 +65,27 @@ object State {
 
      Constrain(IPDst, :&:(:>=:(ConstantValue(0)), :<=:(ConstantValue(4294967295L)))),
 
-
-
      Allocate(TTL, 8),
 
      Assign(TTL, ConstantValue(255)),
-
-
 
      Allocate(IPLength, 16),
 
      Assign(IPLength, SymbolicValue()),
 
-
-
      Allocate(IPHeaderLength, 4),
 
      Assign(IPHeaderLength, SymbolicValue()),
-
-
 
      Allocate(HeaderChecksum,16),
 
      Assign(HeaderChecksum, SymbolicValue()),
 
-
-
      Allocate(IPID, 16),
 
      Assign(IPID, SymbolicValue()),
 
-
-
      CreateTag("L4", L3Tag + 160),
-
-
 
      Allocate(TcpSrc, 16),
 
@@ -143,39 +93,27 @@ object State {
 
      Constrain(TcpSrc, :&:(:>=:(ConstantValue(0)), :<=:(ConstantValue(65536)))),
 
-
-
      Allocate(TcpDst, 16),
 
      Assign(TcpDst, SymbolicValue()),
 
      Constrain(TcpDst, :&:(:>=:(ConstantValue(0)), :<=:(ConstantValue(65536)))),
 
-
-
      Allocate(TcpSeq, 32),
 
      Assign(TcpSeq, SymbolicValue()),
-
-
 
      Allocate(TcpAck, 32),
 
      Assign(TcpAck, SymbolicValue()),
 
-
-
      Allocate(TcpDataOffset, 4),
 
      Assign(TcpDataOffset, ConstantValue(160)),
 
-
-
      Allocate(TcpReserved,3),
 
      Assign(TcpReserved,SymbolicValue()),
-
-
 
      Allocate(TcpFlagNS,1),
 
@@ -213,8 +151,6 @@ object State {
 
      Assign(TcpFlagPSH,ConstantValue(0)),
 
-
-
      //CreateTag("PAYLOAD", :+:(L4Tag,:@(TcpDataOffset)),
 
      //Allocate(Tag("PAYLOAD"),12000),
@@ -225,13 +161,9 @@ object State {
 
    )(bigBang, verbose)
 
-
-
    afterBigBang._1.head
 
  }
-
- 
 
  val tcpOptions = InstructionBlock(
 
@@ -242,8 +174,6 @@ object State {
     Assign("OPT1",ConstantValue(1)),
 
     Assign("SIZE1",ConstantValue(1)),
-
-
 
     Allocate("OPT2"),
 
@@ -261,8 +191,6 @@ object State {
 
     Assign("VAL2",SymbolicValue()),
 
-
-
     Allocate("OPT3"),
 
     Allocate("SIZE3"),
@@ -279,8 +207,6 @@ object State {
 
     Assign("VAL3",ConstantValue(7)),
 
-
-
     Allocate("OPT5"),
 
     Allocate("SIZE5"),
@@ -292,8 +218,6 @@ object State {
     Assign("SIZE5",ConstantValue(2)),
 
     //      Assign("SIZE5",SymbolicValue()),
-
-
 
     Allocate("OPT8"),
 
@@ -311,8 +235,6 @@ object State {
 
     Assign("VAL8",SymbolicValue()),
 
-
-
     Allocate("OPT30"),
 
     Allocate("VAL30"),
@@ -328,8 +250,6 @@ object State {
     Assign("VAL30",SymbolicValue())
 
   )
-
-
 
 private val start = CreateTag("START",0)
 
@@ -351,8 +271,6 @@ val eher = InstructionBlock(
 
 )
 
-
-
 val tunnel = InstructionBlock(
 
       CreateTag("Tunnel", Tag("L2") - 96),
@@ -360,10 +278,6 @@ val tunnel = InstructionBlock(
       Allocate(Tag("Tunnel"), 32)
 
     )
-
-    
-
-
 
 private val ehervlan = InstructionBlock(
 
@@ -401,19 +315,13 @@ private val ip = InstructionBlock(
 
   CreateTag("L3", StartTag + 0),
 
-
-
   Allocate(IPVersion, 4),
 
   Assign(IPVersion, SymbolicValue()),
 
-
-
   Allocate(Proto, 8),
 
   Assign(Proto, SymbolicValue()),
-
-
 
   Allocate(IPSrc, 32),
 
@@ -421,51 +329,31 @@ private val ip = InstructionBlock(
 
   Assign(IPSrc, SymbolicValue()),
 
-
-
   Allocate(IPDst, 32),
 
   Constrain(IPDst, :>=:(ConstantValue(0))),
-
-
 
   Allocate(TTL, 8),
 
   Assign(TTL, ConstantValue(255)),
 
-
-
   Allocate(IPLength, 16),
 
   Assign(IPLength, SymbolicValue()),
-
-
 
   Allocate(IPHeaderLength, 4),
 
   Assign(IPHeaderLength, SymbolicValue()),
 
-
-
   Allocate(HeaderChecksum,16),
 
   Assign(HeaderChecksum, SymbolicValue()),
 
-
-
   Allocate(IPID, 16),
 
   Assign(IPID, SymbolicValue())
-
 )
 
-   Allocate(HeaderChecksum,16),
-   Assign(HeaderChecksum, SymbolicValue()),
-
-   Allocate(IPID, 16),
-   Assign(IPID, SymbolicValue())
- )
-
   private val ipSymb = InstructionBlock(
     CreateTag("L3", StartTag + 0),
 
@@ -561,185 +449,6 @@ private val ip = InstructionBlock(
   tcpOptions
  )(State.clean, true)._1.head
 
-   Allocate(HeaderChecksum,16),
-   Assign(HeaderChecksum, SymbolicValue()),
-
-   Allocate(IPID, 16),
-   Assign(IPID, SymbolicValue())
- )
-
-  private val ipSymb = InstructionBlock(
-    CreateTag("L3", StartTag + 0),
-
-    Allocate(IPVersion, 4),
-    Assign(IPVersion, SymbolicValue()),
-
-    Allocate(Proto, 8),
-    Assign(Proto, SymbolicValue()),
-
-    Allocate(IPSrc, 32),
-//    Assign(IPSrc, ConstantValue(ipToNumber("172.16.2.240"))),
-//    Assign(IPSrc, ConstantValue(ipToNumber("8.8.8.8"))),
-    Assign(IPSrc, SymbolicValue()),
-//  {
-//    val (l, u) = ipAndMaskToInterval("172.16.2.0", "24")
-//    Constrain(IPSrc, :&:(:>=:(ConstantValue(l)), :<=:(ConstantValue(u))))
-//  },
-    Allocate(IPDst, 32),
-    Assign(IPDst, SymbolicValue()),
-//    Assign(IPDst, ConstantValue(ipToNumber("141.85.5.125"))),
-
-    Allocate(TTL, 8),
-    Assign(TTL, ConstantValue(255)),
-
-    Allocate(IPLength, 16),
-    Assign(IPLength, SymbolicValue()),
-
-    Allocate(IPHeaderLength, 4),
-    Assign(IPHeaderLength, SymbolicValue()),
-
-    Allocate(HeaderChecksum,16),
-    Assign(HeaderChecksum, SymbolicValue()),
-
-    Allocate(IPID, 16),
-    Assign(IPID, SymbolicValue())
-  )
-
- private val transport = InstructionBlock(
-   CreateTag("L4", L3Tag + 160),
-
-   Assign(Proto, ConstantValue(TCPProto)),
-
-   Allocate(TcpSrc, 16),
-//   Assign(TcpSrc, SymbolicValue()),
-   Assign(TcpSrc, ConstantValue(80)),
-//   Constrain(TcpSrc, :&:(:>=:(ConstantValue(1000)), :<=:(ConstantValue(65536)))),
-
-   Allocate(TcpDst, 16),
-//   Assign(TcpDst, ConstantValue(80)),
-   Assign(TcpDst, ConstantValue(60000)),
-//   Assign(TcpDst, SymbolicValue()),
-//   Constrain(TcpDst, :&:(:>=:(ConstantValue(0)), :<=:(ConstantValue(65536)))),
-
-   Allocate(TcpSeq, 32),
-   Assign(TcpSeq, SymbolicValue()),
-
-   Allocate(TcpAck, 32),
-   Assign(TcpAck, SymbolicValue()),
-
-   Allocate(TcpDataOffset, 4),
-   Assign(TcpDataOffset, ConstantValue(160)),
-
-   Allocate(TcpReserved,3),
-   Assign(TcpReserved,SymbolicValue()),
-
-   Allocate(TcpFlagNS,1),
-   Assign(TcpFlagNS,ConstantValue(0)),
-   Allocate(TcpFlagCWR,1),
-   Assign(TcpFlagCWR,ConstantValue(0)),
-   Allocate(TcpFlagECE,1),
-   Assign(TcpFlagECE,ConstantValue(0)),
-   Allocate(TcpFlagURG,1),
-   Assign(TcpFlagURG,ConstantValue(0)),
-   Allocate(TcpFlagACK,1),
-   Assign(TcpFlagACK,SymbolicValue()),
-   Allocate(TcpFlagACK,1),
-   Assign(TcpFlagACK,SymbolicValue()),
-   Allocate(TcpFlagSYN,1),
-   Assign(TcpFlagSYN,SymbolicValue()),
-   Allocate(TcpFlagRST,1),
-   Assign(TcpFlagRST,ConstantValue(0)),
-   Allocate(TcpFlagPSH,1),
-   Assign(TcpFlagPSH,ConstantValue(0))
- )
- private val end = CreateTag("END", L4Tag + 12000)
-
- def allSymbolic = InstructionBlock(
-  start,
-  ehervlan,
-  ipSymb,
-  transport,
-  end,
-  tcpOptions
- )(State.clean, true)._1.head
-
-  private val ipSymb = InstructionBlock(
-
-    CreateTag("L3", StartTag + 0),
-
-
-
-    Allocate(IPVersion, 4),
-
-    Assign(IPVersion, SymbolicValue()),
-
-
-
-    Allocate(Proto, 8),
-
-    Assign(Proto, SymbolicValue()),
-
-
-
-    Allocate(IPSrc, 32),
-
-//    Assign(IPSrc, ConstantValue(ipToNumber("172.16.2.240"))),
-
-//    Assign(IPSrc, ConstantValue(ipToNumber("8.8.8.8"))),
-
-    Assign(IPSrc, SymbolicValue()),
-
-//  {
-
-//    val (l, u) = ipAndMaskToInterval("172.16.2.0", "24")
-
-//    Constrain(IPSrc, :&:(:>=:(ConstantValue(l)), :<=:(ConstantValue(u))))
-
-//  },
-
-    Allocate(IPDst, 32),
-
-    Assign(IPDst, SymbolicValue()),
-
-//    Assign(IPDst, ConstantValue(ipToNumber("141.85.5.125"))),
-
-
-
-    Allocate(TTL, 8),
-
-    Assign(TTL, ConstantValue(255)),
-
-
-
-    Allocate(IPLength, 16),
-
-    Assign(IPLength, SymbolicValue()),
-
-
-
-    Allocate(IPHeaderLength, 4),
-
-    Assign(IPHeaderLength, SymbolicValue()),
-
-
-
-    Allocate(HeaderChecksum,16),
-
-    Assign(HeaderChecksum, SymbolicValue()),
-
-
-
-    Allocate(IPID, 16),
-
-    Assign(IPID, SymbolicValue())
-
-  )
-
-
-
- 
-
- 
 
  def bigBang: State = {
 
@@ -748,4 +457,3 @@ private val ip = InstructionBlock(
  }
 
 }
-

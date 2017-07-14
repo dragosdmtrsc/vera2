@@ -59,12 +59,12 @@ import org.change.utils.prettifier.JsonUtil
 
 object SMTRunner {
 
- 
-  
-  
+
+
+
   
   def main(args : Array[String]) = {
-    val (successful, failed) = SEFLRunner.ex3    
+    val (successful, failed) = SEFLRunner.ex2    
     
     val smt = new SMT()
     val factory = smt.smtConfig.exprFactory
@@ -172,7 +172,7 @@ object SMTRunner {
      })
     newComms
   }
-  
+
   
   def visit(expression : Expression,  
       smt : SMT,  
@@ -229,8 +229,8 @@ object SMTRunner {
         leftVisit._2 ++ rightVisit._2,
         set ++ rightVisit._3)
   }
-  
-   
+
+
   
   def visit(c : Constraint,   
       isym : IExpr,   
@@ -343,7 +343,7 @@ object SMTRunner {
       (acc._1.+:(visited._1), acc._2 ++ visited._2, acc._3 ++ visited._3)
     })
     val args = retVal._1.toArray
-    
+
     
     (eFactory.fcn(eFactory.symbol(sep), 
         args:_*),
@@ -401,7 +401,7 @@ object SMTRunner {
     val fullSpace = mSpace ++ rawSpace
     var script = new org.smtlib.impl.Script()
     visit(fullSpace, smt)._1.foreach { x => script.add(x) }
-    
+
     
     script
   }

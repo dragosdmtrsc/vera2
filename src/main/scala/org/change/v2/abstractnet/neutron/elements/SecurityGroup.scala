@@ -456,14 +456,14 @@ object SecurityGroup {
     val sc = sec.symnetCode()
     pw.println(sc)
     pw.close()
-    val (ok, failed) = exec.execute(sc, state, true)
-    println(ok.size)
-    pw = new PrintWriter("ok.txt")
-    pw.println(ok)
-    pw.close()
-    pw = new PrintWriter("fail.txt")
-    pw.println(failed)
-    pw.close()
+//    val (ok, failed) = exec.execute(sc, state, true)
+//    println(ok.size)
+//    pw = new PrintWriter("ok.txt")
+//    pw.println(ok)
+//    pw.close()
+//    pw = new PrintWriter("fail.txt")
+//    pw.println(failed)
+//    pw.close()
   }
 }
 

@@ -26,9 +26,6 @@ import org.change.v2.verification.Tester._
 
 
 
-trait Test {
-  def execute : Boolean
-}
 
 
 case class TopoTest (msg:String, policy:Formula, start: LocationId, topo:Topo, expected:Boolean) extends Test

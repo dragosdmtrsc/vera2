@@ -32,7 +32,6 @@ import org.change.v2.abstractnet.generic.NetworkConfig
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
-
 class ClickAsyncExecutor(
                  instructions: Map[LocationId, Instruction],
                  links: Map[LocationId, LocationId],
@@ -42,7 +41,6 @@ class ClickAsyncExecutor(
                  service : Option[ExecutorService] = None
 ) extends AsyncExecutor(executor, instructions, maxLevel, 
     ClickAsyncExecutor.getExecutor(nr, service)) {
-
 
   override def getInstruction(loc : LocationId) : Option[Instruction] = {
     val i1 = instructions.get(loc)
@@ -59,7 +57,6 @@ class ClickAsyncExecutor(
   
 }
 
-
 object ClickAsyncExecutor {
   
   def getExecutor(nr : Int, service : Option[ExecutorService]) = {
@@ -71,8 +68,8 @@ object ClickAsyncExecutor {
   
   def buildAggregated(
             configs: Iterable[NetworkConfig],
-            interClickLinks: Iterable[(String, String, Int, String, String, Int)],
-            startElems: Option[Iterable[(String, String, Int)]] = None,
+            interClickLinks: Iterable[(String, String, String, String, String, String)],
+            startElems: Option[Iterable[(String, String, String)]] = None,
             nrThreads : Int = 1,
             instrExec : InstructionExecutor = InstructionExecutor()): 
             (ClickAsyncExecutor, List[State]) = {
@@ -111,6 +108,3 @@ object ClickAsyncExecutor {
     (executor, startStates.toList)
   }
 }
-
-
-

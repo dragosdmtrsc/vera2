@@ -61,7 +61,9 @@ import org.change.v2.analysis.memory.Tag
 import org.change.v2.analysis.memory.Intable
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
-
+import java.io.FileInputStream
+import java.io.InputStream
+import org.change.v2.analysis.expression.concrete.ConstantStringValue
 
 class StatePrettifier {
   
@@ -87,7 +89,6 @@ class StatePrettifier {
     ""
   }
   
-  
   def prettifyExpression(expr : Expression) : String = {
     ""
   }
@@ -103,7 +104,6 @@ class StatePrettifier {
     })
     
   }
-  
   
   def prettifyRawObjects(symbols : Map[String, MemoryObject],
       rawObjects : Map[Int, MemoryObject],
@@ -127,7 +127,6 @@ class StatePrettifier {
         if (theValue.isEmpty)
           ""
         else {
-         
           
           theValue.map { s => "Expression = " + prettify(s.e) + "\n" + 
             "Type = " + s.eType.getClass.getSimpleName + "\n" + 
@@ -150,7 +149,6 @@ class StatePrettifier {
       acc + sep + actual
     })
   }
-  
   
   def prettify (v : Any, options : Option[Map[String, Any]] = None) : String = {
     val current = options.getOrElse(Map[String, Any]( "level" -> 0 ))
@@ -262,7 +260,6 @@ trait ForgetTAssignRaw {
 trait ForgetEType {
 }
 
-
 @JsonIgnoreProperties(Array("name"))
 trait ForgetNameSymbolicValue {
 }
@@ -275,7 +272,6 @@ trait ForgetValueStackVoid {
 trait ForgetZ3Valid {
 }
 
-
 object JsonUtil {
   val mapper = new ObjectMapper() with ScalaObjectMapper
   mapper.registerModule(DefaultScalaModule)
@@ -285,13 +281,14 @@ object JsonUtil {
             new NamedType(classOf[Plus], "Plus"),
             new NamedType(classOf[Reference], "Reference"),
             new NamedType(classOf[SymbolicValue], "SymbolicValue"),
-            new NamedType(classOf[ConstantValue], "ConstantValue")
+            new NamedType(classOf[ConstantValue], "ConstantValue"),
+            new NamedType(classOf[ConstantStringValue], "ConstantStringValue")
             )
   mapper.registerSubtypes(classOf[AND], classOf[OR],
       classOf[E], classOf[GT], classOf[GTE], classOf[LT],
       classOf[LTE], classOf[NOT], classOf[OR], classOf[Range],
       classOf[EQ_E], classOf[GT_E], classOf[GTE_E], classOf[LT_E],
-      classOf[LTE_E], 
+      classOf[LTE_E], NoOp.getClass,
       LongType.getClass, IP4Type.getClass, MACType.getClass,
       PortType.getClass, ProtoType.getClass, VLANType.getClass)
   mapper.registerSubtypes(
@@ -300,14 +297,15 @@ object JsonUtil {
       new NamedType(classOf[AssignNamedSymbol], "AssignNamedSymbol"),
       new NamedType(classOf[AssignRaw], "AssignRaw"),
       new NamedType(classOf[AllocateSymbol], "AllocateSymbol"),
+      new NamedType(classOf[DeallocateNamedSymbol], "DeallocateNamedSymbol"),
       new NamedType(classOf[AllocateRaw], "AllocateRaw"),
+      new NamedType(classOf[DeallocateRaw], "DeallocateRaw"),
       new NamedType(classOf[If], "If"),
       new NamedType(classOf[InstructionBlock], "If"),
       new NamedType(classOf[Forward], "Forward"),
       new NamedType(classOf[Fork], "Fork"),
       new NamedType(classOf[CreateTag], "CreateTag")
   )
-  
   
   mapper.registerSubtypes(
       new NamedType(classOf[:&:], "f_and"),
@@ -321,10 +319,9 @@ object JsonUtil {
       new NamedType(classOf[:>:], "f_gt"),
       new NamedType(classOf[:>=:], "f_gte"),
       new NamedType(classOf[:<=:], "f_lte"),
-      new NamedType(classOf[:>=:], "f_gte")
+      new NamedType(classOf[:>=:], "f_gte"),
+      new NamedType(classOf[:==:], "$colon$eq$eq$colon")
   )
-  
-  
   
   mapper.registerSubtypes(
       new NamedType(classOf[Tag], "tag"),
@@ -334,6 +331,7 @@ object JsonUtil {
   
   mapper.addMixin[AssignRaw, ForgetTAssignRaw]()
   mapper.addMixin[Constraint, TypeMixin]();
+  mapper.addMixin[NumericType, TypeMixin]()
   mapper.addMixin[Instruction, TypeMixin]();
   mapper.addMixin[Expression, TypeMixin]();
   mapper.addMixin[FloatingConstraint, TypeMixin]();
@@ -357,8 +355,11 @@ object JsonUtil {
   def fromJson[T](json: String)(implicit m : Manifest[T]): T = {
     mapper.readValue[T](json)
   }
+  
+  def fromJson[T](json: InputStream)(implicit m : Manifest[T]): T = {
+    mapper.readValue[T](json)
+  }
 }
-
 
 object SomeWriter {
   def apply(state : Any) =  {

@@ -105,6 +105,9 @@ package object  canonicalnames {
   val ESPNextProtoOffset = -8
   val ESPNextProto = EndTag - ESPNextProtoOffset
 
+  
+  val TunId = -500
+  
   //UDP header offsets
   val UDPSrcOffset = 0
   val UDPSrc = L4Tag + UDPSrcOffset

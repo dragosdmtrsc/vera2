@@ -84,7 +84,7 @@ object NeutronTopology {
       (acc + (s"SNAT/${x.getId}/internal/in" -> new SNAT(x, service, false).symnetCode())) + 
       (s"SNAT/${x.getId}/external/in" -> new SNAT(x, service, true).symnetCode())
     })
-    
+
 
 
     // and now, engage the links
@@ -143,7 +143,8 @@ object Experiment {
   
   def runInboundThenOutbound(dir : String) : Unit = {
     val expName = "provider-fip-then-out"
-    val nw = CSVBackedNetworking.loadFromFolder(dir)
+    val nw = new ServiceBackedNetworking(NeutronHelper.osFromFile("credentials.txt"))
+//      CSVBackedNetworking.loadFromFolder(dir)
     val (i, links) = generateTopology(nw)
     println(i)
     println (links)
@@ -186,8 +187,8 @@ object Experiment {
         Assign(IPDst, ConstantValue(ipToNumber(ipDst), isIp = true)),
         Forward(actual)
       )(State.bigBang, true)
-      
-    
+
+
     
     var ctx = new ClickExecutionContext(i + ("VM/123b6de4-b79b-4854-93ae-bb9bdcaf9bdf/72d5355f-c6c1-4f2b-a021-afdc4df7510b/in" -> InstructionBlock(
             PacketMirror(),
@@ -211,7 +212,7 @@ object Experiment {
     psFailed.close()
   
   }
-  
+
   
   def main(argv : Array[String]) {
     var dir = "stack-inputs/generated4"
@@ -355,7 +356,7 @@ object Experiment {
         Constrain(IPDst, :>=:(ConstantValue(ipToNumber("192.168.13.1"), isIp = true))),
         Forward(actual)
       )(State.bigBang, true)
-      
+
       
     val is = nw.getPorts.filter(x => x.getId != port.getId && x.getDeviceOwner == "compute:None").foldLeft(i)((acc, x) => {
       acc + (s"VM/${x.getDeviceId}/${x.getId}/in" -> InstructionBlock(
@@ -451,7 +452,7 @@ object Experiment {
     
     ctx.stuckStates
   }
-  
+
   
   def runOutbound(dir : String): Unit = {
     val expName = "provider-outbound"
@@ -569,7 +570,7 @@ object Experiment {
         Assign(IPDst, ConstantValue(ipToNumber(ipDst), isIp = true)),
         Forward(actual)
       )(State.bigBang, true)
-      
+
     
     var ctx = new ClickExecutionContext(i + ("SNAT/b77acd74-91f9-49d5-b478-123726ec4cd8/external/out" -> InstructionBlock(
           PacketMirror(),
@@ -593,8 +594,8 @@ object Experiment {
     psFailed.close()
     
   }
-  
-  
+
+
   
 }
 

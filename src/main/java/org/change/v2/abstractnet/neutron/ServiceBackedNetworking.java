@@ -46,8 +46,7 @@ public class ServiceBackedNetworking implements Networking {
 
 	@Override
 	public SecurityGroup getSecurityGroup(String id) {
-		// TODO Auto-generated method stub
-		return null;
+	    return this.client.networking().securitygroup().get(id);
 	}
 
 	@Override

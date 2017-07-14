@@ -55,7 +55,7 @@ object MultipleVmsFacultatea {
     val startOfBuild = System.currentTimeMillis()
     
     val rawLinks = InterClickLinksParser.parseLinks("src/main/resources/facultatea/links.links")    
-    val startElems : Option[Iterable[(String, String, Int)]] = Some(StartPointParser.parseStarts
+    val startElems : Option[Iterable[(String, String, String)]] = Some(StartPointParser.parseStarts
          ("src/main/resources/facultatea/start.start"))
     
     val (exec, start) = ClickAsyncExecutor.buildAggregated(

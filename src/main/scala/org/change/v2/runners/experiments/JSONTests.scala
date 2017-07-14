@@ -12,7 +12,7 @@ import org.change.v2.analysis.memory.State
 object JSONTests {
    
   def main(argv : Array[String]) {
-    val (successful, failed) = SEFLRunner.ex3    
+    val (successful, failed) = SEFLRunner.ex2    
 
     val str = SomeWriter(Map[String, List[State]](("successful" -> successful), 
     ("failed" -> failed)))
@@ -20,7 +20,7 @@ object JSONTests {
     val pstream = new PrintStream("outputs/json/out.json")
     pstream.println(str)
     pstream.close()
-    
+
     
     val f = new File("outputs/json/out.json")
     val reader = new BufferedReader(new InputStreamReader(new FileInputStream(f)))
@@ -38,7 +38,7 @@ object JSONTests {
     val pstream2 = new PrintStream("outputs/json/out2.json")
     pstream2.println(str)
     pstream2.close()
-    
+
     
   }
 
