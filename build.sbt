@@ -81,6 +81,14 @@ fullRunTask(neutron_tenant_egress, Compile, "org.change.v2.runners.experiments.E
 
 javaOptions in neutron_tenant_l2 += s"-Djava.library.path=lib"
 
+
+lazy val matei_int_test = taskKey[Unit]("Verification tests")
+
+
+fullRunTask(matei_int_test, Compile, "org.change.v2.verification.Tester")
+
+
+
 seq(Revolver.settings: _*)
 
 
