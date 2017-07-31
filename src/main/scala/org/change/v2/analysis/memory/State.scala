@@ -79,7 +79,8 @@ object State {
     //      Assign("OPT30",ConstantValue(1)),
     Assign("OPT30",SymbolicValue()),
     Assign("SIZE30",ConstantValue(20)),
-    Assign("VAL30",SymbolicValue())
+    Assign("VAL30",SymbolicValue()),
+    Assign(TcpSrc,ConstantValue(1001))
   )
 
  private val start = CreateTag("START",0)
@@ -186,9 +187,11 @@ object State {
    Assign(Proto, ConstantValue(TCPProto)),
 
    Allocate(TcpSrc, 16),
-//   Assign(TcpSrc, SymbolicValue()),
-   Assign(TcpSrc, ConstantValue(80)),
-//   Constrain(TcpSrc, :&:(:>=:(ConstantValue(1000)), :<=:(ConstantValue(65536)))),
+   Assign(TcpSrc, SymbolicValue()),
+//   Assign(TcpSrc, ConstantValue(80)),
+//   Constrain(TcpSrc, :==:(ConstantValue(66))),
+   //Assign(TcpSrc, ConstantValue(66)),
+   Constrain(TcpSrc, :&:(:>=:(ConstantValue(1000)), :<=:(ConstantValue(65536)))),
 
    Allocate(TcpDst, 16),
 //   Assign(TcpDst, ConstantValue(80)),
@@ -264,6 +267,7 @@ object State {
       Assign(TcpSrc, SymbolicValue()),
 
     //   Constrain(TcpSrc, :&:(:>=:(ConstantValue(1000)), :<=:(ConstantValue(65536)))),
+   //Constrain(TcpSrc, :==:(ConstantValue(66))),
    Allocate(TcpDst, 16),
       Assign(TcpDst, SymbolicValue())
 

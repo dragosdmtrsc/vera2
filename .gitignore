@@ -21,3 +21,4 @@ src/main/scala/org/change/v2/runners/Run.scala
 *.json
 .DS_Store
 ._.DS_Store
+.vagrant/

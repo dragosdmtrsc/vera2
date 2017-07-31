@@ -25,11 +25,13 @@ object Policy {
   var last_instruction : Instruction = null
 
   var lastState : PolicyState = null
+  var paths : Integer = 0
 
   //def mode = ModelCheckMode::Nil
-  def mode = MCMode::OverallMode::LocMode::Nil
+  //def mode = MCMode::OverallMode::LocMode::Nil
   //def mode = OverallMode::LocMode::Nil
   //def mode = LocMode::Nil
+  def mode = Nil
 
   def EF(f:Formula) = Exists(Future(f))
   def AF(f:Formula) = Forall(Future(f))
@@ -63,12 +65,14 @@ object Policy {
     }
   }
 
-  def isSatisfied (state: PolicyState, i : Instruction ) : Boolean = {
+  def isSatisfied (state: PolicyState, i : Instruction) : Boolean = {
+
     var comp = complement(i)
     state.execute(comp) match {
-      case FailedState => true
+      case FailedState(_) => true
       case _ => false
     }
+    false
   }
 
   def isComposite (i: Instruction) : Boolean =
@@ -175,6 +179,9 @@ object Policy {
       }
 
       case fp@Atomic(i) => atomic_check(i,s)
+
+      case Formula.Fail => make(f,Falsified,s)
+      case Formula.Success => make(f,Satisfied,s)
     }
   }
 
@@ -227,12 +234,16 @@ def check (f : Formula, p: Instruction, s : PolicyState) : Formula = {
   if (s.isInstanceOf[MapState] || s.isInstanceOf[NoMapState])
     verbose_print("State :"+s.state.instructionHistory,OverallMode)
 */
+  if (s.isInstanceOf[FailedState])
+    verbose_print("Failed branch (at port "+s.history.head+")",LocMode);
 
    //matching after formula and program
    (s,f,p) match {
       // failed state
-     case (FailedState,Forall(Globally(_)),_) | (FailedState,Exists(Globally(_)),_) => verbose_print ("FG(f) is true (failed state)\n",OverallMode); make(f,Satisfied,s)
-     case (FailedState,_,_) => verbose_print ("f is false (failed state)\n",OverallMode); //verbose_print("Program:"+last_instruction+"\n",OverallMode);
+     case (FailedState(_),Forall(Globally(_)),_) |
+          (FailedState(_),Exists(Globally(_)),_) => verbose_print ("FG(f) is true (failed state)\n",OverallMode); make(f,Satisfied,s)
+     case (FailedState(_),_,_) => verbose_print ("f is false (failed state)\n",OverallMode);
+       //verbose_print("Program:"+last_instruction+"\n",OverallMode);
        make(f,Falsified,s)
 
      // if the formula is boolean, we evaluate it, using 'check'
@@ -245,7 +256,9 @@ def check (f : Formula, p: Instruction, s : PolicyState) : Formula = {
      // instructionBlock basis cases
      case (_,Forall(Globally(_)),InstructionBlock(Nil)) |
           (_,Exists(Globally(_)),InstructionBlock(Nil)) |
-          (_,Success,InstructionBlock(Nil)) => verbose_print ("f is true (InstructionBlock ended)\n",OverallMode); make(f,Satisfied,s)
+          (_,Success,            InstructionBlock(Nil)) => verbose_print ("f is true (InstructionBlock ended)\n",OverallMode); make(f,Satisfied,s)
+
+     case (_,Formula.Fail,InstructionBlock(Nil)) => verbose_print("f is false (Implicit formula)",OverallMode); make(f,Falsified,s)
 
 
      // this case should be reinspected (for F operator)
@@ -272,6 +285,11 @@ def check (f : Formula, p: Instruction, s : PolicyState) : Formula = {
 
      case (_,_,InstructionBlock(pr :: rest)) => //take an instruction
        val sp = s.execute(pr)  // execute program pr in state s,
+
+       if (sp.isInstanceOf[FailedState])
+         verbose_print("Instruction "+pr+" failed ",LocMode)
+
+
        var fval = check(f,pr,sp) // verify the policy in this new state
 
        (fval.status,f) match {
@@ -300,8 +318,15 @@ def check (f : Formula, p: Instruction, s : PolicyState) : Formula = {
      case (_,Exists(_),Fork(Nil)) => verbose_print("Final branch checked\n",MCMode); verbose_print ("f is false (finished a Fork)\n",OverallMode); make(f,Falsified,lastState)
 
      case (_,_,Fork(pr::rest)) => verbose_print("Checking branch:\n"+show(pr),MCMode);
-       val fp = check(f,pr,s) // we verify a branch of the Fork
+       verbose_print("[Branching (size "+(rest.length+1)+" at port "+s.history.head+")]",LocMode)
+       verbose_print("Branching instruction: "+Fork(pr::rest),LocMode)
+
+       println("Cost of "+pr);
+       val fp = Tester.time{check(f,pr,s)} // we verify a branch of the Fork
+       println
+
        lastState = fp.state   // we store the witness state built on that branch (if this is the final branch, "lastState" will be the reported witness state)
+       paths += 1
        (f,fp.status) match {
            // we evaluate the truth-value of the fork
          case (Exists(_),Satisfied) => verbose_print ("f is true (on a Fork branch)\n",OverallMode); make (f, Satisfied, fp.state)
@@ -334,6 +359,8 @@ def check (f : Formula, p: Instruction, s : PolicyState) : Formula = {
       => make(f, check_in_state(f.inner.inner, s).status, s)
       case And(_, _) | Or(_, _) | Not(_) => boolean_check(f, s, check_in_state)
       case Atomic(fp) => atomic_check(fp, s)
+      case Success => make(f, Satisfied, s)
+      case Formula.Fail => make (f, Falsified, s)
       case _ => throw new Exception("non-branching program on non-temporal formula: " + f)
     }
   }
@@ -342,10 +369,12 @@ def check (f : Formula, p: Instruction, s : PolicyState) : Formula = {
 
     var fp = check(f,topology(start),state(start,topology,links))
 
+    println("History: "+fp.state.history);
+    println("Explored "+Policy.paths+" paths");
     fp.status match {
-      case Falsified => verbose_print("Formula is false",OverallMode); println("History: "+fp.state.history); false     // should report the failing path
-      case Satisfied => verbose_print("Formula is true",OverallMode); println("History: "+fp.state.history); true
-      case Pending => verbose_print("There are still pending subformulae",OverallMode); println("History: "+fp.state.history); false
+      case Falsified => verbose_print("Formula is false",OverallMode); false     // should report the failing path
+      case Satisfied => verbose_print("Formula is true",OverallMode); true
+      case Pending => verbose_print("There are still pending subformulae",OverallMode); false
 
     }
   }

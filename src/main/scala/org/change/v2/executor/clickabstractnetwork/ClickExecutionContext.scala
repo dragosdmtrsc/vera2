@@ -77,8 +77,10 @@ case class ClickExecutionContext(
   def execute(verbose: Boolean = false): ClickExecutionContext = {
     val (ok, fail, stuck) = (for {
       sPrime <- okStates
-      s = if (links contains sPrime.location)
+      s = if (links contains sPrime.location) {
+          println("Location is:"+links(sPrime.location))
           sPrime.forwardTo(links(sPrime.location))
+        }
         else
           sPrime
       stateLocation = s.location
@@ -94,6 +96,8 @@ case class ClickExecutionContext(
         } else
           (Nil, Nil, List(s))
       }).unzip3
+
+      //println("States: "+ok);
 
       useAndReturn(copy(
         okStates = ok.flatten,

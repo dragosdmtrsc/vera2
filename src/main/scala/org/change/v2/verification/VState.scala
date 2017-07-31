@@ -19,14 +19,16 @@ trait PolicyState {
   def instructionAt (s:String) : Instruction
   def history : List[LocationId]
   def copy : PolicyState
+
 }
 
 case class NoMapState (val state:State) extends PolicyState {
+
   override def execute(p:Instruction) : PolicyState = {
 
 
     p.apply(state,true) match {
-      case (Nil,_) => FailedState
+      case (Nil,_) => FailedState(history)
       case (sp :: _,_) => new NoMapState(sp)
     }
   }
@@ -37,6 +39,9 @@ case class NoMapState (val state:State) extends PolicyState {
   override def history = null
 
   override def copy = NoMapState(state)
+
+  var pathNo : Integer = 0
+
 }
 
 case class MapState (location : LocationId,
@@ -50,7 +55,7 @@ case class MapState (location : LocationId,
   override def execute(p:Instruction) : PolicyState = {
     //Policy.verbose_print("Executed "+p+"\n************\n",OverallMode);
     p.apply(state,true) match {
-      case (Nil,_) => FailedState
+      case (Nil,_) => FailedState(history)
       case (sp :: _,_) => new MapState(location,topology,links,sp,portHistory)
     }
   }
@@ -61,7 +66,7 @@ case class MapState (location : LocationId,
       else Policy.verbose_print("Switching to location "+s,LocMode);
         var sp = step(s)
         sp.portHistory = s :: portHistory // add to history the current port
-        println("Port history "+portHistory)
+        Policy.verbose_print("Port history "+sp.portHistory,LocMode);
         sp // return the new state
 
   }
@@ -83,11 +88,10 @@ case class MapState (location : LocationId,
 
 }
 
-case object FailedState extends PolicyState {
+case class FailedState(history : List[LocationId]) extends PolicyState {
   override def execute (p:Instruction) : PolicyState = null
   override def state: State = null
   override def forward (s:String) = null
   override def instructionAt (s:String) : Instruction = null
-  override def history = null
-  override def copy = FailedState
+  override def copy = FailedState(history)
 }

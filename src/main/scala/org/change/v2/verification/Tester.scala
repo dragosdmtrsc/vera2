@@ -10,6 +10,7 @@ import org.change.v2.analysis.memory.State
 import org.change.v2.analysis.processingmodels.{Instruction, LocationId}
 import org.change.v2.analysis.processingmodels.instructions._
 import org.change.v2.executor.clickabstractnetwork.AggregatedBuilder._
+import org.change.v2.executor.clickabstractnetwork.ClickExecutionContext
 import org.change.v2.executor.clickabstractnetwork.executionlogging.JsonLogger
 import org.change.v2.util.conversion.RepresentationConversion
 import org.change.v2.util.canonicalnames._
@@ -61,6 +62,18 @@ object Tester {
   def links (t:Topo) = t._2
 
 
+  def time[T](block : => T) : T = {
+    val t0 = System.nanoTime()
+    val result = block
+    val t1 = System.nanoTime()
+    println("Elapsed time: "+ (t1 - t0)/1000000 + "ms")
+    result
+  }
+
+  def thousandip : Instruction = {
+    InstructionBlock ((1 to 1000).toList.map((i : Int) => Constrain(IPSrc,:~:(:==:(ConstantValue(i))))))
+  }
+
   def main(args: Array[String]): Unit = {
 
 
@@ -73,19 +86,23 @@ object Tester {
       //TopoTest("Simple history test",EF(Constrain(IPDst,:>=:(ConstantValue(11)))),"0",tiny_topo_2,true)
     )
 
+    /*
     for (t <- tests){
       t.execute
-    }
+    }*/
+
+
 
     //costin_example
     //topology
     //future_test
     //println(State.bigBang)
 
-    //asa
+    asa
     //iftest
     //ib test
     //ibtest
+
   }
 
 
@@ -152,7 +169,8 @@ object Tester {
 
   def asa = {
     val dataPlaneFolder = "src/main/resources/asa"
-    var policy = EF(Constrain(IPSrc,:==:(ConstantValue(RepresentationConversion.ipToNumber("10.0.0.0")))))
+    //var policy = EF(Constrain(IPSrc,:==:(ConstantValue(RepresentationConversion.ipToNumber("10.0.0.0")))))
+    var policy = EF(Formula.Fail)
 
     val exe = executorFromFolder(new File(dataPlaneFolder), Map(
       "switch" -> OptimizedSwitch.trivialSwitchNetworkConfig _,
@@ -161,20 +179,41 @@ object Tester {
     )).setLogger(JsonLogger)
 
     //val start = System.currentTimeMillis()
-    //exe.untilDone(true)
-    ///println(exe.instructions)
-    //println(exe.links)
+    time{exe.untilDone(true)}
+
+    //println(exe.instructions)
+    //println(exe.instructions.fold("" : String){_ + "\n"+ _})
+    //println(exe.okStates)
+
+
+    println(exe.okStates)
+    /*
+    println("=== Failed states ===")
+    println(exe.failedStates)
+    println("=== Links ===")
+    println(exe.links)
+    */
+
     //    println(System.currentTimeMillis() - start)
     //println("It took me:" + (System.currentTimeMillis() - start))
 
 
     //in -> rw[0] -> EtherEncap(2048, 00:23:eb:bb:f1:4c, 00:23:eb:bb:f1:4d) -> VLANEncap(225) -> out;
+    //EtherEncap(2048, 00:23:eb:bb:f1:4c, 00:23:eb:bb:f1:4d) -> VLANEncap(225) ->
 
-    verify(policy,"packet-in-0-in",exe.instructions,exe.links)
 
-    //var model = InstructionBlock(Assign(IPSrc,ConstantValue(10)),Fail())
 
-    //verify(policy,model)
+    /*
+    var r = false;
+    time{r = verify(policy,"packet-in-0-in",exe.instructions,exe.links)}
+    println("Formula is "+r)
+    */
+
+
+    //packet:out:0 -> asa:main_input:0
+    //packet:out:0 -> dump:in:0
+    //in -> EtherEncap(2048, 00:23:eb:bb:f1:4c, 00:23:eb:bb:f1:4d) -> VLANEncap(225) -> out;
+
 
 
   }
