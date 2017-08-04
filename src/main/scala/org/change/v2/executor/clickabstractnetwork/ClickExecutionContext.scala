@@ -78,7 +78,7 @@ case class ClickExecutionContext(
     val (ok, fail, stuck) = (for {
       sPrime <- okStates
       s = if (links contains sPrime.location) {
-          println("Location is:"+links(sPrime.location))
+          //println("Location is:"+links(sPrime.location))
           sPrime.forwardTo(links(sPrime.location))
         }
         else

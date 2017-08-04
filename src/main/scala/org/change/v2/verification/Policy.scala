@@ -51,7 +51,7 @@ object Policy {
 
   def state : NoMapState = new NoMapState(State.bigBang)
   def state(l:LocationId, t: Topology, links:Map[LocationId,LocationId]) =
-    new MapState(l,t,links,State.bigBang,l::Nil)
+    new MapState(l,t,links,State.allSymbolic,l::Nil)
 
 
 
@@ -135,8 +135,11 @@ object Policy {
 
   def verbose_print(s : String, t : PrintMode ) = if (mode.contains(t)) println(s)
 
-  def atomic_check (p : Instruction, s : PolicyState) : Formula =
-    if (isSatisfied(s, p)) {verbose_print (show(p)+" is true \n",MCMode); make(Atomic(p),Satisfied,s)} else {verbose_print (show(p)+" is false \n",MCMode); make(Atomic(p),Falsified,s)}
+  def atomic_check (p : Instruction, s : PolicyState, logger:PolicyLogger) : (Formula,PolicyLogger) =
+
+    (if (isSatisfied(s, p))
+    {verbose_print (show(p)+" is true \n",MCMode); make(Atomic(p),Satisfied,s)}
+    else {verbose_print (show(p)+" is false \n",MCMode); make(Atomic(p),Falsified,s)}, logger)
 
 
 
@@ -149,39 +152,39 @@ object Policy {
 
   // this procedure verifies boolean formulae (and is independent on the program context verification, unlike temporal formulae
   // the check function represents the "program context" in which it appears
-  def boolean_check (f:Formula, s:PolicyState, check : (Formula, PolicyState) => Formula) : Formula = {
+  def boolean_check (f:Formula, s:PolicyState, check : (Formula, PolicyState, PolicyLogger) => (Formula, PolicyLogger), logger: PolicyLogger) : (Formula,PolicyLogger) = {
     verbose_print("boolean check",MCMode)
-    if (f.status != Pending) {verbose_print("already verified",MCMode);return f} //this formula was already verified
+    if (f.status != Pending) {verbose_print("already verified",MCMode);return (f,logger)} //this formula was already verified
 
 
     f match {
-      case fp@And(f1, f2) => check(f1, s).status match {
-        case Falsified => make(fp,Falsified,s)
+      case fp@And(f1, f2) => val (fpp,l) = check(f1, s,logger); fpp.status match {
+        case Falsified => (make(fp,Falsified,s),l)
         // pending or satisfied
-        case status => check(f2, s).status match {
-          case Falsified => make(fp,Falsified,s)
-          case Satisfied => make(fp,status,s) //whatever f1 returned is the new status
-          case Pending => make(fp,Pending,s) //if f2 is pending and f1 is not false, the AND is pending
+        case status => val (fpp,l) = check(f2, s,logger); fpp.status match {
+          case Falsified => (make(fp,Falsified,s),l)
+          case Satisfied => (make(fp,status,s),l) //whatever f1 returned is the new status
+          case Pending => (make(fp,Pending,s),l) //if f2 is pending and f1 is not false, the AND is pending
         }
       }
-      case fp@Or(f1, f2) => check(f1, s).status match {
-        case Satisfied => make(fp,Satisfied,s)
-        case status => check(f2,s).status match {
-          case Satisfied => make(fp,Satisfied,s)
-          case Falsified => make(fp,status,s)
-          case Pending => make(fp,Pending,s)
+      case fp@Or(f1, f2) => val (fpp,l) = check(f1, s,logger); fpp.status match {
+        case Satisfied => (make(fp,Satisfied,s),l)
+        case status => val (fpp,l) = check(f2,s,logger); fpp.status match {
+          case Satisfied => (make(fp,Satisfied,s),l)
+          case Falsified => (make(fp,status,s), l)
+          case Pending => (make(fp,Pending,s), l)
         }
       }
-      case fp@Not(f) => check(f, s).status match {
-        case Falsified => make(fp,Satisfied,s)
-        case Satisfied => make(fp,Falsified,s)
-        case Pending => make(fp,Pending,s)
+      case fp@Not(f) => val (fpp,l) = check(f, s, logger); fpp.status match {
+        case Falsified => (make(fp,Satisfied,s), l)
+        case Satisfied => (make(fp,Falsified,s), l)
+        case Pending => (make(fp,Pending,s), l)
       }
 
-      case fp@Atomic(i) => atomic_check(i,s)
+      case fp@Atomic(i) => atomic_check(i,s,logger)
 
-      case Formula.Fail => make(f,Falsified,s)
-      case Formula.Success => make(f,Satisfied,s)
+      case Formula.Fail => (make(f,Falsified,s),logger)
+      case Formula.Success => (make(f,Satisfied,s),logger)
     }
   }
 
@@ -226,7 +229,7 @@ object Policy {
 
 
 
-def check (f : Formula, p: Instruction, s : PolicyState) : Formula = {
+def check (f : Formula, p: Instruction, s : PolicyState, logger : PolicyLogger) : (Formula,PolicyLogger) = {
 
   verbose_print("Verifying " + f + "\n on program \n" + show(p),OverallMode);
 
@@ -241,46 +244,47 @@ def check (f : Formula, p: Instruction, s : PolicyState) : Formula = {
    (s,f,p) match {
       // failed state
      case (FailedState(_),Forall(Globally(_)),_) |
-          (FailedState(_),Exists(Globally(_)),_) => verbose_print ("FG(f) is true (failed state)\n",OverallMode); make(f,Satisfied,s)
+          (FailedState(_),Exists(Globally(_)),_) => verbose_print ("FG(f) is true (failed state)\n",OverallMode); (make(f,Satisfied,s),logger)
      case (FailedState(_),_,_) => verbose_print ("f is false (failed state)\n",OverallMode);
        //verbose_print("Program:"+last_instruction+"\n",OverallMode);
-       make(f,Falsified,s)
+       (make(f,Falsified,s),logger)
 
      // if the formula is boolean, we evaluate it, using 'check'
-     case (_,And(_,_),_) | (_,Or(_,_),_) | (_,Not(_),_)  => boolean_check(f,s,(f,s) => check(f,p,s))
+     case (_,And(_,_),_) | (_,Or(_,_),_) | (_,Not(_),_)  => boolean_check(f,s,(f,s,l) => check(f,p,s,l),logger)
 
      //flattening nested instruction blocks
      case (_,_,InstructionBlock(InstructionBlock(l) :: rest))
-        => check(f, InstructionBlock(l ++ rest), s) // flatten nested instruction blocks
+        => check(f, InstructionBlock(l ++ rest), s, logger) // flatten nested instruction blocks
 
      // instructionBlock basis cases
      case (_,Forall(Globally(_)),InstructionBlock(Nil)) |
           (_,Exists(Globally(_)),InstructionBlock(Nil)) |
-          (_,Success,            InstructionBlock(Nil)) => verbose_print ("f is true (InstructionBlock ended)\n",OverallMode); make(f,Satisfied,s)
+          (_,Success,            InstructionBlock(Nil)) => verbose_print ("f is true (InstructionBlock ended)\n",OverallMode); (make(f,Satisfied,s),logger)
 
-     case (_,Formula.Fail,InstructionBlock(Nil)) => verbose_print("f is false (Implicit formula)",OverallMode); make(f,Falsified,s)
+     case (_,Formula.Fail,InstructionBlock(Nil)) => verbose_print("f is false (Implicit formula)",OverallMode); (make(f,Falsified,s),logger)
 
 
      // this case should be reinspected (for F operator)
-     case (_,_,InstructionBlock(Nil)) => clone(f,s) //clone returns a new formula with "s" as the witness state
+     case (_,_,InstructionBlock(Nil)) => (clone(f,s),logger) //clone returns a new formula with "s" as the witness state
 
      case (_,_,InstructionBlock(Fork(l) :: rest)) // distribute Fork instructions
          => check(f,
            Fork(l.map(p => InstructionBlock(p :: rest)))
-           , s)
-     case (_,_,InstructionBlock(If(test,then,els) :: rest)) => check(f,InstructionBlock(transform(s,If(test,then,els))::rest),s)
+           ,s, logger)
+     case (_,_,InstructionBlock(If(test,then,els) :: rest)) => check(f,InstructionBlock(transform(s,If(test,then,els))::rest),s,logger)
 
        // the semantics of Forward, or Forward in an instruction block is essentially the same
        // (the rest of the instruction block, after Forward, is ignored)
      case (_,_,InstructionBlock(Forward(_) :: _)) |
           (_,_,Forward(_)) =>
            var fp = f
-           if (changesState(Forward(""))) fp = check_in_state(f,s) // Forward may change state, hence trigger atomic verification
+           var log = logger
+           if (changesState(Forward(""))) {val (fpp,l) = check_in_state(f,s,logger); fp = fpp; log = l} // Forward may change state, hence trigger atomic verification
            (s,p) match {
                // the witness state assigned to f is "sp" (containing the new location)
-             case pair@(MapState(_,_,_,_,_), Forward(loc)) => var sp = s.forward(loc); check(clone(fp,sp),s.instructionAt(loc),sp);
-             case pair@(MapState(_,_,_,_,_), InstructionBlock(Forward(loc) :: _)) => var sp = s.forward(loc); check(clone(fp,sp),s.instructionAt(loc),sp);
-             case _ => { /*verbose_print("Skipping \n", MCMode);*/ f}
+             case pair@(MapState(_,_,_,_,_), Forward(loc)) => var sp = s.forward(loc); check(clone(fp,sp),s.instructionAt(loc),sp,log);
+             case pair@(MapState(_,_,_,_,_), InstructionBlock(Forward(loc) :: _)) => var sp = s.forward(loc); check(clone(fp,sp),s.instructionAt(loc),sp,log);
+             case _ => { /*verbose_print("Skipping \n", MCMode);*/ (f,log)}
            }
 
      case (_,_,InstructionBlock(pr :: rest)) => //take an instruction
@@ -290,49 +294,49 @@ def check (f : Formula, p: Instruction, s : PolicyState) : Formula = {
          verbose_print("Instruction "+pr+" failed ",LocMode)
 
 
-       var fval = check(f,pr,sp) // verify the policy in this new state
+       var (fval,lprime) = check(f,pr,sp,logger) // verify the policy in this new state
 
        (fval.status,f) match {
          // s, p;rest |= XG f  iff  s,p |= XG f   and p(s),rest |= XG f
            // the "false" case
          case (Falsified,Forall(Globally(_))) | (Falsified,Exists(Globally(_))) =>
            // the witness state is the current state
-           verbose_print ("f is false (failed check of an instruction in an IB)\n",OverallMode); make(f,Falsified,fval.state)
+           verbose_print ("f is false (failed check of an instruction in an IB)\n",OverallMode); (make(f,Falsified,fval.state),lprime)
            // otherwise continue verification
            // the valuation of fval is reset, but the witness state is preserved and passed on
-         case (_,Forall(Globally(_))) | (_,Exists(Globally(_))) => check(reeval(fval,fval.state),InstructionBlock(rest),sp)
+         case (_,Forall(Globally(_))) | (_,Exists(Globally(_))) => check(reeval(fval,fval.state),InstructionBlock(rest),sp,lprime)
 
            // the "true" case
          case (Satisfied,Forall(Future(_))) | (Satisfied,Exists(Future(_))) =>
-           verbose_print ("f is true (successful check of an instruction in an IB)\n",OverallMode); make(f,Satisfied,fval.state)
-         case (_,Forall(Future(_))) | (_,Exists(Future(_))) => check(reeval(fval,fval.state),InstructionBlock(rest),sp);
+           verbose_print ("f is true (successful check of an instruction in an IB)\n",OverallMode); (make(f,Satisfied,fval.state),lprime)
+         case (_,Forall(Future(_))) | (_,Exists(Future(_))) => check(reeval(fval,fval.state),InstructionBlock(rest),sp,lprime);
          case (_,Forall(_)) | (_,Exists(_)) => throw new Exception("Not a CTL formula")
 
            // the rest
-         case (_,_) => fval // if the formula is not temporal, it has been checked;
+         case (_,_) => (fval,lprime) // if the formula is not temporal, it has been checked;
 
        }
 
     // terminal case for Fork. Note that we use the previously-saved "lastState" to report the witness state
-     case (_,Forall(_),Fork(Nil)) => verbose_print("Final branch checked\n",MCMode); verbose_print ("f is true (finished a Fork)\n",OverallMode); make(f,Satisfied,lastState)
-     case (_,Exists(_),Fork(Nil)) => verbose_print("Final branch checked\n",MCMode); verbose_print ("f is false (finished a Fork)\n",OverallMode); make(f,Falsified,lastState)
+     case (_,Forall(_),Fork(Nil)) => verbose_print("Final branch checked\n",MCMode); verbose_print ("f is true (finished a Fork)\n",OverallMode); (make(f,Satisfied,lastState),logger)
+     case (_,Exists(_),Fork(Nil)) => verbose_print("Final branch checked\n",MCMode); verbose_print ("f is false (finished a Fork)\n",OverallMode); (make(f,Falsified,lastState),logger)
 
      case (_,_,Fork(pr::rest)) => verbose_print("Checking branch:\n"+show(pr),MCMode);
        verbose_print("[Branching (size "+(rest.length+1)+" at port "+s.history.head+")]",LocMode)
        verbose_print("Branching instruction: "+Fork(pr::rest),LocMode)
 
-       println("Cost of "+pr);
-       val fp = Tester.time{check(f,pr,s)} // we verify a branch of the Fork
-       println
+       val (fp,lprime) = check(f,pr,s,logger) // we verify a branch of the Fork
 
-       lastState = fp.state   // we store the witness state built on that branch (if this is the final branch, "lastState" will be the reported witness state)
+       lastState = fp.state
+         // we store the witness state built on that branch (if this is the final branch, "lastState" will be the reported witness state)
+         lprime.addPath
        paths += 1
        (f,fp.status) match {
            // we evaluate the truth-value of the fork
-         case (Exists(_),Satisfied) => verbose_print ("f is true (on a Fork branch)\n",OverallMode); make (f, Satisfied, fp.state)
-         case (Forall(_),Pending) | (Forall(_),Falsified) => verbose_print ("f is false (on a Fork branch)\n",OverallMode); make(f,Falsified, fp.state)
+         case (Exists(_),Satisfied) => verbose_print ("f is true (on a Fork branch)\n",OverallMode); (make (f, Satisfied, fp.state),lprime)
+         case (Forall(_),Pending) | (Forall(_),Falsified) => verbose_print ("f is false (on a Fork branch)\n",OverallMode); (make(f,Falsified, fp.state),lprime)
            // if the truth-value cannot be established, then "s" (the state before executing the branch) is used to continue verification on another branch
-         case (Exists(_),_) | (Forall(_),Satisfied) =>  check(reeval(f,s),Fork(rest),s) //the formula must be made pending for the next branch verification
+         case (Exists(_),_) | (Forall(_),Satisfied) =>  check(reeval(f,s),Fork(rest),s,lprime) //the formula must be made pending for the next branch verification
 
          case (_,_) => throw new Exception ("Cannot evaluate non-temporal formula on a Fork ")
 
@@ -340,37 +344,39 @@ def check (f : Formula, p: Instruction, s : PolicyState) : Formula = {
 
        // IF implementation
      case (_,_,If(testInstr: Instruction, thenWhat: Instruction, elseWhat:Instruction)) =>
-       check(f,transform(s,p),s)
+       check(f,transform(s,p),s,logger)
 
        // *  *  *  *  *  *  *  *
        // non-branching programs
        // *  *  *  *  *  *  *  *
 
        // if the current instruction does not change state, the status of f is unchanged
-     case _ => if (changesState(p)) check_in_state(f,s) else f
+     case _ => if (changesState(p)) check_in_state(f,s,logger) else (f,logger)
 
    }
  }
 
-  def check_in_state(f : Formula, s: PolicyState) : Formula = {
+  def check_in_state(f : Formula, s: PolicyState, logger:PolicyLogger) : (Formula,PolicyLogger) = {
     f match {
       // temporal formula on non-branching program
       case Exists(Globally(_)) | Forall(Globally(_)) | Exists(Future(_)) | Forall(Future(_))
-      => make(f, check_in_state(f.inner.inner, s).status, s)
-      case And(_, _) | Or(_, _) | Not(_) => boolean_check(f, s, check_in_state)
-      case Atomic(fp) => atomic_check(fp, s)
-      case Success => make(f, Satisfied, s)
-      case Formula.Fail => make (f, Falsified, s)
+      => val (fp,l) = check_in_state(f.inner.inner, s,logger)
+        (make(f, fp.status, s),l)
+      case And(_, _) | Or(_, _) | Not(_) => boolean_check(f, s, check_in_state,logger)
+      case Atomic(fp) => atomic_check(fp, s,logger)
+      case Success => (make(f, Satisfied, s), logger)
+      case Formula.Fail => (make (f, Falsified, s), logger)
       case _ => throw new Exception("non-branching program on non-temporal formula: " + f)
     }
   }
   // "top-level" verification procedure for topologies
   def verify (f: Formula, start:LocationId ,topology: Topology, links:Map[LocationId,LocationId]) : Boolean = {
 
-    var fp = check(f,topology(start),state(start,topology,links))
+    var (fp,logger) = check(f,topology(start),state(start,topology,links), new PolicyLogger())
 
     println("History: "+fp.state.history);
     println("Explored "+Policy.paths+" paths");
+    println("Paths = "+logger.paths)
     fp.status match {
       case Falsified => verbose_print("Formula is false",OverallMode); false     // should report the failing path
       case Satisfied => verbose_print("Formula is true",OverallMode); true
@@ -382,7 +388,8 @@ def check (f : Formula, p: Instruction, s : PolicyState) : Formula = {
   // "top-level" verification procedure for plain SEFL code
   def verify (f : Formula, model : Instruction) : Boolean = {
 
-    check(f,model,state).status match {
+    val (fp,l) = check(f,model,state, new PolicyLogger());
+    fp.status match {
       case Falsified => verbose_print("Formula is false",OverallMode); false     // should report the failing path
       case Satisfied => verbose_print("Formula is true",OverallMode); true
       case Pending => verbose_print("There are still pending subformulae",OverallMode); false

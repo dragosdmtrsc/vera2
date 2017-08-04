@@ -172,27 +172,26 @@ object Tester {
     //var policy = EF(Constrain(IPSrc,:==:(ConstantValue(RepresentationConversion.ipToNumber("10.0.0.0")))))
     var policy = EF(Formula.Fail)
 
-    val exe = executorFromFolder(new File(dataPlaneFolder), Map(
+    var exe = executorFromFolder(new File(dataPlaneFolder), Map(
       "switch" -> OptimizedSwitch.trivialSwitchNetworkConfig _,
       "click" -> {f => ClickToAbstractNetwork.buildConfig(f, prefixedElements = true)},
       "router" -> OptimizedRouter.trivialRouterNetwrokConfig _
     )).setLogger(JsonLogger)
 
     //val start = System.currentTimeMillis()
-    time{exe.untilDone(true)}
-
-    //println(exe.instructions)
-    //println(exe.instructions.fold("" : String){_ + "\n"+ _})
-    //println(exe.okStates)
+    exe = time{exe.untilDone(true)}
 
 
-    println(exe.okStates)
-    /*
+
+    println("=== Successful states ===")
+    println(exe.okStates.length)
+    println("=== Stuck states ===")
+    println(exe.stuckStates.length)
     println("=== Failed states ===")
-    println(exe.failedStates)
-    println("=== Links ===")
-    println(exe.links)
-    */
+    println(exe.failedStates.length)
+
+
+
 
     //    println(System.currentTimeMillis() - start)
     //println("It took me:" + (System.currentTimeMillis() - start))
@@ -203,11 +202,11 @@ object Tester {
 
 
 
-    /*
+
     var r = false;
     time{r = verify(policy,"packet-in-0-in",exe.instructions,exe.links)}
     println("Formula is "+r)
-    */
+
 
 
     //packet:out:0 -> asa:main_input:0

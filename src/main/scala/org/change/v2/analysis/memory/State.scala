@@ -101,6 +101,8 @@ object State {
     Assign(Tag("L2")+EtherDstOffset,SymbolicValue()),
 //    Assign(Tag("L2")+EtherDstOffset,ConstantValue(macToNumberCiscoFormat("0023.ebbb.f14d"))),
     Allocate(Tag("L2")+EtherTypeOffset,16),
+
+   /*
     Assign(Tag("L2")+EtherTypeOffset,ConstantValue(EtherProtoVLAN)),
     Allocate(PCP,3),
     Assign(PCP,ConstantValue(0)),
@@ -109,8 +111,12 @@ object State {
     Allocate(VLANTag,12),
     Assign(VLANTag,SymbolicValue()),
 //    Assign(VLANTag,ConstantValue(301)),
+
    Allocate(Tag("L2")+EtherTypeOffset + 32,16),
    Assign(Tag("L2")+EtherTypeOffset + 32,ConstantValue(EtherProtoIP))
+   */
+   Assign(Tag("L2")+EtherTypeOffset,ConstantValue(EtherProtoIP))
+
   )
  private val ip = InstructionBlock(
    CreateTag("L3", StartTag + 0),
