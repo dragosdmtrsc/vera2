@@ -22,12 +22,13 @@ trait Formula {
 
   var state : PolicyState = null
 
+  /*
   //report the reason for the state of this formula
   def report = {
     (this,status,state) match {
       case tr@(Forall(_), Falsified, MapState(_,_,_,_,portHistory)) => println("The formula was invalidated on branch "+state.history);
     }
-  }
+  }*/
 
   def clear_valuation()
 

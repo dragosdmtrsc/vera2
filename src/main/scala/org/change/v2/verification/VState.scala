@@ -17,8 +17,8 @@ trait PolicyState {
   def state : State
   def forward (s:String) : PolicyState
   def instructionAt (s:String) : Instruction
-  def history : List[LocationId]
   def copy : PolicyState
+  def nextHop (l : LocationId): LocationId
 
 }
 
@@ -28,35 +28,27 @@ case class NoMapState (val state:State) extends PolicyState {
 
 
     p.apply(state,true) match {
-      case (Nil,_) => FailedState(history)
+      case (Nil,_) => FailedState
       case (sp :: _,_) => new NoMapState(sp)
     }
   }
   override def forward (s:String) = this
-
   override def instructionAt (s:String) : Instruction = null
-
-  override def history = null
-
   override def copy = NoMapState(state)
-
-  var pathNo : Integer = 0
+  override def nextHop(l : LocationId) = null
 
 }
 
 case class MapState (location : LocationId,
                      topology:Topology,
                      links:Map[LocationId,LocationId],
-                     state:State,
-                     var portHistory : List[LocationId]) extends PolicyState {
-
-  override def history = portHistory
+                     state:State) extends PolicyState {
 
   override def execute(p:Instruction) : PolicyState = {
     //Policy.verbose_print("Executed "+p+"\n************\n",OverallMode);
     p.apply(state,true) match {
-      case (Nil,_) => FailedState(history)
-      case (sp :: _,_) => new MapState(location,topology,links,sp,portHistory)
+      case (Nil,_) => FailedState
+      case (sp :: _,_) => new MapState(location,topology,links,sp)
     }
   }
 
@@ -65,12 +57,10 @@ case class MapState (location : LocationId,
     if (!locationDefined(s)) throw new Exception("Location "+s+" not found")
       else Policy.verbose_print("Switching to location "+s,LocMode);
         var sp = step(s)
-        sp.portHistory = s :: portHistory // add to history the current port
-        Policy.verbose_print("Port history "+sp.portHistory,LocMode);
         sp // return the new state
 
   }
-  override def copy = MapState(location,topology,links,state,portHistory)
+  override def copy = MapState(location,topology,links,state)
 
   //def hasTopology = location != null && topology != null
 
@@ -79,19 +69,20 @@ case class MapState (location : LocationId,
   // this function assumes the location exists
   def instructionAt (l : LocationId) : Instruction = if (topology.contains(l)) topology(l) else topology(links(l))
 
+  override def nextHop(l : LocationId) : LocationId = links(l)
+
   // modifies the current state by moving to the next port
   // if there is a link, it is skipped to the next input port
-  def step (l : LocationId) : MapState = if (topology.contains(l)) new MapState (l,topology,links,state,portHistory)
-                                          else {Policy.verbose_print("Next hop:"+links(l),OverallMode); new MapState(links(l),topology,links,state,portHistory)}
-
-
+  def step (l : LocationId) : MapState = if (topology.contains(l)) new MapState (l,topology,links,state)
+                                          else {Policy.verbose_print("Next hop:"+links(l),OverallMode); new MapState(links(l),topology,links,state)}
 
 }
 
-case class FailedState(history : List[LocationId]) extends PolicyState {
+case object FailedState extends PolicyState {
   override def execute (p:Instruction) : PolicyState = null
   override def state: State = null
   override def forward (s:String) = null
   override def instructionAt (s:String) : Instruction = null
-  override def copy = FailedState(history)
+  override def copy = FailedState
+  override def nextHop(l : LocationId) = null
 }

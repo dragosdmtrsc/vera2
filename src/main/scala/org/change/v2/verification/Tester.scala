@@ -182,14 +182,14 @@ object Tester {
     exe = time{exe.untilDone(true)}
 
 
-
+/*
     println("=== Successful states ===")
     println(exe.okStates.length)
     println("=== Stuck states ===")
     println(exe.stuckStates.length)
     println("=== Failed states ===")
-    println(exe.failedStates.length)
-
+    println(exe.failedStates)
+*/
 
 
 
@@ -197,8 +197,7 @@ object Tester {
     //println("It took me:" + (System.currentTimeMillis() - start))
 
 
-    //in -> rw[0] -> EtherEncap(2048, 00:23:eb:bb:f1:4c, 00:23:eb:bb:f1:4d) -> VLANEncap(225) -> out;
-    //EtherEncap(2048, 00:23:eb:bb:f1:4c, 00:23:eb:bb:f1:4d) -> VLANEncap(225) ->
+    //in -> EtherDecap -> EtherEncap(2048, 00:23:eb:bb:f1:4c, 00:23:eb:bb:f1:4d) -> VLANEncap(225) -> out;
 
 
 
