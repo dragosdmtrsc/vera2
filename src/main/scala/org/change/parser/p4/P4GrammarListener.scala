@@ -73,17 +73,25 @@ class P4GrammarListener extends P4GrammarBaseListener {
   // Section 2.2
   private val headerInstances: MutableMap[String, HeaderInstance] = MutableMap()
 
+  override def exitScalarInstance(ctx: P4GrammarParser.ScalarInstanceContext): Unit =
+    ctx.instance = ctx.scalar_instance().instance
+
+  override def exitArrayInstance(ctx: P4GrammarParser.ArrayInstanceContext): Unit =
+    ctx.instance = ctx.array_instance().instance
+
   override def exitScalar_instance(ctx: P4GrammarParser.Scalar_instanceContext): Unit = {
-    val instanceName = ctx.instance_name().getText;
-    val headerType = ctx.instance_name().getText;
-    headerInstances.put(instanceName, ScalarHeader(instanceName, declaredHeaders(headerType)))
+    val instanceName = ctx.instance_name().getText
+    val headerType = ctx.instance_name().getText
+    ctx.instance = ScalarHeader(instanceName, declaredHeaders(headerType))
+    headerInstances.put(instanceName, ctx.instance)
   }
 
   override def exitArray_instance(ctx: P4GrammarParser.Array_instanceContext): Unit = {
     val instanceName = ctx.instance_name().getText;
     val index = ctx.const_value().constValue;
     val headerType = ctx.header_type_name().getText
-    headerInstances.put(instanceName + index, ArrayHeader(instanceName, index, declaredHeaders(headerType)))
+    ctx.instance = ArrayHeader(instanceName, index, declaredHeaders(headerType))
+    headerInstances.put(instanceName + index, ctx.instance)
   }
   // Exit Section 2.2
 

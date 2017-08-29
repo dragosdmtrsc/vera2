@@ -65,10 +65,20 @@ bit_width   :   const_value | '*' ;
 
 // Section 2.2
 //TODO: Support metadata instances.
-instance_declaration    :   header_instance | metadata_instance ;
-header_instance :   scalar_instance | array_instance ;
-scalar_instance :   'header' header_type_name instance_name ';' ;
-array_instance  :   'header' header_type_name instance_name '[' const_value ']' ';' ;
+instance_declaration returns [org.change.parser.p4.P4Instance instance]:
+    header_instance     #HeaderInstance
+    | metadata_instance #MetadataInstance
+    ;
+
+header_instance returns [org.change.parser.p4.HeaderInstance instance]:
+    scalar_instance     #ScalarInstance
+    | array_instance    #ArrayInstance
+    ;
+
+scalar_instance returns [org.change.parser.p4.ScalarHeader instance]:
+    'header' header_type_name instance_name ';' ;
+array_instance  returns [org.change.parser.p4.ArrayHeader instance]:
+    'header' header_type_name instance_name '[' const_value ']' ';' ;
 instance_name   :   NAME ;
 
 metadata_instance   :   'metadata' header_type_name instance_name ( metadata_initializer )? | ';' ;

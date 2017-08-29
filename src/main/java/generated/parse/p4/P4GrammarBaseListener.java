@@ -292,25 +292,49 @@ public class P4GrammarBaseListener implements P4GrammarListener {
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void enterInstance_declaration(P4GrammarParser.Instance_declarationContext ctx) { }
+	@Override public void enterHeaderInstance(P4GrammarParser.HeaderInstanceContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void exitInstance_declaration(P4GrammarParser.Instance_declarationContext ctx) { }
+	@Override public void exitHeaderInstance(P4GrammarParser.HeaderInstanceContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void enterHeader_instance(P4GrammarParser.Header_instanceContext ctx) { }
+	@Override public void enterMetadataInstance(P4GrammarParser.MetadataInstanceContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void exitHeader_instance(P4GrammarParser.Header_instanceContext ctx) { }
+	@Override public void exitMetadataInstance(P4GrammarParser.MetadataInstanceContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void enterScalarInstance(P4GrammarParser.ScalarInstanceContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitScalarInstance(P4GrammarParser.ScalarInstanceContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void enterArrayInstance(P4GrammarParser.ArrayInstanceContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitArrayInstance(P4GrammarParser.ArrayInstanceContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *

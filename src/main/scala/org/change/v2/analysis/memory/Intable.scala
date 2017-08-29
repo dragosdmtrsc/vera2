@@ -9,5 +9,5 @@ trait Intable {
 }
 
 trait ProducesTagExp {
-  def getTagExp(): TagExp
+  def getTagExp: TagExp
 }

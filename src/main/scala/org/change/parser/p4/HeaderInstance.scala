@@ -2,10 +2,9 @@ package org.change.parser.p4
 
 import org.change.v2.analysis.memory.{ProducesTagExp, Tag, TagExp}
 
-/**
-  * A small gift from radu to symnetic.
-  */
-sealed trait HeaderInstance extends ProducesTagExp {
+sealed trait P4Instance extends ProducesTagExp
+
+sealed trait HeaderInstance extends P4Instance {
   def layout: HeaderDeclaration
 }
 

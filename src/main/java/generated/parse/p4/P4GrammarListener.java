@@ -244,25 +244,53 @@ public interface P4GrammarListener extends ParseTreeListener {
 	 */
 	void exitBit_width(P4GrammarParser.Bit_widthContext ctx);
 	/**
-	 * Enter a parse tree produced by {@link P4GrammarParser#instance_declaration}.
+	 * Enter a parse tree produced by the {@code HeaderInstance}
+	 * labeled alternative in {@link P4GrammarParser#instance_declaration}.
 	 * @param ctx the parse tree
 	 */
-	void enterInstance_declaration(P4GrammarParser.Instance_declarationContext ctx);
+	void enterHeaderInstance(P4GrammarParser.HeaderInstanceContext ctx);
 	/**
-	 * Exit a parse tree produced by {@link P4GrammarParser#instance_declaration}.
+	 * Exit a parse tree produced by the {@code HeaderInstance}
+	 * labeled alternative in {@link P4GrammarParser#instance_declaration}.
 	 * @param ctx the parse tree
 	 */
-	void exitInstance_declaration(P4GrammarParser.Instance_declarationContext ctx);
+	void exitHeaderInstance(P4GrammarParser.HeaderInstanceContext ctx);
 	/**
-	 * Enter a parse tree produced by {@link P4GrammarParser#header_instance}.
+	 * Enter a parse tree produced by the {@code MetadataInstance}
+	 * labeled alternative in {@link P4GrammarParser#instance_declaration}.
 	 * @param ctx the parse tree
 	 */
-	void enterHeader_instance(P4GrammarParser.Header_instanceContext ctx);
+	void enterMetadataInstance(P4GrammarParser.MetadataInstanceContext ctx);
 	/**
-	 * Exit a parse tree produced by {@link P4GrammarParser#header_instance}.
+	 * Exit a parse tree produced by the {@code MetadataInstance}
+	 * labeled alternative in {@link P4GrammarParser#instance_declaration}.
 	 * @param ctx the parse tree
 	 */
-	void exitHeader_instance(P4GrammarParser.Header_instanceContext ctx);
+	void exitMetadataInstance(P4GrammarParser.MetadataInstanceContext ctx);
+	/**
+	 * Enter a parse tree produced by the {@code ScalarInstance}
+	 * labeled alternative in {@link P4GrammarParser#header_instance}.
+	 * @param ctx the parse tree
+	 */
+	void enterScalarInstance(P4GrammarParser.ScalarInstanceContext ctx);
+	/**
+	 * Exit a parse tree produced by the {@code ScalarInstance}
+	 * labeled alternative in {@link P4GrammarParser#header_instance}.
+	 * @param ctx the parse tree
+	 */
+	void exitScalarInstance(P4GrammarParser.ScalarInstanceContext ctx);
+	/**
+	 * Enter a parse tree produced by the {@code ArrayInstance}
+	 * labeled alternative in {@link P4GrammarParser#header_instance}.
+	 * @param ctx the parse tree
+	 */
+	void enterArrayInstance(P4GrammarParser.ArrayInstanceContext ctx);
+	/**
+	 * Exit a parse tree produced by the {@code ArrayInstance}
+	 * labeled alternative in {@link P4GrammarParser#header_instance}.
+	 * @param ctx the parse tree
+	 */
+	void exitArrayInstance(P4GrammarParser.ArrayInstanceContext ctx);
 	/**
 	 * Enter a parse tree produced by {@link P4GrammarParser#scalar_instance}.
 	 * @param ctx the parse tree

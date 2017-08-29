@@ -1831,23 +1831,44 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Instance_declarationContext extends ParserRuleContext {
-		public Header_instanceContext header_instance() {
-			return getRuleContext(Header_instanceContext.class,0);
-		}
-		public Metadata_instanceContext metadata_instance() {
-			return getRuleContext(Metadata_instanceContext.class,0);
-		}
+		public org.change.parser.p4.P4Instance instance;
 		public Instance_declarationContext(ParserRuleContext parent, int invokingState) {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_instance_declaration; }
+	 
+		public Instance_declarationContext() { }
+		public void copyFrom(Instance_declarationContext ctx) {
+			super.copyFrom(ctx);
+			this.instance = ctx.instance;
+		}
+	}
+	public static class HeaderInstanceContext extends Instance_declarationContext {
+		public Header_instanceContext header_instance() {
+			return getRuleContext(Header_instanceContext.class,0);
+		}
+		public HeaderInstanceContext(Instance_declarationContext ctx) { copyFrom(ctx); }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).enterInstance_declaration(this);
+			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).enterHeaderInstance(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).exitInstance_declaration(this);
+			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).exitHeaderInstance(this);
+		}
+	}
+	public static class MetadataInstanceContext extends Instance_declarationContext {
+		public Metadata_instanceContext metadata_instance() {
+			return getRuleContext(Metadata_instanceContext.class,0);
+		}
+		public MetadataInstanceContext(Instance_declarationContext ctx) { copyFrom(ctx); }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).enterMetadataInstance(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).exitMetadataInstance(this);
 		}
 	}
 
@@ -1859,6 +1880,7 @@ public class P4GrammarParser extends Parser {
 			_errHandler.sync(this);
 			switch (_input.LA(1)) {
 			case T__42:
+				_localctx = new HeaderInstanceContext(_localctx);
 				enterOuterAlt(_localctx, 1);
 				{
 				setState(410);
@@ -1867,6 +1889,7 @@ public class P4GrammarParser extends Parser {
 				break;
 			case T__32:
 			case T__45:
+				_localctx = new MetadataInstanceContext(_localctx);
 				enterOuterAlt(_localctx, 2);
 				{
 				setState(411);
@@ -1889,23 +1912,44 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Header_instanceContext extends ParserRuleContext {
-		public Scalar_instanceContext scalar_instance() {
-			return getRuleContext(Scalar_instanceContext.class,0);
-		}
-		public Array_instanceContext array_instance() {
-			return getRuleContext(Array_instanceContext.class,0);
-		}
+		public org.change.parser.p4.HeaderInstance instance;
 		public Header_instanceContext(ParserRuleContext parent, int invokingState) {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_header_instance; }
+	 
+		public Header_instanceContext() { }
+		public void copyFrom(Header_instanceContext ctx) {
+			super.copyFrom(ctx);
+			this.instance = ctx.instance;
+		}
+	}
+	public static class ArrayInstanceContext extends Header_instanceContext {
+		public Array_instanceContext array_instance() {
+			return getRuleContext(Array_instanceContext.class,0);
+		}
+		public ArrayInstanceContext(Header_instanceContext ctx) { copyFrom(ctx); }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).enterHeader_instance(this);
+			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).enterArrayInstance(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).exitHeader_instance(this);
+			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).exitArrayInstance(this);
+		}
+	}
+	public static class ScalarInstanceContext extends Header_instanceContext {
+		public Scalar_instanceContext scalar_instance() {
+			return getRuleContext(Scalar_instanceContext.class,0);
+		}
+		public ScalarInstanceContext(Header_instanceContext ctx) { copyFrom(ctx); }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).enterScalarInstance(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).exitScalarInstance(this);
 		}
 	}
 
@@ -1917,6 +1961,7 @@ public class P4GrammarParser extends Parser {
 			_errHandler.sync(this);
 			switch ( getInterpreter().adaptivePredict(_input,21,_ctx) ) {
 			case 1:
+				_localctx = new ScalarInstanceContext(_localctx);
 				enterOuterAlt(_localctx, 1);
 				{
 				setState(414);
@@ -1924,6 +1969,7 @@ public class P4GrammarParser extends Parser {
 				}
 				break;
 			case 2:
+				_localctx = new ArrayInstanceContext(_localctx);
 				enterOuterAlt(_localctx, 2);
 				{
 				setState(415);
@@ -1944,6 +1990,7 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Scalar_instanceContext extends ParserRuleContext {
+		public org.change.parser.p4.ScalarHeader instance;
 		public Header_type_nameContext header_type_name() {
 			return getRuleContext(Header_type_nameContext.class,0);
 		}
@@ -1992,6 +2039,7 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Array_instanceContext extends ParserRuleContext {
+		public org.change.parser.p4.ArrayHeader instance;
 		public Header_type_nameContext header_type_name() {
 			return getRuleContext(Header_type_nameContext.class,0);
 		}
