@@ -2134,6 +2134,7 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Metadata_instanceContext extends ParserRuleContext {
+		public org.change.parser.p4.MetadataInstance instance;
 		public Header_type_nameContext header_type_name() {
 			return getRuleContext(Header_type_nameContext.class,0);
 		}
@@ -2209,6 +2210,7 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Metadata_initializerContext extends ParserRuleContext {
+		public scala.collection.Map<String, Integer> inits;
 		public List<Field_nameContext> field_name() {
 			return getRuleContexts(Field_nameContext.class);
 		}

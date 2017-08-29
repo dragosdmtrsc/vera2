@@ -8,11 +8,18 @@ sealed trait HeaderInstance extends P4Instance {
   def layout: HeaderDeclaration
 }
 
-case class ScalarHeader(id: String, layout: HeaderDeclaration) extends HeaderInstance {
+class ScalarHeader(val id: String,
+                   val layout: HeaderDeclaration) extends HeaderInstance {
   //TODO: This + 0 is bad and should be fixed in the type hierarchy of Intable and TagExp
   override def getTagExp(): TagExp = Tag(id) + 0
 }
 
-case class ArrayHeader(arrayName: String, index: Int, layout: HeaderDeclaration) extends HeaderInstance {
+class ArrayHeader(val arrayName: String,
+                  val index: Int,
+                  val layout: HeaderDeclaration) extends HeaderInstance {
   override def getTagExp(): TagExp = Tag(arrayName) + index * layout.length
 }
+
+class MetadataInstance(override val id: String,
+                       override val layout: HeaderDeclaration,
+                       val values: Map[String, Int]) extends ScalarHeader(id, layout)

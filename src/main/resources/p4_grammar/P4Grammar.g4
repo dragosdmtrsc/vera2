@@ -81,8 +81,10 @@ array_instance  returns [org.change.parser.p4.ArrayHeader instance]:
     'header' header_type_name instance_name '[' const_value ']' ';' ;
 instance_name   :   NAME ;
 
-metadata_instance   :   'metadata' header_type_name instance_name ( metadata_initializer )? | ';' ;
-metadata_initializer    :   '{' ( field_name ':' field_value ';' )+ '}' ;
+metadata_instance returns [org.change.parser.p4.MetadataInstance instance]:
+   'metadata' header_type_name instance_name ( metadata_initializer )? | ';' ;
+metadata_initializer returns [scala.collection.Map<String, Integer> inits]:
+   '{' ( field_name ':' field_value ';' )+ '}' ;
 
 header_ref returns [org.change.v2.analysis.memory.TagExp tagReference, String headerInstanceId] :
     instance_name | instance_name '[' index ']' ;

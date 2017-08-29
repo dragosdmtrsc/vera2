@@ -82,7 +82,7 @@ class P4GrammarListener extends P4GrammarBaseListener {
   override def exitScalar_instance(ctx: P4GrammarParser.Scalar_instanceContext): Unit = {
     val instanceName = ctx.instance_name().getText
     val headerType = ctx.instance_name().getText
-    ctx.instance = ScalarHeader(instanceName, declaredHeaders(headerType))
+    ctx.instance = new ScalarHeader(instanceName, declaredHeaders(headerType))
     headerInstances.put(instanceName, ctx.instance)
   }
 
@@ -90,8 +90,26 @@ class P4GrammarListener extends P4GrammarBaseListener {
     val instanceName = ctx.instance_name().getText;
     val index = ctx.const_value().constValue;
     val headerType = ctx.header_type_name().getText
-    ctx.instance = ArrayHeader(instanceName, index, declaredHeaders(headerType))
+    ctx.instance = new ArrayHeader(instanceName, index, declaredHeaders(headerType))
     headerInstances.put(instanceName + index, ctx.instance)
+  }
+
+  override def exitMetadata_initializer(ctx: P4GrammarParser.Metadata_initializerContext): Unit = {
+    import scala.collection.JavaConverters._
+    ctx.inits = (ctx.field_name().asScala zip ctx.field_value().asScala).map( nv => {
+      nv._1.getText -> nv._2.fieldValue
+    }).toMap
+  }
+
+  override def exitMetadata_instance(ctx: P4GrammarParser.Metadata_instanceContext) = {
+    val instanceName = ctx.instance_name().getText
+    val headerType = ctx.instance_name().getText
+    val initializer: Map[String, Int] = if (ctx.metadata_initializer() != null)
+      ctx.metadata_initializer().inits.map(mv => mv._1.toString -> mv._2.intValue()).toMap
+    else
+      Map.empty
+    ctx.instance = new MetadataInstance(instanceName, declaredHeaders(headerType), initializer)
+    headerInstances.put(instanceName, ctx.instance)
   }
   // Exit Section 2.2
 
