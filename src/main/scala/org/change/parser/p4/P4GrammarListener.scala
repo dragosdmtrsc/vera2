@@ -6,11 +6,42 @@ import generated.parse.p4.{P4GrammarBaseListener, P4GrammarParser}
   * A small gift from radu to symnetic.
   */
 class P4GrammarListener extends P4GrammarBaseListener {
-  // For converting ANTLR - produced API
+
+  // Section 1.5 Begin
+  override def exitField_value(ctx: P4GrammarParser.Field_valueContext): Unit =
+    ctx.fieldValue = ctx.const_value().constValue
+
+  override def exitConst_value(ctx: P4GrammarParser.Const_valueContext): Unit =
+  //TODO: Support the width field
+    ctx.constValue = (if (ctx.getText.startsWith("-")) -1 else 1) *
+      ctx.unsigned_value().unsignedValue
+
+  override def exitHexadecimalUValue(ctx: P4GrammarParser.HexadecimalUValueContext): Unit =
+    ctx.unsignedValue = ctx.hexadecimal_value().parsedValue
+
+  override def exitDecimalUValue(ctx: P4GrammarParser.DecimalUValueContext): Unit =
+    ctx.unsignedValue = ctx.decimal_value().parsedValue
+
+  override def exitBinaryUValue(ctx: P4GrammarParser.BinaryUValueContext): Unit =
+    ctx.unsignedValue = ctx.binary_value().parsedValue
+
+  override def exitBinary_value(ctx: P4GrammarParser.Binary_valueContext): Unit =
+    ctx.parsedValue = ValueSpecificationParser.binaryToInt(ctx.getText)
+
+  override def exitHexadecimal_value(ctx: P4GrammarParser.Hexadecimal_valueContext): Unit =
+    ctx.parsedValue = ValueSpecificationParser.hexToInt(ctx.getText)
+
+  override def exitDecimal_value(ctx: P4GrammarParser.Decimal_valueContext): Unit =
+    ctx.parsedValue = ValueSpecificationParser.decimalToInt(ctx.getText)
+  // Section 1.5 End
+
+
+  // Section 2.1 Begin
   import scala.collection.JavaConversions._
 
   // Section 2.1
   import scala.collection.mutable.{Map => MutableMap}
+  // Declared headers are collected here.
   private val declaredHeaders: MutableMap[String, HeaderDeclaration] = MutableMap()
 
   override def exitHeader_type_declaration(ctx: P4GrammarParser.Header_type_declarationContext): Unit = {
@@ -29,13 +60,13 @@ class P4GrammarListener extends P4GrammarBaseListener {
       fields.map(field => (field._1, field._2.getOrElse(headerSize - total)))
     }
 
-    declaredHeaders.put(declaredHeaderName,
-      HeaderDeclaration(
-        declaredHeaderName,
-        fieldsWithSizes.scanLeft(0)(_ + _._2).zip(fieldsWithSizes).toMap,
-        headerSize
-      )
+    ctx.headerDeclaration = HeaderDeclaration(
+      declaredHeaderName,
+      fieldsWithSizes.scanLeft(0)(_ + _._2).zip(fieldsWithSizes).toMap,
+      headerSize
     )
+
+    declaredHeaders.put(declaredHeaderName,ctx.headerDeclaration)
   }
   // Exit Section 2.1
 
@@ -102,34 +133,5 @@ class P4GrammarListener extends P4GrammarBaseListener {
   override def exitField_ref(ctx: P4GrammarParser.Field_refContext): Unit = {
     ctx.reference = ctx.header_ref().tagReference +
       headerInstances(ctx.header_ref().headerInstanceId).layout.indexOf(ctx.field_name().getText)
-  }
-
-  override def exitField_value(ctx: P4GrammarParser.Field_valueContext): Unit = {
-    ctx.fieldValue = ctx.const_value().constValue
-  }
-
-  override def exitConst_value(ctx: P4GrammarParser.Const_valueContext): Unit = {
-    //TODO: Support the width field
-    ctx.constValue = (if (ctx.getText.startsWith("-")) -1 else 1) * ctx.unsigned_value().unsignedValue
-  }
-
-  override def exitUnsigned_value(ctx: P4GrammarParser.Unsigned_valueContext): Unit = {
-    ctx.unsignedValue = {
-        Option(ctx.decimal_value()).map(_.parsedValue) orElse
-        Option(ctx.binary_value()).map(_.parsedValue) orElse
-        Option(ctx.hexadecimal_value()).map(_.parsedValue)
-    }.get
-  }
-
-  override def exitBinary_value(ctx: P4GrammarParser.Binary_valueContext): Unit = {
-    ctx.parsedValue = ValueSpecificationParser.binaryToInt(ctx.getText)
-  }
-
-  override def exitHexadecimal_value(ctx: P4GrammarParser.Hexadecimal_valueContext): Unit = {
-    ctx.parsedValue = ValueSpecificationParser.hexToInt(ctx.getText)
-  }
-
-  override def exitDecimal_value(ctx: P4GrammarParser.Decimal_valueContext): Unit = {
-    ctx.parsedValue = ValueSpecificationParser.decimalToInt(ctx.getText)
   }
 }

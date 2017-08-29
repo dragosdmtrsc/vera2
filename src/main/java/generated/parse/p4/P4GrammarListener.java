@@ -1,4 +1,4 @@
-// Generated from /0/projects/internal/symnet-stuff/Symnetic/src/main/resources/p4_grammar/P4Grammar.g4 by ANTLR 4.7
+// Generated from /home/radu/0/projects/internal/symnet-stuff/Symnetic/src/main/resources/p4_grammar/P4Grammar.g4 by ANTLR 4.7
 package generated.parse.p4;
 import org.antlr.v4.runtime.tree.ParseTreeListener;
 
@@ -38,15 +38,41 @@ public interface P4GrammarListener extends ParseTreeListener {
 	 */
 	void exitConst_value(P4GrammarParser.Const_valueContext ctx);
 	/**
-	 * Enter a parse tree produced by {@link P4GrammarParser#unsigned_value}.
+	 * Enter a parse tree produced by the {@code BinaryUValue}
+	 * labeled alternative in {@link P4GrammarParser#unsigned_value}.
 	 * @param ctx the parse tree
 	 */
-	void enterUnsigned_value(P4GrammarParser.Unsigned_valueContext ctx);
+	void enterBinaryUValue(P4GrammarParser.BinaryUValueContext ctx);
 	/**
-	 * Exit a parse tree produced by {@link P4GrammarParser#unsigned_value}.
+	 * Exit a parse tree produced by the {@code BinaryUValue}
+	 * labeled alternative in {@link P4GrammarParser#unsigned_value}.
 	 * @param ctx the parse tree
 	 */
-	void exitUnsigned_value(P4GrammarParser.Unsigned_valueContext ctx);
+	void exitBinaryUValue(P4GrammarParser.BinaryUValueContext ctx);
+	/**
+	 * Enter a parse tree produced by the {@code DecimalUValue}
+	 * labeled alternative in {@link P4GrammarParser#unsigned_value}.
+	 * @param ctx the parse tree
+	 */
+	void enterDecimalUValue(P4GrammarParser.DecimalUValueContext ctx);
+	/**
+	 * Exit a parse tree produced by the {@code DecimalUValue}
+	 * labeled alternative in {@link P4GrammarParser#unsigned_value}.
+	 * @param ctx the parse tree
+	 */
+	void exitDecimalUValue(P4GrammarParser.DecimalUValueContext ctx);
+	/**
+	 * Enter a parse tree produced by the {@code HexadecimalUValue}
+	 * labeled alternative in {@link P4GrammarParser#unsigned_value}.
+	 * @param ctx the parse tree
+	 */
+	void enterHexadecimalUValue(P4GrammarParser.HexadecimalUValueContext ctx);
+	/**
+	 * Exit a parse tree produced by the {@code HexadecimalUValue}
+	 * labeled alternative in {@link P4GrammarParser#unsigned_value}.
+	 * @param ctx the parse tree
+	 */
+	void exitHexadecimalUValue(P4GrammarParser.HexadecimalUValueContext ctx);
 	/**
 	 * Enter a parse tree produced by {@link P4GrammarParser#binary_value}.
 	 * @param ctx the parse tree

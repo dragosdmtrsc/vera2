@@ -1,4 +1,4 @@
-// Generated from /0/projects/internal/symnet-stuff/Symnetic/src/main/resources/p4_grammar/P4Grammar.g4 by ANTLR 4.7
+// Generated from /home/radu/0/projects/internal/symnet-stuff/Symnetic/src/main/resources/p4_grammar/P4Grammar.g4 by ANTLR 4.7
 package generated.parse.p4;
 import org.antlr.v4.runtime.Lexer;
 import org.antlr.v4.runtime.CharStream;

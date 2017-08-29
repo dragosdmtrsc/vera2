@@ -9,5 +9,6 @@ case class HeaderDeclaration (
   fields: Map[Int, (String, Int)],
   length: Int
 ) {
-  lazy val indexOf: Map[String, Int] = fields.map(_._2)
+  // Shortcut to get width by name
+  lazy val indexOf: Map[String, Int] = fields.values.toMap
 }

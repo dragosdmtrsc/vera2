@@ -1,4 +1,4 @@
-// Generated from /0/projects/internal/symnet-stuff/Symnetic/src/main/resources/p4_grammar/P4Grammar.g4 by ANTLR 4.7
+// Generated from /home/radu/0/projects/internal/symnet-stuff/Symnetic/src/main/resources/p4_grammar/P4Grammar.g4 by ANTLR 4.7
 package generated.parse.p4;
 import org.antlr.v4.runtime.atn.*;
 import org.antlr.v4.runtime.dfa.DFA;
@@ -520,26 +520,57 @@ public class P4GrammarParser extends Parser {
 
 	public static class Unsigned_valueContext extends ParserRuleContext {
 		public Integer unsignedValue;
-		public Binary_valueContext binary_value() {
-			return getRuleContext(Binary_valueContext.class,0);
-		}
-		public Decimal_valueContext decimal_value() {
-			return getRuleContext(Decimal_valueContext.class,0);
-		}
-		public Hexadecimal_valueContext hexadecimal_value() {
-			return getRuleContext(Hexadecimal_valueContext.class,0);
-		}
 		public Unsigned_valueContext(ParserRuleContext parent, int invokingState) {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_unsigned_value; }
+	 
+		public Unsigned_valueContext() { }
+		public void copyFrom(Unsigned_valueContext ctx) {
+			super.copyFrom(ctx);
+			this.unsignedValue = ctx.unsignedValue;
+		}
+	}
+	public static class HexadecimalUValueContext extends Unsigned_valueContext {
+		public Hexadecimal_valueContext hexadecimal_value() {
+			return getRuleContext(Hexadecimal_valueContext.class,0);
+		}
+		public HexadecimalUValueContext(Unsigned_valueContext ctx) { copyFrom(ctx); }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).enterUnsigned_value(this);
+			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).enterHexadecimalUValue(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).exitUnsigned_value(this);
+			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).exitHexadecimalUValue(this);
+		}
+	}
+	public static class BinaryUValueContext extends Unsigned_valueContext {
+		public Binary_valueContext binary_value() {
+			return getRuleContext(Binary_valueContext.class,0);
+		}
+		public BinaryUValueContext(Unsigned_valueContext ctx) { copyFrom(ctx); }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).enterBinaryUValue(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).exitBinaryUValue(this);
+		}
+	}
+	public static class DecimalUValueContext extends Unsigned_valueContext {
+		public Decimal_valueContext decimal_value() {
+			return getRuleContext(Decimal_valueContext.class,0);
+		}
+		public DecimalUValueContext(Unsigned_valueContext ctx) { copyFrom(ctx); }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).enterDecimalUValue(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).exitDecimalUValue(this);
 		}
 	}
 
@@ -551,6 +582,7 @@ public class P4GrammarParser extends Parser {
 			_errHandler.sync(this);
 			switch (_input.LA(1)) {
 			case BINARY_BASE:
+				_localctx = new BinaryUValueContext(_localctx);
 				enterOuterAlt(_localctx, 1);
 				{
 				setState(271);
@@ -568,6 +600,7 @@ public class P4GrammarParser extends Parser {
 			case T__10:
 			case T__11:
 			case T__12:
+				_localctx = new DecimalUValueContext(_localctx);
 				enterOuterAlt(_localctx, 2);
 				{
 				setState(272);
@@ -575,6 +608,7 @@ public class P4GrammarParser extends Parser {
 				}
 				break;
 			case HEXADECIMAL_BASE:
+				_localctx = new HexadecimalUValueContext(_localctx);
 				enterOuterAlt(_localctx, 3);
 				{
 				setState(273);
@@ -1177,6 +1211,7 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Header_type_declarationContext extends ParserRuleContext {
+		public org.change.parser.p4.HeaderDeclaration headerDeclaration;
 		public Header_type_nameContext header_type_name() {
 			return getRuleContext(Header_type_nameContext.class,0);
 		}

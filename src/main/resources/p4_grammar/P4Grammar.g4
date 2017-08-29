@@ -22,12 +22,20 @@ p4_declaration  :   header_type_declaration
                 |   control_function_declaration
                 ;
 
-const_value     returns [Integer constValue]:   ('+'|'-')? width_spec? unsigned_value ;
-unsigned_value  returns [Integer unsignedValue]:   binary_value | decimal_value | hexadecimal_value ;
+const_value     returns [Integer constValue]:
+    ('+'|'-')? width_spec? unsigned_value ;
+unsigned_value  returns [Integer unsignedValue]:
+    binary_value            #BinaryUValue
+    | decimal_value         #DecimalUValue
+    | hexadecimal_value     #HexadecimalUValue
+    ;
 
-binary_value    returns [Integer parsedValue]:   BINARY_BASE binary_digit+ ;
-decimal_value   returns [Integer parsedValue]:   decimal_digit+ ;
-hexadecimal_value   returns [Integer parsedValue]:   HEXADECIMAL_BASE hexadecimal_digit+ ;
+binary_value    returns [Integer parsedValue]:
+    BINARY_BASE binary_digit+ ;
+decimal_value   returns [Integer parsedValue]:
+    decimal_digit+ ;
+hexadecimal_value   returns [Integer parsedValue]:
+    HEXADECIMAL_BASE hexadecimal_digit+ ;
 
 BINARY_BASE     :   '0b' | '0B' ;
 HEXADECIMAL_BASE    :   '0x' | '0X' ;
@@ -40,10 +48,11 @@ width_spec  :   decimal_digit+ '’' ;
 field_value returns [Integer fieldValue] : const_value ;
 
 // Section 2.1
-header_type_declaration :   'header_type' header_type_name '{' header_dec_body '}' ;
+header_type_declaration returns [org.change.parser.p4.HeaderDeclaration headerDeclaration]:
+    'header_type' header_type_name '{' header_dec_body '}' ;
 header_type_name : NAME ;
 
-// max_length is used for run-time checks (if the header is larger than this maximum)
+// Info: max_length is used for run-time checks (if the header is larger than this maximum)
 header_dec_body :   'fields' '{' field_dec+ '}' ( 'length' ':' length_exp ';' )? ( 'max_length' ':' const_value ';' )? ;
 
 field_dec   :   field_name ':' bit_width ( '(' field_mod ')' )? ';' ;

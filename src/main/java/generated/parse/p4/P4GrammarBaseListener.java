@@ -1,4 +1,4 @@
-// Generated from /0/projects/internal/symnet-stuff/Symnetic/src/main/resources/p4_grammar/P4Grammar.g4 by ANTLR 4.7
+// Generated from /home/radu/0/projects/internal/symnet-stuff/Symnetic/src/main/resources/p4_grammar/P4Grammar.g4 by ANTLR 4.7
 package generated.parse.p4;
 
 import org.antlr.v4.runtime.ParserRuleContext;
@@ -52,13 +52,37 @@ public class P4GrammarBaseListener implements P4GrammarListener {
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void enterUnsigned_value(P4GrammarParser.Unsigned_valueContext ctx) { }
+	@Override public void enterBinaryUValue(P4GrammarParser.BinaryUValueContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void exitUnsigned_value(P4GrammarParser.Unsigned_valueContext ctx) { }
+	@Override public void exitBinaryUValue(P4GrammarParser.BinaryUValueContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void enterDecimalUValue(P4GrammarParser.DecimalUValueContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitDecimalUValue(P4GrammarParser.DecimalUValueContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void enterHexadecimalUValue(P4GrammarParser.HexadecimalUValueContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitHexadecimalUValue(P4GrammarParser.HexadecimalUValueContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
