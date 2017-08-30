@@ -2,6 +2,7 @@ package parser.p4.test
 
 import org.change.parser.p4.{MetadataInstance, P4ParserRunner}
 import org.scalatest.FunSuite
+import scala.collection.JavaConversions._
 
 class HeaderDefinitionParsingTest extends FunSuite {
 
@@ -40,4 +41,17 @@ class HeaderDefinitionParsingTest extends FunSuite {
     assert(res.headerInstances("inner_vlan_tag").layout.headerName == "vlan_t")
     assert(res.headerInstances("local_metadata").asInstanceOf[MetadataInstance].values("bad_packet") == 1)
   }
+
+  test("actions can be parsed - registrar is not empty") {
+    val p4 = "inputs/simple-router/simple_router.p4"
+    val res = P4ParserRunner.parse(p4)
+
+    assert(res.actionRegistrar.getDeclaredActions.iterator().hasNext)
+    assert(res.actionRegistrar.getAction("_drop") != null)
+    for (x <- res.actionRegistrar.getDeclaredActions) {
+      println(x)
+    }
+  }
+
+
 }

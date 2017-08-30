@@ -1,4 +1,4 @@
-// Generated from /home/radu/0/projects/internal/symnet-stuff/Symnetic/src/main/resources/p4_grammar/P4Grammar.g4 by ANTLR 4.7
+// Generated from /home/dragos/GitHub/symPatru/src/main/resources/p4_grammar/P4Grammar.g4 by ANTLR 4.7
 package generated.parse.p4;
 import org.antlr.v4.runtime.tree.ParseTreeListener;
 
@@ -73,66 +73,6 @@ public interface P4GrammarListener extends ParseTreeListener {
 	 * @param ctx the parse tree
 	 */
 	void exitHexadecimalUValue(P4GrammarParser.HexadecimalUValueContext ctx);
-	/**
-	 * Enter a parse tree produced by {@link P4GrammarParser#binary_value}.
-	 * @param ctx the parse tree
-	 */
-	void enterBinary_value(P4GrammarParser.Binary_valueContext ctx);
-	/**
-	 * Exit a parse tree produced by {@link P4GrammarParser#binary_value}.
-	 * @param ctx the parse tree
-	 */
-	void exitBinary_value(P4GrammarParser.Binary_valueContext ctx);
-	/**
-	 * Enter a parse tree produced by {@link P4GrammarParser#decimal_value}.
-	 * @param ctx the parse tree
-	 */
-	void enterDecimal_value(P4GrammarParser.Decimal_valueContext ctx);
-	/**
-	 * Exit a parse tree produced by {@link P4GrammarParser#decimal_value}.
-	 * @param ctx the parse tree
-	 */
-	void exitDecimal_value(P4GrammarParser.Decimal_valueContext ctx);
-	/**
-	 * Enter a parse tree produced by {@link P4GrammarParser#hexadecimal_value}.
-	 * @param ctx the parse tree
-	 */
-	void enterHexadecimal_value(P4GrammarParser.Hexadecimal_valueContext ctx);
-	/**
-	 * Exit a parse tree produced by {@link P4GrammarParser#hexadecimal_value}.
-	 * @param ctx the parse tree
-	 */
-	void exitHexadecimal_value(P4GrammarParser.Hexadecimal_valueContext ctx);
-	/**
-	 * Enter a parse tree produced by {@link P4GrammarParser#binary_digit}.
-	 * @param ctx the parse tree
-	 */
-	void enterBinary_digit(P4GrammarParser.Binary_digitContext ctx);
-	/**
-	 * Exit a parse tree produced by {@link P4GrammarParser#binary_digit}.
-	 * @param ctx the parse tree
-	 */
-	void exitBinary_digit(P4GrammarParser.Binary_digitContext ctx);
-	/**
-	 * Enter a parse tree produced by {@link P4GrammarParser#decimal_digit}.
-	 * @param ctx the parse tree
-	 */
-	void enterDecimal_digit(P4GrammarParser.Decimal_digitContext ctx);
-	/**
-	 * Exit a parse tree produced by {@link P4GrammarParser#decimal_digit}.
-	 * @param ctx the parse tree
-	 */
-	void exitDecimal_digit(P4GrammarParser.Decimal_digitContext ctx);
-	/**
-	 * Enter a parse tree produced by {@link P4GrammarParser#hexadecimal_digit}.
-	 * @param ctx the parse tree
-	 */
-	void enterHexadecimal_digit(P4GrammarParser.Hexadecimal_digitContext ctx);
-	/**
-	 * Exit a parse tree produced by {@link P4GrammarParser#hexadecimal_digit}.
-	 * @param ctx the parse tree
-	 */
-	void exitHexadecimal_digit(P4GrammarParser.Hexadecimal_digitContext ctx);
 	/**
 	 * Enter a parse tree produced by {@link P4GrammarParser#width_spec}.
 	 * @param ctx the parse tree

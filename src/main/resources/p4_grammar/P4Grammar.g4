@@ -25,26 +25,26 @@ p4_declaration  :   header_type_declaration
 const_value     returns [Integer constValue]:
     ('+'|'-')? width_spec? unsigned_value ;
 unsigned_value  returns [Integer unsignedValue]:
-    binary_value            #BinaryUValue
-    | decimal_value         #DecimalUValue
-    | hexadecimal_value     #HexadecimalUValue
+    Binary_value            #BinaryUValue
+    | Decimal_value         #DecimalUValue
+    | Hexadecimal_value     #HexadecimalUValue
     ;
 
-binary_value    returns [Integer parsedValue]:
-    BINARY_BASE binary_digit+ ;
-decimal_value   returns [Integer parsedValue]:
-    decimal_digit+ ;
-hexadecimal_value   returns [Integer parsedValue]:
-    HEXADECIMAL_BASE hexadecimal_digit+ ;
+Binary_value:
+    BINARY_BASE Binary_digit+ ;
+Decimal_value:
+    Decimal_digit+ ;
+Hexadecimal_value:
+    HEXADECIMAL_BASE Hexadecimal_digit+ ;
 
 BINARY_BASE     :   '0b' | '0B' ;
 HEXADECIMAL_BASE    :   '0x' | '0X' ;
 
-binary_digit    :   '_' | '0' | '1' ;
-decimal_digit   :   binary_digit | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' ;
-hexadecimal_digit   : decimal_digit | 'a' | 'A' | 'b' | 'B' | 'c' | 'C' | 'd' | 'D' | 'e' | 'E' | 'f' | 'F' ;
+fragment Binary_digit    :  '_' | '0' | '1' ;
+fragment Decimal_digit   :   Binary_digit | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' ;
+fragment Hexadecimal_digit   : Decimal_digit | 'a' | 'A' | 'b' | 'B' | 'c' | 'C' | 'd' | 'D' | 'e' | 'E' | 'f' | 'F' ;
 
-width_spec  :   decimal_digit+ '’' ;
+width_spec  :   Decimal_value '’' ;
 field_value returns [Integer fieldValue] : const_value ;
 
 // Section 2.1
@@ -135,14 +135,14 @@ header_extract_index    : const_value | 'next' ;
 set_statement   :   'set_metadata' '(' field_ref',' metadata_expr ')' ';' ;
 metadata_expr   :   field_value | field_or_data_ref ;
 
-return_statement    :   return_value_type | 'return select' '(' select_exp ')' '{' case_entry+ '}' ;
+return_statement    :   return_value_type | 'return select' '(' select_exp ')' '{' case_entry+ '}'  ;
 
 return_value_type   :   'return' parser_state_name ';' | 'return' control_function_name ';'
     | 'parse_error' parser_exception_name ';' ;
 control_function_name   :   NAME ;
 parser_exception_name   :   NAME ;
 
-case_entry :    value_list ':' case_return_value_type ;
+case_entry :    value_list ':' case_return_value_type ';';
 value_list :    value_or_masked ( ',' value_or_masked )* | 'default' ;
 
 case_return_value_type  : parser_state_name | control_function_name | 'parse_error' parser_exception_name ;
@@ -201,7 +201,8 @@ register_declaration : 'register' register_name '{'
 width_declaration : 'width' ':' const_value ';' ;
 attribute_list : 'attributes' ':' attr_entry ;
 attr_entry : 'signed' | 'saturating' | attr_entry ',' attr_entry ;
-action_function_declaration : 'action' action_header '{' action_statement* '}' ;
+action_function_declaration:
+        'action' action_header '{' action_statement* '}' ;
 
 action_header : action_name '(' ( param_list )? ')' ;
 param_list : param_name (',' param_name)* ;
@@ -220,7 +221,7 @@ param_name  : NAME ;
 selector_name   : NAME ;
 action_profile_name : NAME ;
 
-action_specification : 'actions' '{' ( action_name )+ '}' ;
+action_specification : 'actions' '{' ( action_name ';' )+ '}' ;
 
 action_selector_declaration : 'action_selector' selector_name '{'
     'selection_key' ':' field_list_calculation_name ';'
@@ -271,7 +272,15 @@ un_op : '~' | '-' ;
 bool_op : 'or' | 'and' ;
 rel_op : '>' | '>=' | '==' | '<=' | '<' | '!=' ;
 
-NAME : [a-zA-Z][0-9a-zA-Z_]* ;
+NAME:   (SINGLELETTER|UNDERSCORE) (SINGLELETTER | UNDERSCORE | DOLLAR | NUMBER)*;
 
+fragment SINGLELETTER   :   ( 'a'..'z' | 'A'..'Z');
+
+
+fragment LOWERCASE  :   'a'..'z';
+fragment UNDERSCORE :   '_';
+fragment DOLLAR :   '$';
+fragment NUMBER :   '0'..'9';
 // Skip whitespaces
 WS : [ \t\r\n]+ -> skip ;
+

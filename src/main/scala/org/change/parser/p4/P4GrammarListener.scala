@@ -1,15 +1,26 @@
 package org.change.parser.p4
 
+import generated.parse.p4.P4GrammarParser._
 import generated.parse.p4.{P4GrammarBaseListener, P4GrammarParser}
-
+import org.change.v2.analysis.memory.{Tag, TagExp}
+import org.change.v2.analysis.memory.TagExp._
+//import org.change.v2.analysis.memory.TagExp.IntImprovements
+import org.change.v2.p4.model.actions._
+import org.change.v2.analysis.memory.Intable
 /**
   * A small gift from radu to symnetic.
   */
 class P4GrammarListener extends P4GrammarBaseListener {
 
   // Section 1.5 Begin
-  override def exitField_value(ctx: P4GrammarParser.Field_valueContext): Unit =
+  override def exitField_value(ctx: P4GrammarParser.Field_valueContext): Unit = {
     ctx.fieldValue = ctx.const_value().constValue
+    if (p4ActionCall != null && actionFieldRef) {
+      val value = ctx.fieldValue.toString
+      val p4Instance = new P4ParameterInstance().setParameter(new P4ActionParameter(P4ActionParameterType.VAL.x, "")).setValue(value)
+      p4ActionCall.addParameter(p4Instance)
+    }
+  }
 
   override def exitConst_value(ctx: P4GrammarParser.Const_valueContext): Unit =
   //TODO: Support the width field
@@ -17,22 +28,14 @@ class P4GrammarListener extends P4GrammarBaseListener {
       ctx.unsigned_value().unsignedValue
 
   override def exitHexadecimalUValue(ctx: P4GrammarParser.HexadecimalUValueContext): Unit =
-    ctx.unsignedValue = ctx.hexadecimal_value().parsedValue
+    ctx.unsignedValue = ValueSpecificationParser.hexToInt(ctx.Hexadecimal_value().getText.substring(2))
 
   override def exitDecimalUValue(ctx: P4GrammarParser.DecimalUValueContext): Unit =
-    ctx.unsignedValue = ctx.decimal_value().parsedValue
+    ctx.unsignedValue = ValueSpecificationParser.decimalToInt(ctx.Decimal_value().getText)
 
   override def exitBinaryUValue(ctx: P4GrammarParser.BinaryUValueContext): Unit =
-    ctx.unsignedValue = ctx.binary_value().parsedValue
+    ctx.unsignedValue = ValueSpecificationParser.binaryToInt(ctx.Binary_value().getText)
 
-  override def exitBinary_value(ctx: P4GrammarParser.Binary_valueContext): Unit =
-    ctx.parsedValue = ValueSpecificationParser.binaryToInt(ctx.getText)
-
-  override def exitHexadecimal_value(ctx: P4GrammarParser.Hexadecimal_valueContext): Unit =
-    ctx.parsedValue = ValueSpecificationParser.hexToInt(ctx.getText)
-
-  override def exitDecimal_value(ctx: P4GrammarParser.Decimal_valueContext): Unit =
-    ctx.parsedValue = ValueSpecificationParser.decimalToInt(ctx.getText)
   // Section 1.5 End
 
 
@@ -166,6 +169,120 @@ class P4GrammarListener extends P4GrammarBaseListener {
 
   override def exitField_ref(ctx: P4GrammarParser.Field_refContext): Unit = {
     ctx.reference = ctx.header_ref().tagReference +
-      headerInstances(ctx.header_ref().headerInstanceId).layout.indexOf(ctx.field_name().getText)
+      (if (headerInstances.contains(ctx.header_ref().headerInstanceId))
+        headerInstances(ctx.header_ref().headerInstanceId).layout.indexOf(ctx.field_name().getText)
+      else
+        0)
+    if (complexAction != null && actionFieldRef) {
+      actionFieldRef = false
+    }
   }
+
+  val actionRegistrar = new ActionRegistrar()
+  private var complexAction : P4ComplexAction = null
+
+  override def enterAction_function_declaration(ctx: Action_function_declarationContext): Unit =  {
+    super.enterAction_function_declaration(ctx)
+    val text = ctx.action_header().action_name().NAME().getText
+    complexAction = new P4ComplexAction(text)
+    actionRegistrar.register(complexAction)
+  }
+
+  override def exitAction_function_declaration(ctx: Action_function_declarationContext): Unit = {
+    complexAction = null
+  }
+
+
+  override def enterParam_list(ctx: Param_listContext): Unit = {
+    if (p4ActionCall == null && complexAction != null) {
+      for (x <- ctx.param_name()) {
+        val param = new P4ActionParameter(x.NAME().getText)
+        complexAction.getParameterList.add(param)
+      }
+    } else if (p4ActionCall != null) {
+
+    }
+  }
+
+  override def enterParam_name(ctx: Param_nameContext): Unit = {
+    if (p4ActionCall != null) {
+      val p4Instance = new P4ParameterInstance().setParameter(new P4ActionParameter("")).setValue(ctx.NAME().getText)
+      p4ActionCall.addParameter(p4Instance)
+    }
+  }
+
+  override def enterHeader_ref(ctx: Header_refContext): Unit = {
+    if (p4ActionCall != null && !actionFieldRef) {
+      val value = ctx.getText
+      val p4Instance = new P4ParameterInstance().setParameter(new P4ActionParameter(P4ActionParameterType.HDR.x, "")).setValue(value)
+      p4ActionCall.addParameter(p4Instance)
+    }
+  }
+
+  private var actionFieldRef = false
+  override def enterField_ref(ctx: Field_refContext): Unit = {
+    if (p4ActionCall != null) {
+      val value = ctx.getText
+      val p4Instance = new P4ParameterInstance().setParameter(new P4ActionParameter(P4ActionParameterType.FLD.x, "")).setValue(value)
+      p4ActionCall.addParameter(p4Instance)
+      actionFieldRef = true
+    }
+  }
+
+
+  private var p4ActionCall : P4ActionCall = null
+  override def enterAction_statement(ctx: Action_statementContext): Unit = {
+    if (complexAction != null) {
+      val theName = ctx.action_name().NAME().getText
+      // will defer type inference until needed
+      val p4act = new P4Action(P4ActionType.UNKNOWN, theName)
+      p4ActionCall = new P4ActionCall(p4act)
+      complexAction.getActionList.add(p4ActionCall)
+    }
+  }
+
+  override def exitP4_program(ctx: P4_programContext): Unit = {
+    // ok, let's do type inference now
+    for (x <- actionRegistrar.getDeclaredActions) {
+
+    }
+  }
+
+  override def enterP4_program(ctx : P4_programContext) : Unit = {
+    //    ingress_port
+    //    packet_length
+    //    egress_spec
+    //    egress_port
+    //    egress_instance
+    //    instance_type
+    //    parser_status
+    //    parser_error_location
+    // Standard metadata intrinsic
+    val hOffs = Map[Int, (String, Int)](
+      0 -> ("ingress_port", 64),
+      64 -> ("packet_length", 64),
+      128 -> ("egress_spec", 64),
+      192 -> ("egress_port", 64),
+      256 -> ("egress_instance", 64),
+      320 -> ("instance_type", 64),
+      384 -> ("parser_status", 64),
+      448 -> ("parser_error_location", 64)
+    )
+    declaredHeaders.put("standard_metadata_t", new HeaderDeclaration("standard_metadata_t", hOffs, 512))
+    // one day, initialize the standard metadata as per spec
+    val metadataInstance = new MetadataInstance("standard_metadata", declaredHeaders("standard_metadata_t"), Map[String, Int]())
+    headerInstances.put("standard_metadata", metadataInstance)
+  }
+
+  def resolveField(fieldSpec : String) : Either[Intable, String] = {
+    val split = fieldSpec.split("\\.")
+    val theHeader = headerInstances(split(0))
+    if (theHeader.isInstanceOf[MetadataInstance])
+      Right(fieldSpec)
+    else
+      Left(theHeader.getTagOfField(split(1)))
+  }
+
+
+
 }
