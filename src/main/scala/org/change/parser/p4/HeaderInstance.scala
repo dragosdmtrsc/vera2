@@ -2,11 +2,11 @@ package org.change.parser.p4
 
 import org.change.v2.analysis.memory.{ProducesTagExp, Tag, TagExp}
 
-sealed trait P4Instance extends ProducesTagExp
+sealed trait P4Instance extends ProducesTagExp {
+  def layout: HeaderDeclaration
+}
 
 sealed trait HeaderInstance extends P4Instance {
-  def layout: HeaderDeclaration
-
   /**
     * Determines a tag expression for a given field (accessed by name)
     * @param fieldName

@@ -82,7 +82,7 @@ array_instance  returns [org.change.parser.p4.ArrayHeader instance]:
 instance_name   :   NAME ;
 
 metadata_instance returns [org.change.parser.p4.MetadataInstance instance]:
-   'metadata' header_type_name instance_name ( metadata_initializer )? | ';' ;
+   'metadata' header_type_name instance_name metadata_initializer? ';' ;
 metadata_initializer returns [scala.collection.Map<String, Integer> inits]:
    '{' ( field_name ':' field_value ';' )+ '}' ;
 

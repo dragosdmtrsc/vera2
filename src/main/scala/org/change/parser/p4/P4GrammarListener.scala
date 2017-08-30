@@ -78,7 +78,7 @@ class P4GrammarListener extends P4GrammarBaseListener {
   // Exit Section 2.1
 
   // Section 2.2
-  private val headerInstances: MutableMap[String, HeaderInstance] = MutableMap()
+  val headerInstances: MutableMap[String, HeaderInstance] = MutableMap()
 
   override def exitScalarInstance(ctx: P4GrammarParser.ScalarInstanceContext): Unit =
     ctx.instance = ctx.scalar_instance().instance
@@ -88,14 +88,14 @@ class P4GrammarListener extends P4GrammarBaseListener {
 
   override def exitScalar_instance(ctx: P4GrammarParser.Scalar_instanceContext): Unit = {
     val instanceName = ctx.instance_name().getText
-    val headerType = ctx.instance_name().getText
+    val headerType = ctx.header_type_name().getText
     ctx.instance = new ScalarHeader(instanceName, declaredHeaders(headerType))
     headerInstances.put(instanceName, ctx.instance)
   }
 
   override def exitArray_instance(ctx: P4GrammarParser.Array_instanceContext): Unit = {
-    val instanceName = ctx.instance_name().getText;
-    val index = ctx.const_value().constValue;
+    val instanceName = ctx.instance_name().getText
+    val index = ctx.const_value().constValue
     val headerType = ctx.header_type_name().getText
     ctx.instance = new ArrayHeader(instanceName, index, declaredHeaders(headerType))
     headerInstances.put(instanceName + index, ctx.instance)
@@ -108,15 +108,16 @@ class P4GrammarListener extends P4GrammarBaseListener {
     }).toMap
   }
 
-  override def exitMetadata_instance(ctx: P4GrammarParser.Metadata_instanceContext) = {
-    val instanceName = ctx.instance_name().getText
-    val headerType = ctx.instance_name().getText
-    val initializer: Map[String, Int] = if (ctx.metadata_initializer() != null)
-      ctx.metadata_initializer().inits.map(mv => mv._1.toString -> mv._2.intValue()).toMap
+  override def exitMetadataInstance(ctx: P4GrammarParser.MetadataInstanceContext) = {
+    val headerType = ctx.metadata_instance().header_type_name().getText
+    val instanceName = ctx.metadata_instance().instance_name().getText
+    val initializer: Map[String, Int] = if (ctx.metadata_instance().metadata_initializer() != null)
+      ctx.metadata_instance().metadata_initializer().inits.map(mv => mv._1.toString -> mv._2.intValue()).toMap
     else
       Map.empty
-    ctx.instance = new MetadataInstance(instanceName, declaredHeaders(headerType), initializer)
-    headerInstances.put(instanceName, ctx.instance)
+    val metadataInstance = new MetadataInstance(instanceName, declaredHeaders(headerType), initializer)
+    ctx.instance = metadataInstance
+    headerInstances.put(instanceName, metadataInstance)
   }
   // Exit Section 2.2
 
