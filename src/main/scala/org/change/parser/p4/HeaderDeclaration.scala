@@ -11,4 +11,5 @@ case class HeaderDeclaration (
 ) {
   // Shortcut to get width by name
   lazy val indexOf: Map[String, Int] = fields.values.toMap
+  lazy val offsetOf: Map[String, Int] = fields.map(of => of._2._1 -> of._1)
 }

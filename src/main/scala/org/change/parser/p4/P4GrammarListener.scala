@@ -13,7 +13,7 @@ class P4GrammarListener extends P4GrammarBaseListener {
 
   override def exitConst_value(ctx: P4GrammarParser.Const_valueContext): Unit =
   //TODO: Support the width field
-    ctx.constValue = (if (ctx.getText.startsWith("-")) -1 else 1) *
+    ctx.constValue = (if (ctx.getText().startsWith("-")) -1 else 1) *
       ctx.unsigned_value().unsignedValue
 
   override def exitHexadecimalUValue(ctx: P4GrammarParser.HexadecimalUValueContext): Unit =
@@ -42,12 +42,16 @@ class P4GrammarListener extends P4GrammarBaseListener {
   // Section 2.1
   import scala.collection.mutable.{Map => MutableMap}
   // Declared headers are collected here.
-  private val declaredHeaders: MutableMap[String, HeaderDeclaration] = MutableMap()
+  val declaredHeaders: MutableMap[String, HeaderDeclaration] = MutableMap()
 
   override def exitHeader_type_declaration(ctx: P4GrammarParser.Header_type_declarationContext): Unit = {
     val declaredHeaderName = ctx.header_type_name().getText
     //TODO: Support for other header lengths.
-    val headerSize = ctx.header_dec_body().length_exp().const_value().constValue
+    var headerSize = if (ctx.header_dec_body().length_exp() != null &&
+      ctx.header_dec_body().length_exp().const_value() != null)
+        Some(ctx.header_dec_body().length_exp().const_value().constValue)
+      else
+        None
 
     val fields = ctx.header_dec_body().field_dec().toList.map { h =>
       val width: Option[Int] = Option(h.bit_width().const_value()).map(_.constValue)
@@ -57,13 +61,16 @@ class P4GrammarListener extends P4GrammarBaseListener {
 
     val fieldsWithSizes = {
       val total = fields.foldLeft(0)(_ + _._2.getOrElse(0))
-      fields.map(field => (field._1, field._2.getOrElse(headerSize - total)))
+      // If not defined, then it is computed.
+      if (headerSize.isEmpty) headerSize = Some(total)
+      // By this point there should be a value for the size of the header.
+      fields.map(field => (field._1, field._2.getOrElse(headerSize.get - total)))
     }
 
     ctx.headerDeclaration = HeaderDeclaration(
       declaredHeaderName,
       fieldsWithSizes.scanLeft(0)(_ + _._2).zip(fieldsWithSizes).toMap,
-      headerSize
+      headerSize.get
     )
 
     declaredHeaders.put(declaredHeaderName,ctx.headerDeclaration)

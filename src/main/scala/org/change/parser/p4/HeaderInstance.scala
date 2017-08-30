@@ -6,6 +6,13 @@ sealed trait P4Instance extends ProducesTagExp
 
 sealed trait HeaderInstance extends P4Instance {
   def layout: HeaderDeclaration
+
+  /**
+    * Determines a tag expression for a given field (accessed by name)
+    * @param fieldName
+    * @return
+    */
+  def getTagOfField(fieldName: String): TagExp = getTagExp + layout.offsetOf(fieldName)
 }
 
 class ScalarHeader(val id: String,
@@ -17,7 +24,7 @@ class ScalarHeader(val id: String,
 class ArrayHeader(val arrayName: String,
                   val index: Int,
                   val layout: HeaderDeclaration) extends HeaderInstance {
-  override def getTagExp(): TagExp = Tag(arrayName) + index * layout.length
+  override def getTagExp(): TagExp = Tag(arrayName + index) + index * layout.length
 }
 
 class MetadataInstance(override val id: String,
