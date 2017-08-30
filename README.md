@@ -1,3 +1,26 @@
+P4 Comments and Ideas
+=====================
+
+### Section 2
+
+#### 2.1 Header Type Declarations
+
+The parser yields an instance of class `HeaderDeclaration` for every encountered P4 declaration.
+
+This data structure contains the names of the fields, the width and the offset from the beginning of the header.
+
+_Note that header field lengths that are runtime determined are not supported by vanilla SEFL._
+
+_Also field modifiers are ignored (saturating, signed etc)._
+
+#### Section 2.2 Header and Metadata Instances
+
+1. Header Instances
+
+A defined header instance is identified either by:
+- a name
+- a name + an index - in case of array instances
+
 SymNet v2
 =========
 
