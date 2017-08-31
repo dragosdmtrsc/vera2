@@ -93,10 +93,10 @@ index   :   const_value | 'last' ;
 field_ref   returns [org.change.v2.analysis.memory.TagExp reference]:   header_ref '.' field_name ;
 
 //TODO: All the field etc stuff.
-field_list_declaration  :   'field_list' field_list_name '{' ( field_list_entry ';')+ '}' ;
+field_list_declaration returns [java.util.List<String> entryList] :   'field_list' field_list_name '{' ( field_list_entry ';')+ '}' ;
 field_list_name :   NAME ;
 
-field_list_entry    :   field_ref | header_ref | field_value | field_list_name | 'payload' ;
+field_list_entry  returns [String entryName]  :   field_ref | header_ref | field_value | field_list_name | 'payload' ;
 field_list_calculation_declaration :
     'field_list_calculation' field_list_calculation_name '{'
         'input' '{'
@@ -169,9 +169,9 @@ counter_declaration :   'counter' counter_name '{'
     ;
     
 counter_type    : 'bytes' | 'packets' | 'packets_and_bytes' ;
-direct_or_static : direct_attribute | static_attribute ;
-direct_attribute : 'direct' ':' table_name ;
-static_attribute : 'static' ':' table_name ;
+direct_or_static returns [boolean isDirect, String directTable, boolean isStatic, String staticTable]: direct_attribute | static_attribute ;
+direct_attribute returns [String table] : 'direct' ':' table_name ;
+static_attribute returns [String table]: 'static' ':' table_name ;
 meter_declaration : 'meter' meter_name '{'
     'type' ':' meter_type ';'
     ( 'result' ':' field_ref ';' )?
@@ -190,7 +190,7 @@ register_name   :   NAME ;
 
 meter_type : 'bytes' | 'packets' ;
 
-register_declaration : 'register' register_name '{'
+register_declaration returns [org.change.v2.p4.model.RegisterSpecification spec]: 'register' register_name '{'
     width_declaration ';'
     ( direct_or_static ';' )?
     ( 'instance_count' ':' const_value ';' )?
@@ -198,7 +198,7 @@ register_declaration : 'register' register_name '{'
     '}'
     ;
 
-width_declaration : 'width' ':' const_value ';' ;
+width_declaration returns [Integer width]: 'width' ':' const_value ';' ;
 attribute_list : 'attributes' ':' attr_entry ;
 attr_entry : 'signed' | 'saturating' | attr_entry ',' attr_entry ;
 action_function_declaration:

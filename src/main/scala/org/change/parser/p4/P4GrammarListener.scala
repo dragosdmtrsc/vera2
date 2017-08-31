@@ -1,9 +1,12 @@
 package org.change.parser.p4
 
+import java.util
+
 import generated.parse.p4.P4GrammarParser._
 import generated.parse.p4.{P4GrammarBaseListener, P4GrammarParser}
 import org.change.v2.analysis.memory.{Tag, TagExp}
 import org.change.v2.analysis.memory.TagExp._
+import org.change.v2.p4.model.{FieldList, RegisterSpecification}
 //import org.change.v2.analysis.memory.TagExp.IntImprovements
 import org.change.v2.p4.model.actions._
 import org.change.v2.analysis.memory.Intable
@@ -15,7 +18,7 @@ class P4GrammarListener extends P4GrammarBaseListener {
   // Section 1.5 Begin
   override def exitField_value(ctx: P4GrammarParser.Field_valueContext): Unit = {
     ctx.fieldValue = ctx.const_value().constValue
-    if (p4ActionCall != null && actionFieldRef) {
+    if (p4ActionCall != null) {
       val value = ctx.fieldValue.toString
       val p4Instance = new P4ParameterInstance().setParameter(new P4ActionParameter(P4ActionParameterType.VAL.x, "")).setValue(value)
       p4ActionCall.addParameter(p4Instance)
@@ -241,6 +244,10 @@ class P4GrammarListener extends P4GrammarBaseListener {
     }
   }
 
+  override def exitAction_statement(ctx: Action_statementContext): Unit = {
+    p4ActionCall = null
+  }
+
   override def exitP4_program(ctx: P4_programContext): Unit = {
     // ok, let's do type inference now
     for (x <- actionRegistrar.getDeclaredActions) {
@@ -283,6 +290,71 @@ class P4GrammarListener extends P4GrammarBaseListener {
       Left(theHeader.getTagOfField(split(1)))
   }
 
+
+  override def exitDirect_or_static(ctx: Direct_or_staticContext): Unit = {
+    if (ctx.direct_attribute() != null) {
+      ctx.isDirect = true
+      ctx.directTable = ctx.direct_attribute().table
+    } else if (ctx.static_attribute() != null) {
+      ctx.isStatic = true
+      ctx.staticTable = ctx.static_attribute().table
+    }
+  }
+
+  override def exitDirect_attribute(ctx: Direct_attributeContext): Unit = {
+    ctx.table = ctx.table_name().NAME().getText
+  }
+
+  override def exitStatic_attribute(ctx: Static_attributeContext): Unit = {
+    ctx.table = ctx.table_name().NAME().getText
+  }
+
+  override def exitWidth_declaration(ctx: Width_declarationContext): Unit = {
+    ctx.width = ctx.const_value().constValue
+  }
+
+  val registerMap = new util.HashMap[String, RegisterSpecification]()
+
+  override def exitRegister_declaration(ctx: Register_declarationContext): Unit = {
+    ctx.spec = new RegisterSpecification().setDirect(
+      if (ctx.direct_or_static() != null) {
+        ctx.direct_or_static().isDirect
+      } else {
+        false
+      }).setStatic(if (ctx.direct_or_static() != null) {
+        ctx.direct_or_static().isStatic
+      } else {
+        false
+      }).setDirectTable(
+        if (ctx.direct_or_static() != null) {
+          ctx.direct_or_static().directTable
+        } else {
+          null
+        }
+      ).setStaticTable(
+        if (ctx.direct_or_static() != null) {
+          ctx.direct_or_static().staticTable
+        } else {
+          null
+        }
+      ).setName(ctx.register_name().NAME().getText).setWidth(ctx.width_declaration().width).
+      setCount(if (ctx.const_value() != null) ctx.const_value().constValue else 1  )
+    registerMap.put(ctx.spec.getName, ctx.spec)
+  }
+
+  val fieldLists = new java.util.HashMap[String, FieldList]()
+
+  override def exitField_list_declaration(ctx: Field_list_declarationContext): Unit = {
+    ctx.entryList = new util.ArrayList[String]()
+    for (x <- ctx.field_list_entry()) {
+      ctx.entryList.add(x.entryName)
+    }
+    fieldLists.put(ctx.field_list_name().NAME().getText, new FieldList(ctx.field_list_name().NAME().getText, ctx.entryList))
+  }
+
+  override def exitField_list_entry(ctx: Field_list_entryContext): Unit = {
+    ctx.entryName = ctx.getText
+  }
 
 
 }

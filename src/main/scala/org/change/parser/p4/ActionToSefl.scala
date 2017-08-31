@@ -3,38 +3,39 @@ package org.change.parser.p4
 import org.change.v2.analysis.expression.abst.{Expression, FloatingExpression}
 import org.change.v2.analysis.expression.concrete.ConstantValue
 import org.change.v2.analysis.expression.concrete.nonprimitive.{:+:, :-:, :@}
-import org.change.v2.analysis.memory.Intable
+import org.change.v2.analysis.memory.{Intable, Tag}
 import org.change.v2.analysis.processingmodels.Instruction
-import org.change.v2.analysis.processingmodels.instructions.{Assign, Fail, InstructionBlock, NoOp}
+import org.change.v2.analysis.processingmodels.instructions.{NoOp, _}
+import org.change.v2.p4.model.SwitchInstance
 import org.change.v2.p4.model.actions._
 import org.change.v2.p4.model.actions.primitives._
 
 import scala.collection.JavaConversions._
-/**
-  * Created by dragos on 30.08.2017.
-  */
-object ActionToSefl {
 
+object ActionInstance {
+  def apply(p4Action: P4Action, argList: List[Any],
+            switchInstance: SwitchInstance, dropMessage: String = "Dropped right here"): ActionInstance = new ActionInstance(p4Action, argList, switchInstance, dropMessage)
 }
 
-class ActionInstance(p4Action: P4Action, argList : List[Any], ctx : P4GrammarListener) {
+class ActionInstance(p4Action: P4Action, argList : List[Any],
+                     switchInstance: SwitchInstance, dropMessage : String = "Dropped right here") {
 
+  private val ctx = switchInstance.getSwitchSpec.getCtx
 
   def handleComplexAction(complexAction: P4ComplexAction) : Instruction = {
     val arity = complexAction.getParameterList.size()
     if (arity != argList.size)
       throw new IllegalArgumentException(s"Wrong arity got ${argList.size} vs wanted $arity")
-    lazy val argNameToIndex = complexAction.getParameterList().zipWithIndex.map { x => x._1.getParamName -> x._2 }.toMap
+    val argNameToIndex = complexAction.getParameterList().zipWithIndex.map { x => x._1.getParamName -> x._2 }.toMap
     InstructionBlock(complexAction.getActionList.map( x => {
       val args = x.parameterInstances().map( y => {
         if ((y.getParameter.getType & P4ActionParameterType.UNKNOWN.x) != 0) {
-          argList(argNameToIndex(y.getParameter.getParamName))
+          argList(argNameToIndex(y.getValue.toString))
         } else {
           y.getValue
         }
       }).toList
-      val rec = new ActionInstance(x.getP4Action, args, ctx)
-      rec.sefl()
+      new ActionInstance(x.getP4Action, args, switchInstance, dropMessage).sefl()
     })
     )
   }
@@ -49,9 +50,15 @@ class ActionInstance(p4Action: P4Action, argList : List[Any], ctx : P4GrammarLis
           case Left(j) => Assign(j, ConstantValue(value))
           case Right(s) => Assign(s, ConstantValue(value))
         }
+      case value : Long => {
+        dstField match {
+          case Left(j) => Assign(j, ConstantValue(value))
+          case Right(s) => Assign(s, ConstantValue(value))
+        }
+      }
       case _: String =>
         try {
-          val value = Integer.decode(argSource.toString).intValue()
+          val value = java.lang.Long.decode(argSource.toString).longValue
           dstField match {
             case Left(j) => Assign(j, ConstantValue(value))
             case Right(s) => Assign(s, ConstantValue(value))
@@ -88,11 +95,11 @@ class ActionInstance(p4Action: P4Action, argList : List[Any], ctx : P4GrammarLis
 
   def parseArg(arg : Any) : FloatingExpression = {
     arg match {
-      case value: Int =>
-        ConstantValue(value)
+      case value: Int => ConstantValue(value)
+      case value: Long => ConstantValue(value)
       case _: String =>
         try {
-          val value = Integer.decode(arg.toString).intValue()
+          val value = java.lang.Long.decode(arg.toString).longValue()
           ConstantValue(value)
         }
         catch {
@@ -113,6 +120,134 @@ class ActionInstance(p4Action: P4Action, argList : List[Any], ctx : P4GrammarLis
       case Right(s) => Assign(s, :-:(:@(s), arg))
     }
   }
+
+  def initialize() = {
+    InstructionBlock(
+
+    )
+  }
+
+  def setOriginal() : Instruction = {
+    InstructionBlock(ctx.headerInstances.flatMap(x => {
+        x._2.layout.fields.values.map(_._1).map(y => {
+          if (x._2.isInstanceOf[MetadataInstance]) {
+            NoOp
+          } else {
+            Assign("Original." + x._1 + "." + y, :@(Tag(x._1) + x._2.getTagOfField(y)))
+          }
+        })
+      })
+    )
+  }
+
+  def restore(butFor : List[String]) : Instruction = {
+    InstructionBlock(ctx.headerInstances.flatMap(x => {
+        if (!butFor.exists(p => p == x._1)) {
+          x._2.layout.fields.values.map(_._1).map(y => {
+            if (!butFor.exists(_ == x._1 + "." + y)) {
+              if (x._2.isInstanceOf[MetadataInstance]) {
+                Assign(x._1 + "." + y, :@("Original." + x._1 + "." + y))
+              } else {
+                Assign(Tag(x._1) + x._2.getTagOfField(y), :@("Original." + x._1 + "." + y))
+              }
+            }
+            else
+              NoOp
+          })
+        } else {
+          List[Instruction](NoOp)
+        }
+      })
+    )
+  }
+
+
+  def handleResubmit(resubmit: Resubmit) = {
+    val fldList = argList(0).toString
+    val actualFieldList = switchInstance.getSwitchSpec.getFieldListMap()(fldList)
+    InstructionBlock(
+      restore(actualFieldList.getFields.toList),
+      Assign(ctx.resolveField("standard_metadata.instance_type").right.get, ConstantValue(5)),
+      Forward(switchInstance.getName + ".parser")
+    )
+  }
+
+  def handleRecirculate(recirculate: Recirculate) = {
+    val fldList = argList(0).toString
+    val actualFieldList = switchInstance.getSwitchSpec.getFieldListMap()(fldList)
+    InstructionBlock(
+      setOriginal,
+      restore(actualFieldList.getFields.toList),
+      Assign(ctx.resolveField("standard_metadata.instance_type").right.get, ConstantValue(6)),
+      Forward(switchInstance.getName + ".parser")
+    )
+  }
+
+  def handleCloneFromIngressToIngress(cloneIngressPktToIngress: CloneIngressPktToIngress) = {
+    val fldList = argList(0).toString
+    val actualFieldList = switchInstance.getSwitchSpec.getFieldListMap()(fldList)
+    Fork(
+      List[Instruction](
+        InstructionBlock(
+          restore(actualFieldList.getFields.toList),
+          Assign(ctx.resolveField("standard_metadata.instance_type").right.get, ConstantValue(1)),
+          Forward(switchInstance.getName + ".parser")
+        ),
+        Forward(s"${switchInstance.getName}.egress")
+      )
+    )
+  }
+
+  def handleCloneFromIngressToEgress(cloneIngressPktToEgress: CloneIngressPktToEgress) = {
+    val fldList = argList(0).toString
+    val actualFieldList = switchInstance.getSwitchSpec.getFieldListMap()(fldList)
+    Fork(
+      List[Instruction](
+        InstructionBlock(
+          restore(actualFieldList.getFields.toList),
+          Assign(ctx.resolveField("standard_metadata.instance_type").right.get, ConstantValue(2)),
+          Forward(switchInstance.getName + ".out")
+        ),
+        Forward(s"${switchInstance.getName}.egress")
+      )
+    )
+  }
+
+
+  def handleCloneFromEgressToIngress(cloneEgressPktToIngress: CloneEgressPktToIngress) = {
+    val fldList = argList(0).toString
+    val actualFieldList = switchInstance.getSwitchSpec.getFieldListMap()(fldList)
+    Fork(
+      List[Instruction](
+        InstructionBlock(
+          setOriginal,
+          restore(actualFieldList.getFields.toList),
+          Assign(ctx.resolveField("standard_metadata.instance_type").right.get, ConstantValue(3)),
+          Forward(switchInstance.getName + ".parser")
+        ),
+        Forward(s"${switchInstance.getName}.out")
+      )
+    )
+  }
+
+
+  def handleCloneFromEgressToEgress(cloneEgressPktToIngress: CloneEgressPktToEgress) = {
+    val fldList = argList(0).toString
+    val actualFieldList = switchInstance.getSwitchSpec.getFieldListMap()(fldList)
+    Fork(
+      List[Instruction](
+        InstructionBlock(
+          setOriginal,
+          restore(actualFieldList.getFields.toList),
+          Assign(ctx.resolveField("standard_metadata.instance_type").right.get, ConstantValue(4)),
+          Forward(switchInstance.getName + ".egress")
+        ),
+        Forward(s"${switchInstance.getName}.out")
+      )
+    )
+  }
+
+
 
   def toFexp(arg : Either[Intable, String]) : FloatingExpression = arg match {
     case Left(i) => :@(i)
@@ -151,7 +286,7 @@ class ActionInstance(p4Action: P4Action, argList : List[Any], ctx : P4GrammarLis
     if (argList.length > 2) {
       val argSource2 = argList(2)
       // this is a global register
-      val intVal = Integer.decode(argSource2.toString).intValue()
+      val intVal = java.lang.Long.decode(argSource2.toString).longValue()
       val name = "reg." + argSource1.toString + "." + intVal
       ctx.resolveField(argDest.toString) match {
         case Left(i) => Assign(i, :@(name))
@@ -169,7 +304,7 @@ class ActionInstance(p4Action: P4Action, argList : List[Any], ctx : P4GrammarLis
     if (argList.length > 2) {
       val argSource2 = argList(2)
       // this is a global register
-      val intVal = Integer.decode(argSource2.toString).intValue()
+      val intVal = java.lang.Long.decode(argSource2.toString).longValue
       val name = "reg." + argSource1.toString + "." + intVal
       ctx.resolveField(argDest.toString) match {
         case Left(i) => Assign(name, :@(i))
@@ -181,6 +316,21 @@ class ActionInstance(p4Action: P4Action, argList : List[Any], ctx : P4GrammarLis
     }
   }
 
+  def handleAddHeader(addHeader: AddHeader) : Instruction = {
+    val headerInstance = argList(0).toString
+    val regName = if (headerInstance.contains("[")) {
+      val index = headerInstance.indexOf('[')
+      headerInstance.substring(0, index)
+    } else {
+      headerInstance
+    }
+    val hdrInstance = ctx.headerInstances(regName)
+    hdrInstance match {
+      case u : ArrayHeader => Assign(u.arrayName, :@(""))
+    }
+  }
+
+
 
   def handlePrimitiveAction(primitiveAction : P4Action) : Instruction = {
     primitiveAction.getActionType match {
@@ -189,17 +339,23 @@ class ActionInstance(p4Action: P4Action, argList : List[Any], ctx : P4GrammarLis
       case P4ActionType.Subtract => handleSubtract(primitiveAction.asInstanceOf[Subtract])
       case P4ActionType.SubtractFromField => handleSubtractFromField(primitiveAction.asInstanceOf[SubtractFromField])
       case P4ActionType.ModifyField => handleModifyField(primitiveAction.asInstanceOf[ModifyField])
-      case P4ActionType.Drop => Fail("Dropped right here")
+      case P4ActionType.Drop => Fail(dropMessage)
       case P4ActionType.NoOp => NoOp
       case P4ActionType.RegisterRead => handleRegisterRead(primitiveAction.asInstanceOf[RegisterRead])
       case P4ActionType.RegisterWrite => handleRegisterWrite(primitiveAction.asInstanceOf[RegisterWrite])
+      case P4ActionType.CloneEgressPktToEgress => handleCloneFromEgressToEgress(primitiveAction.asInstanceOf[CloneEgressPktToEgress])
+      case P4ActionType.CloneEgressPktToIngress => handleCloneFromEgressToIngress(primitiveAction.asInstanceOf[CloneEgressPktToIngress])
+      case P4ActionType.CloneIngressPktToEgress => handleCloneFromIngressToIngress(primitiveAction.asInstanceOf[CloneIngressPktToIngress])
+      case P4ActionType.CloneIngressPktToEgress => handleCloneFromIngressToEgress(primitiveAction.asInstanceOf[CloneIngressPktToEgress])
+      case P4ActionType.Resubmit => handleResubmit(primitiveAction.asInstanceOf[Resubmit])
+      case P4ActionType.Recirculate => handleRecirculate(primitiveAction.asInstanceOf[Recirculate])
       case _ => throw new UnsupportedOperationException(s"Primitive action of type ${primitiveAction.getActionType} not yet supported")
     }
   }
 
   def sefl() : Instruction = {
     val actual = if (p4Action.getActionType == P4ActionType.UNKNOWN) {
-      ctx.actionRegistrar.getAction(p4Action.getActionName)
+      switchInstance.getSwitchSpec.getActionRegistrar.getAction(p4Action.getActionName)
     } else {
       p4Action
     }

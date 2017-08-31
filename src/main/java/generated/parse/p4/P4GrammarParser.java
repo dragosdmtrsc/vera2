@@ -1888,6 +1888,7 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Field_list_declarationContext extends ParserRuleContext {
+		public java.util.List<String> entryList;
 		public Field_list_nameContext field_list_name() {
 			return getRuleContext(Field_list_nameContext.class,0);
 		}
@@ -1993,6 +1994,7 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Field_list_entryContext extends ParserRuleContext {
+		public String entryName;
 		public Field_refContext field_ref() {
 			return getRuleContext(Field_refContext.class,0);
 		}
@@ -4086,6 +4088,10 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Direct_or_staticContext extends ParserRuleContext {
+		public boolean isDirect;
+		public String directTable;
+		public boolean isStatic;
+		public String staticTable;
 		public Direct_attributeContext direct_attribute() {
 			return getRuleContext(Direct_attributeContext.class,0);
 		}
@@ -4143,6 +4149,7 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Direct_attributeContext extends ParserRuleContext {
+		public String table;
 		public Table_nameContext table_name() {
 			return getRuleContext(Table_nameContext.class,0);
 		}
@@ -4186,6 +4193,7 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Static_attributeContext extends ParserRuleContext {
+		public String table;
 		public Table_nameContext table_name() {
 			return getRuleContext(Table_nameContext.class,0);
 		}
@@ -4571,6 +4579,7 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Register_declarationContext extends ParserRuleContext {
+		public org.change.v2.p4.model.RegisterSpecification spec;
 		public Register_nameContext register_name() {
 			return getRuleContext(Register_nameContext.class,0);
 		}
@@ -4673,6 +4682,7 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Width_declarationContext extends ParserRuleContext {
+		public Integer width;
 		public Const_valueContext const_value() {
 			return getRuleContext(Const_valueContext.class,0);
 		}
