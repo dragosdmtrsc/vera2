@@ -6,7 +6,7 @@ import generated.parse.p4.P4GrammarParser._
 import generated.parse.p4.{P4GrammarBaseListener, P4GrammarParser}
 import org.change.v2.analysis.memory.{Tag, TagExp}
 import org.change.v2.analysis.memory.TagExp._
-import org.change.v2.p4.model.{FieldList, RegisterSpecification}
+import org.change.v2.p4.model._
 //import org.change.v2.analysis.memory.TagExp.IntImprovements
 import org.change.v2.p4.model.actions._
 import org.change.v2.analysis.memory.Intable
@@ -78,7 +78,11 @@ class P4GrammarListener extends P4GrammarBaseListener {
       fieldsWithSizes.scanLeft(0)(_ + _._2).zip(fieldsWithSizes).toMap,
       headerSize.get
     )
-
+    ctx.header = new Header().setName(declaredHeaderName).setMaxLength(ctx.header_dec_body().maxLength)
+    for (f <- ctx.header_dec_body().fields) {
+      ctx.header = ctx.header.addField(f)
+    }
+    headers.put(declaredHeaderName, ctx.header)
     declaredHeaders.put(declaredHeaderName,ctx.headerDeclaration)
   }
   // Exit Section 2.1
@@ -96,15 +100,24 @@ class P4GrammarListener extends P4GrammarBaseListener {
     val instanceName = ctx.instance_name().getText
     val headerType = ctx.header_type_name().getText
     ctx.instance = new ScalarHeader(instanceName, declaredHeaders(headerType))
+    ctx.hdrInstance = new org.change.v2.p4.model.HeaderInstance(headers(headerType), instanceName)
+    instances.put(instanceName, ctx.hdrInstance)
     headerInstances.put(instanceName, ctx.instance)
   }
+
+  val headers = new util.HashMap[String, Header]()
+  val instances = new util.HashMap[String, org.change.v2.p4.model.HeaderInstance]()
 
   override def exitArray_instance(ctx: P4GrammarParser.Array_instanceContext): Unit = {
     val instanceName = ctx.instance_name().getText
     val index = ctx.const_value().constValue
     val headerType = ctx.header_type_name().getText
-    ctx.instance = new ArrayHeader(instanceName, index, declaredHeaders(headerType))
-    headerInstances.put(instanceName + index, ctx.instance)
+    ctx.arrInstance = new ArrayInstance(headers(headerType), instanceName, index)
+    instances.put(instanceName, ctx.arrInstance)
+    for (i <- 0 until index) {
+      ctx.instance = new ArrayHeader(instanceName, i, declaredHeaders(headerType))
+      headerInstances.put(instanceName + i, ctx.instance)
+    }
   }
 
   override def exitMetadata_initializer(ctx: P4GrammarParser.Metadata_initializerContext): Unit = {
@@ -124,6 +137,11 @@ class P4GrammarListener extends P4GrammarBaseListener {
     val metadataInstance = new MetadataInstance(instanceName, declaredHeaders(headerType), initializer)
     ctx.instance = metadataInstance
     headerInstances.put(instanceName, metadataInstance)
+    instances.put(instanceName,
+      initializer.foldLeft(new org.change.v2.p4.model.HeaderInstance(headers(headerType), instanceName).setMetadata(true))((acc, x) => {
+        acc.addInitializer(x._1, x._2.toLong)
+      })
+    )
   }
   // Exit Section 2.2
 
@@ -151,7 +169,7 @@ class P4GrammarListener extends P4GrammarBaseListener {
 
   override def exitExtract_or_set_statement(ctx: P4GrammarParser.Extract_or_set_statementContext): Unit = {
     ctx.functionStatement = Option(ctx.extract_statement()).map(_.extractStatement).orElse(
-        throw new Exception("Set not supported")
+        Some(SetFunction(ctx.set_statement().field_ref().getText, ctx.set_statement().metadata_expr().getText))
       ).get
   }
 
@@ -276,9 +294,14 @@ class P4GrammarListener extends P4GrammarBaseListener {
       448 -> ("parser_error_location", 64)
     )
     declaredHeaders.put("standard_metadata_t", new HeaderDeclaration("standard_metadata_t", hOffs, 512))
+    headers.put("standard_metadata_t", hOffs.foldLeft(new Header().setName("standard_metadata_t").setLength(512))((acc, x) => {
+      acc.addField(new Field().setLength(x._2._2).setName(x._2._1))
+    }))
     // one day, initialize the standard metadata as per spec
     val metadataInstance = new MetadataInstance("standard_metadata", declaredHeaders("standard_metadata_t"), Map[String, Int]())
     headerInstances.put("standard_metadata", metadataInstance)
+    val metadataInstancej = new org.change.v2.p4.model.HeaderInstance(headers("standard_metadata_t"), "standard_metadata").setMetadata(true)
+    instances.put("standard_metadata", metadataInstancej)
   }
 
   def resolveField(fieldSpec : String) : Either[Intable, String] = {
@@ -356,5 +379,31 @@ class P4GrammarListener extends P4GrammarBaseListener {
     ctx.entryName = ctx.getText
   }
 
+  override def exitHeader_dec_body(ctx: Header_dec_bodyContext): Unit = {
+    if (ctx.const_value() != null) {
+      ctx.maxLength = ctx.const_value().constValue
+    } else {
+      ctx.maxLength = -1
+    }
+    ctx.fields = new util.ArrayList[Field]()
+    for (f <- ctx.field_dec()) {
+      ctx.fields.add(f.field)
+    }
+    if (ctx.length_exp() != null && ctx.length_exp().const_value() != null)
+      ctx.length = ctx.length_exp().const_value().constValue
+    else ctx.length = -1
+  }
+
+  override def exitField_dec(ctx: Field_decContext): Unit = {
+    ctx.field = new Field().setLength(
+      if (ctx.bit_width().const_value() != null)
+        ctx.bit_width().const_value().constValue
+      else
+        -1).setName(ctx.field_name().NAME().getText)
+    if (ctx.field_mod() != null && ctx.field_mod().getText.contains("saturating"))
+      ctx.field.setSaturating()
+    if (ctx.field_mod() != null && ctx.field_mod().getText.contains("signed"))
+      ctx.field.setSigned()
+  }
 
 }

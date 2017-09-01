@@ -48,14 +48,16 @@ width_spec  :   Decimal_value '’' ;
 field_value returns [Integer fieldValue] : const_value ;
 
 // Section 2.1
-header_type_declaration returns [org.change.parser.p4.HeaderDeclaration headerDeclaration]:
+header_type_declaration returns [org.change.parser.p4.HeaderDeclaration headerDeclaration, org.change.v2.p4.model.Header header]:
     'header_type' header_type_name '{' header_dec_body '}' ;
 header_type_name : NAME ;
 
 // Info: max_length is used for run-time checks (if the header is larger than this maximum)
-header_dec_body :   'fields' '{' field_dec+ '}' ( 'length' ':' length_exp ';' )? ( 'max_length' ':' const_value ';' )? ;
+header_dec_body returns [List<org.change.v2.p4.model.Field> fields,
+    Integer length,
+    Integer maxLength]:   'fields' '{' field_dec+ '}' ( 'length' ':' length_exp ';' )? ( 'max_length' ':' const_value ';' )? ;
 
-field_dec   :   field_name ':' bit_width ( '(' field_mod ')' )? ';' ;
+field_dec returns [org.change.v2.p4.model.Field field]  :   field_name ':' bit_width ( '(' field_mod ')' )? ';' ;
 field_name  :   NAME ;
 field_mod   :   'signed' | 'saturating' | field_mod ',' field_mod ;
 length_bin_op   :   '+' | '-' | '*' | '<<' | '>>' ;
@@ -75,9 +77,9 @@ header_instance returns [org.change.parser.p4.HeaderInstance instance]:
     | array_instance    #ArrayInstance
     ;
 
-scalar_instance returns [org.change.parser.p4.ScalarHeader instance]:
+scalar_instance returns [org.change.parser.p4.ScalarHeader instance, org.change.v2.p4.model.HeaderInstance hdrInstance]:
     'header' header_type_name instance_name ';' ;
-array_instance  returns [org.change.parser.p4.ArrayHeader instance]:
+array_instance  returns [org.change.parser.p4.ArrayHeader instance, org.change.v2.p4.model.ArrayInstance arrInstance]:
     'header' header_type_name instance_name '[' const_value ']' ';' ;
 instance_name   :   NAME ;
 
@@ -114,7 +116,7 @@ update_verify_spec  :   update_or_verify field_list_calculation_name ( if_cond )
 update_or_verify    :   'update' | 'verify' ;
 
 if_cond :   'if' '(' calc_bool_cond ')' ;
-calc_bool_cond :    'valid' '(' header_ref | field_ref ')' | field_ref '==' field_value ;
+calc_bool_cond :    'valid' '(' (header_ref | field_ref) ')' | field_ref '==' field_value ;
 value_set_declaration : 'parser_value_set' value_set_name ';' ;
 value_set_name  : NAME ;
 
@@ -198,7 +200,7 @@ register_declaration returns [org.change.v2.p4.model.RegisterSpecification spec]
     '}'
     ;
 
-width_declaration returns [Integer width]: 'width' ':' const_value ';' ;
+width_declaration returns [Integer width]: 'width' ':' const_value ;
 attribute_list : 'attributes' ':' attr_entry ;
 attr_entry : 'signed' | 'saturating' | attr_entry ',' attr_entry ;
 action_function_declaration:

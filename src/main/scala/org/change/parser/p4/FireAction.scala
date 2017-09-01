@@ -15,7 +15,8 @@ class FireAction(tableName : String, flowNumber : Int, switchInstance: SwitchIns
   private lazy val args = flow.getActionParams
 
   def symnetCode() : Instruction = {
-    return new ActionInstance(action, args.toList, switchInstance, s"Dropped by flow $flowNumber@$tableName").sefl()
+    return new ActionInstance(action, args.toList, switchInstance, tableName, flowNumber,
+      s"Dropped by flow $flowNumber@$tableName").sefl()
   }
 
 }
@@ -29,6 +30,6 @@ class FireDefaultAction(tableName : String, switchInstance: SwitchInstance) {
    def symnetCode() : Instruction = {
     return new ActionInstance(
       p4ActionCall.getP4Action, p4ActionCall.parameterInstances().map( x => x.getValue).toList,
-      switchInstance, s"dropped by default@$tableName").sefl()
+      switchInstance, tableName, -1, s"dropped by default@$tableName").sefl()
   }
 }

@@ -7,6 +7,7 @@ import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.tree.ParseTreeWalker;
 import org.change.parser.p4.P4GrammarListener;
+import org.change.v2.abstractnet.click.sefl.StripIPHeader;
 import org.change.v2.p4.model.actions.ActionRegistrar;
 import org.change.v2.p4.model.actions.P4Action;
 
@@ -20,7 +21,7 @@ import java.util.Map;
  */
 public class Switch {
     private P4GrammarListener ctx = null;
-
+    private Map<String, HeaderInstance> instances = new HashMap<String, HeaderInstance>();
     private Map<String, RegisterSpecification> registerSpecificationMap = null;
     private ActionRegistrar actionRegistrar = null;
     private Map<String, FieldList> fieldListMap = null;
@@ -61,6 +62,15 @@ public class Switch {
         return this;
     }
 
+    public HeaderInstance getInstance(String o) {
+        return instances.getOrDefault(o, null);
+    }
+
+    public Switch addHeaderInstance(HeaderInstance instance) {
+        this.instances.put(instance.getName(), instance);
+        return this;
+    }
+
     public static Switch fromFile(String p4File) throws IOException {
         org.change.parser.p4.P4GrammarListener lsn = new P4GrammarListener();
         CharStream p4Input = CharStreams.fromFileName(p4File);
@@ -73,11 +83,13 @@ public class Switch {
 
         walker.walk(listener,tree);
 
-        return new Switch().
+        Switch sw = new Switch().
                 setActionRegistrar(listener.actionRegistrar()).
                 setFieldListMap(listener.fieldLists()).
                 setRegisterSpecificationMap(listener.registerMap()).
                 setCtx(listener);
+        sw.instances = listener.instances();
+        return sw;
     }
 
 }

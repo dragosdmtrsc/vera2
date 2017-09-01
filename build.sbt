@@ -12,7 +12,9 @@ libraryDependencies ++= {
   Seq(
     "org.antlr" % "antlr4" % "4.7",
     "org.scalatest" % "scalatest_2.11" % "2.2.4" % "test",
-    "io.spray" %%  "spray-json" % "1.3.2"
+    "io.spray" %%  "spray-json" % "1.3.2",
+    "com.fasterxml.jackson.core" % "jackson-databind" % "2.9.0",
+    "com.fasterxml.jackson.module" % "jackson-module-scala_2.11" % "2.9.0"
   )
 }
 
