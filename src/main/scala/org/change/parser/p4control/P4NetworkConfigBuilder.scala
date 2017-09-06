@@ -296,8 +296,8 @@ else_block : 'else' control_block
       case "or" =>
         blocks.get(ctx).append(
           Fork(
-            InstructionBlock(blocks.get(ctx.bool_expr(0))),
-            InstructionBlock(blocks.get(ctx.bool_expr(1)))
+            List[Instruction](InstructionBlock(blocks.get(ctx.bool_expr(0))),InstructionBlock(blocks.get(ctx.bool_expr(1)))
+          )
           )
         )
     }

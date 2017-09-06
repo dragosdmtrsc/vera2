@@ -253,7 +253,10 @@ control_statement : apply_table_call | apply_and_select_block | if_else_statemen
 apply_table_call : 'apply' '(' table_name ')' ';' ;
 
 apply_and_select_block : 'apply' '(' table_name ')' '{' ( case_list )? '}' ;
-case_list : action_case+ | hit_miss_case+ ;
+
+case_list : action_case+ # case_list_action
+          | hit_miss_case+  # case_list_hitmiss;
+
 action_case : action_or_default control_block ;
 action_or_default : action_name | 'default' ;
 hit_miss_case : hit_or_miss control_block ;
@@ -261,10 +264,20 @@ hit_or_miss : 'hit' | 'miss' ;
 
 if_else_statement : 'if' '(' bool_expr ')' control_block ( else_block )? ;
 else_block : 'else' control_block | 'else' if_else_statement ;
-bool_expr : 'valid' '(' header_ref ')' | bool_expr bool_op bool_expr |
-    'not' bool_expr | '(' bool_expr ')' | exp rel_op exp | 'true' | 'false' ;
 
-exp : exp bin_op exp | un_op exp | field_ref | value | '(' exp ')' ;
+bool_expr : 'valid' '(' header_ref ')' # valid_bool_expr
+          | bool_expr bool_op bool_expr # compound_bool_expr
+          | 'not' bool_expr # negated_bool_expr
+          | '(' bool_expr ')' # par_bool_expr
+          | exp rel_op exp # relop_bool_expr
+          | 'true' # const_bool
+          | 'false' # const_bool;
+
+exp : exp bin_op exp # compound_exp
+      | un_op exp # unary_exp
+      | field_ref # field_red_exp
+      | value # value_exp
+      | '(' exp ')' # par_exp ;
 
 //TODO: This is an assumption too
 value   : const_value ;
