@@ -97,9 +97,11 @@ inputs meter or counter references are implemented
 6. `truncate` and `count` instructions are not implemented
 7. The current parser and interpreter needs declarations prior to usage in functions. 
 As such, all header types need to be declared first, then all header instances. 
-8. The current parser cannot ignore comments.
+8. The current parser cannot ignore comments. - Solved using approach in issue 9.
 9. The current parser has no built-in precompile step and will throw whenever
-macro definitions are observed and used
+macro definitions are observed and used - in order to use this, run the following command
+assuming `f.p4` is your input file: `gcc -E -x c -P f.p4 > f-ppc.p4` and then
+run Symnet-P4 integration against the pre-processed file `f-ppc.p4`
 
 
 SymNet v2

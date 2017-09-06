@@ -16,14 +16,22 @@ class InitializeCode(switchInstance : SwitchInstance) {
   val swSpec = switchInstance.getSwitchSpec
   val ctx = swSpec.getCtx
 
-  def initializeMetadata() : Instruction = {
+  def initializeMetadata(butFor : List[String] = Nil) : Instruction = {
     InstructionBlock(switchInstance.getSwitchSpec.getCtx.instances.values().filter(_.isMetadata).flatMap(x => {
-      x.getLayout.getFields.map(f => {
-        if (x.getInitializer.containsKey(f.getName))
-          Assign(x.getName + "." + f.getName, ConstantValue(x.getInitializer()(f.getName).longValue()))
-        else
-          Assign(x.getName + "." + f.getName, ConstantValue(0))
-      })
+      if (butFor.contains(x.getName)) {
+        x.getLayout.getFields.map(f => {
+          if (butFor.contains(x.getName + "." + f.getName)) {
+            if (x.getInitializer.containsKey(f.getName))
+              Assign(x.getName + "." + f.getName, ConstantValue(x.getInitializer()(f.getName).longValue()))
+            else
+              Assign(x.getName + "." + f.getName, ConstantValue(0))
+          } else {
+            NoOp
+          }
+        })
+      } else {
+        List[Instruction](NoOp)
+      }
     })
     )
   }

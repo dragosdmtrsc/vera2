@@ -5731,6 +5731,8 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Field_matchContext extends ParserRuleContext {
+		public org.change.v2.p4.model.table.TableMatch tableMatch;
+		public String tableName;
 		public Field_or_masked_refContext field_or_masked_ref() {
 			return getRuleContext(Field_or_masked_refContext.class,0);
 		}
@@ -5848,6 +5850,7 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Field_match_typeContext extends ParserRuleContext {
+		public org.change.v2.p4.model.table.MatchKind matchKind;
 		public Field_match_typeContext(ParserRuleContext parent, int invokingState) {
 			super(parent, invokingState);
 		}

@@ -7,6 +7,7 @@ import generated.parse.p4.{P4GrammarBaseListener, P4GrammarParser}
 import org.change.v2.analysis.memory.{Tag, TagExp}
 import org.change.v2.analysis.memory.TagExp._
 import org.change.v2.p4.model._
+import org.change.v2.p4.model.table.{MatchKind, TableMatch}
 //import org.change.v2.analysis.memory.TagExp.IntImprovements
 import org.change.v2.p4.model.actions._
 import org.change.v2.analysis.memory.Intable
@@ -404,6 +405,54 @@ class P4GrammarListener extends P4GrammarBaseListener {
       ctx.field.setSaturating()
     if (ctx.field_mod() != null && ctx.field_mod().getText.contains("signed"))
       ctx.field.setSigned()
+  }
+
+
+
+  override def exitField_match_type(ctx : Field_match_typeContext) : Unit = {
+    ctx.matchKind = if (ctx.getText == "range")
+      MatchKind.Range
+    else if (ctx.getText == "lpm")
+      MatchKind.Lpm
+    else if (ctx.getText == "ternary")
+      MatchKind.Ternary
+    else if (ctx.getText == "exact")
+      MatchKind.Exact
+    else if (ctx.getText == "valid")
+      MatchKind.Valid
+    else
+      throw new UnsupportedOperationException(s"Unknown match type ${ctx.getText}")
+  }
+
+  var tables = new util.HashSet[String]()
+  var tableDeclarations = new util.HashMap[String, util.List[TableMatch]]()
+  var tableAllowedActions = new util.HashMap[String, util.List[String]]()
+  override def exitTable_declaration(ctx: Table_declarationContext): Unit = {
+    val tableName = ctx.table_name().NAME().getText
+    if (ctx.field_match() != null) {
+      for (fm <- ctx.field_match()) {
+        tableDeclarations.get(tableName).add(fm.tableMatch)
+      }
+    }
+  }
+  override def enterTable_declaration(ctx: Table_declarationContext): Unit = {
+    val tableName = ctx.table_name().NAME().getText
+    tables.add(tableName)
+    //TODO: Do something with these allowed actions - i.e. populate them
+    tableAllowedActions.put(tableName, new util.ArrayList[String]())
+    tableDeclarations.put(tableName, new util.ArrayList[TableMatch]())
+    if (ctx.field_match() != null) {
+      for (fm <- ctx.field_match()) {
+        fm.tableName = tableName
+      }
+    }
+  }
+
+  override def exitField_match(ctx : Field_matchContext) : Unit = {
+    ctx.tableMatch = new TableMatch(ctx.tableName,
+      ctx.field_or_masked_ref().getText,
+      ctx.field_match_type().matchKind)
+
   }
 
 }

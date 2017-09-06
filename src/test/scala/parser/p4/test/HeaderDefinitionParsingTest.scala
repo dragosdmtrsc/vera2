@@ -141,7 +141,17 @@ class HeaderDefinitionParsingTest extends FunSuite {
         i = i + 1
       }
     }
+  }
 
+
+  test("SWITCH - full table flow run #1") {
+    val p4 = "inputs/simple-router/simple_router.p4"
+    val dataplane = "inputs/simple-router/commands.txt"
+    val res = SwitchInstance.fromP4AndDataplane(p4, dataplane, "nat", util.Arrays.asList("veth0", "veth1"))
+
+    for (tab <- res.getDeclaredTables) {
+      println(JsonUtil.toJson(new FullTable(tab, res).fullAction()))
+    }
   }
 
 }

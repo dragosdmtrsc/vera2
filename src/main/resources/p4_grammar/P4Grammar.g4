@@ -151,6 +151,7 @@ case_return_value_type  : parser_state_name | control_function_name | 'parse_err
 
 value_or_masked :   field_value | field_value 'mask' field_value | value_set_name ;
 
+
 select_exp  :   field_or_data_ref (',' field_or_data_ref)* ;
 field_or_data_ref   :   field_ref | 'latest.'field_name | 'current' '(' const_value ',' const_value ')' ;
 parser_exception_declaration    :   'parser_exception' parser_exception_name '{'
@@ -240,9 +241,9 @@ table_declaration : 'table' table_name '{'
     '}'
     ;
 
-field_match : field_or_masked_ref ':' field_match_type ';' ;
+field_match returns [org.change.v2.p4.model.table.TableMatch tableMatch, String tableName]: field_or_masked_ref ':' field_match_type ';' ;
 field_or_masked_ref : header_ref | field_ref | field_ref 'mask' const_value ;
-field_match_type : 'exact' | 'ternary' | 'lpm' | 'range' | 'valid' ;
+field_match_type returns [org.change.v2.p4.model.table.MatchKind matchKind]: 'exact' | 'ternary' | 'lpm' | 'range' | 'valid' ;
 table_actions : action_specification | action_profile_specification ;
 action_profile_specification : 'action_profile' ':' action_profile_name ;
 control_function_declaration : 'control' control_fn_name control_block ;

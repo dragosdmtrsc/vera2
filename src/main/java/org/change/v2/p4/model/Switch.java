@@ -10,9 +10,12 @@ import org.change.parser.p4.P4GrammarListener;
 import org.change.v2.abstractnet.click.sefl.StripIPHeader;
 import org.change.v2.p4.model.actions.ActionRegistrar;
 import org.change.v2.p4.model.actions.P4Action;
+import org.change.v2.p4.model.table.TableMatch;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -25,13 +28,39 @@ public class Switch {
     private Map<String, RegisterSpecification> registerSpecificationMap = null;
     private ActionRegistrar actionRegistrar = null;
     private Map<String, FieldList> fieldListMap = null;
-
     public Map<String, RegisterSpecification> getRegisterSpecificationMap() {
         return registerSpecificationMap;
     }
 
+    private Map<String, List<TableMatch>> matches = new HashMap<String, List<TableMatch>>();
+
     public Switch setRegisterSpecificationMap(Map<String, RegisterSpecification> registerSpecificationMap) {
         this.registerSpecificationMap = registerSpecificationMap;
+        return this;
+    }
+
+    public List<TableMatch> getTableMatches(String perTable) {
+        if (this.matches.containsKey(perTable))
+            return this.matches.get(perTable);
+        return null;
+    }
+
+    public Switch createTable(String table) {
+        if (!this.matches.containsKey(table)) {
+            this.matches.put(table, new ArrayList<TableMatch>());
+        }
+        return this;
+    }
+
+    public Iterable<String> getDeclaredTables() {
+        return this.matches.keySet();
+    }
+
+    public Switch addTableMatch(TableMatch tm) {
+        if (!this.matches.containsKey(tm.getTable())) {
+            this.matches.put(tm.getTable(), new ArrayList<TableMatch>());
+        }
+        this.matches.get(tm.getTable()).add(tm);
         return this;
     }
 
@@ -88,6 +117,9 @@ public class Switch {
                 setFieldListMap(listener.fieldLists()).
                 setRegisterSpecificationMap(listener.registerMap()).
                 setCtx(listener);
+        for (String table : listener.tables())
+            sw = sw.createTable(table);
+        sw.matches = listener.tableDeclarations();
         sw.instances = listener.instances();
         return sw;
     }

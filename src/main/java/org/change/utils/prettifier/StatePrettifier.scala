@@ -345,7 +345,7 @@ object JsonUtil {
       new NamedType(classOf[:>=:], "f_gte"),
       new NamedType(classOf[:<=:], "f_lte"),
       new NamedType(classOf[:>=:], "f_gte"),
-      new NamedType(classOf[:==:], "$colon$eq$eq$colon")
+      new NamedType(classOf[:==:], "f_eq")
   )
   
   mapper.registerSubtypes(

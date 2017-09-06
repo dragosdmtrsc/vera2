@@ -43,6 +43,15 @@ case class If(testInstr: Instruction, thenWhat: Instruction, elseWhat:Instructio
       }
       case None => elseWhat(s,v)
     }
+    case i @ InstructionBlock(instrs) => {
+      if (instrs.forall(x => x.isInstanceOf[ConstrainRaw] || x.isInstanceOf[ConstrainNamedSymbol])) {
+        instrs.foldRight(thenWhat)((x, acc) => {
+          If (x, acc, elseWhat)
+        })(s,v)
+      } else {
+        throw new UnsupportedOperationException("Can't do it. All instructions in conditional instruction block MUST be Constrain")
+      }
+    }
     case _ => stateToError(s.addInstructionToHistory(this), "Bad test instruction")
   }
 }

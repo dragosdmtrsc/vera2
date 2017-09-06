@@ -5,11 +5,6 @@ header_type ethernet_t {
         etherType : 16;
     }
 }
-//this is a comment
-
-/*
-this is a ml comment
-*/
 header_type ipv4_t {
     fields {
         version : 4;
@@ -26,8 +21,6 @@ header_type ipv4_t {
         dstAddr: 32;
     }
 }
-
-
 header_type cpu_header_t {
     fields {
         preamble: 64;
@@ -36,8 +29,6 @@ header_type cpu_header_t {
         if_index: 8;
     }
 }
-
-
 header_type tcp_t {
     fields {
         srcPort : 16;
@@ -52,8 +43,6 @@ header_type tcp_t {
         urgentPtr : 16;
     }
 }
-
-
 header_type meta_t {
     fields {
         do_forward : 1;
@@ -69,8 +58,6 @@ header_type meta_t {
         if_index : 8;
     }
 }
-
-
 header_type intrinsic_metadata_t {
     fields {
         mcast_grp : 4;
@@ -79,40 +66,31 @@ header_type intrinsic_metadata_t {
         lf_field_list: 32;
     }
 }
-
 header ethernet_t ethernet;
 header cpu_header_t cpu_header;
 header ipv4_t ipv4;
 header tcp_t tcp;
 metadata intrinsic_metadata_t intrinsic_metadata;
 metadata meta_t meta;
-
 parser start {
     set_metadata(meta.if_index, standard_metadata.ingress_port);
     return select(current(0, 64)) {
-        0 : parse_cpu_header;  
+        0 : parse_cpu_header;
         default: parse_ethernet;
     }
 }
-
-
-
 parser parse_cpu_header {
     extract(cpu_header);
     set_metadata(meta.if_index, cpu_header.if_index);
     return parse_ethernet;
 }
-
-#define ETHERTYPE_IP 0x0800
 parser parse_ethernet {
     extract(ethernet);
     return select(latest.etherType) {
-        ETHERTYPE_IP : parse_ipv4;
+        0x0800 : parse_ipv4;
         default: ingress;
     }
 }
-
-
 field_list ipv4_checksum_list {
         ipv4.version;
         ipv4.ihl;
@@ -126,7 +104,6 @@ field_list ipv4_checksum_list {
         ipv4.srcAddr;
         ipv4.dstAddr;
 }
-
 field_list_calculation ipv4_checksum {
     input {
         ipv4_checksum_list;
@@ -134,12 +111,10 @@ field_list_calculation ipv4_checksum {
     algorithm : csum16;
     output_width : 16;
 }
-
-calculated_field ipv4.hdrChecksum  {
+calculated_field ipv4.hdrChecksum {
     verify ipv4_checksum;
     update ipv4_checksum;
 }
-
 parser parse_ipv4 {
     extract(ipv4);
     set_metadata(meta.ipv4_sa, ipv4.srcAddr);
@@ -150,14 +125,12 @@ parser parse_ipv4 {
         default : ingress;
     }
 }
-
 parser parse_tcp {
     extract(tcp);
     set_metadata(meta.tcp_sp, tcp.srcPort);
     set_metadata(meta.tcp_dp, tcp.dstPort);
     return ingress;
 }
-
 field_list tcp_checksum_list {
         ipv4.srcAddr;
         ipv4.dstAddr;
@@ -175,7 +148,6 @@ field_list tcp_checksum_list {
         tcp.urgentPtr;
         payload;
 }
-
 field_list_calculation tcp_checksum {
     input {
         tcp_checksum_list;
@@ -183,22 +155,18 @@ field_list_calculation tcp_checksum {
     algorithm : csum16;
     output_width : 16;
 }
-
 calculated_field tcp.checksum {
     verify tcp_checksum if(valid(tcp));
     update tcp_checksum if(valid(tcp));
 }
-
 action _drop() {
     drop();
 }
-
 action set_if_info(ipv4_addr, mac_addr, is_ext) {
     modify_field(meta.if_ipv4_addr, ipv4_addr);
     modify_field(meta.if_mac_addr, mac_addr);
     modify_field(meta.is_ext_if, is_ext);
 }
-
 table if_info {
     reads {
         meta.if_index : exact;
@@ -208,37 +176,30 @@ table if_info {
         set_if_info;
     }
 }
-
 action nat_miss_ext_to_int() {
     modify_field(meta.do_forward, 0);
     drop();
 }
-
 field_list copy_to_cpu_fields {
     standard_metadata;
 }
-
 action nat_miss_int_to_ext() {
     clone_ingress_pkt_to_egress(250, copy_to_cpu_fields);
 }
-
 action nat_hit_int_to_ext(srcAddr, srcPort) {
     modify_field(meta.do_forward, 1);
     modify_field(meta.ipv4_sa, srcAddr);
     modify_field(meta.tcp_sp, srcPort);
 }
-
 action nat_hit_ext_to_int(dstAddr, dstPort) {
     modify_field(meta.do_forward, 1);
     modify_field(meta.ipv4_da, dstAddr);
     modify_field(meta.tcp_dp, dstPort);
 }
-
 action nat_no_nat() {
     modify_field(meta.do_forward, 1);
 }
-
-table nat      {
+table nat {
     reads {
         meta.is_ext_if : exact;
         ipv4 : valid;
@@ -258,13 +219,11 @@ table nat      {
     }
     size : 128;
 }
-
 action set_nhop(nhop_ipv4, port) {
     modify_field(meta.nhop_ipv4, nhop_ipv4);
     modify_field(standard_metadata.egress_spec, port);
     add_to_field(ipv4.ttl, -1);
 }
-
 table ipv4_lpm {
     reads {
         meta.ipv4_da : lpm;
@@ -275,11 +234,9 @@ table ipv4_lpm {
     }
     size: 1024;
 }
-
 action set_dmac(dmac) {
     modify_field(ethernet.dstAddr, dmac);
 }
-
 table forward {
     reads {
         meta.nhop_ipv4 : exact;
@@ -290,7 +247,6 @@ table forward {
     }
     size: 512;
 }
-
 action do_rewrites(smac) {
     remove_header(cpu_header);
     modify_field(ethernet.srcAddr, smac);
@@ -299,7 +255,6 @@ action do_rewrites(smac) {
     modify_field(tcp.srcPort, meta.tcp_sp);
     modify_field(tcp.dstPort, meta.tcp_dp);
 }
-
 table send_frame {
     reads {
         standard_metadata.egress_port: exact;
@@ -310,7 +265,6 @@ table send_frame {
     }
     size: 256;
 }
-
 action do_cpu_encap() {
     add_header(cpu_header);
     modify_field(cpu_header.preamble, 0);
@@ -318,12 +272,10 @@ action do_cpu_encap() {
     modify_field(cpu_header.reason, 0xab);
     modify_field(cpu_header.if_index, meta.if_index);
 }
-
 table send_to_cpu {
     actions { do_cpu_encap; }
     size : 0;
 }
-
 control ingress {
     apply(if_info);
     apply(nat);
@@ -332,7 +284,6 @@ control ingress {
         apply(forward);
     }
 }
-
 control egress {
     if (standard_metadata.instance_type == 0) {
         apply(send_frame);
