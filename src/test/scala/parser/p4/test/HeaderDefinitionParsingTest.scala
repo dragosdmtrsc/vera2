@@ -3,6 +3,7 @@ package parser.p4.test
 import java.util
 
 import org.change.parser.p4._
+import org.change.parser.p4control.P4ToAbstractNetwork
 import org.change.utils.prettifier.JsonUtil
 import org.change.v2.p4.model.SwitchInstance
 import org.scalatest.FunSuite
@@ -152,6 +153,11 @@ class HeaderDefinitionParsingTest extends FunSuite {
     for (tab <- res.getDeclaredTables) {
       println(JsonUtil.toJson(new FullTable(tab, res).fullAction()))
     }
+  }
+
+  test("CONTROL - flow is parsed OK") {
+    val p4 = "inputs/simple-router/simple_router.p4"
+    P4ToAbstractNetwork.buildConfig(p4, "1")
   }
 
 }

@@ -1062,15 +1062,29 @@ public interface P4GrammarListener extends ParseTreeListener {
 	 */
 	void exitApply_and_select_block(P4GrammarParser.Apply_and_select_blockContext ctx);
 	/**
-	 * Enter a parse tree produced by {@link P4GrammarParser#case_list}.
+	 * Enter a parse tree produced by the {@code case_list_action}
+	 * labeled alternative in {@link P4GrammarParser#case_list}.
 	 * @param ctx the parse tree
 	 */
-	void enterCase_list(P4GrammarParser.Case_listContext ctx);
+	void enterCase_list_action(P4GrammarParser.Case_list_actionContext ctx);
 	/**
-	 * Exit a parse tree produced by {@link P4GrammarParser#case_list}.
+	 * Exit a parse tree produced by the {@code case_list_action}
+	 * labeled alternative in {@link P4GrammarParser#case_list}.
 	 * @param ctx the parse tree
 	 */
-	void exitCase_list(P4GrammarParser.Case_listContext ctx);
+	void exitCase_list_action(P4GrammarParser.Case_list_actionContext ctx);
+	/**
+	 * Enter a parse tree produced by the {@code case_list_hitmiss}
+	 * labeled alternative in {@link P4GrammarParser#case_list}.
+	 * @param ctx the parse tree
+	 */
+	void enterCase_list_hitmiss(P4GrammarParser.Case_list_hitmissContext ctx);
+	/**
+	 * Exit a parse tree produced by the {@code case_list_hitmiss}
+	 * labeled alternative in {@link P4GrammarParser#case_list}.
+	 * @param ctx the parse tree
+	 */
+	void exitCase_list_hitmiss(P4GrammarParser.Case_list_hitmissContext ctx);
 	/**
 	 * Enter a parse tree produced by {@link P4GrammarParser#action_case}.
 	 * @param ctx the parse tree
@@ -1132,25 +1146,137 @@ public interface P4GrammarListener extends ParseTreeListener {
 	 */
 	void exitElse_block(P4GrammarParser.Else_blockContext ctx);
 	/**
-	 * Enter a parse tree produced by {@link P4GrammarParser#bool_expr}.
+	 * Enter a parse tree produced by the {@code valid_bool_expr}
+	 * labeled alternative in {@link P4GrammarParser#bool_expr}.
 	 * @param ctx the parse tree
 	 */
-	void enterBool_expr(P4GrammarParser.Bool_exprContext ctx);
+	void enterValid_bool_expr(P4GrammarParser.Valid_bool_exprContext ctx);
 	/**
-	 * Exit a parse tree produced by {@link P4GrammarParser#bool_expr}.
+	 * Exit a parse tree produced by the {@code valid_bool_expr}
+	 * labeled alternative in {@link P4GrammarParser#bool_expr}.
 	 * @param ctx the parse tree
 	 */
-	void exitBool_expr(P4GrammarParser.Bool_exprContext ctx);
+	void exitValid_bool_expr(P4GrammarParser.Valid_bool_exprContext ctx);
 	/**
-	 * Enter a parse tree produced by {@link P4GrammarParser#exp}.
+	 * Enter a parse tree produced by the {@code compound_bool_expr}
+	 * labeled alternative in {@link P4GrammarParser#bool_expr}.
 	 * @param ctx the parse tree
 	 */
-	void enterExp(P4GrammarParser.ExpContext ctx);
+	void enterCompound_bool_expr(P4GrammarParser.Compound_bool_exprContext ctx);
 	/**
-	 * Exit a parse tree produced by {@link P4GrammarParser#exp}.
+	 * Exit a parse tree produced by the {@code compound_bool_expr}
+	 * labeled alternative in {@link P4GrammarParser#bool_expr}.
 	 * @param ctx the parse tree
 	 */
-	void exitExp(P4GrammarParser.ExpContext ctx);
+	void exitCompound_bool_expr(P4GrammarParser.Compound_bool_exprContext ctx);
+	/**
+	 * Enter a parse tree produced by the {@code par_bool_expr}
+	 * labeled alternative in {@link P4GrammarParser#bool_expr}.
+	 * @param ctx the parse tree
+	 */
+	void enterPar_bool_expr(P4GrammarParser.Par_bool_exprContext ctx);
+	/**
+	 * Exit a parse tree produced by the {@code par_bool_expr}
+	 * labeled alternative in {@link P4GrammarParser#bool_expr}.
+	 * @param ctx the parse tree
+	 */
+	void exitPar_bool_expr(P4GrammarParser.Par_bool_exprContext ctx);
+	/**
+	 * Enter a parse tree produced by the {@code relop_bool_expr}
+	 * labeled alternative in {@link P4GrammarParser#bool_expr}.
+	 * @param ctx the parse tree
+	 */
+	void enterRelop_bool_expr(P4GrammarParser.Relop_bool_exprContext ctx);
+	/**
+	 * Exit a parse tree produced by the {@code relop_bool_expr}
+	 * labeled alternative in {@link P4GrammarParser#bool_expr}.
+	 * @param ctx the parse tree
+	 */
+	void exitRelop_bool_expr(P4GrammarParser.Relop_bool_exprContext ctx);
+	/**
+	 * Enter a parse tree produced by the {@code negated_bool_expr}
+	 * labeled alternative in {@link P4GrammarParser#bool_expr}.
+	 * @param ctx the parse tree
+	 */
+	void enterNegated_bool_expr(P4GrammarParser.Negated_bool_exprContext ctx);
+	/**
+	 * Exit a parse tree produced by the {@code negated_bool_expr}
+	 * labeled alternative in {@link P4GrammarParser#bool_expr}.
+	 * @param ctx the parse tree
+	 */
+	void exitNegated_bool_expr(P4GrammarParser.Negated_bool_exprContext ctx);
+	/**
+	 * Enter a parse tree produced by the {@code const_bool}
+	 * labeled alternative in {@link P4GrammarParser#bool_expr}.
+	 * @param ctx the parse tree
+	 */
+	void enterConst_bool(P4GrammarParser.Const_boolContext ctx);
+	/**
+	 * Exit a parse tree produced by the {@code const_bool}
+	 * labeled alternative in {@link P4GrammarParser#bool_expr}.
+	 * @param ctx the parse tree
+	 */
+	void exitConst_bool(P4GrammarParser.Const_boolContext ctx);
+	/**
+	 * Enter a parse tree produced by the {@code compound_exp}
+	 * labeled alternative in {@link P4GrammarParser#exp}.
+	 * @param ctx the parse tree
+	 */
+	void enterCompound_exp(P4GrammarParser.Compound_expContext ctx);
+	/**
+	 * Exit a parse tree produced by the {@code compound_exp}
+	 * labeled alternative in {@link P4GrammarParser#exp}.
+	 * @param ctx the parse tree
+	 */
+	void exitCompound_exp(P4GrammarParser.Compound_expContext ctx);
+	/**
+	 * Enter a parse tree produced by the {@code field_red_exp}
+	 * labeled alternative in {@link P4GrammarParser#exp}.
+	 * @param ctx the parse tree
+	 */
+	void enterField_red_exp(P4GrammarParser.Field_red_expContext ctx);
+	/**
+	 * Exit a parse tree produced by the {@code field_red_exp}
+	 * labeled alternative in {@link P4GrammarParser#exp}.
+	 * @param ctx the parse tree
+	 */
+	void exitField_red_exp(P4GrammarParser.Field_red_expContext ctx);
+	/**
+	 * Enter a parse tree produced by the {@code par_exp}
+	 * labeled alternative in {@link P4GrammarParser#exp}.
+	 * @param ctx the parse tree
+	 */
+	void enterPar_exp(P4GrammarParser.Par_expContext ctx);
+	/**
+	 * Exit a parse tree produced by the {@code par_exp}
+	 * labeled alternative in {@link P4GrammarParser#exp}.
+	 * @param ctx the parse tree
+	 */
+	void exitPar_exp(P4GrammarParser.Par_expContext ctx);
+	/**
+	 * Enter a parse tree produced by the {@code value_exp}
+	 * labeled alternative in {@link P4GrammarParser#exp}.
+	 * @param ctx the parse tree
+	 */
+	void enterValue_exp(P4GrammarParser.Value_expContext ctx);
+	/**
+	 * Exit a parse tree produced by the {@code value_exp}
+	 * labeled alternative in {@link P4GrammarParser#exp}.
+	 * @param ctx the parse tree
+	 */
+	void exitValue_exp(P4GrammarParser.Value_expContext ctx);
+	/**
+	 * Enter a parse tree produced by the {@code unary_exp}
+	 * labeled alternative in {@link P4GrammarParser#exp}.
+	 * @param ctx the parse tree
+	 */
+	void enterUnary_exp(P4GrammarParser.Unary_expContext ctx);
+	/**
+	 * Exit a parse tree produced by the {@code unary_exp}
+	 * labeled alternative in {@link P4GrammarParser#exp}.
+	 * @param ctx the parse tree
+	 */
+	void exitUnary_exp(P4GrammarParser.Unary_expContext ctx);
 	/**
 	 * Enter a parse tree produced by {@link P4GrammarParser#value}.
 	 * @param ctx the parse tree
