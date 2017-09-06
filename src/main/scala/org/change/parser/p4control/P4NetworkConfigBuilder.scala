@@ -1,10 +1,11 @@
 package org.change.parser.p4control
 
-import org.antlr.v4.runtime._;
-import org.antlr.v4.runtime.tree._;
-import generated.p4control.P4GrammarBaseListener
-import generated.p4control.P4GrammarParser
-import generated.p4control.P4GrammarParser._
+import org.antlr.v4.runtime._
+import org.antlr.v4.runtime.tree._
+import generated.parse.p4.P4GrammarBaseListener
+import generated.parse.p4.P4GrammarParser
+import generated.parse.p4.P4GrammarParser._
+import generated.parse.p4.P4GrammarBaseListener
 import org.change.v2.abstractnet.generic._
 import org.change.v2.abstractnet.generic.NetworkConfig
 import org.change.v2.abstractnet.generic.GenericElement
@@ -17,7 +18,7 @@ import org.change.v2.analysis.expression.concrete._
 import org.change.v2.analysis.expression.concrete.nonprimitive._
 
 import scala.collection.JavaConversions.collectionAsScalaIterable
-import scala.collection.mutable.{ArrayBuffer,ListBuffer}
+import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 //import scala.collection.jcl.IdentityHashMap
 
 class P4NetworkConfigBuilder(val configName: Option[String] = None) extends P4GrammarBaseListener {
@@ -25,38 +26,38 @@ class P4NetworkConfigBuilder(val configName: Option[String] = None) extends P4Gr
   private val currentPort = -1
   private var currentTableName:ListBuffer[String] = new ListBuffer[String]
   private var currentInstructions:ListBuffer[ListBuffer[Instruction]] = new ListBuffer[ListBuffer[Instruction]]
-  private var currentTableInvocation = 0;
+  private var currentTableInvocation = 0
 
   private val elements = new ArrayBuffer[GenericElement]()
   private var pathBuilder: ArrayBuffer[PathComponent] = _
   private val foundPaths = ArrayBuffer[List[PathComponent]]()
-  val ports:scala.collection.mutable.Map[String,ListBuffer[Instruction]] = new scala.collection.mutable.LinkedHashMap[String, ListBuffer[Instruction]]();
-  val portsLiveBlocks:scala.collection.mutable.Map[String,ListBuffer[Instruction]] = new scala.collection.mutable.LinkedHashMap[String, ListBuffer[Instruction]]();
+  val ports:scala.collection.mutable.Map[String,ListBuffer[Instruction]] = new scala.collection.mutable.LinkedHashMap[String, ListBuffer[Instruction]]()
+  val portsLiveBlocks:scala.collection.mutable.Map[String,ListBuffer[Instruction]] = new scala.collection.mutable.LinkedHashMap[String, ListBuffer[Instruction]]()
 
-  val values:ParseTreeProperty[Integer] = new ParseTreeProperty[Integer]();
-  val constraints:ParseTreeProperty[FloatingConstraint] = new ParseTreeProperty[FloatingConstraint]();
-  val symbols:ParseTreeProperty[FloatingConstraint] = new ParseTreeProperty[FloatingConstraint]();
-  val expressions:ParseTreeProperty[FloatingExpression] = new ParseTreeProperty[FloatingExpression]();
+  val values:ParseTreeProperty[Integer] = new ParseTreeProperty[Integer]()
+  val constraints:ParseTreeProperty[FloatingConstraint] = new ParseTreeProperty[FloatingConstraint]()
+  val symbols:ParseTreeProperty[FloatingConstraint] = new ParseTreeProperty[FloatingConstraint]()
+  val expressions:ParseTreeProperty[FloatingExpression] = new ParseTreeProperty[FloatingExpression]()
 
-  val blocks:ParseTreeProperty[ListBuffer[Instruction]] = new ParseTreeProperty[ListBuffer[Instruction]]();
-  val blocksLast:ParseTreeProperty[ListBuffer[Instruction]] = new ParseTreeProperty[ListBuffer[Instruction]]();
+  val blocks:ParseTreeProperty[ListBuffer[Instruction]] = new ParseTreeProperty[ListBuffer[Instruction]]()
+  val blocksLast:ParseTreeProperty[ListBuffer[Instruction]] = new ParseTreeProperty[ListBuffer[Instruction]]()
 
   override def enterControl_function_declaration(ctx:Control_function_declarationContext){
-    println("Enter control function "+ ctx.control_fn_name.getText());
+    println("Enter control function "+ ctx.control_fn_name.getText)
   }
 
   override def exitControl_function_declaration(ctx:Control_function_declarationContext){
-    ports += (ctx.control_fn_name.getText() -> blocks.get(ctx.control_block))
+    ports += (ctx.control_fn_name.getText -> blocks.get(ctx.control_block))
 
-    println("\n\n------------------------------\nGenerated SEFL CODE for function "+ ctx.control_fn_name.getText() +"\n------------------------------\n")
+    println("\n\n------------------------------\nGenerated SEFL CODE for function "+ ctx.control_fn_name.getText +"\n------------------------------\n")
     for ((x,y) <- ports){
-      println(x+":");
+      println(x+":")
       for ( z <- y)
-        println("\t"+z);
+        println("\t"+z)
     }
 
     if(currentInstructions.length!=0){
-      System.out.println("Not expecting instructions at exit of ctrl function!\n"+currentInstructions);
+      System.out.println("Not expecting instructions at exit of ctrl function!\n"+currentInstructions)
     }
   }
 
@@ -72,8 +73,8 @@ class P4NetworkConfigBuilder(val configName: Option[String] = None) extends P4Gr
   }
 
   override def exitApply_table_call(ctx:Apply_table_callContext){
-    val portName = ctx.table_name.getText()+"_"+currentTableInvocation
-    println("Apply matched " + ctx.table_name.getText());
+    val portName = ctx.table_name.getText+"_"+currentTableInvocation
+    println("Apply matched " + ctx.table_name.getText)
 
     currentInstructions.head.append(Forward(portName))
 
@@ -81,7 +82,7 @@ class P4NetworkConfigBuilder(val configName: Option[String] = None) extends P4Gr
     currentInstructions.remove(0)
     currentInstructions.prepend(new ListBuffer[Instruction])
     ports += (portName -> currentInstructions.head)
-    currentInstructions.head.append(Forward(portName+"_output"));
+    currentInstructions.head.append(Forward(portName+"_output"))
 
     currentInstructions.remove(0)
     currentInstructions.prepend(new ListBuffer[Instruction])
@@ -101,15 +102,15 @@ class P4NetworkConfigBuilder(val configName: Option[String] = None) extends P4Gr
 */
 
   override def enterApply_and_select_block(ctx:Apply_and_select_blockContext){
-    val portName = ctx.table_name.getText()+"_"+currentTableInvocation
-    currentInstructions.head.append(Forward(portName));
+    val portName = ctx.table_name.getText+"_"+currentTableInvocation
+    currentInstructions.head.append(Forward(portName))
     currentTableName.prepend(portName)
 
     currentInstructions.remove(0)
 
     currentInstructions.prepend(new ListBuffer[Instruction])
     ports += (portName -> currentInstructions.head)
-    currentInstructions.head.append(Forward(currentTableName.head+"_output"));
+    currentInstructions.head.append(Forward(currentTableName.head+"_output"))
 
     currentTableInvocation+=1
     //here we should call Radu's action parsing code instead
@@ -117,7 +118,7 @@ class P4NetworkConfigBuilder(val configName: Option[String] = None) extends P4Gr
   }
 
   override def exitApply_and_select_block(ctx:Apply_and_select_blockContext){
-    println("Apply and select bmatched " + ctx.table_name.getText());
+    println("Apply and select bmatched " + ctx.table_name.getText)
 
     //adding fork if there are multiple forward instructions
 
@@ -128,14 +129,14 @@ class P4NetworkConfigBuilder(val configName: Option[String] = None) extends P4Gr
       })
 
     if (z.length>1){
-      ports(currentTableName.head).trimEnd(z.length);
-      ports(currentTableName.head).append(Fork(z));
+      ports(currentTableName.head).trimEnd(z.length)
+      ports(currentTableName.head).append(Fork(z))
     }
 
     currentInstructions.remove(0)
     currentInstructions.prepend(new ListBuffer[Instruction])
     ports += (currentTableName.head+"_output" -> currentInstructions.head)
-    currentTableName.remove(0);
+    currentTableName.remove(0)
   }
 
   override def enterAction_case(ctx:Action_caseContext){
@@ -145,13 +146,13 @@ class P4NetworkConfigBuilder(val configName: Option[String] = None) extends P4Gr
   }
 
   override def exitAction_case(ctx:Action_caseContext){
-    val portName = currentTableName.head + "_" + ctx.action_or_default().getText()
+    val portName = currentTableName.head + "_" + ctx.action_or_default().getText
 
     //currentInstructions.head.append(Forward(portName));
-    ports(currentTableName.head).append(Forward(portName));
+    ports(currentTableName.head).append(Forward(portName))
     //currentInstructions.prepend(new ListBuffer[Instruction])
 
-    ctx.action_or_default.getText() match {
+    ctx.action_or_default.getText match {
       case "default" =>
         ports += (portName -> blocks.get(ctx.control_block))
       case _ =>
@@ -164,12 +165,12 @@ class P4NetworkConfigBuilder(val configName: Option[String] = None) extends P4Gr
   }
 
   override def exitHit_miss_case(ctx:Hit_miss_caseContext){
-    val portName = currentTableName.head + "_" + ctx.hit_or_miss.getText()
+    val portName = currentTableName.head + "_" + ctx.hit_or_miss.getText
 
     //currentInstructions.head.append(Forward(portName));
-    ports(currentTableName.head).append(Forward(portName));
+    ports(currentTableName.head).append(Forward(portName))
 
-    ctx.hit_or_miss.getText() match {
+    ctx.hit_or_miss.getText match {
       case "hit" =>
         ports += (portName -> blocks.get(ctx.control_block))
       case "miss" =>
@@ -181,18 +182,18 @@ class P4NetworkConfigBuilder(val configName: Option[String] = None) extends P4Gr
   }
 
   override def exitField_name(ctx:Field_nameContext) {
-    println("Matched field name "+ctx.getText());
+    println("Matched field name "+ctx.getText)
   }
 
   override def exitConst_value(ctx:Const_valueContext) {
-    println("Matched const value "+ctx.getText());
+    println("Matched const value "+ctx.getText)
 
-    values.put(ctx,ctx.getText().toInt);
+    values.put(ctx,ctx.getText.toInt)
   }
 
   override def exitControl_statement(ctx:Control_statementContext){
     if (ctx.control_fn_name!=null){
-      currentInstructions.head.append(Forward(ctx.control_fn_name.getText()));
+      currentInstructions.head.append(Forward(ctx.control_fn_name.getText))
     }
   }
 
@@ -204,8 +205,8 @@ else_block : 'else' control_block
 
   override def exitIf_else_statement(ctx:If_else_statementContext){
     //bool_expr should be a constrain instruction we can use in the IF.
-    val labelName = "if_"+currentTableInvocation;
-    currentTableInvocation += 1;
+    val labelName = "if_"+currentTableInvocation
+    currentTableInvocation += 1
 
     val constr = blocks.get(ctx.bool_expr).head
     blocks.get(ctx.bool_expr).remove(0)
@@ -222,19 +223,19 @@ else_block : 'else' control_block
         InstructionBlock(blocks.get(ctx.bool_expr) ++ blocks.get(ctx.control_block)),
         if (ctx.else_block==null) NoOp
         else InstructionBlock(negated ++ blocks.get(ctx.else_block))
-      ));
+      ))
 
     blocksLast.get(ctx.control_block).append(Forward(labelName))
     if (ctx.else_block!=null)
       blocksLast.get(ctx.else_block.control_block).append(Forward(labelName))
 
-    currentInstructions.remove(0);
+    currentInstructions.remove(0)
     currentInstructions.prepend(new ListBuffer[Instruction])
     ports += (labelName -> currentInstructions.head)
   }
 
   override def exitElse_block(ctx:Else_blockContext){
-    blocks.put(ctx,blocks.get(ctx.control_block));
+    blocks.put(ctx,blocks.get(ctx.control_block))
   }
 
 //exp : exp bin_op exp # compound_exp
@@ -244,25 +245,25 @@ else_block : 'else' control_block
 //      | '(' exp ')' # par_exp ;
 
   override def exitCompound_exp(ctx:Compound_expContext){
-    println("FIXME Compound exp "+ctx.getText());
-  };
+    println("FIXME Compound exp "+ctx.getText)
+  }
 
   override def exitUnary_exp(ctx:Unary_expContext){
-    println("FIXME Unary exp "+ctx.getText());
-  };
+    println("FIXME Unary exp "+ctx.getText)
+  }
 
   override def exitField_red_exp(ctx:Field_red_expContext){
     //need to convert the field reference to a number; the current code will issue metadata accesses
-    expressions.put(ctx,:@(ctx.getText()))
-  };
+    expressions.put(ctx,:@(ctx.getText))
+  }
 
   override def exitValue_exp(ctx:Value_expContext){
-    expressions.put(ctx,ConstantValue(ctx.getText().toInt));
+    expressions.put(ctx,ConstantValue(ctx.getText.toInt))
   }
 
   override def exitPar_exp(ctx:Par_expContext){
-    println("Matched par expression "+ctx.getText());
-    expressions.put(ctx,expressions.get(ctx.exp));
+    println("Matched par expression "+ctx.getText)
+    expressions.put(ctx,expressions.get(ctx.exp))
   }
 
 //bool_expr : 'valid' '(' header_ref ')' # valid_bool_expr
@@ -279,13 +280,13 @@ else_block : 'else' control_block
 
     //the header parsing code should create the metadata named as the header (including [index]!?))
     blocks.get(ctx).append(Constrain(ctx.header_ref.getText,:==:(ConstantValue(1))))
-  };
+  }
 
   override def exitCompound_bool_expr(ctx:Compound_bool_exprContext){
-    println("Matched compound bool expr. FIXME ");
+    println("Matched compound bool expr. FIXME ")
 
     // bool_op can be "and" or "or"
-    blocks.put(ctx,new ListBuffer[Instruction]);
+    blocks.put(ctx,new ListBuffer[Instruction])
 
 
     ctx.bool_op.getText match {
@@ -301,14 +302,14 @@ else_block : 'else' control_block
           )
         )
     }
-  };
+  }
 
   override def exitPar_bool_expr(ctx:Par_bool_exprContext){
     blocks.put(ctx,blocks.get(ctx.bool_expr))
-  };
+  }
 
   override def exitRelop_bool_expr(ctx:Relop_bool_exprContext){
-    println("Matched relop bool expr " + expressions.get(ctx.exp(0))+ " " + expressions.get(ctx.exp(1)));
+    println("Matched relop bool expr " + expressions.get(ctx.exp(0))+ " " + expressions.get(ctx.exp(1)))
 
     val exp1 = expressions.get(ctx.exp(0))
     val exp2 = expressions.get(ctx.exp(1))
@@ -317,22 +318,22 @@ else_block : 'else' control_block
 
     exp1 match {
       case Symbol(x) =>
-        println ("Found symbol "+x);
+        println ("Found symbol "+x)
 
         ctx.rel_op.getText match {
           case "==" =>
             constraints.put(ctx, :==:(exp2))
             blocks.get(ctx).append(Constrain(x,:==:(exp2)))
 
-          case "!=" => println ("!= relop");
+          case "!=" => println ("!= relop")
             constraints.put(ctx, :~:(:==:(exp2)))
             blocks.get(ctx).append(Constrain(x,:~:(:==:(exp2))))
 
-          case "<" => println ("< relop");
+          case "<" => println ("< relop")
             constraints.put(ctx, :<:(exp2))            
             blocks.get(ctx).append(Constrain(x,:<:(exp2)))
 
-          case ">" => println ("> relop");
+          case ">" => println ("> relop")
             constraints.put(ctx, :>:(exp2))            
             blocks.get(ctx).append(Constrain(x,:>:(exp2)))
 
@@ -340,21 +341,21 @@ else_block : 'else' control_block
         }
 
       case Address(x) =>
-        println("Found address "+x);
+        println("Found address "+x)
         ctx.rel_op.getText match {
           case "==" =>
             constraints.put(ctx, :==:(exp2))
             blocks.get(ctx).append(Constrain(x,:==:(exp2)))
 
-          case "!=" => println ("!= relop");
+          case "!=" => println ("!= relop")
             constraints.put(ctx, :~:(:==:(exp2)))            
             blocks.get(ctx).append(Constrain(x,:~:(:==:(exp2))))
 
-          case "<" => println ("< relop");
+          case "<" => println ("< relop")
             constraints.put(ctx, :<:(exp2))            
             blocks.get(ctx).append(Constrain(x,:<:(exp2)))
 
-          case ">" => println ("> relop");
+          case ">" => println ("> relop")
             constraints.put(ctx, :>:(exp2))            
             blocks.get(ctx).append(Constrain(x,:>:(exp2)))
 
@@ -365,18 +366,18 @@ else_block : 'else' control_block
     }
     //exp1 must be either metadata or field ref
     //exp2 can be either constant, etc. 
-  };
+  }
 
   override def exitNegated_bool_expr(ctx:Negated_bool_exprContext){
     val exp = constraints.get(ctx.bool_expr)
     constraints.put(ctx, :~:(exp))
-  };
+  }
 
   override def exitConst_bool(ctx:Const_boolContext){
-    println("Matched const bool expr."); 
+    println("Matched const bool expr.")
 
-    values.put(ctx, (if (ctx.getText().equalsIgnoreCase("true")) 1 else 0));
-  };
+    values.put(ctx, (if (ctx.getText.equalsIgnoreCase("true")) 1 else 0))
+  }
 
   def buildNetworkConfig() = new NetworkConfig(configName, elements.map(element => (element.name, element)).toMap, foundPaths.toList)
 

@@ -6326,29 +6326,48 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Case_listContext extends ParserRuleContext {
+		public Case_listContext(ParserRuleContext parent, int invokingState) {
+			super(parent, invokingState);
+		}
+		@Override public int getRuleIndex() { return RULE_case_list; }
+	 
+		public Case_listContext() { }
+		public void copyFrom(Case_listContext ctx) {
+			super.copyFrom(ctx);
+		}
+	}
+	public static class Case_list_actionContext extends Case_listContext {
 		public List<Action_caseContext> action_case() {
 			return getRuleContexts(Action_caseContext.class);
 		}
 		public Action_caseContext action_case(int i) {
 			return getRuleContext(Action_caseContext.class,i);
 		}
+		public Case_list_actionContext(Case_listContext ctx) { copyFrom(ctx); }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).enterCase_list_action(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).exitCase_list_action(this);
+		}
+	}
+	public static class Case_list_hitmissContext extends Case_listContext {
 		public List<Hit_miss_caseContext> hit_miss_case() {
 			return getRuleContexts(Hit_miss_caseContext.class);
 		}
 		public Hit_miss_caseContext hit_miss_case(int i) {
 			return getRuleContext(Hit_miss_caseContext.class,i);
 		}
-		public Case_listContext(ParserRuleContext parent, int invokingState) {
-			super(parent, invokingState);
-		}
-		@Override public int getRuleIndex() { return RULE_case_list; }
+		public Case_list_hitmissContext(Case_listContext ctx) { copyFrom(ctx); }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).enterCase_list(this);
+			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).enterCase_list_hitmiss(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).exitCase_list(this);
+			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).exitCase_list_hitmiss(this);
 		}
 	}
 
@@ -6362,6 +6381,7 @@ public class P4GrammarParser extends Parser {
 			switch (_input.LA(1)) {
 			case T__45:
 			case NAME:
+				_localctx = new Case_list_actionContext(_localctx);
 				enterOuterAlt(_localctx, 1);
 				{
 				setState(988); 
@@ -6382,6 +6402,7 @@ public class P4GrammarParser extends Parser {
 				break;
 			case T__86:
 			case T__87:
+				_localctx = new Case_list_hitmissContext(_localctx);
 				enterOuterAlt(_localctx, 2);
 				{
 				setState(993); 
@@ -6726,15 +6747,65 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Bool_exprContext extends ParserRuleContext {
+		public Bool_exprContext(ParserRuleContext parent, int invokingState) {
+			super(parent, invokingState);
+		}
+		@Override public int getRuleIndex() { return RULE_bool_expr; }
+	 
+		public Bool_exprContext() { }
+		public void copyFrom(Bool_exprContext ctx) {
+			super.copyFrom(ctx);
+		}
+	}
+	public static class Valid_bool_exprContext extends Bool_exprContext {
 		public Header_refContext header_ref() {
 			return getRuleContext(Header_refContext.class,0);
 		}
+		public Valid_bool_exprContext(Bool_exprContext ctx) { copyFrom(ctx); }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).enterValid_bool_expr(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).exitValid_bool_expr(this);
+		}
+	}
+	public static class Compound_bool_exprContext extends Bool_exprContext {
 		public List<Bool_exprContext> bool_expr() {
 			return getRuleContexts(Bool_exprContext.class);
 		}
 		public Bool_exprContext bool_expr(int i) {
 			return getRuleContext(Bool_exprContext.class,i);
 		}
+		public Bool_opContext bool_op() {
+			return getRuleContext(Bool_opContext.class,0);
+		}
+		public Compound_bool_exprContext(Bool_exprContext ctx) { copyFrom(ctx); }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).enterCompound_bool_expr(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).exitCompound_bool_expr(this);
+		}
+	}
+	public static class Par_bool_exprContext extends Bool_exprContext {
+		public Bool_exprContext bool_expr() {
+			return getRuleContext(Bool_exprContext.class,0);
+		}
+		public Par_bool_exprContext(Bool_exprContext ctx) { copyFrom(ctx); }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).enterPar_bool_expr(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).exitPar_bool_expr(this);
+		}
+	}
+	public static class Relop_bool_exprContext extends Bool_exprContext {
 		public List<ExpContext> exp() {
 			return getRuleContexts(ExpContext.class);
 		}
@@ -6744,20 +6815,39 @@ public class P4GrammarParser extends Parser {
 		public Rel_opContext rel_op() {
 			return getRuleContext(Rel_opContext.class,0);
 		}
-		public Bool_opContext bool_op() {
-			return getRuleContext(Bool_opContext.class,0);
-		}
-		public Bool_exprContext(ParserRuleContext parent, int invokingState) {
-			super(parent, invokingState);
-		}
-		@Override public int getRuleIndex() { return RULE_bool_expr; }
+		public Relop_bool_exprContext(Bool_exprContext ctx) { copyFrom(ctx); }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).enterBool_expr(this);
+			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).enterRelop_bool_expr(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).exitBool_expr(this);
+			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).exitRelop_bool_expr(this);
+		}
+	}
+	public static class Negated_bool_exprContext extends Bool_exprContext {
+		public Bool_exprContext bool_expr() {
+			return getRuleContext(Bool_exprContext.class,0);
+		}
+		public Negated_bool_exprContext(Bool_exprContext ctx) { copyFrom(ctx); }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).enterNegated_bool_expr(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).exitNegated_bool_expr(this);
+		}
+	}
+	public static class Const_boolContext extends Bool_exprContext {
+		public Const_boolContext(Bool_exprContext ctx) { copyFrom(ctx); }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).enterConst_bool(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).exitConst_bool(this);
 		}
 	}
 
@@ -6781,6 +6871,10 @@ public class P4GrammarParser extends Parser {
 			switch ( getInterpreter().adaptivePredict(_input,82,_ctx) ) {
 			case 1:
 				{
+				_localctx = new Valid_bool_exprContext(_localctx);
+				_ctx = _localctx;
+				_prevctx = _localctx;
+
 				setState(1026);
 				match(T__35);
 				setState(1027);
@@ -6793,6 +6887,9 @@ public class P4GrammarParser extends Parser {
 				break;
 			case 2:
 				{
+				_localctx = new Negated_bool_exprContext(_localctx);
+				_ctx = _localctx;
+				_prevctx = _localctx;
 				setState(1031);
 				match(T__89);
 				setState(1032);
@@ -6801,6 +6898,9 @@ public class P4GrammarParser extends Parser {
 				break;
 			case 3:
 				{
+				_localctx = new Par_bool_exprContext(_localctx);
+				_ctx = _localctx;
+				_prevctx = _localctx;
 				setState(1033);
 				match(T__11);
 				setState(1034);
@@ -6811,6 +6911,9 @@ public class P4GrammarParser extends Parser {
 				break;
 			case 4:
 				{
+				_localctx = new Relop_bool_exprContext(_localctx);
+				_ctx = _localctx;
+				_prevctx = _localctx;
 				setState(1037);
 				exp(0);
 				setState(1038);
@@ -6821,12 +6924,18 @@ public class P4GrammarParser extends Parser {
 				break;
 			case 5:
 				{
+				_localctx = new Const_boolContext(_localctx);
+				_ctx = _localctx;
+				_prevctx = _localctx;
 				setState(1041);
 				match(T__78);
 				}
 				break;
 			case 6:
 				{
+				_localctx = new Const_boolContext(_localctx);
+				_ctx = _localctx;
+				_prevctx = _localctx;
 				setState(1042);
 				match(T__79);
 				}
@@ -6842,7 +6951,7 @@ public class P4GrammarParser extends Parser {
 					_prevctx = _localctx;
 					{
 					{
-					_localctx = new Bool_exprContext(_parentctx, _parentState);
+					_localctx = new Compound_bool_exprContext(new Bool_exprContext(_parentctx, _parentState));
 					pushNewRecursionContext(_localctx, _startState, RULE_bool_expr);
 					setState(1045);
 					if (!(precpred(_ctx, 6))) throw new FailedPredicateException(this, "precpred(_ctx, 6)");
@@ -6871,35 +6980,93 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class ExpContext extends ParserRuleContext {
-		public Un_opContext un_op() {
-			return getRuleContext(Un_opContext.class,0);
+		public ExpContext(ParserRuleContext parent, int invokingState) {
+			super(parent, invokingState);
 		}
+		@Override public int getRuleIndex() { return RULE_exp; }
+	 
+		public ExpContext() { }
+		public void copyFrom(ExpContext ctx) {
+			super.copyFrom(ctx);
+		}
+	}
+	public static class Compound_expContext extends ExpContext {
 		public List<ExpContext> exp() {
 			return getRuleContexts(ExpContext.class);
 		}
 		public ExpContext exp(int i) {
 			return getRuleContext(ExpContext.class,i);
 		}
-		public Field_refContext field_ref() {
-			return getRuleContext(Field_refContext.class,0);
-		}
-		public ValueContext value() {
-			return getRuleContext(ValueContext.class,0);
-		}
 		public Bin_opContext bin_op() {
 			return getRuleContext(Bin_opContext.class,0);
 		}
-		public ExpContext(ParserRuleContext parent, int invokingState) {
-			super(parent, invokingState);
-		}
-		@Override public int getRuleIndex() { return RULE_exp; }
+		public Compound_expContext(ExpContext ctx) { copyFrom(ctx); }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).enterExp(this);
+			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).enterCompound_exp(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).exitExp(this);
+			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).exitCompound_exp(this);
+		}
+	}
+	public static class Field_red_expContext extends ExpContext {
+		public Field_refContext field_ref() {
+			return getRuleContext(Field_refContext.class,0);
+		}
+		public Field_red_expContext(ExpContext ctx) { copyFrom(ctx); }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).enterField_red_exp(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).exitField_red_exp(this);
+		}
+	}
+	public static class Par_expContext extends ExpContext {
+		public ExpContext exp() {
+			return getRuleContext(ExpContext.class,0);
+		}
+		public Par_expContext(ExpContext ctx) { copyFrom(ctx); }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).enterPar_exp(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).exitPar_exp(this);
+		}
+	}
+	public static class Value_expContext extends ExpContext {
+		public ValueContext value() {
+			return getRuleContext(ValueContext.class,0);
+		}
+		public Value_expContext(ExpContext ctx) { copyFrom(ctx); }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).enterValue_exp(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).exitValue_exp(this);
+		}
+	}
+	public static class Unary_expContext extends ExpContext {
+		public Un_opContext un_op() {
+			return getRuleContext(Un_opContext.class,0);
+		}
+		public ExpContext exp() {
+			return getRuleContext(ExpContext.class,0);
+		}
+		public Unary_expContext(ExpContext ctx) { copyFrom(ctx); }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).enterUnary_exp(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).exitUnary_exp(this);
 		}
 	}
 
@@ -6923,6 +7090,10 @@ public class P4GrammarParser extends Parser {
 			switch ( getInterpreter().adaptivePredict(_input,84,_ctx) ) {
 			case 1:
 				{
+				_localctx = new Unary_expContext(_localctx);
+				_ctx = _localctx;
+				_prevctx = _localctx;
+
 				setState(1055);
 				un_op();
 				setState(1056);
@@ -6931,18 +7102,27 @@ public class P4GrammarParser extends Parser {
 				break;
 			case 2:
 				{
+				_localctx = new Field_red_expContext(_localctx);
+				_ctx = _localctx;
+				_prevctx = _localctx;
 				setState(1058);
 				field_ref();
 				}
 				break;
 			case 3:
 				{
+				_localctx = new Value_expContext(_localctx);
+				_ctx = _localctx;
+				_prevctx = _localctx;
 				setState(1059);
 				value();
 				}
 				break;
 			case 4:
 				{
+				_localctx = new Par_expContext(_localctx);
+				_ctx = _localctx;
+				_prevctx = _localctx;
 				setState(1060);
 				match(T__11);
 				setState(1061);
@@ -6962,7 +7142,7 @@ public class P4GrammarParser extends Parser {
 					_prevctx = _localctx;
 					{
 					{
-					_localctx = new ExpContext(_parentctx, _parentState);
+					_localctx = new Compound_expContext(new ExpContext(_parentctx, _parentState));
 					pushNewRecursionContext(_localctx, _startState, RULE_exp);
 					setState(1066);
 					if (!(precpred(_ctx, 5))) throw new FailedPredicateException(this, "precpred(_ctx, 5)");

@@ -1,11 +1,13 @@
 package org.change.parser.p4control
 
-import java.io.{FileInputStream, File, InputStream}
-import generated.p4control.{P4GrammarParser, P4GrammarLexer}
+import java.io.{File, FileInputStream, InputStream}
+
+import generated.p4control.{P4GrammarLexer, P4GrammarParser}
+import generated.parse.p4.{P4GrammarLexer, P4GrammarParser}
 import org.change.v2.abstractnet.generic.NetworkConfigBuilder
-import org.antlr.v4.runtime.{CommonTokenStream, ANTLRInputStream}
-import org.antlr.v4.runtime.tree.{ParseTreeWalker, ParseTree}
-import org.change.v2.abstractnet.generic.{NetworkConfigBuilder, NetworkConfig}
+import org.antlr.v4.runtime.{ANTLRInputStream, CommonTokenStream}
+import org.antlr.v4.runtime.tree.{ParseTree, ParseTreeWalker}
+import org.change.v2.abstractnet.generic.{NetworkConfig, NetworkConfigBuilder}
 
 /**
  * Costin Raiciu
