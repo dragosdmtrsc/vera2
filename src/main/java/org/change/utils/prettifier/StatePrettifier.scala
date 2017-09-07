@@ -312,9 +312,7 @@ object JsonUtil {
       classOf[E], classOf[GT], classOf[GTE], classOf[LT],
       classOf[LTE], classOf[NOT], classOf[OR], classOf[Range],
       classOf[EQ_E], classOf[GT_E], classOf[GTE_E], classOf[LT_E],
-      classOf[LTE_E], NoOp.getClass,
-      LongType.getClass, IP4Type.getClass, MACType.getClass,
-      PortType.getClass, ProtoType.getClass, VLANType.getClass)
+      classOf[LTE_E])
   mapper.registerSubtypes(
       new NamedType(classOf[ConstrainRaw], "ConstrainRaw"),
       new NamedType(classOf[ConstrainNamedSymbol], "ConstrainNamedSymbol"),
@@ -329,6 +327,7 @@ object JsonUtil {
       new NamedType(classOf[Forward], "Forward"),
       new NamedType(classOf[Fork], "Fork"),
       new NamedType(classOf[Fail], "Fail"),
+      new NamedType(NoOp.getClass, "NoOp"),
       new NamedType(classOf[CreateTag], "CreateTag")
   )
   
@@ -345,7 +344,14 @@ object JsonUtil {
       new NamedType(classOf[:>=:], "f_gte"),
       new NamedType(classOf[:<=:], "f_lte"),
       new NamedType(classOf[:>=:], "f_gte"),
-      new NamedType(classOf[:==:], "f_eq")
+      new NamedType(classOf[:==:], "f_eq"),
+      new NamedType(LongType.getClass, "LongType"),
+      new NamedType(IP4Type.getClass, "IPv4"),
+      new NamedType(MACType.getClass, "MAC"),
+      new NamedType(PortType.getClass, "PortType"),
+      new NamedType(ProtoType.getClass, "ProtoType"),
+      new NamedType(VLANType.getClass, "VLANType")
+
   )
   
   mapper.registerSubtypes(

@@ -1,28 +1,24 @@
-package org.change.parser.p4control
+package org.change.parser.p4.control
 
-import org.antlr.v4.runtime._
-import org.antlr.v4.runtime.tree._
-import generated.parse.p4.P4GrammarBaseListener
-import generated.parse.p4.P4GrammarParser
+import java.util
+import java.util.UUID
+
+import generated.parse.p4.{P4GrammarBaseListener, P4GrammarParser}
 import generated.parse.p4.P4GrammarParser._
-import generated.parse.p4.P4GrammarBaseListener
+import org.antlr.v4.runtime.tree._
 import org.change.parser.p4.ValueSpecificationParser
-import org.change.v2.abstractnet.generic._
-import org.change.v2.abstractnet.generic.NetworkConfig
-import org.change.v2.abstractnet.generic.GenericElement
-import org.change.v2.analysis.processingmodels.instructions._
-import org.change.v2.analysis.processingmodels.instructions.FloatingConstraint
-import org.change.v2.analysis.processingmodels.Instruction
-import org.change.v2.analysis.constraint.Constraint
+import org.change.v2.abstractnet.generic.{GenericElement, NetworkConfig, _}
 import org.change.v2.analysis.expression.abst._
 import org.change.v2.analysis.expression.concrete._
 import org.change.v2.analysis.expression.concrete.nonprimitive._
+import org.change.v2.analysis.processingmodels.Instruction
+import org.change.v2.analysis.processingmodels.instructions.{FloatingConstraint, _}
 
-import scala.collection.JavaConversions.collectionAsScalaIterable
-import scala.collection.mutable.{ArrayBuffer, ListBuffer}
+import scala.collection.JavaConversions._
+import scala.collection.mutable.{ArrayBuffer, ListBuffer, Map}
 //import scala.collection.jcl.IdentityHashMap
 
-class P4NetworkConfigBuilder(val configName: Option[String] = None) extends P4GrammarBaseListener {
+class P4NetworkConfigBuilder extends P4GrammarBaseListener {
 
   private val currentPort = -1
   private var currentTableName:ListBuffer[String] = new ListBuffer[String]
@@ -32,23 +28,27 @@ class P4NetworkConfigBuilder(val configName: Option[String] = None) extends P4Gr
   private val elements = new ArrayBuffer[GenericElement]()
   private var pathBuilder: ArrayBuffer[PathComponent] = _
   private val foundPaths = ArrayBuffer[List[PathComponent]]()
-  val ports:scala.collection.mutable.Map[String,ListBuffer[Instruction]] = new scala.collection.mutable.LinkedHashMap[String, ListBuffer[Instruction]]()
-  val portsLiveBlocks:scala.collection.mutable.Map[String,ListBuffer[Instruction]] = new scala.collection.mutable.LinkedHashMap[String, ListBuffer[Instruction]]()
+  private val ports:scala.collection.mutable.Map[String,ListBuffer[Instruction]] = new scala.collection.mutable.LinkedHashMap[String, ListBuffer[Instruction]]()
+  private val portsLiveBlocks:scala.collection.mutable.Map[String,ListBuffer[Instruction]] = new scala.collection.mutable.LinkedHashMap[String, ListBuffer[Instruction]]()
 
-  val values:ParseTreeProperty[Integer] = new ParseTreeProperty[Integer]()
-  val constraints:ParseTreeProperty[FloatingConstraint] = new ParseTreeProperty[FloatingConstraint]()
-  val symbols:ParseTreeProperty[FloatingConstraint] = new ParseTreeProperty[FloatingConstraint]()
-  val expressions:ParseTreeProperty[FloatingExpression] = new ParseTreeProperty[FloatingExpression]()
+  private val values:ParseTreeProperty[Integer] = new ParseTreeProperty[Integer]()
+  private val constraints:ParseTreeProperty[FloatingConstraint] = new ParseTreeProperty[FloatingConstraint]()
+  private val symbols:ParseTreeProperty[FloatingConstraint] = new ParseTreeProperty[FloatingConstraint]()
+  private val expressions:ParseTreeProperty[FloatingExpression] = new ParseTreeProperty[FloatingExpression]()
 
-  val blocks:ParseTreeProperty[ListBuffer[Instruction]] = new ParseTreeProperty[ListBuffer[Instruction]]()
-  val blocksLast:ParseTreeProperty[ListBuffer[Instruction]] = new ParseTreeProperty[ListBuffer[Instruction]]()
+  private val blocks:ParseTreeProperty[ListBuffer[Instruction]] = new ParseTreeProperty[ListBuffer[Instruction]]()
+  private val blocksLast:ParseTreeProperty[ListBuffer[Instruction]] = new ParseTreeProperty[ListBuffer[Instruction]]()
 
   override def enterControl_function_declaration(ctx:Control_function_declarationContext){
     println("Enter control function "+ ctx.control_fn_name.getText)
+    ctx.controlFunctionName = ctx.control_fn_name().NAME().getText
+    ctx.control_block().parent = s"control.${ctx.controlFunctionName}"
   }
 
   override def exitControl_function_declaration(ctx:Control_function_declarationContext){
     ports += (ctx.control_fn_name.getText -> blocks.get(ctx.control_block))
+
+    this.instructions.put(s"control.${ctx.controlFunctionName}", Forward(s"control.${ctx.controlFunctionName}" + "[0]"))
 
     println("\n\n------------------------------\nGenerated SEFL CODE for function "+ ctx.control_fn_name.getText +"\n------------------------------\n")
     for ((x,y) <- ports){
@@ -62,20 +62,72 @@ class P4NetworkConfigBuilder(val configName: Option[String] = None) extends P4Gr
     }
   }
 
-  override def enterControl_block(ctx:Control_blockContext){
+  override def enterControl_block(ctx:Control_blockContext) {
     currentInstructions.prepend(new ListBuffer[Instruction])
     //associate current instructions to the context
     blocks.put(ctx,currentInstructions.head)
+    var  i =0
+    ctx.instructions = new util.ArrayList[Instruction]()
+    for (cs <- ctx.control_statement()) {
+      cs.parent = s"${ctx.parent}[$i]"
+      i = i + 1
+    }
   }
 
+  val instructions : Map[String, Instruction]  = Map[String, Instruction]()
+  val links : Map[String, String] = Map[String, String]()
   override def exitControl_block(ctx:Control_blockContext){
     blocksLast.put(ctx,currentInstructions.head)
     currentInstructions.remove(0)
+    var  i = 0
+    for (cs <- ctx.control_statement()) {
+      ctx.instructions.add(cs.instruction)
+      // the parent should add the mappings to get them straight
+      this.instructions.put(s"${ctx.parent}[$i]", cs.instruction)
+      if (i + 1 < ctx.control_statement().size()) {
+        this.links.put(s"${ctx.parent}[$i].out", s"${ctx.parent}[${i + 1}]")
+      } else {
+        this.links.put(s"${ctx.parent}[$i].out", s"${ctx.parent}.out")
+      }
+      i = i + 1
+    }
+  }
+
+  override def enterControl_statement(ctx: Control_statementContext): Unit = {
+    if (ctx.apply_table_call() != null) {
+      ctx.apply_table_call().parent = ctx.parent
+    } else if (ctx.apply_and_select_block() != null) {
+      ctx.apply_and_select_block().parent = ctx.parent
+    } else if (ctx.if_else_statement() != null) {
+      ctx.if_else_statement().parent = ctx.parent
+    }
+  }
+
+  override def exitControl_statement(ctx:Control_statementContext){
+    if (ctx.control_fn_name!=null){
+      val cfName = ctx.control_fn_name.getText
+      val execId = UUID.randomUUID().toString
+      ctx.instruction = Forward(s"$cfName.$execId")
+      this.links.put(s"control.$cfName.out.$execId", ctx.parent + ".out")
+      currentInstructions.head.append(ctx.instruction)
+    } else if (ctx.apply_table_call() != null) {
+      ctx.instruction = ctx.apply_table_call().instruction
+    } else if (ctx.apply_and_select_block() != null) {
+      ctx.instruction = ctx.apply_and_select_block().instruction
+    } else if (ctx.if_else_statement() != null) {
+      ctx.instruction = ctx.if_else_statement().instruction
+    } else {
+      throw new IllegalStateException("Got null for all statements")
+    }
   }
 
   override def exitApply_table_call(ctx:Apply_table_callContext){
-    val portName = ctx.table_name.getText+"_"+currentTableInvocation
+    val execId = UUID.randomUUID().toString
+    val portName = s"table.${ctx.table_name().getText}.in.$execId"
     println("Apply matched " + ctx.table_name.getText)
+
+    ctx.instruction = Forward(s"table.${ctx.table_name().getText}.in.$execId")
+    this.links.put(s"table.${ctx.table_name().getText}.out.$execId", ctx.parent + ".out")
 
     currentInstructions.head.append(Forward(portName))
 
@@ -103,7 +155,9 @@ class P4NetworkConfigBuilder(val configName: Option[String] = None) extends P4Gr
 */
 
   override def enterApply_and_select_block(ctx:Apply_and_select_blockContext){
-    val portName = ctx.table_name.getText+"_"+currentTableInvocation
+    val portName = s"table.${ctx.table_name().getText}.in.${UUID.randomUUID().toString}"
+    ctx.case_list().parent = ctx.parent
+
     currentInstructions.head.append(Forward(portName))
     currentTableName.prepend(portName)
 
@@ -118,11 +172,21 @@ class P4NetworkConfigBuilder(val configName: Option[String] = None) extends P4Gr
     //currentInstructions.head.append(Forward(ctx.table_name.getText()+"_output"));
   }
 
+
   override def exitApply_and_select_block(ctx:Apply_and_select_blockContext){
     println("Apply and select bmatched " + ctx.table_name.getText)
 
     //adding fork if there are multiple forward instructions
-
+    // TODO: Wire it up
+    val execId = UUID.randomUUID().toString
+    this.instructions.put(ctx.parent, Forward(s"table.${ctx.table_name().getText}.in.$execId"))
+    this.links.put(s"table.${ctx.table_name().getText}.out.$execId", s"${ctx.parent}.select")
+    this.instructions.put(s"${ctx.parent}.select",
+      ctx.case_list().instructions.map(_.asInstanceOf[If]).foldRight(NoOp : Instruction)((x, acc) => {
+        If (x.testInstr, x.thenWhat, acc)
+      })
+    )
+    this.links.put(s"${ctx.parent}[${ctx.case_list().instructions.size() - 1}].out", s"${ctx.parent}.out")
     val z = ports(currentTableName.head).reverse.takeWhile(
       _ match {
         case x:Forward => true
@@ -140,15 +204,75 @@ class P4NetworkConfigBuilder(val configName: Option[String] = None) extends P4Gr
     currentTableName.remove(0)
   }
 
+  override def enterCase_list_action(ctx: Case_list_actionContext): Unit = {
+    var i = 0
+    ctx.instructions = new util.ArrayList[Instruction]()
+    for (ac <- ctx.action_case()) {
+      ac.parent = s"${ctx.parent}[$i]"
+      i = i + 1
+    }
+  }
+
+  override def exitCase_list_action(ctx: Case_list_actionContext): Unit = {
+    var i = 0
+    for (ac <- ctx.action_case()) {
+      ctx.instructions.add(ac.instruction)
+      i = i + 1
+    }
+  }
+
+  override def enterCase_list_hitmiss(ctx: Case_list_hitmissContext): Unit = {
+    var i = 0
+    ctx.instructions = new util.ArrayList[Instruction]()
+    for (ac <- ctx.hit_miss_case()) {
+      ac.parent = s"${ctx.parent}[$i]"
+      i = i + 1
+    }
+  }
+
+  override def exitCase_list_hitmiss(ctx: Case_list_hitmissContext): Unit = {
+    var i = 0
+    for (ac <- ctx.hit_miss_case()) {
+      ctx.instructions.add(ac.instruction)
+      i = i + 1
+    }
+  }
+
+  override def enterHit_miss_case(ctx: Hit_miss_caseContext): Unit = {
+    ctx.control_block().parent = ctx.parent
+  }
+
+  override def exitHit_miss_case(ctx:Hit_miss_caseContext){
+    val portName = currentTableName.head + "_" + ctx.hit_or_miss.getText
+
+    ctx.instruction = If (Constrain(currentTableName.head + ".Hit", :==:(ConstantValue(if (ctx.hit_or_miss().getText == "hit") 1 else 0))),
+      Forward(ctx.parent + "[0]")
+    )
+    //currentInstructions.head.append(Forward(portName));
+    ports(currentTableName.head).append(Forward(portName))
+
+    ctx.hit_or_miss.getText match {
+      case "hit" =>
+        ports += (portName -> blocks.get(ctx.control_block))
+      case "miss" =>
+        ports += (portName -> blocks.get(ctx.control_block))
+    }
+
+    blocksLast.get(ctx.control_block).append(Forward(currentTableName.head+"_output"))
+    //currentInstructions.head.append(Forward(currentTableName.head+"_output"))
+  }
+
   override def enterAction_case(ctx:Action_caseContext){
     //must make room for control block instructions!
     //this will create a new control block with a specific port.
-
+    ctx.control_block().parent = ctx.parent
   }
 
   override def exitAction_case(ctx:Action_caseContext){
     val portName = currentTableName.head + "_" + ctx.action_or_default().getText
-
+    ctx.instruction = If (Constrain(ctx.action_or_default().getText + ".Fired", :==:(ConstantValue(1))),
+      Forward(ctx.parent + "[0]")
+    )
     //currentInstructions.head.append(Forward(portName));
     ports(currentTableName.head).append(Forward(portName))
     //currentInstructions.prepend(new ListBuffer[Instruction])
@@ -165,57 +289,36 @@ class P4NetworkConfigBuilder(val configName: Option[String] = None) extends P4Gr
     blocksLast.get(ctx.control_block).append(Forward(currentTableName.head+"_output"))
   }
 
-  override def exitHit_miss_case(ctx:Hit_miss_caseContext){
-    val portName = currentTableName.head + "_" + ctx.hit_or_miss.getText
 
-    //currentInstructions.head.append(Forward(portName));
-    ports(currentTableName.head).append(Forward(portName))
 
-    ctx.hit_or_miss.getText match {
-      case "hit" =>
-        ports += (portName -> blocks.get(ctx.control_block))
-      case "miss" =>
-        ports += (portName -> blocks.get(ctx.control_block))
-    }
+  /*if_else_statement : 'if' '(' bool_expr ')' control_block ( else_block )? ;
 
-    blocksLast.get(ctx.control_block).append(Forward(currentTableName.head+"_output"))
-    //currentInstructions.head.append(Forward(currentTableName.head+"_output"))
-  }
+  else_block : 'else' control_block
+             | 'else' if_else_statement ;
+   */
 
-  override def exitField_name(ctx:Field_nameContext) {
-    println("Matched field name "+ctx.getText)
-  }
-
-  override def exitConst_value(ctx: P4GrammarParser.Const_valueContext): Unit =
-  //TODO: Support the width field
-    ctx.constValue = (if (ctx.getText().startsWith("-")) -1 else 1) *
-      ctx.unsigned_value().unsignedValue
-
-  override def exitHexadecimalUValue(ctx: P4GrammarParser.HexadecimalUValueContext): Unit =
-    ctx.unsignedValue = ValueSpecificationParser.hexToInt(ctx.Hexadecimal_value().getText.substring(2))
-
-  override def exitDecimalUValue(ctx: P4GrammarParser.DecimalUValueContext): Unit =
-    ctx.unsignedValue = ValueSpecificationParser.decimalToInt(ctx.Decimal_value().getText)
-
-  override def exitBinaryUValue(ctx: P4GrammarParser.BinaryUValueContext): Unit =
-    ctx.unsignedValue = ValueSpecificationParser.binaryToInt(ctx.Binary_value().getText)
-
-  override def exitControl_statement(ctx:Control_statementContext){
-    if (ctx.control_fn_name!=null){
-      currentInstructions.head.append(Forward(ctx.control_fn_name.getText))
+  override def enterIf_else_statement(ctx: If_else_statementContext): Unit = {
+    ctx.control_block().parent = ctx.parent + "[if]"
+    if (ctx.else_block() != null) {
+      ctx.else_block().parent = ctx.parent + "[else]"
     }
   }
-
-/*if_else_statement : 'if' '(' bool_expr ')' control_block ( else_block )? ;
-
-else_block : 'else' control_block
-           | 'else' if_else_statement ;
- */
 
   override def exitIf_else_statement(ctx:If_else_statementContext){
     //bool_expr should be a constrain instruction we can use in the IF.
     val labelName = "if_"+currentTableInvocation
     currentTableInvocation += 1
+
+    ctx.instruction = If (
+      InstructionBlock(
+        blocks.get(ctx.bool_expr)
+      ),
+      Forward(ctx.parent + "[if][0]"),
+      Forward(s"${ctx.parent}[else][0]")
+    )
+
+    this.links.put(ctx.parent + "[if].out", s"${ctx.parent}.out")
+    this.links.put(ctx.parent + "[else].out", s"${ctx.parent}.out")
 
     val constr = blocks.get(ctx.bool_expr).head
     blocks.get(ctx.bool_expr).remove(0)
@@ -243,9 +346,48 @@ else_block : 'else' control_block
     ports += (labelName -> currentInstructions.head)
   }
 
+  override def enterElse_block(ctx: Else_blockContext): Unit = {
+    if (ctx.control_block() != null) {
+      ctx.control_block().parent = ctx.parent
+    } else if (ctx.if_else_statement() != null) {
+      ctx.if_else_statement().parent = ctx.parent
+
+    }
+  }
+
   override def exitElse_block(ctx:Else_blockContext){
+    if (ctx.control_block() != null) {
+      //Nothing to do here, the control_block() will place
+      // instructions in the table correctlys
+//      ctx.control_block().parent = ctx.parent
+    } else if (ctx.if_else_statement() != null) {
+      ctx.if_else_statement().parent = ctx.parent
+      //TODO: Here, please insert into the instruction table parent[0]
+      //referencing the if_else_statement().instruction() and some links perhaps
+      this.instructions.put(ctx.parent + "[0]", ctx.if_else_statement().instruction)
+    }
     blocks.put(ctx,blocks.get(ctx.control_block))
   }
+
+
+  override def exitField_name(ctx:Field_nameContext) {
+    println("Matched field name "+ctx.getText)
+  }
+
+  override def exitConst_value(ctx: P4GrammarParser.Const_valueContext): Unit =
+  //TODO: Support the width field
+    ctx.constValue = (if (ctx.getText().startsWith("-")) -1 else 1) *
+      ctx.unsigned_value().unsignedValue
+
+  override def exitHexadecimalUValue(ctx: P4GrammarParser.HexadecimalUValueContext): Unit =
+    ctx.unsignedValue = ValueSpecificationParser.hexToInt(ctx.Hexadecimal_value().getText.substring(2))
+
+  override def exitDecimalUValue(ctx: P4GrammarParser.DecimalUValueContext): Unit =
+    ctx.unsignedValue = ValueSpecificationParser.decimalToInt(ctx.Decimal_value().getText)
+
+  override def exitBinaryUValue(ctx: P4GrammarParser.BinaryUValueContext): Unit =
+    ctx.unsignedValue = ValueSpecificationParser.binaryToInt(ctx.Binary_value().getText)
+
 
 //exp : exp bin_op exp # compound_exp
 //      | un_op exp # unary_exp
@@ -288,7 +430,7 @@ else_block : 'else' control_block
     blocks.put(ctx,new ListBuffer[Instruction])
 
     //the header parsing code should create the metadata named as the header (including [index]!?))
-    blocks.get(ctx).append(Constrain(ctx.header_ref.getText,:==:(ConstantValue(1))))
+    blocks.get(ctx).append(Constrain(ctx.header_ref.getText + ".IsValid",:==:(ConstantValue(1))))
   }
 
   override def exitCompound_bool_expr(ctx:Compound_bool_exprContext){
@@ -388,8 +530,6 @@ else_block : 'else' control_block
     values.put(ctx, (if (ctx.getText.equalsIgnoreCase("true")) 1 else 0))
   }
 
-  def buildNetworkConfig() = new NetworkConfig(configName, elements.map(element => (element.name, element)).toMap, foundPaths.toList)
-
-  private def buildElementName(elementName: String): String =  elementName
+  def buildNetworkConfig() = new NetworkConfig(None, elements.map(element => (element.name, element)).toMap, foundPaths.toList)
 
 }

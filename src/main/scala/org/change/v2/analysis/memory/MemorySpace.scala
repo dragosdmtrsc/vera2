@@ -137,6 +137,94 @@ case class MemorySpace(val symbols: Map[String, MemoryObject] = Map.empty,
   else
     None
 
+
+  def addConstraint(id : String, c : Constraint) : Option[MemorySpace] = addConstraint(id, c, false)
+  def addConstraint(id : String, c : Constraint, defer : Boolean) : Option[MemorySpace] = eval(id).flatMap(smb => {
+    //    val (newSmb, isSolved) = checkSat(smb.copy(e = normalize(smb.e)), normalize(c))
+    val (newSmb, isSolved) = (Option[Value](smb.constrain(c)), false)
+    if (isSolved)
+    {
+      if (newSmb.isDefined)
+      {
+        Some(replaceValue(id, newSmb.get).get)
+      }
+      else
+      {
+        None
+      }
+    }
+    else
+    {
+      val newMem = replaceValue(id, newSmb.get).get
+      val subject = newMem.eval(id).get
+      if (defer)
+        Some(newMem)
+      else
+      {
+        c match {
+          case EQ_E(someE) if someE.id == subject.e.id => Some(newMem)
+          case GT_E(someE) if someE.id == subject.e.id => None
+          case GTE_E(someE) if someE.id == subject.e.id => Some(newMem)
+          case LT_E(someE) if someE.id == subject.e.id => None
+          case LTE_E(someE) if someE.id == subject.e.id => Some(newMem)
+          case _ => if (!defer) memoryToOption(newMem) else Some(newMem)
+        }
+      }
+    }
+
+  })
+
+  /**
+    * ONLY RUN THIS after checkSat
+    */
+  def checkRedundant(v : Value, c : Constraint) : (Value, Boolean) = {
+    (v.constrain(c), false)
+  }
+
+  def addConstraint(r : Either[Int, String], c : Constraint, defer : Boolean) : Option[MemorySpace] = r match {
+    case Left(a) => addConstraint(a, c, defer)
+    case Right(s) => addConstraint(s, c, defer)
+  }
+
+
+  def addConstraint(a : Int, c : Constraint)  : Option[MemorySpace] = addConstraint(a, c, false)
+  def addConstraint(a : Int, c : Constraint, defer : Boolean) : Option[MemorySpace] = eval(a).flatMap(smb => {
+    val (newSmb, isSolved) = (Option[Value](smb.constrain(c)), false)
+    if (isSolved)
+    {
+      if (newSmb.isDefined)
+      {
+        Some(replaceValue(a, newSmb.get).get)
+      }
+      else
+      {
+        None
+      }
+    }
+    else
+    {
+      val newMem = replaceValue(a, newSmb.get).get
+      val subject = newMem.eval(a).get
+      if (defer)
+        Some(newMem)
+      else
+      {
+        c match {
+          case EQ_E(someE) if someE.id == subject.e.id => Some(newMem)
+          case GT_E(someE) if someE.id == subject.e.id => None
+          case GTE_E(someE) if someE.id == subject.e.id => Some(newMem)
+          case LT_E(someE) if someE.id == subject.e.id => None
+          case LTE_E(someE) if someE.id == subject.e.id => Some(newMem)
+          case _ => {
+            //            println(s"Can't handle the truth for $smb added ct $c and newSmb is $newSmb")
+            memoryToOption(newMem)
+          }
+        }
+      }
+    }
+  })
+
+
   def Constrain(id: String, c: Constraint): Option[MemorySpace] = eval(id).flatMap(smb => {
     val newSmb = smb.constrain(c)
     val newMem = replaceValue(id, newSmb).get

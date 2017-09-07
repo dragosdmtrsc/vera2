@@ -246,25 +246,36 @@ field_or_masked_ref : header_ref | field_ref | field_ref 'mask' const_value ;
 field_match_type returns [org.change.v2.p4.model.table.MatchKind matchKind]: 'exact' | 'ternary' | 'lpm' | 'range' | 'valid' ;
 table_actions : action_specification | action_profile_specification ;
 action_profile_specification : 'action_profile' ':' action_profile_name ;
-control_function_declaration : 'control' control_fn_name control_block ;
+control_function_declaration returns [String controlFunctionName] : 'control' control_fn_name control_block ;
 control_fn_name : NAME;
-control_block : '{' control_statement* '}' ;
-control_statement : apply_table_call | apply_and_select_block | if_else_statement | control_fn_name '(' ')' ';' ;
+control_block returns [String parent,
+java.util.List<org.change.v2.analysis.processingmodels.Instruction> instructions] : '{' control_statement* '}' ;
+control_statement returns [String parent,
+org.change.v2.analysis.processingmodels.Instruction instruction]: apply_table_call |
+apply_and_select_block |
+if_else_statement |
+control_fn_name '(' ')' ';' ;
 
-apply_table_call : 'apply' '(' table_name ')' ';' ;
+apply_table_call returns [String parent, org.change.v2.analysis.processingmodels.Instruction instruction]: 'apply' '(' table_name ')' ';' ;
 
-apply_and_select_block : 'apply' '(' table_name ')' '{' ( case_list )? '}' ;
+apply_and_select_block returns [String parent, org.change.v2.analysis.processingmodels.Instruction instruction]:
+    'apply' '(' table_name ')' '{' ( case_list )? '}' ;
 
-case_list : action_case+ # case_list_action
+case_list returns [String parent,
+    java.util.List<org.change.v2.analysis.processingmodels.Instruction> instructions]: action_case+ # case_list_action
           | hit_miss_case+  # case_list_hitmiss;
 
-action_case : action_or_default control_block ;
+action_case returns [String parent,
+    org.change.v2.analysis.processingmodels.Instruction instruction]: action_or_default control_block ;
 action_or_default : action_name | 'default' ;
-hit_miss_case : hit_or_miss control_block ;
+hit_miss_case returns [String parent,
+      org.change.v2.analysis.processingmodels.Instruction instruction]: hit_or_miss control_block ;
 hit_or_miss : 'hit' | 'miss' ;
 
-if_else_statement : 'if' '(' bool_expr ')' control_block ( else_block )? ;
-else_block : 'else' control_block | 'else' if_else_statement ;
+if_else_statement returns [String parent,
+      org.change.v2.analysis.processingmodels.Instruction instruction]: 'if' '(' bool_expr ')' control_block ( else_block )? ;
+else_block returns [String parent,
+     org.change.v2.analysis.processingmodels.Instruction instruction]: 'else' control_block | 'else' if_else_statement ;
 
 bool_expr : 'valid' '(' header_ref ')' # valid_bool_expr
           | bool_expr bool_op bool_expr # compound_bool_expr

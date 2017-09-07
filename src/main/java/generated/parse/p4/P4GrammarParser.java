@@ -5996,6 +5996,7 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Control_function_declarationContext extends ParserRuleContext {
+		public String controlFunctionName;
 		public Control_fn_nameContext control_fn_name() {
 			return getRuleContext(Control_fn_nameContext.class,0);
 		}
@@ -6079,6 +6080,8 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Control_blockContext extends ParserRuleContext {
+		public String parent;
+		public java.util.List<org.change.v2.analysis.processingmodels.Instruction> instructions;
 		public List<Control_statementContext> control_statement() {
 			return getRuleContexts(Control_statementContext.class);
 		}
@@ -6138,6 +6141,8 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Control_statementContext extends ParserRuleContext {
+		public String parent;
+		public org.change.v2.analysis.processingmodels.Instruction instruction;
 		public Apply_table_callContext apply_table_call() {
 			return getRuleContext(Apply_table_callContext.class,0);
 		}
@@ -6219,6 +6224,8 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Apply_table_callContext extends ParserRuleContext {
+		public String parent;
+		public org.change.v2.analysis.processingmodels.Instruction instruction;
 		public Table_nameContext table_name() {
 			return getRuleContext(Table_nameContext.class,0);
 		}
@@ -6266,6 +6273,8 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Apply_and_select_blockContext extends ParserRuleContext {
+		public String parent;
+		public org.change.v2.analysis.processingmodels.Instruction instruction;
 		public Table_nameContext table_name() {
 			return getRuleContext(Table_nameContext.class,0);
 		}
@@ -6329,6 +6338,8 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Case_listContext extends ParserRuleContext {
+		public String parent;
+		public java.util.List<org.change.v2.analysis.processingmodels.Instruction> instructions;
 		public Case_listContext(ParserRuleContext parent, int invokingState) {
 			super(parent, invokingState);
 		}
@@ -6337,6 +6348,8 @@ public class P4GrammarParser extends Parser {
 		public Case_listContext() { }
 		public void copyFrom(Case_listContext ctx) {
 			super.copyFrom(ctx);
+			this.parent = ctx.parent;
+			this.instructions = ctx.instructions;
 		}
 	}
 	public static class Case_list_actionContext extends Case_listContext {
@@ -6440,6 +6453,8 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Action_caseContext extends ParserRuleContext {
+		public String parent;
+		public org.change.v2.analysis.processingmodels.Instruction instruction;
 		public Action_or_defaultContext action_or_default() {
 			return getRuleContext(Action_or_defaultContext.class,0);
 		}
@@ -6538,6 +6553,8 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Hit_miss_caseContext extends ParserRuleContext {
+		public String parent;
+		public org.change.v2.analysis.processingmodels.Instruction instruction;
 		public Hit_or_missContext hit_or_miss() {
 			return getRuleContext(Hit_or_missContext.class,0);
 		}
@@ -6627,6 +6644,8 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class If_else_statementContext extends ParserRuleContext {
+		public String parent;
+		public org.change.v2.analysis.processingmodels.Instruction instruction;
 		public Bool_exprContext bool_expr() {
 			return getRuleContext(Bool_exprContext.class,0);
 		}
@@ -6691,6 +6710,8 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Else_blockContext extends ParserRuleContext {
+		public String parent;
+		public org.change.v2.analysis.processingmodels.Instruction instruction;
 		public Control_blockContext control_block() {
 			return getRuleContext(Control_blockContext.class,0);
 		}

@@ -1,12 +1,11 @@
-package org.change.parser.p4control
+package org.change.parser.p4.control
 
-import java.io.{File, FileInputStream, InputStream}
+import java.io.{FileInputStream, InputStream}
 
 import generated.parse.p4.{P4GrammarLexer, P4GrammarParser}
-import org.change.v2.abstractnet.generic.NetworkConfigBuilder
-import org.antlr.v4.runtime.{ANTLRInputStream, CommonTokenStream}
 import org.antlr.v4.runtime.tree.{ParseTree, ParseTreeWalker}
-import org.change.v2.abstractnet.generic.{NetworkConfig, NetworkConfigBuilder}
+import org.antlr.v4.runtime.{ANTLRInputStream, CommonTokenStream}
+import org.change.v2.abstractnet.generic.NetworkConfig
 
 /**
  * Costin Raiciu
@@ -28,9 +27,23 @@ object P4ToAbstractNetwork {
     val tree: ParseTree = parser.p4_program
 
     val walker = new ParseTreeWalker
-    val newConfig = new P4NetworkConfigBuilder(Some(configId))
+    val newConfig = new P4NetworkConfigBuilder
     walker.walk(newConfig, tree)
     newConfig.buildNetworkConfig()
+  }
+
+  def getParser(file : String) : P4NetworkConfigBuilder = {
+    val parserInput = new ANTLRInputStream(new FileInputStream(file))
+    val lexer: P4GrammarLexer = new P4GrammarLexer(parserInput)
+    val tokens: CommonTokenStream = new CommonTokenStream(lexer)
+    val parser: P4GrammarParser = new P4GrammarParser(tokens)
+
+    val tree: ParseTree = parser.p4_program
+
+    val walker = new ParseTreeWalker
+    val newConfig = new P4NetworkConfigBuilder
+    walker.walk(newConfig, tree)
+    newConfig
   }
 
   def buildConfig(file : String, configId : String) : NetworkConfig = {

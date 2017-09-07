@@ -13,10 +13,7 @@ import org.change.v2.p4.model.actions.P4Action;
 import org.change.v2.p4.model.table.TableMatch;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Created by dragos on 31.08.2017. Represents a switch specification,
@@ -24,6 +21,8 @@ import java.util.Map;
  */
 public class Switch {
     private P4GrammarListener ctx = null;
+
+    private Map<String, List<String>> allowedActions = new HashMap<String, List<String>>();
     private Map<String, HeaderInstance> instances = new HashMap<String, HeaderInstance>();
     private Map<String, RegisterSpecification> registerSpecificationMap = null;
     private ActionRegistrar actionRegistrar = null;
@@ -33,6 +32,14 @@ public class Switch {
     }
 
     private Map<String, List<TableMatch>> matches = new HashMap<String, List<TableMatch>>();
+
+
+    public List<String> getAllowedActions(String perTable) {
+        if (!allowedActions.containsKey(perTable))
+            return Collections.emptyList();
+        return allowedActions.get(perTable);
+    }
+
 
     public Switch setRegisterSpecificationMap(Map<String, RegisterSpecification> registerSpecificationMap) {
         this.registerSpecificationMap = registerSpecificationMap;
@@ -121,6 +128,7 @@ public class Switch {
             sw = sw.createTable(table);
         sw.matches = listener.tableDeclarations();
         sw.instances = listener.instances();
+        sw.allowedActions = listener.tableAllowedActions();
         return sw;
     }
 

@@ -138,11 +138,7 @@ object Constrainable {
   }
 }
 
-trait SwitchMixin extends SwitchInstance {
-  val tables = this.getDeclaredTables.map(new FullTable(_, this))
-}
-
-class FullTable(tableName : String, switchInstance: SwitchInstance) {
+class FullTable(tableName : String, switchInstance: SwitchInstance, id : String = "") {
   private val flows = switchInstance.flowInstanceIterator(tableName)
   private val matchKeys = switchInstance.getSwitchSpec.getTableMatches(tableName)
   private val constrainables = matchKeys.map(x => Constrainable(x))
@@ -155,12 +151,46 @@ class FullTable(tableName : String, switchInstance: SwitchInstance) {
 
   private def constraints(index : Int) = constrainables.map(_.constraint(switchInstance, index))
   private def action(index : Int) = new FireAction(tableName, index, switchInstance).symnetCode()
-  private def default() = new FireDefaultAction(tableName, switchInstance).symnetCode()
+  private def default() : Instruction = InstructionBlock(
+    new FireDefaultAction(tableName, switchInstance).symnetCode(),
+    Assign("default.Fired", ConstantValue(1)),
+    Assign(s"$tableName.Hit", ConstantValue(0))
+  )
+  private def initializeTable() : Instruction = {
+    InstructionBlock(
+      switchInstance.getSwitchSpec.getAllowedActions(tableName).map(x => {
+        Assign(s"$x.Fired", ConstantValue(0))
+      }) ++ List[Instruction](
+        Assign("default.Fired", ConstantValue(0)),
+        Assign(s"$tableName.Hit", ConstantValue(0))
+      )
+    )
+  }
 
-  def fullAction() = flows.zipWithIndex.foldRight(default())((x, acc) => {
-    constraints(x._2).foldRight(action(x._2))((y, acc2) => {
-      If (y, acc2, acc)
-    })
-  })
+  private def actionDef(index : Int) = {
+    val flow = switchInstance.flowInstanceIterator(tableName).get(index)
+    flow.getFireAction
+  }
+
+  def fullAction() = InstructionBlock(
+    initializeTable(),
+    flows.zipWithIndex.foldRight(default())((x, acc) => {
+      constraints(x._2).foldRight(action(x._2))((y, acc2) => {
+        If (y,
+          InstructionBlock(
+            acc2,
+            Assign(s"${actionDef(x._2)}.Fired", ConstantValue(1)),
+            Assign(s"$tableName.Hit", ConstantValue(1))
+          ),
+          InstructionBlock(
+            acc,
+            Assign(s"${actionDef(x._2)}.Fired", ConstantValue(0)),
+            Assign(s"$tableName.Hit", ConstantValue(0))
+          )
+        )
+      })
+    }),
+    Forward(s"table.$tableName.out" + (if (id.length != 0) s".$id" else ""))
+  )
 
 }

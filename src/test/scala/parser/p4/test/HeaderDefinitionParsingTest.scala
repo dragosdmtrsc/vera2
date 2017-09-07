@@ -3,7 +3,7 @@ package parser.p4.test
 import java.util
 
 import org.change.parser.p4._
-import org.change.parser.p4control.P4ToAbstractNetwork
+import org.change.parser.p4.control.P4ToAbstractNetwork
 import org.change.utils.prettifier.JsonUtil
 import org.change.v2.p4.model.SwitchInstance
 import org.scalatest.FunSuite
@@ -158,6 +158,30 @@ class HeaderDefinitionParsingTest extends FunSuite {
   test("CONTROL - flow is parsed OK") {
     val p4 = "inputs/simple-router/simple_router.p4"
     P4ToAbstractNetwork.buildConfig(p4, "1")
+  }
+
+  test("CONTROL - flow is parsed OK run #2") {
+    val p4 = "inputs/simple-router/simple_router.p4"
+    val parser = P4ToAbstractNetwork.getParser(p4)
+    println(JsonUtil.toJson(parser.instructions))
+    println(JsonUtil.toJson(parser.links))
+  }
+
+  test("CONTROL - flow is parsed OK run NAT #3") {
+    val p4 = "inputs/simple-nat/simple_nat-ppc.p4"
+    val dataplane = "inputs/simple-nat/commands.txt"
+    val res = SwitchInstance.fromP4AndDataplane(p4, dataplane, "nat", util.Arrays.asList("veth0", "veth1"))
+    println(JsonUtil.toJson(res.getSwitchSpec.getCtx.instructions))
+    println(JsonUtil.toJson(res.getSwitchSpec.getCtx.links))
+  }
+
+
+  test("CONTROL flow and table integration") {
+    val p4 = "inputs/simple-router/simple_router.p4"
+    val dataplane = "inputs/simple-router/commands.txt"
+    val res = ControlFlowInterpreter(p4, dataplane, List[String]("veth0", "veth1"),"router")
+    println(JsonUtil.toJson(res.instructions()))
+    println(JsonUtil.toJson(res.links))
   }
 
 }
