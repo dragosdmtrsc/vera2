@@ -44,7 +44,7 @@ fragment Binary_digit    :  '_' | '0' | '1' ;
 fragment Decimal_digit   :   Binary_digit | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' ;
 fragment Hexadecimal_digit   : Decimal_digit | 'a' | 'A' | 'b' | 'B' | 'c' | 'C' | 'd' | 'D' | 'e' | 'E' | 'f' | 'F' ;
 
-width_spec  :   Decimal_value '’' ;
+width_spec  :   Decimal_value '\'' ;
 field_value returns [Integer fieldValue] : const_value ;
 
 // Section 2.1

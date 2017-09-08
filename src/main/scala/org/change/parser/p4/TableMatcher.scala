@@ -1,14 +1,19 @@
 package org.change.parser.p4
 
+import java.util
+import java.util.UUID
+
 import com.sun.xml.internal.bind.util.Which
 import org.change.v2.abstractnet.mat.tree.Node.Forest
 import org.change.v2.abstractnet.mat.condition.Range
 import org.change.v2.abstractnet.mat.tree.Node
 import org.change.v2.analysis.constraint.Constraint
-import org.change.v2.analysis.expression.concrete.ConstantValue
+import org.change.v2.analysis.expression.abst.FloatingExpression
+import org.change.v2.analysis.expression.concrete.nonprimitive.{:+:, :@}
+import org.change.v2.analysis.expression.concrete.{ConstantValue, SymbolicValue}
 import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.analysis.processingmodels.instructions._
-import org.change.v2.p4.model.SwitchInstance
+import org.change.v2.p4.model.{FlowInstance, SwitchInstance}
 import org.change.v2.p4.model.table.{MatchKind, TableMatch}
 import org.change.v2.util.conversion.RepresentationConversion._
 
@@ -70,12 +75,131 @@ class TableRangeMatcher(tableMatch : TableMatch) extends Constrainable {
   }
 }
 object P4Utils {
+  def toNumber(s: String): Long = {
+    if (s.contains(".")) {
+      ipToNumber(s)
+    } else if (s.contains(":")) {
+      macToNumber(s)
+    } else {
+      java.lang.Long.decode(s).longValue()
+    }
+  }
+
   def fieldDef(theKey : String) = if (theKey.contains(".")) {
     val hdr = theKey.split("\\.")(0)
     val field = theKey.split("\\.")(1)
     (hdr, field)
   } else {
     (theKey, "")
+  }
+}
+object MaskTests {
+
+  def extractMask(long : Long, width : Int) = {
+    var crt = long
+
+    (0 until width).map( i => {
+      val b = (crt & 1).toByte
+      crt = crt >> 1
+      b
+    })
+  }
+  def main(args: Array[String]): Unit = {
+    val mask = 256L.toLong
+    val value = (256+512+2048).toLong
+    val width = 32
+    val actualMask = extractMask(mask, width)
+    println(actualMask)
+    val badBasis = actualMask.zipWithIndex.filter(x => x._1 == 0)
+    val contiguous = badBasis.drop(1).foldLeft(((badBasis.head._2, badBasis.head._2), List[(Int, Int)]()))((acc, x) => {
+      val end = x._2
+      if (end == acc._1._2+1) {
+        ((acc._1._1, end), acc._2)
+      } else {
+        ((end, end), acc._2 :+ acc._1)
+      }
+    })
+    val intervals = (contiguous._2 :+ contiguous._1)
+    println(intervals)
+//      .map(x => 1l << x._2)
+//    println(badBasis)
+    val A =value&mask
+      //extractMask(value, width).zip(actualMask).map(x => x._1 & x._2).zipWithIndex.map(x => x._1 * 1l << x._2).sum
+    println(A)
+    val newsyms = intervals.map(x => {
+      SymbolicValue()
+    })
+    val fexp = intervals.zip(newsyms).map(x => {
+      val lk = x._1._2 - x._1._1
+      (0l until 1l<<x._1._1).foldLeft(ConstantValue(0) : FloatingExpression)((acc, _) => {
+        :+:(acc, x._2)
+      })
+    }).foldLeft(ConstantValue(A) : FloatingExpression)((acc, x) => {
+      :+:(acc, x)
+    })
+    val ass = newsyms.map(x => {
+      Assign("sym" + x.id, x)
+    })
+    val constrains = Constrain("Abc", :==:(fexp)) :: intervals.zip(newsyms).
+      map(x => Constrain("sym" + x._2.id, :&:(:<=:(ConstantValue((1l<<((x._1._2 - x._1._1)+1))-1)), :>=:(ConstantValue(0)))))
+    InstructionBlock(ass ++ constrains)
+  }
+}
+
+class TableTernaryMatcher(tableMatch: TableMatch) extends Constrainable {
+
+  def extractMask(long : Long, width : Int) = {
+    var crt = long
+
+    (0 until width).map( i => {
+      val b = (crt & 1).toByte
+      crt = crt >> 1
+      b
+    })
+  }
+
+
+  val flowToValMask : mutable.Map[Int, (Long, Long)] = mutable.Map[Int, (Long, Long)]()
+
+  override def constraint(switchInstance: SwitchInstance, which: Int): Instruction = {
+    val (mask, value) = flowToValMask(which)
+    val (hdr, fld) = P4Utils.fieldDef(tableMatch.getKey)
+    val width = switchInstance.getSwitchSpec.getInstance(hdr).getLayout.getFields.find(x => x.getName == fld).get.getLength
+    val actualMask = extractMask(mask, width)
+    val badBasis = actualMask.zipWithIndex.filter(x => x._1 == 0)
+    val contiguous = badBasis.drop(1).foldLeft(((badBasis.head._2, badBasis.head._2), List[(Int, Int)]()))((acc, x) => {
+      val end = x._2
+      if (end == acc._1._2+1) {
+        ((acc._1._1, end), acc._2)
+      } else {
+        ((end, end), acc._2 :+ acc._1)
+      }
+    })
+    val intervals = (contiguous._2 :+ contiguous._1)
+    val A =value&mask
+    val newsyms = intervals.map(x => {
+      UUID.randomUUID().toString.replace("-", "")
+    })
+    val fexp = intervals.zip(newsyms).map(x => {
+      (0l until 1l<<x._1._1).foldLeft(ConstantValue(0) : FloatingExpression)((acc, _) => {
+        :+:(acc, :@(s"sym${x._2}"))
+      })
+    }).foldLeft(ConstantValue(A) : FloatingExpression)((acc, x) => {
+      :+:(acc, x)
+    })
+    val ass = newsyms.map(x => {
+      Assign("sym" + x, SymbolicValue())
+    })
+    val constrains = Constrain(tableMatch.getKey, :==:(fexp)) :: intervals.zip(newsyms).
+      map(x => Constrain("sym" + x._2, :&:(:<=:(ConstantValue((1l<<((x._1._2 - x._1._1)+1))-1)), :>=:(ConstantValue(0)))))
+    InstructionBlock(ass ++ constrains)
+  }
+
+  override def instantiate(arg: String, prio: Int): Unit = {
+    if (!arg.contains("&&&"))
+      throw new IllegalArgumentException(s"$arg not of ternary type")
+    val split = arg.split("&&&")
+    flowToValMask.put(prio, (P4Utils.toNumber(split(0)), P4Utils.toNumber(split(1))))
   }
 }
 
@@ -103,8 +227,13 @@ class TableExactMatcher(tableMatch: TableMatch) extends Constrainable {
     val switch = switchInstance.getSwitchSpec
     val actualHdr = switch.getInstance(hdr)
     InstructionBlock(
-      Constrain(s"$hdr.IsValid", :==:(ConstantValue(1))),
-      Constrain(s"$hdr.$fieldName", :==:(ConstantValue(prioToExact(which))))
+      if (!actualHdr.isMetadata)
+        List[Instruction](
+          Constrain(s"$hdr.IsValid", :==:(ConstantValue(1))),
+          Constrain(s"$hdr.$fieldName", :==:(ConstantValue(prioToExact(which))))
+        )
+      else
+        List[Instruction](Constrain(s"$hdr.$fieldName", :==:(ConstantValue(prioToExact(which)))))
     )
   }
   private def handleValid(switchInstance: SwitchInstance, which: Int) : Instruction = {
@@ -132,6 +261,7 @@ object Constrainable {
     case MatchKind.Lpm => new TableRangeMatcher(tableMatch)
     case MatchKind.Range => new TableRangeMatcher(tableMatch)
     case MatchKind.Valid => new TableExactMatcher(tableMatch)
+    case MatchKind.Ternary => new TableTernaryMatcher(tableMatch)
     case _ => throw new UnsupportedOperationException(s"Cannot match kind ${tableMatch.getMatchKind} " +
       s"in table ${tableMatch.getTable}" +
       s" and key ${tableMatch.getKey}")
@@ -143,13 +273,39 @@ class FullTable(tableName : String, switchInstance: SwitchInstance, id : String 
   private val matchKeys = switchInstance.getSwitchSpec.getTableMatches(tableName)
   private val constrainables = matchKeys.map(x => Constrainable(x))
 
-  for (f <- flows.zipWithIndex) {
-    for (arg <- f._1.getMatchParams.zip(constrainables)) {
-      arg._2.instantiate(arg._1.toString, f._2)
+  if (flows != null) {
+    for (f <- flows.zipWithIndex) {
+      for (arg <- f._1.getMatchParams.zip(constrainables)) {
+        arg._2.instantiate(arg._1.toString, f._2)
+      }
     }
   }
 
-  private def constraints(index : Int) = constrainables.map(_.constraint(switchInstance, index))
+
+  private def priorAndConstraints(index : Int) = {
+    val init = constrainables.map(_.constraint(switchInstance, index)).map(x => {
+      x.asInstanceOf[InstructionBlock]
+    })
+    (init.map ( x => {
+      InstructionBlock(x.instructions.filter(x => x.isInstanceOf[AssignNamedSymbol]))
+    }), init.map ( x => {
+      InstructionBlock(x.instructions.filter(x => x.isInstanceOf[ConstrainNamedSymbol] || x.isInstanceOf[ConstrainRaw]))
+    }))
+  }
+
+//
+//  private def priorInstructions (index : Int) =
+//    constrainables.map(_.constraint(switchInstance, index)).map(x => {
+//      x.asInstanceOf[InstructionBlock]
+//    }).map ( x => {
+//      InstructionBlock(x.instructions.filter(x => x.isInstanceOf[AssignNamedSymbol]))
+//    })
+//  private def constraints(index : Int) =
+//    constrainables.map(_.constraint(switchInstance, index)).map(x => {
+//      x.asInstanceOf[InstructionBlock]
+//    }).map ( x => {
+//      InstructionBlock(x.instructions.filter(x => x.isInstanceOf[ConstrainNamedSymbol] || x.isInstanceOf[ConstrainRaw]))
+//    })
   private def action(index : Int) = new FireAction(tableName, index, switchInstance).symnetCode()
   private def default() : Instruction = InstructionBlock(
     new FireDefaultAction(tableName, switchInstance).symnetCode(),
@@ -175,17 +331,21 @@ class FullTable(tableName : String, switchInstance: SwitchInstance, id : String 
   def fullAction() = InstructionBlock(
     initializeTable(),
     flows.zipWithIndex.foldRight(default())((x, acc) => {
-      constraints(x._2).foldRight(action(x._2))((y, acc2) => {
-        If (y,
-          InstructionBlock(
-            acc2,
-            Assign(s"${actionDef(x._2)}.Fired", ConstantValue(1)),
-            Assign(s"$tableName.Hit", ConstantValue(1))
-          ),
-          InstructionBlock(
-            acc,
-            Assign(s"${actionDef(x._2)}.Fired", ConstantValue(0)),
-            Assign(s"$tableName.Hit", ConstantValue(0))
+      val priorAndCt = priorAndConstraints(x._2)
+      priorAndCt._2.zip(priorAndCt._1).foldRight(action(x._2))((y, acc2) => {
+        InstructionBlock(
+          y._2,
+          If (y._1,
+            InstructionBlock(
+              acc2,
+              Assign(s"${actionDef(x._2)}.Fired", ConstantValue(1)),
+              Assign(s"$tableName.Hit", ConstantValue(1))
+            ),
+            InstructionBlock(
+              acc,
+              Assign(s"${actionDef(x._2)}.Fired", ConstantValue(0)),
+              Assign(s"$tableName.Hit", ConstantValue(0))
+            )
           )
         )
       })

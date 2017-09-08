@@ -1,5 +1,6 @@
 package parser.p4.test
 
+import java.io.PrintStream
 import java.util
 
 import org.change.parser.p4._
@@ -182,6 +183,27 @@ class HeaderDefinitionParsingTest extends FunSuite {
     val res = ControlFlowInterpreter(p4, dataplane, List[String]("veth0", "veth1"),"router")
     println(JsonUtil.toJson(res.instructions()))
     println(JsonUtil.toJson(res.links))
+  }
+
+  test("CONTROL flow and table integration for simple nat") {
+    val p4 = "inputs/simple-nat/simple_nat-ppc.p4"
+    val dataplane = "inputs/simple-nat/commands.txt"
+    val res = ControlFlowInterpreter(p4, dataplane, List[String]("veth0", "veth1"),"router")
+    val ps = new PrintStream("inputs/simple-nat/ctrl1-instrs.json")
+    ps.println(JsonUtil.toJson(res.instructions()))
+    ps.println(JsonUtil.toJson(res.links))
+    ps.close()
+  }
+
+
+  test("CONTROL flow and table integration for mtag-edge") {
+    val p4 = "inputs/mTag/mtag-edge-ppc.p4"
+    val dataplane = "inputs/mTag/commands.txt"
+    val res = ControlFlowInterpreter(p4, dataplane, List[String]("veth0", "veth1"),"router")
+    val ps = new PrintStream("inputs/simple-nat/ctrl1-instrs.json")
+    ps.println(JsonUtil.toJson(res.instructions()))
+    ps.println(JsonUtil.toJson(res.links))
+    ps.close()
   }
 
 }

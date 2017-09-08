@@ -1,7 +1,8 @@
 package org.change.parser.p4
 
+import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.p4.model.SwitchInstance
-import org.stringtemplate.v4.compiler.Bytecode.Instruction
+
 import scala.collection.JavaConversions._
 import scala.util.matching.Regex
 /**
@@ -21,11 +22,14 @@ class ControlFlowInterpreter(switchInstance: SwitchInstance) {
       })
     }
   }
-  def instructions() = {
-    switch.getCtx.instructions
+
+  private val instructionsCached = switch.getCtx.instructions.toMap
+  private val linksCached = switch.getCtx.links.toMap
+  def instructions() : Map[String, Instruction] = {
+    instructionsCached
   }
-  def links() = {
-    switch.getCtx.links
+  def links() : Map[String, String] = {
+    linksCached
   }
 }
 

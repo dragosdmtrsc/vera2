@@ -1,7 +1,10 @@
 package org.change.v2.p4.model;
 
+import org.change.v2.p4.model.actions.P4Action;
 import org.change.v2.p4.model.actions.P4ActionCall;
 import org.change.v2.p4.model.actions.P4ParameterInstance;
+import org.change.v2.p4.model.table.MatchKind;
+import org.change.v2.p4.model.table.TableMatch;
 import org.change.v2.util.conversion.RepresentationConversion;
 import sun.net.util.IPAddressUtil;
 
@@ -23,7 +26,7 @@ public class SwitchInstance {
         if (flowInstanceMap.containsKey(perTable))
             return flowInstanceMap.get(perTable);
         else
-            return null;
+            return new ArrayList<FlowInstance>();
     }
 
     public P4ActionCall getDefaultAction(String perTable) {
@@ -93,6 +96,7 @@ public class SwitchInstance {
         BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(dataplane)));
         String crt = null;
         SwitchInstance switchInstance = new SwitchInstance(name, sw, mapped);
+        int crtFlow = 0;
         while ((crt = br.readLine()) != null) {
             crt = crt.trim();
             if (crt.startsWith("table_add")) {
@@ -105,7 +109,8 @@ public class SwitchInstance {
                     flowInstance.addMatchParams(split[j].trim());
                 }
                 j++;
-                for (; j < split.length; j++) {
+                P4Action theActionTemplate = sw.getActionRegistrar().getAction(actionName);
+                for (int k = 0; k < theActionTemplate.getParameterList().size(); k++, j++) {
                     if (IPAddressUtil.isIPv4LiteralAddress(split[j].trim())) {
                         flowInstance.addActionParams(RepresentationConversion.ipToNumber(split[j].trim()));
                     } else {
@@ -117,7 +122,30 @@ public class SwitchInstance {
                         }
                     }
                 }
+                if (j < split.length) {
+                    // last arg is always the priority
+                    int prio = Integer.decode(split[j]);
+                    flowInstance = flowInstance.setPriority(prio);
+                } else {
+                    List<TableMatch> matches = sw.getTableMatches(tableName);
+                    int r = 0;
+                    for (TableMatch tm : matches) {
+                        if (tm.getMatchKind() == MatchKind.Lpm) {
+                            String matchParm = flowInstance.getMatchParams().get(r).toString();
+                            if (matchParm.contains("/")) {
+                                int mask = Integer.decode(matchParm.split("/")[1]);
+                                flowInstance.setPriority(mask);
+                                break;
+                            }
+                            r++;
+                        }
+                    }
+                }
+                if (flowInstance.getPriority() == -1) {
+                    flowInstance.setPriority(crtFlow);
+                }
                 switchInstance.add(flowInstance);
+                crtFlow++;
             } else if (crt.startsWith("table_set_default")) {
                 int j = 3;
                 String[] split = crt.split(" ");
@@ -140,6 +168,9 @@ public class SwitchInstance {
             }
         }
         br.close();
+        for (String table : switchInstance.getDeclaredTables()) {
+            Collections.sort(switchInstance.flowInstanceIterator(table), (flowInstance, t1) -> flowInstance.getPriority() - t1.getPriority());
+        }
         return switchInstance;
     }
 

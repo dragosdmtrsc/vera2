@@ -261,7 +261,7 @@ trait ForgetTAssignRaw {
 trait ForgetEType {
 }
 
-@JsonIgnoreProperties(Array("name"))
+@JsonIgnoreProperties(Array("name", "ast"))
 trait ForgetNameSymbolicValue {
 }
 
@@ -373,6 +373,7 @@ object JsonUtil {
   mapper.addMixin[MemoryObject, ForgetValueStackVoid]
   mapper.addMixin[MemorySpace, MemorySpaceTrait]
   mapper.addMixin[ConstantValue, ForgetAST]
+
   
   def toJson(value: Map[Symbol, Any]): String = {
     toJson(value map { case (k,v) => k.name -> v})

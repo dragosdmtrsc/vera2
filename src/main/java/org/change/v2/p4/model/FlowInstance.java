@@ -11,6 +11,16 @@ public class FlowInstance {
     private String fireAction = "";
     private List<Object> actionParams = new ArrayList<Object>();
     private String table;
+    private int priority = -1;
+
+    public int getPriority() {
+        return priority;
+    }
+
+    public FlowInstance setPriority(int priority) {
+        this.priority = priority;
+        return this;
+    }
 
     public String getTable() {
         return table;
