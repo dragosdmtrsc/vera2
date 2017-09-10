@@ -73,6 +73,44 @@ for each header instance, the following naming convention was employed:
 - For scalars: `hname + ".IsValid"`, where `hname` is the name of the scalar header
 instance
 
+### Per table metadata
+
+Some per-table metadata are required for matching in the control flow functions.
+- `<action_name>.Fired` - a flag which indicates if the actions was fired (0 or 1)
+- `<table_name>.Hit` - a flag which indicates if any entry in the table was matched (0 or 1)
+
+### Ternary matches
+Bitwise operations are not supported by Symnet. The following work-around was used for the
+case in which the values to match against (`value/mask`) are constant and known as per 
+configuration
+- the mask is split in contiguous regions where the mask value is only 0 let them be called `I_0, ... I_n`
+integer ranges `I_j=[i_j0, i_j1]`
+- for each such range, associate a symbolic value (call it X) constrained to the range 0..2^(i_j1-i_j0+1)-1
+- let A be the integer `A = value & mask`
+- constrain the target field to be equal to `sum(2^i_j0 * X)_for j\in 1..n`
+
+The solution is still very hacky and will not work for large bitmasks 
+(`OutOfMemoryException` and friends).
+
+### Notes on bitwise operators
+
+Currently, Symnet core employs the Presburger arithmetic fragment to determine
+the validity of the state of the program at hand. As stated in the above chapter,
+dealing with arbitrary masks is close to impossible. Also, dealing with bitwise
+operators is not supported. 
+
+Why not use a different decidable fragment which also deals with these kinds
+of operators? The one which will take care of current operator limitations is
+the Bit Vector Arithmetic. A good presentation on the topic can be found here:
+http://www.decision-procedures.org/slides/bit-vectors.pdf
+
+As it turns out, there are efficient decision procedures for this arithmetic.
+In the future, maybe we can try it out. As can be easily observed in the above
+presentation, it is fully compliant with the P4 spec, in that it takes widths
+and encodings (signed/unsigned) into consideration when verifying satisfiability
+for a given formula + all operators currenlty employed therein.
+
+
 
 ### Known limitations (to date)
 
@@ -88,7 +126,7 @@ continuing the current pipeline and only at the end will it be cloned.
     to its specified insertion point and the second path forwarding the packet to the 
     table's output port. This approach is not compliant to spec, but is believed to 
     cover most use-cases, where the `clone` operation is the **last in the pipeline**. 
-    - A more accurate implementation should be implemented
+    - A more accurate implementation **should** be implemented
 3. The same as in 2 goes for `recirculate` and `resubmit` instructions
 4. Meters and counters are not implemented. Consequently, no actions which take
 inputs meter or counter references are implemented
@@ -97,12 +135,12 @@ inputs meter or counter references are implemented
 6. `truncate` and `count` instructions are not implemented
 7. The current parser and interpreter needs declarations prior to usage in functions. 
 As such, all header types need to be declared first, then all header instances. 
-8. The current parser cannot ignore comments. - Solved using approach in issue 9.
+8. The current parser cannot ignore comments. - Worked around using approach in issue 9.
 9. The current parser has no built-in precompile step and will throw whenever
 macro definitions are observed and used - in order to use this, run the following command
 assuming `f.p4` is your input file: `gcc -E -x c -P f.p4 > f-ppc.p4` and then
 run Symnet-P4 integration against the pre-processed file `f-ppc.p4`
-
+10. Little to no testing done for array instances - most likely they will generate bugs
 
 SymNet v2
 =========

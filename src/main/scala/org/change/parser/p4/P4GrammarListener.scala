@@ -317,12 +317,13 @@ class P4GrammarListener extends P4GrammarBaseListener {
   }
 
   def resolveField(fieldSpec : String) : Either[Intable, String] = {
-    val split = fieldSpec.split("\\.")
-    val theHeader = headerInstances(split(0))
-    if (theHeader.isInstanceOf[MetadataInstance])
+//    val split = fieldSpec.split("\\.")
+//    val theHeader = headerInstances(split(0))
+//    if (theHeader.isInstanceOf[MetadataInstance])
       Right(fieldSpec)
-    else
-      Left(theHeader.getTagOfField(split(1)))
+    //DD: Removed header addressing through tags - might not need those anymore
+//    else
+//      Left(theHeader.getTagOfField(split(1)))
   }
 
 
