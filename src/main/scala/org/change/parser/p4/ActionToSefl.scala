@@ -131,12 +131,12 @@ class ActionInstance(p4Action: P4Action, argList : List[Any],
   }
 
   def setOriginal() : Instruction = {
-    InstructionBlock(ctx.headerInstances.flatMap(x => {
-        x._2.layout.fields.values.map(_._1).map(y => {
-          if (x._2.isInstanceOf[MetadataInstance]) {
+    InstructionBlock(switchInstance.getSwitchSpec.getInstances.flatMap(x => {
+        x.getLayout.getFields.map(_.getName).map(y => {
+          if (x.isMetadata) {
             NoOp
           } else {
-            Assign("Original." + x._1 + "." + y, :@(Tag(x._1) + x._2.getTagOfField(y)))
+            Assign("Original." + x.getName + "." + y, :@(x.getName + "." + y))
           }
         })
       }).toList
@@ -144,14 +144,20 @@ class ActionInstance(p4Action: P4Action, argList : List[Any],
   }
 
   def restore(butFor : List[String]) : Instruction = {
-    InstructionBlock(ctx.headerInstances.flatMap(x => {
-        if (!butFor.contains(x._1)) {
-          x._2.layout.fields.values.map(_._1).map(y => {
-            if (!butFor.contains(x._1 + "." + y)) {
-              if (x._2.isInstanceOf[MetadataInstance]) {
-                Assign(x._1 + "." + y, :@("Original." + x._1 + "." + y))
+    InstructionBlock(switchInstance.getSwitchSpec.getInstances().flatMap(x => {
+        if (!butFor.contains(x.getName)) {
+          x.getLayout.getFields.map(y => {
+            if (!butFor.contains(x.getName + "." + y.getName)) {
+              if (x.isMetadata) {
+                InstructionBlock(
+                  Allocate(x.getName + "." + y.getName, y.getLength),
+                  Assign(x.getName + "." + y.getName, :@("Original." + x.getName + "." + y.getName))
+                )
               } else {
-                Assign(x._2.getTagOfField(y), :@("Original." + x._1 + "." + y))
+                InstructionBlock(
+                  Allocate(x.getName + "." + y.getName, y.getLength),
+                  Assign(x.getName + "." + y.getName, :@("Original." + x.getName + "." + y.getName))
+                )
               }
             }
             else
@@ -346,12 +352,9 @@ class ActionInstance(p4Action: P4Action, argList : List[Any],
       if (index >= hInstance.getLength)
         NoOp
       else {
-        val newinstance = ctx.headerInstances(hname + newIndex)
-        val oldinstance = ctx.headerInstances(hname + index)
         InstructionBlock(hInstance.getLayout.getFields.map(x => {
-              Assign(newinstance.getTagOfField(x.getName), :@(oldinstance.getTagOfField(x.getName)))
-            }
-          ).toList
+            Assign(hname + newIndex + "." + x.getName, :@(hname + index + "." + x.getName))
+          })
         )
       }
     }
@@ -362,22 +365,22 @@ class ActionInstance(p4Action: P4Action, argList : List[Any],
       if (index >= hInstance.getLength)
         NoOp
       else {
-        val oldinstance = ctx.headerInstances(hname + index)
+        val oldInstance = hInstance
         InstructionBlock(hInstance.getLayout.getFields.flatMap(x => {
           List[Instruction](
-            Allocate(oldinstance.getTagOfField(x.getName), x.getLength),
-            Assign(oldinstance.getTagOfField(x.getName), ConstantValue(0))
+            Allocate(hname + index + "." + x.getName, x.getLength),
+            Assign(hname + index + "." + x.getName, ConstantValue(0))
           )
         }).toList
         )
       }
     }
     case sInstance : org.change.v2.p4.model.HeaderInstance => {
-      val oldinstance = ctx.headerInstances(hname)
+      val oldinstance = sInstance
       InstructionBlock(sInstance.getLayout.getFields.flatMap(x => {
         List[Instruction](
-          Allocate(oldinstance.getTagOfField(x.getName), x.getLength),
-          Assign(oldinstance.getTagOfField(x.getName), ConstantValue(0))
+          Allocate(oldinstance.getName + "." + x.getName, x.getLength),
+          Assign(oldinstance.getName + "." + x.getName, ConstantValue(0))
         )
       }).toList
       )
@@ -404,13 +407,13 @@ class ActionInstance(p4Action: P4Action, argList : List[Any],
     val (regNameDst, hnameDst, indexDst) = getNameAndIndex(dst)
     val (regNameSrc, hnameSrc, indexSrc) = getNameAndIndex(src)
 
-    val instanceDst = ctx.headerInstances(regNameDst)
-    val instanceSrc = ctx.headerInstances(regNameSrc)
-    val instrList = InstructionBlock(instanceDst.layout.fields.flatMap(x => {
-        val fldName = x._2._1
+    val instanceDst = switchInstance.getSwitchSpec.getInstance(dst)
+    val instanceSrc = switchInstance.getSwitchSpec.getInstance(src)
+    val instrList = InstructionBlock(instanceDst.getLayout.getFields.flatMap(x => {
+        val fldName = x.getName
         List[Instruction](
-          Allocate(instanceDst.getTagOfField(fldName), x._2._2),
-          Assign(instanceDst.getTagOfField(fldName), :@(instanceSrc.getTagOfField(fldName)))
+          Allocate(dst + "." + fldName, x.getLength),
+          Assign(dst + "." + fldName, :@(src + "." + fldName))
         )
       }).toList
     )
@@ -427,7 +430,7 @@ class ActionInstance(p4Action: P4Action, argList : List[Any],
     val headerInstance = argList.head.toString
     val (regName, hname, index) = getNameAndIndex(headerInstance)
     val hdrInstance = switchInstance.getSwitchSpec.getInstance(regName)
-    val instance = ctx.headerInstances(regName)
+    val instance = switchInstance.getSwitchSpec.getInstance(headerInstance)
     If (Constrain(regName + ".IsValid", :==:(ConstantValue(1))),
       NoOp,
       InstructionBlock(
@@ -462,11 +465,11 @@ class ActionInstance(p4Action: P4Action, argList : List[Any],
           )
         },
         InstructionBlock(
-          instance.layout.fields.map( x => {
-            val fieldName = x._2._1
+          instance.getLayout.getFields.map( x => {
+            val fieldName = x
             InstructionBlock(
-              Allocate(instance.getTagOfField(fieldName), x._2._2),
-              Assign(instance.getTagOfField(fieldName), ConstantValue(0))
+              Allocate(instance.getName + "." + x, x.getLength),
+              Assign(instance.getName + "." + x, ConstantValue(0))
             )
             NoOp
           }).toList
@@ -479,7 +482,7 @@ class ActionInstance(p4Action: P4Action, argList : List[Any],
     val headerInstance = argList.head.toString
     val (regName, hname, index) = getNameAndIndex(headerInstance)
     val hdrInstance = switchInstance.getSwitchSpec.getInstance(regName)
-    val instance = ctx.headerInstances(regName)
+    val instance = switchInstance.getSwitchSpec.getInstance(headerInstance)
     If (Constrain(regName + ".IsValid", :==:(ConstantValue(1))),
       NoOp,
       InstructionBlock(
@@ -515,11 +518,11 @@ class ActionInstance(p4Action: P4Action, argList : List[Any],
           )
         },
         InstructionBlock(
-          instance.layout.fields.map( x => {
-            val fieldName = x._2._1
+          instance.getLayout.getFields.map( x => {
+            val fieldName = x
             InstructionBlock(
-              Allocate(instance.getTagOfField(fieldName), x._2._2),
-              Assign(instance.getTagOfField(fieldName), ConstantValue(0))
+              Allocate(s"${instance.getName}.$fieldName", x.getLength),
+              Assign(s"${instance.getName}.$fieldName", ConstantValue(0))
             )
             NoOp
           }).toList

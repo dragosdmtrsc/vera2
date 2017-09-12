@@ -2,7 +2,7 @@ package org.change.parser.p4
 
 import org.change.v2.analysis.expression.concrete.ConstantValue
 import org.change.v2.analysis.processingmodels.Instruction
-import org.change.v2.analysis.processingmodels.instructions.{Assign, InstructionBlock, NoOp}
+import org.change.v2.analysis.processingmodels.instructions.{Allocate, Assign, InstructionBlock, NoOp}
 import org.change.v2.p4.model.{ArrayInstance, HeaderInstance, SwitchInstance}
 
 import scala.collection.JavaConversions._
@@ -21,10 +21,14 @@ class InitializeCode(switchInstance : SwitchInstance) {
       if (butFor.contains(x.getName)) {
         x.getLayout.getFields.map(f => {
           if (butFor.contains(x.getName + "." + f.getName)) {
-            if (x.getInitializer.containsKey(f.getName))
-              Assign(x.getName + "." + f.getName, ConstantValue(x.getInitializer()(f.getName).longValue()))
-            else
-              Assign(x.getName + "." + f.getName, ConstantValue(0))
+            InstructionBlock(
+              Allocate(x.getName + "." + f.getName, f.getLength),
+              if (x.getInitializer.containsKey(f.getName))
+                Assign(x.getName + "." + f.getName, ConstantValue(x.getInitializer()(f.getName).longValue()))
+              else
+                Assign(x.getName + "." + f.getName, ConstantValue(0))
+            )
+
           } else {
             NoOp
           }
@@ -65,15 +69,24 @@ class InitializeCode(switchInstance : SwitchInstance) {
     // handle registers and other stuff like that
     InstructionBlock(swSpec.getRegisterSpecificationMap.values().filter(r => !r.isDirect && !r.isStatic).flatMap(x => {
       (0 until x.getCount).map(i => {
-        Assign(s"${switchInstance.getName}.reg.${x.getName}[$i]", ConstantValue(0))
+        InstructionBlock(
+          Allocate(s"${switchInstance.getName}.reg.${x.getName}[$i]", x.getWidth),
+          Assign(s"${switchInstance.getName}.reg.${x.getName}[$i]", ConstantValue(0))
+        )
       })
     }) ++ swSpec.getRegisterSpecificationMap.values().filter(r => r.isStatic).flatMap(x => {
       (0 until x.getCount).map(i => {
-        Assign(s"${switchInstance.getName}.reg[${x.getStaticTable}].${x.getName}[$i]", ConstantValue(0))
+        InstructionBlock(
+          Allocate(s"${switchInstance.getName}.reg[${x.getStaticTable}].${x.getName}[$i]", x.getWidth),
+          Assign(s"${switchInstance.getName}.reg[${x.getStaticTable}].${x.getName}[$i]", ConstantValue(0))
+        )
       })
     }) ++ swSpec.getRegisterSpecificationMap.values().filter(r => r.isDirect).flatMap(x => {
       (0 until switchInstance.flowInstanceIterator(x.getStaticTable).size()).map(i => {
-        Assign(s"${switchInstance.getName}.reg[${x.getStaticTable}].${x.getName}[$i]", ConstantValue(0))
+        InstructionBlock(
+          Allocate(s"${switchInstance.getName}.reg[${x.getStaticTable}].${x.getName}[$i]", x.getWidth),
+          Assign(s"${switchInstance.getName}.reg[${x.getStaticTable}].${x.getName}[$i]", ConstantValue(0))
+        )
       })
     }))
 

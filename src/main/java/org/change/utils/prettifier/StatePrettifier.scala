@@ -18,9 +18,7 @@ import org.change.v2.analysis.constraint.Range
 import org.change.v2.analysis.expression.abst.Expression
 import org.change.v2.analysis.expression.concrete.ConstantValue
 import org.change.v2.analysis.expression.concrete.SymbolicValue
-import org.change.v2.analysis.expression.concrete.nonprimitive.Minus
-import org.change.v2.analysis.expression.concrete.nonprimitive.Plus
-import org.change.v2.analysis.expression.concrete.nonprimitive.Reference
+import org.change.v2.analysis.expression.concrete.nonprimitive.{:!:, :&&:, :+:, :-:, :@, :^:, :||:, Address, LAnd, LNot, LXor, Lor, Minus, Plus, Reference}
 import org.change.v2.analysis.memory.MemoryObject
 import org.change.v2.analysis.memory.MemorySpace
 import org.change.v2.analysis.memory.State
@@ -54,7 +52,6 @@ import org.change.v2.analysis.processingmodels.instructions.CreateTag
 import org.change.v2.analysis.expression.abst.FloatingExpression
 import org.change.v2.analysis.processingmodels.instructions.FloatingConstraint
 import org.change.v2.analysis.processingmodels.instructions._
-import org.change.v2.analysis.expression.concrete.nonprimitive.{:+:, :-:, :@, Address}
 import org.change.v2.analysis.memory.TagExp
 import org.change.v2.analysis.memory.Tag
 import org.change.v2.analysis.memory.Intable
@@ -312,7 +309,7 @@ object JsonUtil {
       classOf[E], classOf[GT], classOf[GTE], classOf[LT],
       classOf[LTE], classOf[NOT], classOf[OR], classOf[Range],
       classOf[EQ_E], classOf[GT_E], classOf[GTE_E], classOf[LT_E],
-      classOf[LTE_E])
+      classOf[LTE_E], classOf[Lor], classOf[LAnd], classOf[LNot], classOf[LXor])
   mapper.registerSubtypes(
       new NamedType(classOf[ConstrainRaw], "ConstrainRaw"),
       new NamedType(classOf[ConstrainNamedSymbol], "ConstrainNamedSymbol"),
@@ -344,6 +341,10 @@ object JsonUtil {
       new NamedType(classOf[:>=:], "f_gte"),
       new NamedType(classOf[:<=:], "f_lte"),
       new NamedType(classOf[:>=:], "f_gte"),
+      new NamedType(classOf[:&&:], "f_land"),
+      new NamedType(classOf[:||:], "f_lor"),
+      new NamedType(classOf[:!:], "f_lnot"),
+      new NamedType(classOf[:^:], "f_lxor"),
       new NamedType(classOf[:==:], "f_eq"),
       new NamedType(LongType.getClass, "LongType"),
       new NamedType(IP4Type.getClass, "IPv4"),

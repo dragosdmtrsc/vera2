@@ -102,6 +102,10 @@ public class Switch {
         return instances.getOrDefault(o, null);
     }
 
+    public Iterable<HeaderInstance> getInstances() {
+        return instances.values();
+    }
+
     public Switch addHeaderInstance(HeaderInstance instance) {
         this.instances.put(instance.getName(), instance);
         return this;

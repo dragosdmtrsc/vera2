@@ -71,11 +71,15 @@ case class MemorySpace(val symbols: Map[String, MemoryObject] = Map.empty,
    * @return
    */
   def Allocate(id: String): Option[MemorySpace] =
+    Allocate(id, 0)
+
+  def Allocate(id : String, size : Int) : Option[MemorySpace] = {
     Some(MemorySpace(
-      symbols + ( id -> (if (! symbolIsDefined(id)) MemoryObject() else symbols(id).allocateNewStack)),
+      symbols + ( id -> (if (! symbolIsDefined(id)) MemoryObject(size = size) else symbols(id).allocateNewStack)),
       rawObjects,
       memTags
     ))
+  }
 
   def Allocate(a: Int, size: Int): Option[MemorySpace] = if (canModifyExisting(a, size))
     Some(MemorySpace(
