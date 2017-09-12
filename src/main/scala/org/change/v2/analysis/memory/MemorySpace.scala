@@ -293,7 +293,7 @@ case class MemorySpace(val symbols: Map[String, MemoryObject] = Map.empty,
 
   def assignNewValue(id: String, v: Value): Option[MemorySpace] =
     Some(MemorySpace(
-      symbols + (id -> (if (symbolIsDefined(id)) symbols(id).addValue(v) else MemoryObject().addValue(v))),
+      symbols + (id -> (if (symbolIsDefined(id)) symbols(id).addValue(v) else MemoryObject(size = 64).addValue(v))),
       rawObjects,
       memTags
     ))

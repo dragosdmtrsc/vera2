@@ -2,7 +2,7 @@ package org.change.parser.p4
 
 import org.change.v2.analysis.expression.abst.{Expression, FloatingExpression}
 import org.change.v2.analysis.expression.concrete.ConstantValue
-import org.change.v2.analysis.expression.concrete.nonprimitive.{:+:, :-:, :@}
+import org.change.v2.analysis.expression.concrete.nonprimitive._
 import org.change.v2.analysis.memory.{Intable, Tag}
 import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.analysis.processingmodels.instructions.{Assign, InstructionBlock, NoOp, _}
@@ -567,6 +567,28 @@ class ActionInstance(p4Action: P4Action, argList : List[Any],
     )
   }
 
+  def handleBitAndOrXor(isAnd : Boolean, isOr : Boolean, isXor : Boolean) = {
+    val argDest = argList.head
+    val argSource1 = argList(1)
+    val argSource2 = argList(2)
+    val dstField = ctx.resolveField(argDest.toString)
+    val arg1 = parseArg(argSource1)
+    val arg2 = parseArg(argSource2)
+    val fexp = if (isAnd) {
+      :&&:(arg1, arg2)
+    } else if (isOr) {
+      :||:(arg1, arg2)
+    } else if (isXor) {
+      :^:(arg1, arg2)
+    } else {
+      throw new UnsupportedOperationException("AND, OR, XOR supported")
+    }
+    dstField match {
+      case Left(i) => Assign(i,fexp)
+      case Right(s) => Assign(s, fexp)
+    }
+  }
+
   def handlePrimitiveAction(primitiveAction : P4Action) : Instruction = {
     primitiveAction.getActionType match {
       case P4ActionType.AddToField => handleAddToField(primitiveAction.asInstanceOf[AddToField])
@@ -589,6 +611,9 @@ class ActionInstance(p4Action: P4Action, argList : List[Any],
       case P4ActionType.RemoveHeader => handleRemoveHeader()
       case P4ActionType.Pop => handlePop()
       case P4ActionType.Push => handlePush()
+      case P4ActionType.BitAnd => handleBitAndOrXor(isAnd = true, isOr = false, isXor = false)
+      case P4ActionType.BitOr => handleBitAndOrXor(isAnd = false, isOr = true, isXor = false)
+      case P4ActionType.BitXor => handleBitAndOrXor(isAnd = false, isOr = false, isXor = true)
       case _ => throw new UnsupportedOperationException(s"Primitive action of type ${primitiveAction.getActionType} not yet supported")
     }
   }
