@@ -10,6 +10,7 @@ import org.change.parser.p4.P4GrammarListener;
 import org.change.v2.abstractnet.click.sefl.StripIPHeader;
 import org.change.v2.p4.model.actions.ActionRegistrar;
 import org.change.v2.p4.model.actions.P4Action;
+import org.change.v2.p4.model.parser.State;
 import org.change.v2.p4.model.table.TableMatch;
 
 import java.io.IOException;
@@ -33,12 +34,27 @@ public class Switch {
 
     private Map<String, List<TableMatch>> matches = new HashMap<String, List<TableMatch>>();
 
+    public State getParserState(Object o) {
+        return parserStates.get(o);
+    }
+
+    public boolean hasParserState(String o) {
+        return parserStates.containsKey(o);
+    }
+
+    public Set<String> parserStates() {
+        return parserStates.keySet();
+    }
+
+    private Map<String, State> parserStates = new HashMap<String, State>();
 
     public List<String> getAllowedActions(String perTable) {
         if (!allowedActions.containsKey(perTable))
             return Collections.emptyList();
         return allowedActions.get(perTable);
     }
+
+
 
 
     public Switch setRegisterSpecificationMap(Map<String, RegisterSpecification> registerSpecificationMap) {
@@ -133,6 +149,7 @@ public class Switch {
         sw.matches = listener.tableDeclarations();
         sw.instances = listener.instances();
         sw.allowedActions = listener.tableAllowedActions();
+        sw.parserStates = listener.parserFunctions();
         return sw;
     }
 

@@ -8,10 +8,16 @@ import java.util.List;
  */
 public class Header {
     private String name;
-    private int length;
+    private int length = -1;
     private int maxLength;
 
     public int getLength() {
+        if (length == -1) {
+            length = 0;
+            for (Field f : fields) {
+                length += f.getLength();
+            }
+        }
         return length;
     }
 

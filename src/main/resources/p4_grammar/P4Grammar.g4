@@ -121,38 +121,49 @@ value_set_declaration : 'parser_value_set' value_set_name ';' ;
 value_set_name  : NAME ;
 
 // Section 4 Parser Specification
-parser_function_declaration returns [org.change.parser.p4.ParserFunctionDeclaration functionDeclaration] :
+parser_function_declaration returns [org.change.parser.p4.ParserFunctionDeclaration functionDeclaration,
+org.change.v2.p4.model.parser.State state] :
     'parser' parser_state_name '{' parser_function_body '}' ;
 
 parser_state_name   :   NAME ;
-parser_function_body : extract_or_set_statement* return_statement ;
+parser_function_body returns [java.util.List<org.change.v2.p4.model.parser.Statement> statements]:
+    extract_or_set_statement* return_statement ;
 // TODO: Support set_statement.
-extract_or_set_statement returns [org.change.parser.p4.ParserFunctionStatement functionStatement] :
+extract_or_set_statement returns [org.change.parser.p4.ParserFunctionStatement functionStatement,
+org.change.v2.p4.model.parser.Statement statement] :
     extract_statement | set_statement ;
-extract_statement  returns [org.change.parser.p4.ExtractHeader extractStatement] :
+extract_statement  returns [org.change.parser.p4.ExtractHeader extractStatement,
+    org.change.v2.p4.model.parser.ExtractStatement statement] :
     'extract' '(' header_extract_ref ')' ';' ;
 header_extract_ref returns [org.change.parser.p4.HeaderInstance headerInstance] :
     instance_name | instance_name '[' header_extract_index ']' ;
 header_extract_index    : const_value | 'next' ;
-set_statement   :   'set_metadata' '(' field_ref',' metadata_expr ')' ';' ;
+set_statement returns [org.change.v2.p4.model.parser.SetStatement statement]  :
+    'set_metadata' '(' field_ref',' metadata_expr ')' ';' ;
 metadata_expr   :   field_value | field_or_data_ref ;
 
-return_statement    :   return_value_type | 'return select' '(' select_exp ')' '{' case_entry+ '}'  ;
+return_statement  returns [org.change.v2.p4.model.parser.Statement statement]  :
+    return_value_type | 'return select' '(' select_exp ')' '{' case_entry+ '}'  ;
 
-return_value_type   :   'return' parser_state_name ';' | 'return' control_function_name ';'
+return_value_type  returns [org.change.v2.p4.model.parser.ReturnStatement statement] :
+    'return' parser_state_name ';' | 'return' control_function_name ';'
     | 'parse_error' parser_exception_name ';' ;
 control_function_name   :   NAME ;
 parser_exception_name   :   NAME ;
 
-case_entry :    value_list ':' case_return_value_type ';';
-value_list :    value_or_masked ( ',' value_or_masked )* | 'default' ;
+case_entry returns [org.change.v2.p4.model.parser.CaseEntry caseEntry] :
+    value_list ':' case_return_value_type ';';
+value_list returns [java.util.List<org.change.v2.p4.model.parser.Value> values]:
+    value_or_masked ( ',' value_or_masked )* | 'default' ;
 
 case_return_value_type  : parser_state_name | control_function_name | 'parse_error' parser_exception_name ;
 
-value_or_masked :   field_value | field_value 'mask' field_value | value_set_name ;
+value_or_masked returns [org.change.v2.p4.model.parser.Value v]:
+    field_value | field_value 'mask' field_value | value_set_name ;
 
 
-select_exp  :   field_or_data_ref (',' field_or_data_ref)* ;
+select_exp  returns [java.util.List<org.change.v2.p4.model.parser.Expression> expressions]:
+    field_or_data_ref (',' field_or_data_ref)* ;
 field_or_data_ref   :   field_ref | 'latest.'field_name | 'current' '(' const_value ',' const_value ')' ;
 parser_exception_declaration    :   'parser_exception' parser_exception_name '{'
     set_statement*

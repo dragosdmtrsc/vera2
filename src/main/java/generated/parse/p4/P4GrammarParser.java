@@ -103,7 +103,7 @@ public class P4GrammarParser extends Parser {
 	};
 
 	private static final String[] _LITERAL_NAMES = {
-		null, "'+'", "'-'", "'\u2019'", "'header_type'", "'{'", "'}'", "'fields'", 
+		null, "'+'", "'-'", "'''", "'header_type'", "'{'", "'}'", "'fields'", 
 		"'length'", "':'", "';'", "'max_length'", "'('", "')'", "'signed'", "'saturating'", 
 		"','", "'*'", "'<<'", "'>>'", "'header'", "'['", "']'", "'metadata'", 
 		"'last'", "'.'", "'field_list'", "'payload'", "'field_list_calculation'", 
@@ -2635,6 +2635,7 @@ public class P4GrammarParser extends Parser {
 
 	public static class Parser_function_declarationContext extends ParserRuleContext {
 		public org.change.parser.p4.ParserFunctionDeclaration functionDeclaration;
+		public org.change.v2.p4.model.parser.State state;
 		public Parser_state_nameContext parser_state_name() {
 			return getRuleContext(Parser_state_nameContext.class,0);
 		}
@@ -2722,6 +2723,7 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Parser_function_bodyContext extends ParserRuleContext {
+		public java.util.List<org.change.v2.p4.model.parser.Statement> statements;
 		public Return_statementContext return_statement() {
 			return getRuleContext(Return_statementContext.class,0);
 		}
@@ -2783,6 +2785,7 @@ public class P4GrammarParser extends Parser {
 
 	public static class Extract_or_set_statementContext extends ParserRuleContext {
 		public org.change.parser.p4.ParserFunctionStatement functionStatement;
+		public org.change.v2.p4.model.parser.Statement statement;
 		public Extract_statementContext extract_statement() {
 			return getRuleContext(Extract_statementContext.class,0);
 		}
@@ -2841,6 +2844,7 @@ public class P4GrammarParser extends Parser {
 
 	public static class Extract_statementContext extends ParserRuleContext {
 		public org.change.parser.p4.ExtractHeader extractStatement;
+		public org.change.v2.p4.model.parser.ExtractStatement statement;
 		public Header_extract_refContext header_extract_ref() {
 			return getRuleContext(Header_extract_refContext.class,0);
 		}
@@ -3008,6 +3012,7 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Set_statementContext extends ParserRuleContext {
+		public org.change.v2.p4.model.parser.SetStatement statement;
 		public Field_refContext field_ref() {
 			return getRuleContext(Field_refContext.class,0);
 		}
@@ -3125,6 +3130,7 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Return_statementContext extends ParserRuleContext {
+		public org.change.v2.p4.model.parser.Statement statement;
 		public Return_value_typeContext return_value_type() {
 			return getRuleContext(Return_value_typeContext.class,0);
 		}
@@ -3214,6 +3220,7 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Return_value_typeContext extends ParserRuleContext {
+		public org.change.v2.p4.model.parser.ReturnStatement statement;
 		public Parser_state_nameContext parser_state_name() {
 			return getRuleContext(Parser_state_nameContext.class,0);
 		}
@@ -3365,6 +3372,7 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Case_entryContext extends ParserRuleContext {
+		public org.change.v2.p4.model.parser.CaseEntry caseEntry;
 		public Value_listContext value_list() {
 			return getRuleContext(Value_listContext.class,0);
 		}
@@ -3413,6 +3421,7 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Value_listContext extends ParserRuleContext {
+		public java.util.List<org.change.v2.p4.model.parser.Value> values;
 		public List<Value_or_maskedContext> value_or_masked() {
 			return getRuleContexts(Value_or_maskedContext.class);
 		}
@@ -3559,6 +3568,7 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Value_or_maskedContext extends ParserRuleContext {
+		public org.change.v2.p4.model.parser.Value v;
 		public List<Field_valueContext> field_value() {
 			return getRuleContexts(Field_valueContext.class);
 		}
@@ -3628,6 +3638,7 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Select_expContext extends ParserRuleContext {
+		public java.util.List<org.change.v2.p4.model.parser.Expression> expressions;
 		public List<Field_or_data_refContext> field_or_data_ref() {
 			return getRuleContexts(Field_or_data_refContext.class);
 		}
