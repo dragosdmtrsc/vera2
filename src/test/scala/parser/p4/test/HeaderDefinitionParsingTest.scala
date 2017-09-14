@@ -5,7 +5,12 @@ import java.util
 
 import org.change.parser.p4._
 import org.change.parser.p4.control.P4ToAbstractNetwork
+import org.change.parser.p4.parser.{DFSState, StateExpander}
 import org.change.utils.prettifier.JsonUtil
+import org.change.v2.analysis.executor.DecoratedInstructionExecutor
+import org.change.v2.analysis.executor.solvers.Z3BVSolver
+import org.change.v2.analysis.memory.State
+import org.change.v2.analysis.processingmodels.instructions.InstructionBlock
 import org.change.v2.p4.model.SwitchInstance
 import org.scalatest.FunSuite
 
@@ -205,5 +210,59 @@ class HeaderDefinitionParsingTest extends FunSuite {
     ps.println(JsonUtil.toJson(res.links))
     ps.close()
   }
+
+
+  test("PARSER - generating all packet layouts") {
+    val p4 = "inputs/simple-nat/simple_nat-ppc.p4"
+    val dataplane = "inputs/simple-nat/commands.txt"
+    val res = ControlFlowInterpreter(p4, dataplane, List[String]("veth0", "veth1"),"router")
+    val bvExec = new DecoratedInstructionExecutor(new Z3BVSolver)
+
+    val fork = StateExpander.generateAllPossiblePackets(
+      new StateExpander(res.switch, "start").doDFS(DFSState(0)), res.switch
+    )
+    val ps = new PrintStream("inputs/simple-nat/initial-possibilities.json")
+    val (ok, fail) = bvExec.execute(fork, State.clean, true)
+    ps.println(JsonUtil.toJson(ok))
+    ps.close()
+    assert(fail.isEmpty)
+  }
+
+  test("PARSER - run #1") {
+    val p4 = "inputs/simple-nat/simple_nat-ppc.p4"
+    val dataplane = "inputs/simple-nat/commands.txt"
+    val res = ControlFlowInterpreter(p4, dataplane, List[String]("veth0", "veth1"),"router")
+    val bvExec = new DecoratedInstructionExecutor(new Z3BVSolver)
+
+    val expd = new StateExpander(res.switch, "start").doDFS(DFSState(0))
+    val fork = StateExpander.generateAllPossiblePackets(
+      expd, res.switch
+    )
+
+    val initializeCode = new InitializeCode(res.switchInstance)
+    val initCode = initializeCode.switchInitializePacketEnter(0)
+
+    val tests = InstructionBlock(
+      initCode,
+      StateExpander.parseStateMachine(expd, res.switch)
+    )
+    var ps = new PrintStream("inputs/simple-nat/initial-possibilities.json")
+    val (ok, fail) = bvExec.execute(fork, State.clean, true)
+    ps.println(JsonUtil.toJson(ok))
+    ps.close()
+
+    ps = new PrintStream("inputs/simple-nat/parser-run-ok.json")
+    val (newok, newf) = ok.foldLeft((Nil : List[State], Nil : List[State]))((acc, x) => {
+      val (okk, faill) = bvExec.execute(tests, x, true)
+      (acc._1 ++ okk, acc._2 ++ faill)
+    })
+    ps.println(JsonUtil.toJson(newok))
+    ps.close()
+    ps = new PrintStream("inputs/simple-nat/parser-run-fail.json")
+    ps.println(JsonUtil.toJson(newf))
+    ps.close()
+    assert(newok.size == ok.size)
+  }
+
 
 }

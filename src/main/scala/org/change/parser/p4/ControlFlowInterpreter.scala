@@ -8,7 +8,7 @@ import scala.util.matching.Regex
 /**
   * Created by dragos on 07.09.2017.
   */
-class ControlFlowInterpreter(switchInstance: SwitchInstance) {
+class ControlFlowInterpreter(val switchInstance: SwitchInstance) {
   val tables = switchInstance.getDeclaredTables.map(new FullTable(_, switchInstance))
   val switch = switchInstance.getSwitchSpec
 

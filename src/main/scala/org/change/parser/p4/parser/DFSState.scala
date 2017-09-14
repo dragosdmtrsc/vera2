@@ -5,7 +5,7 @@ import java.util.UUID
 
 import com.fasterxml.jackson.annotation.ObjectIdGenerators.UUIDGenerator
 import org.change.utils.prettifier.JsonUtil
-import org.change.v2.analysis.expression.concrete.ConstantValue
+import org.change.v2.analysis.expression.concrete.{ConstantValue, SymbolicValue}
 import org.change.v2.analysis.expression.concrete.nonprimitive.{:&&:, :@}
 import org.change.v2.analysis.memory.Tag
 import org.change.v2.analysis.processingmodels.Instruction
@@ -99,73 +99,111 @@ object StateExpander {
     pw.close()
     println(expd.size)
     val fork = new PrintWriter("inputs/simple-nat/parser-fork.json")
-    fork.println(JsonUtil.toJson(Fork(expd.map(x => {
-        InstructionBlock(
-          x.history.tail.filter(!_.isInstanceOf[ReturnStatement]).reverse.map(y => {
-            y match {
-              case v : ExtractStatement => {
-                val sref = v.getExpression.asInstanceOf[StringRef].getRef
-                InstructionBlock(
-                  Assign(sref + ".IsValid", ConstantValue(1)) ::
-                  sw.getInstance(sref).getLayout.getFields.foldLeft((Nil : List[Instruction], 0))( (acc, r) => {
+    fork.println(JsonUtil.toJson(parseStateMachine(expd, sw)))
+    fork.close()
+
+    val explosion = new PrintWriter("inputs/simple-nat/parser-explosion.json")
+    explosion.println(JsonUtil.toJson(generateAllPossiblePackets(expd, sw)))
+    explosion.close()
+  }
+
+  def getWidth(expression: String, switch: Switch) : Int = {
+    val split = expression.split("\\.")
+    val (hdr, fld) = (split(0), split(1))
+    switch.getInstance(hdr).getLayout.getField(fld).getLength
+  }
+
+  def generateAllPossiblePackets(expd: List[DFSState],sw : Switch): InstructionBlock = {
+    import org.change.v2.analysis.memory.TagExp.IntImprovements
+    InstructionBlock(
+      CreateTag("START", 0),
+      Fork(
+        expd.map(x => {
+          InstructionBlock(x.history.filter(x => x.isInstanceOf[ExtractStatement]).reverse.flatMap(r => {
+              val extractStatement = r.asInstanceOf[ExtractStatement]
+              val sref = extractStatement.getExpression.asInstanceOf[StringRef].getRef
+              sw.getInstance(sref).getLayout.getFields.foldLeft((Nil : List[Instruction],
+                extractStatement.getCrt))((acc, y) => {
+                val width = y.getLength
+                (acc._1 ++ List[Instruction](
+                  Allocate(Tag("START") + acc._2, width),
+                  Assign(Tag("START") + acc._2, SymbolicValue())
+                ), acc._2 + width)
+              })._1
+            })
+          )
+        })
+      )
+    )
+  }
+
+  def parseStateMachine(expd: List[DFSState], sw : Switch): Fork = {
+    Fork(expd.map(x => {
+      InstructionBlock(
+        x.history.tail.filter(!_.isInstanceOf[ReturnStatement]).reverse.map(y => {
+          y match {
+            case v: ExtractStatement => {
+              val sref = v.getExpression.asInstanceOf[StringRef].getRef
+              InstructionBlock(
+                Assign(sref + ".IsValid", ConstantValue(1)) ::
+                  sw.getInstance(sref).getLayout.getFields.foldLeft((Nil: List[Instruction], 0))((acc, r) => {
                     (acc._1 ++ List[Instruction](
                       Allocate(sref + s".${r.getName}", r.getLength),
                       Assign(sref + s".${r.getName}", :@(Tag("START") + v.getCrt + acc._2))
                     ), acc._2 + r.getLength)
                   })._1.toList
-                )
-              }
-              case v : SetStatement => {
-                val dstref = v.getLeft.asInstanceOf[StringRef].getRef
-                val srcref = v.getRight.asInstanceOf[StringRef].getRef
-                Assign(dstref, :@(srcref))
-              }
-              case v : CaseEntry => {
-                InstructionBlock(
-                  v.getValues.zip(v.getExpressions).map(x => {
-                    x._2 match {
-                      case u : StringRef => {
-                        if (x._1.getMask == -1) {
-                          Constrain(u.getRef, :==:(ConstantValue(x._1.getValue)))
-                        } else {
-                          val width = sw.getInstance(u.getRef.split("\\.")(0)).getLayout
-                            .getFields.find(_.getName == u.getRef.split("\\.")(1)).get.getLength
-                          val tmp = "tmp" + UUID.randomUUID().toString
-                          InstructionBlock(
-                            Allocate(tmp, width),
-                            Assign(tmp, :&&:(ConstantValue(x._1.getMask), :@(u.getRef))),
-                            Constrain(tmp, :==:(ConstantValue(x._1.getValue)))
-                          )
-                        }
-                      }
-                      case u : DataRef => {
-                        if (x._1.getMask == -1) {
-                          val tmp = "tmp" + UUID.randomUUID().toString
-                          val width = u.getEnd.toInt - u.getStart.toInt
-                          InstructionBlock(
-                            Allocate(tmp, width),
-                            Assign(tmp, :@(Tag("START") + u.getStart.toInt)),
-                            Constrain(tmp, :==:(ConstantValue(x._1.getValue)))
-                          )
-                        } else {
-                          val width = u.getEnd.toInt - u.getStart.toInt
-                          val tmp = "tmp" + UUID.randomUUID().toString
-                          InstructionBlock(
-                            Allocate(tmp, width),
-                            Assign(tmp, :&&:(ConstantValue(x._1.getMask), :@(Tag("START") + u.getStart.toInt))),
-                            Constrain(tmp, :==:(ConstantValue(x._1.getValue)))
-                          )
-                        }
+              )
+            }
+            case v: SetStatement => {
+              val dstref = v.getLeft.asInstanceOf[StringRef].getRef
+              val srcref = v.getRight.asInstanceOf[StringRef].getRef
+              Assign(dstref, :@(srcref))
+            }
+            case v: CaseEntry => {
+              InstructionBlock(
+                v.getValues.zip(v.getExpressions).map(x => {
+                  x._2 match {
+                    case u: StringRef => {
+                      if (x._1.getMask == -1) {
+                        Constrain(u.getRef, :==:(ConstantValue(x._1.getValue)))
+                      } else {
+                        val width = sw.getInstance(u.getRef.split("\\.")(0)).getLayout
+                          .getFields.find(_.getName == u.getRef.split("\\.")(1)).get.getLength
+                        val tmp = "tmp" + UUID.randomUUID().toString
+                        InstructionBlock(
+                          Allocate(tmp, width),
+                          Assign(tmp, :&&:(ConstantValue(x._1.getMask), :@(u.getRef))),
+                          Constrain(tmp, :==:(ConstantValue(x._1.getValue)))
+                        )
                       }
                     }
-                  })
-                )
-              }
+                    case u: DataRef => {
+                      if (x._1.getMask == -1) {
+                        val tmp = "tmp" + UUID.randomUUID().toString
+                        val width = u.getEnd.toInt - u.getStart.toInt
+                        InstructionBlock(
+                          Allocate(tmp, width),
+                          Assign(tmp, :@(Tag("START") + u.getStart.toInt)),
+                          Constrain(tmp, :==:(ConstantValue(x._1.getValue)))
+                        )
+                      } else {
+                        val width = u.getEnd.toInt - u.getStart.toInt
+                        val tmp = "tmp" + UUID.randomUUID().toString
+                        InstructionBlock(
+                          Allocate(tmp, width),
+                          Assign(tmp, :&&:(ConstantValue(x._1.getMask), :@(Tag("START") + u.getStart.toInt))),
+                          Constrain(tmp, :==:(ConstantValue(x._1.getValue)))
+                        )
+                      }
+                    }
+                  }
+                })
+              )
             }
-          })
-        )
-      })
-    )))
-    fork.close()
+          }
+        })
+      )
+    })
+    )
   }
 }
