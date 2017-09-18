@@ -784,11 +784,15 @@ class P4GrammarListener extends P4GrammarBaseListener {
         blocks.get(ctx.bool_expr)
       ),
       Forward(ctx.parent + "[if][0]"),
-      Forward(s"${ctx.parent}[else][0]")
+      if (ctx.else_block() != null)
+        Forward(s"${ctx.parent}[else][0]")
+      else
+        NoOp
     )
 
     this.links.put(ctx.parent + "[if].out", s"${ctx.parent}.out")
-    this.links.put(ctx.parent + "[else].out", s"${ctx.parent}.out")
+    if (ctx.else_block() != null)
+      this.links.put(ctx.parent + "[else].out", s"${ctx.parent}.out")
 
     val constr = blocks.get(ctx.bool_expr).head
     blocks.get(ctx.bool_expr).remove(0)

@@ -18,6 +18,8 @@ class ActionInstance(p4Action: P4Action, argList : List[Any],
                      flowNumber : Int,
                      dropMessage : String = "Dropped right here") {
 
+  override def toString: String = s"${switchInstance.getName}.action.$table.$flowNumber"
+
   private val ctx = switchInstance.getSwitchSpec.getCtx
 
   def handleComplexAction(complexAction: P4ComplexAction) : Instruction = {
@@ -203,7 +205,7 @@ class ActionInstance(p4Action: P4Action, argList : List[Any],
           Assign(ctx.resolveField("standard_metadata.instance_type").right.get, ConstantValue(1)),
           Forward(switchInstance.getName + ".parser")
         ),
-        Forward(s"${switchInstance.getName}.egress")
+        Forward("control.ingress.out")
       )
     )
   }
@@ -217,9 +219,9 @@ class ActionInstance(p4Action: P4Action, argList : List[Any],
           handleCloneCookie(argList.head.toString()),
           restore(actualFieldList.getFields.toList),
           Assign(ctx.resolveField("standard_metadata.instance_type").right.get, ConstantValue(2)),
-          Forward(switchInstance.getName + ".out")
+          Forward("control.ingress.out")
         ),
-        Forward(s"${switchInstance.getName}.egress")
+        Forward(s"${switchInstance.getName}.buffer.in")
       )
     )
   }
@@ -237,7 +239,7 @@ class ActionInstance(p4Action: P4Action, argList : List[Any],
           Assign(ctx.resolveField("standard_metadata.instance_type").right.get, ConstantValue(3)),
           Forward(switchInstance.getName + ".parser")
         ),
-        Forward(s"${switchInstance.getName}.out")
+        Forward("control.egress.out")
       )
     )
   }
@@ -262,9 +264,9 @@ class ActionInstance(p4Action: P4Action, argList : List[Any],
           setOriginal(),
           restore(actualFieldList.getFields.toList),
           Assign(ctx.resolveField("standard_metadata.instance_type").right.get, ConstantValue(4)),
-          Forward(switchInstance.getName + ".egress")
+          Forward(switchInstance.getName + ".buffer.in")
         ),
-        Forward(s"${switchInstance.getName}.out")
+        Forward(s"control.egress.out")
       )
     )
   }
@@ -643,10 +645,14 @@ class ActionInstance(p4Action: P4Action, argList : List[Any],
     }
     if (actual == null || actual.getActionType == P4ActionType.UNKNOWN)
       throw new IllegalArgumentException(s"P4 Action is not in the registrar: ${p4Action.toString}")
-    actual.getActionType match {
-      case P4ActionType.Complex => handleComplexAction(actual.asInstanceOf[P4ComplexAction])
-      case _ => handlePrimitiveAction(actual)
-    }
+    InstructionBlock(
+//      Forward(toString),
+      actual.getActionType match {
+        case P4ActionType.Complex => handleComplexAction(actual.asInstanceOf[P4ComplexAction])
+        case _ => handlePrimitiveAction(actual)
+      }
+//      Forward(toString + ".out")
+    )
   }
 
 }

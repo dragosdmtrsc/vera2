@@ -353,9 +353,9 @@ class FullTable(tableName : String, switchInstance: SwitchInstance, id : String 
               Assign(s"$tableName.Hit", ConstantValue(1))
             ),
             InstructionBlock(
-              acc,
               Assign(s"${actionDef(x._2)}.Fired", ConstantValue(0)),
-              Assign(s"$tableName.Hit", ConstantValue(0))
+              Assign(s"$tableName.Hit", ConstantValue(0)),
+              acc
             )
           )
         )

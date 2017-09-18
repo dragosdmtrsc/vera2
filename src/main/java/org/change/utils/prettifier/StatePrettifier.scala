@@ -57,10 +57,10 @@ import org.change.v2.analysis.memory.Tag
 import org.change.v2.analysis.memory.Intable
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
-import java.io.FileInputStream
-import java.io.InputStream
+import java.io.{FileInputStream, InputStream, OutputStream}
 
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize
+
 //import org.change.v2.analysis.expression.concrete.ConstantStringValue
 
 //class StatePrettifier {
@@ -382,6 +382,10 @@ object JsonUtil {
 
   def toJson(value: Any): String = {
     mapper.writerWithDefaultPrettyPrinter().writeValueAsString(value)
+  }
+
+  def toJson(value : Any, outputStream: OutputStream) : Unit = {
+    mapper.writerWithDefaultPrettyPrinter().writeValue(outputStream, value)
   }
 
 //  def toMap[V](json:String)(implicit m: Manifest[V]) = fromJson[Map[String,V]](json)

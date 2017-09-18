@@ -1,16 +1,17 @@
 package parser.p4.test
 
-import java.io.PrintStream
+import java.io.{FileOutputStream, PrintStream}
 import java.util
 
 import org.change.parser.p4._
 import org.change.parser.p4.control.P4ToAbstractNetwork
 import org.change.parser.p4.parser.{DFSState, StateExpander}
 import org.change.utils.prettifier.JsonUtil
-import org.change.v2.analysis.executor.DecoratedInstructionExecutor
+import org.change.v2.analysis.executor.{DecoratedInstructionExecutor, OVSExecutor}
 import org.change.v2.analysis.executor.solvers.Z3BVSolver
 import org.change.v2.analysis.memory.State
-import org.change.v2.analysis.processingmodels.instructions.InstructionBlock
+import org.change.v2.analysis.processingmodels.instructions.{CreateTag, Forward, InstructionBlock}
+import org.change.v2.executor.clickabstractnetwork.ClickExecutionContext
 import org.change.v2.p4.model.SwitchInstance
 import org.scalatest.FunSuite
 
@@ -233,18 +234,12 @@ class HeaderDefinitionParsingTest extends FunSuite {
     val dataplane = "inputs/simple-nat/commands.txt"
     val res = ControlFlowInterpreter(p4, dataplane, List[String]("veth0", "veth1"),"router")
     val bvExec = new DecoratedInstructionExecutor(new Z3BVSolver)
-
-    val expd = new StateExpander(res.switch, "start").doDFS(DFSState(0))
-    val fork = StateExpander.generateAllPossiblePackets(
-      expd, res.switch
-    )
-
-    val initializeCode = new InitializeCode(res.switchInstance)
-    val initCode = initializeCode.switchInitializePacketEnter(0)
+    val fork = res.allParserStatesInstruction()
+    val initCode = res.initialize(0)
 
     val tests = InstructionBlock(
       initCode,
-      StateExpander.parseStateMachine(expd, res.switch)
+      res.parserCode()
     )
     var ps = new PrintStream("inputs/simple-nat/initial-possibilities.json")
     val (ok, fail) = bvExec.execute(fork, State.clean, true)
@@ -262,6 +257,67 @@ class HeaderDefinitionParsingTest extends FunSuite {
     ps.println(JsonUtil.toJson(newf))
     ps.close()
     assert(newok.size == ok.size)
+  }
+
+  test("INTEGRATION - graph") {
+    val p4 = "inputs/simple-nat/simple_nat-ppc.p4"
+    val dataplane = "inputs/simple-nat/commands.txt"
+    val res = ControlFlowInterpreter(p4, dataplane, List[String]("veth0", "veth1"), "router")
+    val fin = "inputs/simple-nat/graph.dot"
+    val ps = new PrintStream(fin)
+    ps.println(res.toDot())
+    ps.close()
+    import sys.process._
+    s"dot -Tpng $fin -O" !
+  }
+
+  test("INTEGRATION - run #1") {
+    val p4 = "inputs/simple-nat/simple_nat-ppc.p4"
+    val dataplane = "inputs/simple-nat/commands.txt"
+    val res = ControlFlowInterpreter(p4, dataplane, List[String]("veth0", "veth1"), "router")
+//    val fin = "inputs/simple-nat/graph.dot"
+//    val ps = new PrintStream(fin)
+//    ps.println(res.toDot())
+//    ps.close()
+//    import sys.process._
+//    s"dot -Tpng $fin -O" !
+    val ib = InstructionBlock(
+      res.allParserStatesInstruction(),
+      Forward("router.input.0")
+    )
+
+    val bvExec = new OVSExecutor(new Z3BVSolver)
+
+    var clickExecutionContext = P4ExecutionContext(
+      res.instructions(), res.links(), bvExec.execute(ib, State.clean, true)._1, bvExec
+    )
+    var init = System.currentTimeMillis()
+    var runs  = 0
+    while (!clickExecutionContext.isDone && runs < 10000) {
+      clickExecutionContext = clickExecutionContext.execute(true)
+      runs = runs + 1
+    }
+
+    println(s"Failed # ${clickExecutionContext.failedStates.size}, Ok # ${clickExecutionContext.stuckStates.size}")
+    println(s"Time is ${System.currentTimeMillis() - init}ms")
+
+    val psok = new FileOutputStream("/home/dragos/extended/inputs/simple-nat/click-exec-ok-port0.json")
+    JsonUtil.toJson(clickExecutionContext.stuckStates, psok)
+    psok.close()
+
+    val psko = new FileOutputStream("/home/dragos/extended/inputs/simple-nat/click-exec-fail-port0.json")
+    JsonUtil.toJson(clickExecutionContext.failedStates, psko)
+    psko.close()
+
+
+//    val psokpretty = new PrintStream("/home/dragos/extended/inputs/simple-nat/click-exec-ok-port0-pretty.json")
+//    psokpretty.println(clickExecutionContext.stuckStates)
+//    psokpretty.close()
+
+//    val pskopretty = new PrintStream("/home/dragos/extended/inputs/simple-nat/click-exec-fail-port0-pretty.json")
+//    pskopretty.println(clickExecutionContext.failedStates)
+//    pskopretty.close()
+
   }
 
 

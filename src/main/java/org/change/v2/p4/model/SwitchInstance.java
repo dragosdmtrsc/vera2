@@ -6,6 +6,7 @@ import org.change.v2.p4.model.actions.P4ParameterInstance;
 import org.change.v2.p4.model.table.MatchKind;
 import org.change.v2.p4.model.table.TableMatch;
 import org.change.v2.util.conversion.RepresentationConversion;
+import scala.Int;
 import sun.net.util.IPAddressUtil;
 
 import java.io.*;
@@ -21,6 +22,12 @@ public class SwitchInstance {
 
     private Map<String, List<FlowInstance>> flowInstanceMap = new HashMap<String, List<FlowInstance>>();
     private Map<String, P4ActionCall> defaultActionMap = new HashMap<String, P4ActionCall>();
+
+    public Map<Integer, Integer> getCloneSpec2EgressSpec() {
+        return cloneSpec2EgressSpec;
+    }
+
+    private Map<Integer, Integer> cloneSpec2EgressSpec = new HashMap<Integer, Integer>();
 
     public List<FlowInstance> flowInstanceIterator(String perTable) {
         if (flowInstanceMap.containsKey(perTable))
@@ -165,6 +172,11 @@ public class SwitchInstance {
                     }
                 }
                 switchInstance.setDefaultAction(tableName, theCall);
+            } else if (crt.startsWith("mirroring_add")) {
+                String[] split = crt.split(" ");
+                String clone = split[1];
+                String egress = split[2];
+                switchInstance.cloneSpec2EgressSpec.put(Integer.decode(clone), Integer.decode(egress));
             }
         }
         br.close();

@@ -17,6 +17,10 @@ case class State(memory: MemorySpace = MemorySpace.clean,
                  history: List[LocationId] = Nil,
                  errorCause: Option[ErrorCause] = None,
                  instructionHistory: List[Instruction] = Nil) {
+  def destroyPacket(): State = {
+    copy(memory = memory.destroyPacket())
+  }
+
   def location: LocationId = history.head
   def forwardTo(locationId: LocationId): State = State(memory, locationId :: history, errorCause, instructionHistory)
   def status = errorCause.getOrElse("OK")

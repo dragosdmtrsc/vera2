@@ -201,6 +201,11 @@ object StateExpander {
               )
             }
           }
+        }) :+ (x.history.head match {
+          case v : ReturnStatement  => if (!v.isError)
+            Forward(s"control.${v.getWhere}")
+            else Fail(s"Parser failure because ${v.getMessage}")
+          case _ => throw new UnsupportedOperationException(s"History head must be ReturnStatement, but ${x.history.head} found")
         })
       )
     })

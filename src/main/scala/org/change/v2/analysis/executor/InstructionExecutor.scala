@@ -272,6 +272,15 @@ abstract class AbstractInstructionExecutor extends InstructionExecutor {
         }
         case None => execute(elseWhat, s, v)
       }
+      case i @ InstructionBlock(instrs) => {
+        if (instrs.forall(x => x.isInstanceOf[ConstrainRaw] || x.isInstanceOf[ConstrainNamedSymbol])) {
+          this.execute(instrs.foldRight(thenWhat)((x, acc) => {
+            If (x, acc, elseWhat)
+          }), s, v)
+        } else {
+          throw new UnsupportedOperationException("Can't do it. All instructions in conditional instruction block MUST be Constrain")
+        }
+      }
       case _ => stateToError(s, "Bad test instruction")
     }
 
