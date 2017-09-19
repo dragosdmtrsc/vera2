@@ -78,69 +78,75 @@ instance
 Some per-table metadata are required for matching in the control flow functions.
 - `<action_name>.Fired` - a flag which indicates if the actions was fired (0 or 1)
 - `<table_name>.Hit` - a flag which indicates if any entry in the table was matched (0 or 1)
+- `IsClone` - a flag which indicates that the current state is a clone. This flag
+is used to bypass the current table, as there might be rules which also
+apply to it. At the end of the current table, the clone (aka clone `Forward` operation is
+executed and the packet is sent to the desired location `egress` or `ingress`)
 
-### Ternary matches
-Bitwise operations are not supported by Symnet. The following work-around was used for the
-case in which the values to match against (`value/mask`) are constant and known as per 
-configuration
-- the mask is split in contiguous regions where the mask value is only 0 let them be called `I_0, ... I_n`
-integer ranges `I_j=[i_j0, i_j1]`
-- for each such range, associate a symbolic value (call it X) constrained to the range 0..2^(i_j1-i_j0+1)-1
-- let A be the integer `A = value & mask`
-- constrain the target field to be equal to `sum(2^i_j0 * X)_for j\in 1..n`
+### Notes on sub-systems of a P4 switch and naming conventions
+A P4 switch is composed of the following components:
+- control functions (denoted `control.<control_function_name>`)
+- table calls (denoted `table.<table_name>.in.<table_call_id>`, where `table_call_id` is
+a pseudo-random string which ensures proper connection in the control flow
+- parser mechanism (denoted `<switch_instance_name>.parser.in`) - shall convert
+the current tagged representation to a parsed packet representation and shall set
+all `<header_instance>.IsValid` flags to 1 for all headers which were extracted. NB: All
+header instance fields shall be allocated with their fixed size as declared. At the end
+of the parser function, the resulting parsed representation will be saved for clone cases.
+As such, let `<header_instance>.<field>` be a field in the resulting parsed packet, then
+`Original.<header_instance>.<field>` shall be allocated with the corresponding width and
+assigned as a reference to the current `<header_instance>.<field>`'s value
+- deparser mechanism (denoted `<switch_instance_name>.deparser.in`) - shall convert 
+the current parsed packet representation to a tag-based representation
+- buffer mechanism (denoted `<switch_instance_name>.buffer.in`) - performs `egress_port` 
+population based on the current `egress_spec` if normal copy or `clone_spec` if clone copy 
+- output mechanism (denoted `<switch_instance_name>.output.in`) perfoms the actual forwarding
+of a packet to one of the switch's declared interfaces based on the set `egress_port`. 
+If a port with the given id is not found, the execution fails.
+- input mechanism (denoted `<switch_instance_name>.input.in`) - performs `ingress_port`
+population and initializes header instances and metadata. After this point, all header
+instances shall have `<header_instance>.IsValid` flag set to 0
 
-The solution is still very hacky and will not work for large bitmasks 
-(`OutOfMemoryException` and friends).
+Links: 
+- A **control function** may perform one or more **table call**s.
+
+- The **input mechanism** links to the **parser mechanism**
+
+- The **parser mechanism** links to the **_ingress_ control function**
+
+- The **_ingress_ control function** links to the **buffer mechanism**
+
+- The **buffer mechanism** links to the **_egress_ control function**
+
+- The **_egress_ control function** links to the **output mechanism**
 
 ### Notes on bitwise operators
 
-Currently, Symnet core employs the Presburger arithmetic fragment to determine
-the validity of the state of the program at hand. As stated in the above chapter,
-dealing with arbitrary masks is close to impossible. Also, dealing with bitwise
-operators is not supported. 
-
-Why not use a different decidable fragment which also deals with these kinds
-of operators? The one which will take care of current operator limitations is
-the Bit Vector Arithmetic. A good presentation on the topic can be found here:
-http://www.decision-procedures.org/slides/bit-vectors.pdf
-
-As it turns out, there are efficient decision procedures for this arithmetic.
-In the future, maybe we can try it out. As can be easily observed in the above
-presentation, it is fully compliant with the P4 spec, in that it takes widths
-and encodings (signed/unsigned) into consideration when verifying satisfiability
-for a given formula + all operators currenlty employed therein.
-
-
+Currently, a limited implementation for some bitwise operands is provided. 
+As such, the `Z3BVSolver` succesfully handles the `and`, `or`, `xor` operations.
 
 ### Known limitations (to date)
 
-1. No bit operations are implemented - `and`, `or`, `xor`, `shl`, `shr`
-2. Cloning is **not as per specification**. 
-    - **As per specification**, whenever the packet encounters a  `clone` instruction, 
-    it should be marked for cloning and, at the end of the current control
-flow (ingress or egress), it will be cloned at the specified insertion point. 
-The packet, however, continues to experience all instructions encountered while 
-continuing the current pipeline and only at the end will it be cloned. 
-    - **In the implemented model**, the packet is cloned as soon as it encounters the 
-    `clone` operation, the execution forks with the first path forwarding the packet 
-    to its specified insertion point and the second path forwarding the packet to the 
-    table's output port. This approach is not compliant to spec, but is believed to 
-    cover most use-cases, where the `clone` operation is the **last in the pipeline**. 
-    - A more accurate implementation **should** be implemented
-3. The same as in 2 goes for `recirculate` and `resubmit` instructions
-4. Meters and counters are not implemented. Consequently, no actions which take
+1. Some bit operations are not implemented - `shl`, `shr`
+2. `recirculate` and `resubmit` instructions are not implemented as per spec - 
+in the spec the packet is marked for resubmission and only at the end of the current
+pipeline is it resubmited for processing to the parser. Also, the effect of multiple
+recirculate/resubmit actions is
+3. Meters and counters are not implemented. Consequently, no actions which take
 inputs meter or counter references are implemented
-5. No calculations are currently implemented. Consequently, no actions which take
+4. No calculations are currently implemented. Consequently, no actions which take
  inputs calculated fields are implemented
-6. `truncate` and `count` instructions are not implemented
-7. The current parser and interpreter needs declarations prior to usage in functions. 
+5. `truncate` and `count` instructions are not implemented
+6. The current parser and interpreter needs declarations prior to usage in functions. 
 As such, all header types need to be declared first, then all header instances. 
-8. The current parser cannot ignore comments. - Worked around using approach in issue 9.
-9. The current parser has no built-in precompile step and will throw whenever
+7. The current parser cannot ignore comments. - Worked around using approach in issue 8.
+8. The current parser has no built-in precompile step and will throw whenever
 macro definitions are observed and used - in order to use this, run the following command
 assuming `f.p4` is your input file: `gcc -E -x c -P f.p4 > f-ppc.p4` and then
 run Symnet-P4 integration against the pre-processed file `f-ppc.p4`
-10. Little to no testing done for array instances - most likely they will generate bugs
+9. Little to no testing done for array instances - most likely they will generate bugs
+10. No support for parser `value sets`
+11. No support for variable-width header fields
 
 SymNet v2
 =========

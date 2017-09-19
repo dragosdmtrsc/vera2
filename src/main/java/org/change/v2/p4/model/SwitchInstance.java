@@ -86,19 +86,32 @@ public class SwitchInstance {
 
     public static SwitchInstance fromP4AndDataplane(String p4File, String dataplane, List<String> ifaces) throws IOException {
         File f = new File(p4File);
-        return fromP4AndDataplane(p4File, dataplane, p4File, ifaces);
-    }
-
-    public static SwitchInstance fromP4AndDataplane(String p4File,
-                                                    String dataplane,
-                                                    String name,
-                                                    List<String> ifaces) throws IOException {
-        Switch sw = Switch.fromFile(p4File);
         Map<Integer, String> mapped = new HashMap<Integer, String>();
         int i = 0;
         for (String s : ifaces) {
             mapped.put(i++, s);
         }
+        return fromP4AndDataplane(p4File, dataplane, p4File, mapped);
+    }
+    public static SwitchInstance fromP4AndDataplane(String p4File,
+                                                    String dataplane,
+                                                    String name,
+                                                    List<String> ifaces) throws IOException {
+        Map<Integer, String> mapped = new HashMap<Integer, String>();
+        int i = 0;
+        for (String s : ifaces) {
+            mapped.put(i++, s);
+        }
+        return fromP4AndDataplane(p4File, dataplane, name, mapped);
+    }
+
+    public static SwitchInstance fromP4AndDataplane(String p4File,
+                                                    String dataplane,
+                                                    String name,
+                                                    Map<Integer, String> ifaces) throws IOException {
+        Switch sw = Switch.fromFile(p4File);
+        Map<Integer, String> mapped = new HashMap<Integer, String>();
+        mapped.putAll(ifaces);
 
         BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(dataplane)));
         String crt = null;

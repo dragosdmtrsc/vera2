@@ -80,7 +80,8 @@ class OVSExecutor(solver: Solver) extends DecoratedInstructionExecutor(solver) {
     if (instruction.isInstanceOf[Translatable])
       this.execute(instruction.asInstanceOf[Translatable].generateInstruction(), s, v)
     else
-      throw new UnsupportedOperationException("Cannot handle this kind of instruction. Make it Translatable " + instruction)
+      instruction(s, v)
+//      throw new UnsupportedOperationException("Cannot handle this kind of instruction. Make it Translatable " + instruction)
   }
 
 

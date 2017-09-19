@@ -794,30 +794,30 @@ class P4GrammarListener extends P4GrammarBaseListener {
     if (ctx.else_block() != null)
       this.links.put(ctx.parent + "[else].out", s"${ctx.parent}.out")
 
-    val constr = blocks.get(ctx.bool_expr).head
-    blocks.get(ctx.bool_expr).remove(0)
-
-    val negated = for (x <- blocks.get(ctx.bool_expr)) yield {
-      x match {
-        case ConstrainNamedSymbol(a,c,d) => ConstrainNamedSymbol(a, :~:(c),d)
-        case ConstrainRaw(a,c,d) => ConstrainRaw(a, :~:(c),d)
-      }
-    }
-
-    currentInstructions.head.append(
-      If (constr,
-        InstructionBlock(blocks.get(ctx.bool_expr) ++ blocks.get(ctx.control_block)),
-        if (ctx.else_block==null) NoOp
-        else InstructionBlock(negated ++ blocks.get(ctx.else_block))
-      ))
-
-    blocksLast.get(ctx.control_block).append(Forward(labelName))
-    if (ctx.else_block!=null)
-      blocksLast.get(ctx.else_block.control_block).append(Forward(labelName))
-
-    currentInstructions.remove(0)
-    currentInstructions.prepend(new ListBuffer[Instruction])
-    ports += (labelName -> currentInstructions.head)
+//    val constr = blocks.get(ctx.bool_expr).head
+//    blocks.get(ctx.bool_expr).remove(0)
+//
+//    val negated = for (x <- blocks.get(ctx.bool_expr)) yield {
+//      x match {
+//        case ConstrainNamedSymbol(a,c,d) => ConstrainNamedSymbol(a, :~:(c),d)
+//        case ConstrainRaw(a,c,d) => ConstrainRaw(a, :~:(c),d)
+//      }
+//    }
+//
+//    currentInstructions.head.append(
+//      If (constr,
+//        InstructionBlock(blocks.get(ctx.bool_expr) ++ blocks.get(ctx.control_block)),
+//        if (ctx.else_block==null) NoOp
+//        else InstructionBlock(negated ++ blocks.get(ctx.else_block))
+//      ))
+//
+//    blocksLast.get(ctx.control_block).append(Forward(labelName))
+//    if (ctx.else_block!=null)
+//      blocksLast.get(ctx.else_block.control_block).append(Forward(labelName))
+//
+//    currentInstructions.remove(0)
+//    currentInstructions.prepend(new ListBuffer[Instruction])
+//    ports += (labelName -> currentInstructions.head)
   }
 
   override def enterElse_block(ctx: Else_blockContext): Unit = {
@@ -919,7 +919,7 @@ class P4GrammarListener extends P4GrammarBaseListener {
   }
 
   override def exitRelop_bool_expr(ctx:Relop_bool_exprContext){
-    println("Matched relop bool expr " + expressions.get(ctx.exp(0))+ " " + expressions.get(ctx.exp(1)))
+    println("Matched relop bool expr " + expressions.get(ctx.exp(0))+ s"${ctx.rel_op.getText}" + expressions.get(ctx.exp(1)))
 
     val exp1 = expressions.get(ctx.exp(0))
     val exp2 = expressions.get(ctx.exp(1))
@@ -928,30 +928,26 @@ class P4GrammarListener extends P4GrammarBaseListener {
 
     exp1 match {
       case Symbol(x) =>
-        println ("Found symbol "+x)
-
         ctx.rel_op.getText match {
           case "==" =>
             constraints.put(ctx, :==:(exp2))
             blocks.get(ctx).append(Constrain(x,:==:(exp2)))
 
-          case "!=" => println ("!= relop")
+          case "!=" =>
             constraints.put(ctx, :~:(:==:(exp2)))
             blocks.get(ctx).append(Constrain(x,:~:(:==:(exp2))))
 
-          case "<" => println ("< relop")
+          case "<" =>
             constraints.put(ctx, :<:(exp2))
             blocks.get(ctx).append(Constrain(x,:<:(exp2)))
 
-          case ">" => println ("> relop")
+          case ">" =>
             constraints.put(ctx, :>:(exp2))
             blocks.get(ctx).append(Constrain(x,:>:(exp2)))
-
           case _ => println("Unknown relop "+ctx.rel_op);
         }
 
       case Address(x) =>
-        println("Found address "+x)
         ctx.rel_op.getText match {
           case "==" =>
             constraints.put(ctx, :==:(exp2))

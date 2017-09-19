@@ -63,15 +63,21 @@ class TableRangeMatcher(tableMatch : TableMatch) extends Constrainable {
   override def constraint(switchInstance: SwitchInstance, which : Int): Instruction = {
     val node = rrng(which)
     val (hdr, fieldName) = fieldDef(tableMatch.getKey)
+    val actual = switchInstance.getSwitchSpec.getInstance(hdr)
     val cvalid = Constrain(s"$hdr.IsValid", :==:(ConstantValue(1)))
     val cinRange = :&:(:<=:(ConstantValue(node.condition.upper)), :>=:(ConstantValue(node.condition.lower)))
     val coutRange = (node.children ++ node.lateral).foldLeft(cinRange)((acc, x) => {
       :&:(acc, :~:(:&:(:<=:(ConstantValue(x.condition.upper)), :>=:(ConstantValue(x.condition.lower)))))
     })
-    InstructionBlock(
-      cvalid,
-      Constrain(s"$hdr.$fieldName", coutRange)
-    )
+    if (!actual.isMetadata)
+      InstructionBlock(
+        cvalid,
+        Constrain(s"$hdr.$fieldName", coutRange)
+      )
+    else
+      InstructionBlock(
+        Constrain(s"$hdr.$fieldName", coutRange)
+      )
   }
 }
 object P4Utils {
@@ -318,10 +324,12 @@ class FullTable(tableName : String, switchInstance: SwitchInstance, id : String 
 //      InstructionBlock(x.instructions.filter(x => x.isInstanceOf[ConstrainNamedSymbol] || x.isInstanceOf[ConstrainRaw]))
 //    })
   private def action(index : Int) = new FireAction(tableName, index, switchInstance).symnetCode()
-  private def default() : Instruction = InstructionBlock(
-    new FireDefaultAction(tableName, switchInstance).symnetCode(),
-    Assign("default.Fired", ConstantValue(1)),
-    Assign(s"$tableName.Hit", ConstantValue(0))
+  private def default() : Instruction = If (Constrain("IsClone", :==:(ConstantValue(0))),
+    InstructionBlock(
+      new FireDefaultAction(tableName, switchInstance).symnetCode(),
+      Assign("default.Fired", ConstantValue(1)),
+      Assign(s"$tableName.Hit", ConstantValue(0))
+    )
   )
   private def initializeTable() : Instruction = {
     InstructionBlock(
@@ -330,6 +338,9 @@ class FullTable(tableName : String, switchInstance: SwitchInstance, id : String 
       }) ++ List[Instruction](
         Assign("default.Fired", ConstantValue(0)),
         Assign(s"$tableName.Hit", ConstantValue(0))
+      ) ++ List[Instruction](
+        Allocate("IsClone", 1),
+        Assign("IsClone", ConstantValue(0))
       )
     )
   }
@@ -340,28 +351,32 @@ class FullTable(tableName : String, switchInstance: SwitchInstance, id : String 
   }
 
   def fullAction() = InstructionBlock(
-    initializeTable(),
-    flows.zipWithIndex.foldRight(default())((x, acc) => {
-      val priorAndCt = priorAndConstraints(x._2)
-      priorAndCt._2.zip(priorAndCt._1).foldRight(action(x._2))((y, acc2) => {
-        InstructionBlock(
-          y._2,
-          If (y._1,
+      initializeTable(),
+      flows.zipWithIndex.foldRight(default())((x, acc) => {
+        val priorAndCt = priorAndConstraints(x._2)
+        priorAndCt._2.zip(priorAndCt._1).foldRight(action(x._2))((y, acc2) => {
+          If (Constrain("IsClone", :==:(ConstantValue(0))),
             InstructionBlock(
-              acc2,
-              Assign(s"${actionDef(x._2)}.Fired", ConstantValue(1)),
-              Assign(s"$tableName.Hit", ConstantValue(1))
-            ),
-            InstructionBlock(
-              Assign(s"${actionDef(x._2)}.Fired", ConstantValue(0)),
-              Assign(s"$tableName.Hit", ConstantValue(0)),
-              acc
+              y._2,
+              If (y._1,
+                InstructionBlock(
+                  acc2,
+                  Assign(s"${actionDef(x._2)}.Fired", ConstantValue(1)),
+                  Assign(s"$tableName.Hit", ConstantValue(1))
+                ),
+                InstructionBlock(
+                  Assign(s"${actionDef(x._2)}.Fired", ConstantValue(0)),
+                  Assign(s"$tableName.Hit", ConstantValue(0)),
+                  acc
+                )
+              )
             )
           )
-        )
-      })
-    }),
-    Forward(s"table.$tableName.out" + (if (id.length != 0) s".$id" else ""))
-  )
+        })
+      }),
+      If (Constrain("IsClone", :==:(ConstantValue(0))),
+        Forward(s"table.$tableName.out" + (if (id.length != 0) s".$id" else ""))
+      )
+    )
 
 }

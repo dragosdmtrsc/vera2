@@ -151,14 +151,17 @@ class ActionInstance(p4Action: P4Action, argList : List[Any],
           x.getLayout.getFields.map(y => {
             if (!butFor.contains(x.getName + "." + y.getName)) {
               if (x.isMetadata) {
-                InstructionBlock(
-                  Allocate(x.getName + "." + y.getName, y.getLength),
-                  Assign(x.getName + "." + y.getName, :@("Original." + x.getName + "." + y.getName))
-                )
+//                InstructionBlock(
+//                  Allocate(x.getName + "." + y.getName, y.getLength),
+//                  Assign(x.getName + "." + y.getName, :@("Original." + x.getName + "." + y.getName))
+//                )
+                NoOp
               } else {
-                InstructionBlock(
-                  Allocate(x.getName + "." + y.getName, y.getLength),
-                  Assign(x.getName + "." + y.getName, :@("Original." + x.getName + "." + y.getName))
+                If (Constrain(s"${x.getName}.${y.getName}.IsValid", :==:(ConstantValue(1))),
+                  InstructionBlock(
+                    Allocate(x.getName + "." + y.getName, y.getLength),
+                    Assign(x.getName + "." + y.getName, :@("Original." + x.getName + "." + y.getName))
+                  )
                 )
               }
             }
@@ -203,9 +206,10 @@ class ActionInstance(p4Action: P4Action, argList : List[Any],
           handleCloneCookie(argList.head.toString()),
           restore(actualFieldList.getFields.toList),
           Assign(ctx.resolveField("standard_metadata.instance_type").right.get, ConstantValue(1)),
+          Assign("IsClone", ConstantValue(1)),
           Forward(switchInstance.getName + ".parser")
         ),
-        Forward("control.ingress.out")
+        NoOp
       )
     )
   }
@@ -219,9 +223,10 @@ class ActionInstance(p4Action: P4Action, argList : List[Any],
           handleCloneCookie(argList.head.toString()),
           restore(actualFieldList.getFields.toList),
           Assign(ctx.resolveField("standard_metadata.instance_type").right.get, ConstantValue(2)),
-          Forward("control.ingress.out")
+          Assign("IsClone", ConstantValue(1)),
+          Forward(s"${switchInstance.getName}.buffer.in")
         ),
-        Forward(s"${switchInstance.getName}.buffer.in")
+        NoOp
       )
     )
   }
@@ -237,6 +242,7 @@ class ActionInstance(p4Action: P4Action, argList : List[Any],
           setOriginal(),
           restore(actualFieldList.getFields.toList),
           Assign(ctx.resolveField("standard_metadata.instance_type").right.get, ConstantValue(3)),
+          Assign("IsClone", ConstantValue(1)),
           Forward(switchInstance.getName + ".parser")
         ),
         Forward("control.egress.out")
@@ -264,9 +270,10 @@ class ActionInstance(p4Action: P4Action, argList : List[Any],
           setOriginal(),
           restore(actualFieldList.getFields.toList),
           Assign(ctx.resolveField("standard_metadata.instance_type").right.get, ConstantValue(4)),
+          Assign("IsClone", ConstantValue(1)),
           Forward(switchInstance.getName + ".buffer.in")
         ),
-        Forward(s"control.egress.out")
+        NoOp
       )
     )
   }

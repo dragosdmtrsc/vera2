@@ -74,18 +74,32 @@ class StateExpander (switch: Switch, startAt : String){
     })
     returnStatement match {
       case rs: ReturnStatement => List[DFSState](nfs.addInstr(rs))
-      case rss: ReturnSelectStatement => rss.getCaseEntryList.map(x => {
-        val ces = x.getValues.foldLeft(x.getExpressions.foldLeft(new CaseEntry())((acc, y) => {
-          acc.addExpression(y match {
-            case v : DataRef => new DataRef(nfs.crt + v.getStart, nfs.crt + v.getEnd)
-            case v : LatestRef => new StringRef(nfs.latest + "." + v.getFieldName)
-            case _ => y
+      case rss: ReturnSelectStatement => {
+        // non-default cases first
+        val cases = rss.getCaseEntryList.filter(x => {
+          !x.getValues.isEmpty
+        }).map(x => {
+          val ces = x.getValues.foldLeft(x.getExpressions.foldLeft(new CaseEntry())((acc, y) => {
+            acc.addExpression(y match {
+              case v : DataRef => new DataRef(nfs.crt + v.getStart, nfs.crt + v.getEnd)
+              case v : LatestRef => new StringRef(nfs.latest + "." + v.getFieldName)
+              case _ => y
+            })
+          }))((acc, y) => {
+            acc.addValue(y)
           })
-        }))((acc, y) => {
-          acc.addValue(y)
+          (nfs.addInstr(ces).addInstr(x.getReturnStatement), ces)
+        }).toList
+        //default case now => always add constrain not
+        val defaultCase = rss.getCaseEntryList.filter(x => {
+          x.getValues.isEmpty
+        }).map(x => {
+          nfs.addInstr(cases.unzip._2.foldLeft(new CaseNotEntry())((acc, r) => {
+            acc.addCaseEntry(r)
+          })).addInstr(x.getReturnStatement)
         })
-        nfs.addInstr(ces).addInstr(x.getReturnStatement)
-      }).toList
+        cases.unzip._1 ++ defaultCase
+      }
     }
   }
 }
@@ -140,68 +154,55 @@ object StateExpander {
   def parseStateMachine(expd: List[DFSState], sw : Switch): Fork = {
     Fork(expd.map(x => {
       InstructionBlock(
-        x.history.tail.filter(!_.isInstanceOf[ReturnStatement]).reverse.map(y => {
-          y match {
-            case v: ExtractStatement => {
-              val sref = v.getExpression.asInstanceOf[StringRef].getRef
-              InstructionBlock(
-                Assign(sref + ".IsValid", ConstantValue(1)) ::
-                  sw.getInstance(sref).getLayout.getFields.foldLeft((Nil: List[Instruction], 0))((acc, r) => {
-                    (acc._1 ++ List[Instruction](
-                      Allocate(sref + s".${r.getName}", r.getLength),
-                      Assign(sref + s".${r.getName}", :@(Tag("START") + v.getCrt + acc._2))
-                    ), acc._2 + r.getLength)
-                  })._1.toList
-              )
-            }
-            case v: SetStatement => {
-              val dstref = v.getLeft.asInstanceOf[StringRef].getRef
-              val srcref = v.getRight.asInstanceOf[StringRef].getRef
-              Assign(dstref, :@(srcref))
-            }
-            case v: CaseEntry => {
-              InstructionBlock(
-                v.getValues.zip(v.getExpressions).map(x => {
-                  x._2 match {
-                    case u: StringRef => {
-                      if (x._1.getMask == -1) {
-                        Constrain(u.getRef, :==:(ConstantValue(x._1.getValue)))
-                      } else {
-                        val width = sw.getInstance(u.getRef.split("\\.")(0)).getLayout
-                          .getFields.find(_.getName == u.getRef.split("\\.")(1)).get.getLength
-                        val tmp = "tmp" + UUID.randomUUID().toString
-                        InstructionBlock(
-                          Allocate(tmp, width),
-                          Assign(tmp, :&&:(ConstantValue(x._1.getMask), :@(u.getRef))),
-                          Constrain(tmp, :==:(ConstantValue(x._1.getValue)))
-                        )
-                      }
-                    }
-                    case u: DataRef => {
-                      if (x._1.getMask == -1) {
-                        val tmp = "tmp" + UUID.randomUUID().toString
-                        val width = u.getEnd.toInt - u.getStart.toInt
-                        InstructionBlock(
-                          Allocate(tmp, width),
-                          Assign(tmp, :@(Tag("START") + u.getStart.toInt)),
-                          Constrain(tmp, :==:(ConstantValue(x._1.getValue)))
-                        )
-                      } else {
-                        val width = u.getEnd.toInt - u.getStart.toInt
-                        val tmp = "tmp" + UUID.randomUUID().toString
-                        InstructionBlock(
-                          Allocate(tmp, width),
-                          Assign(tmp, :&&:(ConstantValue(x._1.getMask), :@(Tag("START") + u.getStart.toInt))),
-                          Constrain(tmp, :==:(ConstantValue(x._1.getValue)))
-                        )
-                      }
-                    }
-                  }
-                })
-              )
-            }
+        x.history.tail.filter(!_.isInstanceOf[ReturnStatement]).reverse.map {
+          case v: ExtractStatement => {
+            val sref = v.getExpression.asInstanceOf[StringRef].getRef
+            InstructionBlock(
+              Assign(sref + ".IsValid", ConstantValue(1)) ::
+                sw.getInstance(sref).getLayout.getFields.foldLeft((Nil: List[Instruction], 0))((acc, r) => {
+                  (acc._1 ++ List[Instruction](
+                    Allocate(sref + s".${r.getName}", r.getLength),
+                    Assign(sref + s".${r.getName}", :@(Tag("START") + v.getCrt + acc._2)),
+                    Allocate(s"Original.$sref.${r.getName}", r.getLength),
+                    Assign(s"Original.$sref.${r.getName}", :@(sref + s".${r.getName}"))
+                  ), acc._2 + r.getLength)
+                })._1.toList
+            )
           }
-        }) :+ (x.history.head match {
+          case v: SetStatement => {
+            val dstref = v.getLeft.asInstanceOf[StringRef].getRef
+            val srcref = v.getRight.asInstanceOf[StringRef].getRef
+            Assign(dstref, :@(srcref))
+          }
+          case v: CaseNotEntry => {
+            val cases = v.getCaseEntryList.map(translateCaseEntry(_, sw))
+            def gatherAllocate(i: Instruction): Iterable[Instruction] = i match {
+              case InstructionBlock(instructions) => instructions.flatMap(gatherAllocate)
+              case v: AllocateSymbol => List[Instruction](v)
+              case _ => Nil
+            }
+            def gatherAssign(i: Instruction): Iterable[Instruction] = i match {
+              case InstructionBlock(instructions) => instructions.flatMap(gatherAllocate)
+              case v: AssignNamedSymbol => List[Instruction](v)
+              case _ => Nil
+            }
+
+            def gatherConstrain(i: Instruction): Iterable[Instruction] = i match {
+              case InstructionBlock(instructions) => instructions.flatMap(gatherAllocate)
+              case v: ConstrainNamedSymbol => List[Instruction](v.not())
+              case _ => Nil
+            }
+            InstructionBlock(
+              cases.flatMap(gatherAllocate) ++ cases.flatMap(gatherAssign) :+
+                Fork(
+                  cases.flatMap(gatherConstrain)
+                )
+            )
+          }
+          case v: CaseEntry => {
+            translateCaseEntry(v, sw)
+          }
+        } :+ (x.history.head match {
           case v : ReturnStatement  => if (!v.isError)
             Forward(s"control.${v.getWhere}")
             else Fail(s"Parser failure because ${v.getMessage}")
@@ -209,6 +210,48 @@ object StateExpander {
         })
       )
     })
+    )
+  }
+
+  def translateCaseEntry(v: CaseEntry, sw : Switch): InstructionBlock = {
+    InstructionBlock(
+      v.getValues.zip(v.getExpressions).map(x => {
+        x._2 match {
+          case u: StringRef => {
+            if (x._1.getMask == -1) {
+              Constrain(u.getRef, :==:(ConstantValue(x._1.getValue)))
+            } else {
+              val width = sw.getInstance(u.getRef.split("\\.")(0)).getLayout
+                .getFields.find(_.getName == u.getRef.split("\\.")(1)).get.getLength
+              val tmp = "tmp" + UUID.randomUUID().toString
+              InstructionBlock(
+                Allocate(tmp, width),
+                Assign(tmp, :&&:(ConstantValue(x._1.getMask), :@(u.getRef))),
+                Constrain(tmp, :==:(ConstantValue(x._1.getValue)))
+              )
+            }
+          }
+          case u: DataRef => {
+            if (x._1.getMask == -1) {
+              val tmp = "tmp" + UUID.randomUUID().toString
+              val width = u.getEnd.toInt - u.getStart.toInt
+              InstructionBlock(
+                Allocate(tmp, width),
+                Assign(tmp, :@(Tag("START") + u.getStart.toInt)),
+                Constrain(tmp, :==:(ConstantValue(x._1.getValue)))
+              )
+            } else {
+              val width = u.getEnd.toInt - u.getStart.toInt
+              val tmp = "tmp" + UUID.randomUUID().toString
+              InstructionBlock(
+                Allocate(tmp, width),
+                Assign(tmp, :&&:(ConstantValue(x._1.getMask), :@(Tag("START") + u.getStart.toInt))),
+                Constrain(tmp, :==:(ConstantValue(x._1.getValue)))
+              )
+            }
+          }
+        }
+      })
     )
   }
 }

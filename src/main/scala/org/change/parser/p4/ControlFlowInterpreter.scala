@@ -1,8 +1,9 @@
 package org.change.parser.p4
 
+import java.util
 import java.util.UUID
 
-import org.change.parser.p4.buffer.{BufferMechanism, Deparser, OutputMechanism}
+import org.change.parser.p4.buffer.{BufferMechanism, Deparser, DeparserRev, OutputMechanism}
 import org.change.parser.p4.parser.{DFSState, StateExpander}
 import org.change.utils.abstractions._
 import org.change.v2.analysis.executor.{Executor, InstructionExecutor}
@@ -48,7 +49,7 @@ class ControlFlowInterpreter(val switchInstance: SwitchInstance) {
   //plug egress.out -> <sw>.deparser
   switch.getCtx.links.put("control.egress.out", s"${switchInstance.getName}.deparser.in")
 
-  private lazy val deparser = new Deparser(switchInstance, expd)
+  private lazy val deparser = new DeparserRev(switchInstance)
   // plug in the deparser
   switch.getCtx.instructions.put(s"${switchInstance.getName}.deparser.in", deparser.symnetCode())
   // link deparser -> <sw>.output.in
@@ -171,6 +172,7 @@ case class P4ExecutionContext(instructions: Map[LocationId, Instruction],
         val i = instructions(stateLocation)
         val r1 = executor.execute(i, s, verbose)
         //          Apply check instructions on output ports
+
         (r1._1, r1._2, Nil)
       } else
         (Nil, Nil, List(s))
@@ -188,7 +190,10 @@ case class P4ExecutionContext(instructions: Map[LocationId, Instruction],
 object ControlFlowInterpreter {
   def apply(switchInstance: SwitchInstance): ControlFlowInterpreter = new ControlFlowInterpreter(switchInstance)
 
-  def apply(p4File: String, dataplane: String, ifaces: List[String], name : String = "") : ControlFlowInterpreter =
-    ControlFlowInterpreter(SwitchInstance.fromP4AndDataplane(p4File, dataplane, name, ifaces))
+  def apply(p4File: String, dataplane: String, ifaces: Map[Int, String], name : String = "") : ControlFlowInterpreter =
+    ControlFlowInterpreter(SwitchInstance.fromP4AndDataplane(p4File, dataplane, name, ifaces.foldLeft(new util.HashMap[Integer, String]())((acc, x) => {
+      acc.put(x._1, x._2)
+      acc
+    })))
 
 }
