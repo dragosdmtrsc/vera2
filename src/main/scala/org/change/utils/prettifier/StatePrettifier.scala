@@ -35,7 +35,6 @@ import org.change.v2.analysis.types.NumericType
 import org.change.v2.analysis.types.PortType
 import org.change.v2.analysis.types.ProtoType
 import org.change.v2.analysis.types.VLANType
-
 import com.fasterxml.jackson.annotation.JsonTypeInfo
 import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
@@ -63,6 +62,8 @@ import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import java.io.FileInputStream
 import java.io.InputStream
+
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize
 import org.change.v2.analysis.expression.concrete.ConstantStringValue
 
 class StatePrettifier {
@@ -272,6 +273,25 @@ trait ForgetValueStackVoid {
 trait ForgetZ3Valid {
 }
 
+@JsonIgnoreProperties(Array("z3Valid"))
+case class MemorySpaceTrait(val symbols: Map[String, MemoryObject] = Map.empty,
+  @JsonDeserialize(keyAs = classOf[java.lang.Integer])
+  val rawObjects: Map[Int, MemoryObject] = Map.empty,
+  @JsonDeserialize(contentAs = classOf[java.lang.Integer])
+  val memTags: Map[String, Int] = Map.empty) {
+
+}
+
+//@JsonIgnoreProperties(Array("z3Valid"))
+//case class MMM (val symbols: Map[String, MemoryObject] = Map.empty,
+//@JsonDeserialize(keyAs = classOf[java.lang.Integer])
+//val rawObjects: Map[Int, MemoryObject] = Map.empty,
+//@JsonDeserialize(contentAs = classOf[java.lang.Integer])
+//val memTags: Map[String, Int] = Map.empty) {
+//
+//}
+
+
 object JsonUtil {
   val mapper = new ObjectMapper() with ScalaObjectMapper
   mapper.registerModule(DefaultScalaModule)
@@ -304,6 +324,7 @@ object JsonUtil {
       new NamedType(classOf[InstructionBlock], "If"),
       new NamedType(classOf[Forward], "Forward"),
       new NamedType(classOf[Fork], "Fork"),
+      new NamedType(classOf[Fail], "Fail"),
       new NamedType(classOf[CreateTag], "CreateTag")
   )
   
@@ -340,7 +361,7 @@ object JsonUtil {
   mapper.addMixin[SymbolicValue, ForgetNameSymbolicValue]
   mapper.addMixin[Value, ForgetEType]
   mapper.addMixin[MemoryObject, ForgetValueStackVoid]
-  mapper.addMixin[MemorySpace, ForgetZ3Valid]
+  mapper.addMixin[MemorySpace, MemorySpaceTrait]
   
   def toJson(value: Map[Symbol, Any]): String = {
     toJson(value map { case (k,v) => k.name -> v})
@@ -368,9 +389,15 @@ object SomeWriter {
   
   def main(strings : Array[String]) {
     import JsonUtil._
-    println(toJson(State.bigBang(true)))
+//    println(toJson(State.bigBang(true)))
     val fromJson = JsonUtil.fromJson[State](toJson(State.bigBang(true)))
-    println(toJson(fromJson))
+    println(fromJson.memory.rawObjects.keys.head)
+    println(fromJson.memory.rawObjects.keys.head.getClass)
+    println(fromJson.memory.rawObjects.get(265))
+
+    println(State.bigBang(true).memory.rawObjects.get(265))
+    println(State.bigBang(true).memory.rawObjects.keys.head.getClass)
+    //    println(toJson(fromJson))
   }
   
 }

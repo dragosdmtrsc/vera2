@@ -1,11 +1,11 @@
 package org.change.v2.analysis.memory
 
-import java.util.concurrent.{Callable, Executors, ExecutorService}
+import java.util.concurrent.{Callable, ExecutorService, Executors}
 
 import org.change.v2.analysis.constraint._
 import org.change.v2.analysis.expression.abst.Expression
 import org.change.v2.analysis.expression.concrete.SymbolicValue
-import org.change.v2.analysis.types.{LongType, NumericType, TypeUtils, Type}
+import org.change.v2.analysis.types.{LongType, NumericType, Type, TypeUtils}
 import org.change.v2.analysis.z3.Z3Util
 import org.change.v2.executor.clickabstractnetwork.ClickExecutionContext
 import org.change.v2.interval.{IntervalOps, ValueSet}
@@ -25,6 +25,8 @@ import org.change.v2.analysis.constraint.EQ_E
 import org.change.v2.analysis.expression.concrete.nonprimitive.Minus
 import org.change.v2.analysis.expression.concrete.nonprimitive.Plus
 import java.io.PrintWriter
+
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize
 
 /**
 *  Author: Radu Stoenescu

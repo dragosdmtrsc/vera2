@@ -31,7 +31,7 @@ import java.util.concurrent.Executors
 import scala.collection.mutable.ArrayBuffer
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
-import org.change.v2.abstractnet.linux.Translatable
+import org.change.v2.analysis.processingmodels.instructions.Translatable
 
 
 class AsyncExecutor(syncExec : InstructionExecutor,

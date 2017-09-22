@@ -1,8 +1,10 @@
 organization  := "org.change"
 
-version       := "0.2"
+version       := "0.2-SNAPSHOT"
 
 scalaVersion  := "2.11.1"
+
+name := "symnet"
 
 scalacOptions := Seq("-unchecked", "-deprecation", "-encoding", "utf8")
 
@@ -10,7 +12,7 @@ fork := true
 
 libraryDependencies ++= {
   Seq(
-    "org.antlr" % "antlr4" % "4.6",
+    "org.antlr" % "antlr4" % "4.7",
     "org.scalatest" % "scalatest_2.11" % "2.2.4" % "test",
     "io.spray" %%  "spray-json" % "1.3.2",
     "org.pacesys" % "openstack4j" % "3.0.4",
@@ -22,6 +24,9 @@ libraryDependencies ++= {
   )
 }
 
+exportJars := true
+
+//unmanagedJars in Compile += file("lib/scalaz3_2.11-2.1.jar")
 
 unmanagedResourceDirectories in Compile += baseDirectory.value / "lib"
 

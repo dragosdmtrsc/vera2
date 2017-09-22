@@ -1,44 +1,17 @@
 package org.change.v2.analysis.executor
 
-import org.change.v2.analysis.memory.State
-import org.change.v2.analysis.processingmodels.Instruction
-import org.change.v2.analysis.memory.Intable
-import org.change.v2.analysis.memory.TagExp
 import org.change.v2.analysis.constraint._
-import org.change.v2.analysis.processingmodels._
-import org.change.v2.analysis.processingmodels.instructions.Fail
-import org.change.v2.analysis.processingmodels.instructions.DeallocateNamedSymbol
-import org.change.v2.analysis.processingmodels.instructions.ConstrainNamedSymbol
-import org.change.v2.analysis.processingmodels.instructions.ConstrainRaw
-import org.change.v2.analysis.processingmodels.instructions.DestroyTag
-import org.change.v2.analysis.processingmodels.instructions.Forward
-import org.change.v2.analysis.processingmodels.instructions.AssignRaw
-import org.change.v2.analysis.processingmodels.instructions.AssignNamedSymbol
-import org.change.v2.analysis.processingmodels.instructions.AllocateSymbol
-import org.change.v2.analysis.memory.TagExp
-import org.change.v2.analysis.processingmodels.instructions.CreateTag
-import org.change.v2.analysis.processingmodels.instructions.AllocateRaw
-import org.change.v2.analysis.processingmodels.instructions.InstructionBlock
-import org.change.v2.analysis.processingmodels.instructions.DeallocateRaw
-import org.change.v2.analysis.processingmodels.instructions.Fork
-import org.change.v2.analysis.processingmodels.instructions.If
-import org.change.v2.analysis.processingmodels.instructions.NoOp
-import org.change.v2.analysis.processingmodels.instructions.optionToStatePair
-import org.change.v2.analysis.processingmodels.instructions.stateToError
-import org.change.v2.analysis.processingmodels.instructions.:~:
-import System.out._
-import org.change.v2.analysis.memory.MemorySpace
-import org.change.v2.analysis.executor.solvers.Solver 
-import org.change.v2.analysis.executor.solvers.Z3Solver
-import org.change.v2.analysis.executor.solvers.Z3SolverEnhanced
-import org.change.v2.analysis.processingmodels.instructions.NoOp
-import org.change.v2.analysis.processingmodels.instructions.NoOp
-import org.change.v2.abstractnet.linux.Translatable
+import org.change.v2.analysis.executor.solvers.{Solver, Z3SolverEnhanced}
+import org.change.v2.analysis.memory.{Intable, MemorySpace, State, TagExp}
+import org.change.v2.analysis.processingmodels.Instruction
+import org.change.v2.analysis.processingmodels.instructions._
 
 trait IExecutor[T] {
   def execute(instruction : Instruction, 
-      state : State, verbose : Boolean) : T;
+      state : State, verbose : Boolean) : T
 }
+
+
 
 abstract class Executor[T] extends IExecutor[T] {
   override def execute(instruction : Instruction, 
@@ -53,137 +26,120 @@ abstract class Executor[T] extends IExecutor[T] {
         state  
     val as = instruction match {
       case v @ NoOp => executeNoOp(s, verbose)
-      case v: AllocateRaw => {
+      case v: AllocateRaw =>
         executeAllocateRaw(v, s, verbose)
-      }
-      case v : AllocateSymbol => {
+      case v : AllocateSymbol =>
         executeAllocateSymbol(v, s, verbose)
-      }
-      case v : AssignNamedSymbol => {
+      case v : AssignNamedSymbol =>
         executeAssignNamedSymbol(v, s, verbose)
-      }
-      case v : AssignRaw => {
+      case v : AssignRaw =>
         executeAssignRaw(v, s, verbose)
-      }
-      case v : ConstrainRaw => {
+      case v : ConstrainRaw =>
         executeConstrainRaw(v, s, verbose)
-      }
-      case v : ConstrainNamedSymbol => {
+      case v : ConstrainNamedSymbol =>
         executeConstrainNamedSymbol(v, s, verbose)
-      }
-      case v : CreateTag => {
-        executeCreateTag(v, s, verbose)       
-      }
-      case v : DeallocateNamedSymbol => {
-        executeDeallocateNamedSymbol(v, s, verbose)       
-      }
-      case v : DeallocateRaw => {
+      case v : CreateTag =>
+        executeCreateTag(v, s, verbose)
+      case v : DeallocateNamedSymbol =>
+        executeDeallocateNamedSymbol(v, s, verbose)
+      case v : DeallocateRaw =>
         executeDeallocateRaw(v, s, verbose)
-      }
-      case v : DestroyTag => {
+      case v : DestroyTag =>
         executeDestroyTag(v, s, verbose)
-      }
-      case v : Fail => {
-        executeFail(v, s, verbose)        
-
-      }
-      case v : Fork => {
-        executeFork(v, s, verbose)        
-      }
-      case v : Forward => {
+      case v : Fail =>
+        executeFail(v, s, verbose)
+      case v : Fork =>
+        executeFork(v, s, verbose)
+      case v : Forward =>
         executeForward(v, s, verbose)
-      }
-      case v : If => {
-        executeIf(v, s, verbose)        
-      }
-      case v : InstructionBlock => {
+      case v : If =>
+        executeIf(v, s, verbose)
+      case v : InstructionBlock =>
         executeInstructionBlock(v, s, verbose)
-      }
-      case _ => {
+      case _ =>
         executeExoticInstruction(instruction, s, verbose)
-      }
     }
     as
   }
   
   def executeExoticInstruction(instruction : Instruction, 
       s : State,
-      verbose : Boolean) : T;
-  
-  def executeNoOp(s : State, v : Boolean  = false) : T;
-  
+      verbose : Boolean) : T
+
+  def executeNoOp(s : State, v : Boolean  = false) : T
+
   def executeInstructionBlock(instruction : InstructionBlock, 
       s : State, 
       v : Boolean = false) : 
-    T;
-  
+    T
+
   def executeIf(instruction : If, 
       s : State, 
-      v : Boolean = false) : T;
-  
+      v : Boolean = false) : T
+
   def executeForward(instruction : Forward, 
       s : State, 
       v : Boolean = false) : 
-    T;
-  
+    T
+
   def executeFork(instruction : Fork, 
       s : State, 
       v : Boolean = false) : 
-    T;
-  
+    T
+
   def executeFail(instruction : Fail, 
       s : State, 
       v : Boolean = false) : 
-    T;
-  
+    T
+
   def executeConstrainRaw(instruction : ConstrainRaw, 
       s : State, 
       v : Boolean = false) : 
-    T;
-  
+    T
+
   def executeConstrainNamedSymbol(instruction : ConstrainNamedSymbol, 
       s : State, 
       v : Boolean = false) : 
-    T;
-  
+    T
+
   def executeAssignNamedSymbol(instruction : AssignNamedSymbol, 
       s : State, 
       v : Boolean = false) : 
-    T;
-  
+    T
+
   def executeAllocateRaw(instruction : AllocateRaw, 
       state : State, 
       verbose : Boolean = false) : 
-    T;
-  
+    T
+
   def executeAssignRaw(instruction : AssignRaw, 
       s : State, 
       v: Boolean = false) : 
-    T;
-  
+    T
+
   def executeAllocateSymbol(instruction : AllocateSymbol, 
       s : State, 
       v : Boolean = false) : 
-    T;
-  
+    T
+
   def executeDestroyTag(instruction : DestroyTag,
       s : State,
       v : Boolean = false) :
-   T;
-  
+   T
+
   def executeDeallocateNamedSymbol(instruction : DeallocateNamedSymbol, 
       s : State,
       v : Boolean = false) : 
-    T;
-  
+    T
+
   def executeCreateTag(instruction : CreateTag, s : State, v : Boolean = false) : 
-    T;
-  
-  
+    T
+
+
   def executeDeallocateRaw(instruction : DeallocateRaw, 
       s : State, 
       v : Boolean = false) : 
-    T;
+    T
 }
 
 
@@ -200,77 +156,77 @@ abstract class InstructionExecutor extends Executor[(List[State], List[State])] 
   def executeInstructionBlock(instruction : InstructionBlock, 
       s : State, 
       v : Boolean = false) : 
-    (List[State], List[State]);
-  
+    (List[State], List[State])
+
   def executeIf(instruction : If, 
       s : State, 
       v : Boolean = false) : 
-    (List[State], List[State]);
-  
+    (List[State], List[State])
+
   def executeForward(instruction : Forward, 
       s : State, 
       v : Boolean = false) : 
-    (List[State], List[State]);
-  
+    (List[State], List[State])
+
   def executeFork(instruction : Fork, 
       s : State, 
       v : Boolean = false) : 
-    (List[State], List[State]);
-  
+    (List[State], List[State])
+
   def executeFail(instruction : Fail, 
       s : State, 
       v : Boolean = false) : 
-    (List[State], List[State]);
-  
+    (List[State], List[State])
+
   def executeConstrainRaw(instruction : ConstrainRaw, 
       s : State, 
       v : Boolean = false) : 
-    (List[State], List[State]);
-  
+    (List[State], List[State])
+
   def executeConstrainNamedSymbol(instruction : ConstrainNamedSymbol, 
       s : State, 
       v : Boolean = false) : 
-    (List[State], List[State]);
-  
+    (List[State], List[State])
+
   def executeAssignNamedSymbol(instruction : AssignNamedSymbol, 
       s : State, 
       v : Boolean = false) : 
-    (List[State], List[State]);
-  
+    (List[State], List[State])
+
   def executeAllocateRaw(instruction : AllocateRaw, 
       state : State, 
       verbose : Boolean = false) : 
-    (List[State], List[State]);
-  
+    (List[State], List[State])
+
   def executeAssignRaw(instruction : AssignRaw, 
       s : State, 
       v: Boolean = false) : 
-    (List[State], List[State]);
-  
+    (List[State], List[State])
+
   def executeAllocateSymbol(instruction : AllocateSymbol, 
       s : State, 
       v : Boolean = false) : 
-    (List[State], List[State]);
-  
+    (List[State], List[State])
+
   def executeDestroyTag(instruction : DestroyTag,
       s : State,
       v : Boolean = false) :
-   (List[State], List[State]);
-  
+   (List[State], List[State])
+
   def executeDeallocateNamedSymbol(instruction : DeallocateNamedSymbol, 
       s : State,
       v : Boolean = false) : 
-    (List[State], List[State]);
-  
+    (List[State], List[State])
+
   def executeCreateTag(instruction : CreateTag, s : State, v : Boolean = false) : 
-    (List[State], List[State]);
-  
-  
+    (List[State], List[State])
+
+
   def executeDeallocateRaw(instruction : DeallocateRaw, 
       s : State, 
       v : Boolean = false) : 
-    (List[State], List[State]);
-  
+    (List[State], List[State])
+
 }
 
 abstract class AbstractInstructionExecutor extends InstructionExecutor {
@@ -299,23 +255,20 @@ abstract class AbstractInstructionExecutor extends InstructionExecutor {
     val If(testInstr, thenWhat, elseWhat) = instruction
     
     testInstr match {
-      case ConstrainNamedSymbol(what, withWhat, _) => {
+      case ConstrainNamedSymbol(what, withWhat, _) =>
         withWhat instantiate s match {
-          case Left(c) if s.memory.symbolIsAssigned(what) => {
+          case Left(c) if s.memory.symbolIsAssigned(what) =>
             val (sa, fa) = execute(InstructionBlock(ConstrainNamedSymbol(what, withWhat, Some(c)), thenWhat), s, v)
             val (sb, fb) = execute(InstructionBlock(ConstrainNamedSymbol(what, :~:(withWhat), Some(NOT(c))), elseWhat), s, v)
             (sa ++ sb, fa ++ fb)
-          }
           case _ => elseWhat(s, v)
         }
-      }
       case ConstrainRaw(what, withWhat, _) => what(s) match {
         case Some(i) => withWhat instantiate s match {
-          case Left(c) if s.memory.canRead(i) => {
+          case Left(c) if s.memory.canRead(i) =>
             val (sa, fa) = execute(InstructionBlock(ConstrainRaw(what, withWhat, Some(c)), thenWhat), s, v)
             val (sb, fb) = execute(InstructionBlock(ConstrainRaw(what, :~:(withWhat), Some(NOT(c))), elseWhat), s, v)
             (sa ++ sb, fa ++ fb)
-          }
           case _ => execute(elseWhat, s, v)
         }
         case None => execute(elseWhat, s,v)
@@ -350,8 +303,8 @@ abstract class AbstractInstructionExecutor extends InstructionExecutor {
     instruction(s, v)
   }
   
-  protected def isSat(memory : MemorySpace) : Boolean;
-  
+  protected def isSat(memory : MemorySpace) : Boolean
+
   override def executeConstrainRaw(instruction : ConstrainRaw, s : State, v : Boolean = false): 
     (List[State], List[State]) = { 
     val ConstrainRaw(a, dc, c) = instruction
@@ -376,7 +329,7 @@ abstract class AbstractInstructionExecutor extends InstructionExecutor {
   protected def getNewMemory(maybeNewMem: Option[org.change.v2.analysis.memory.MemorySpace]) = {
     maybeNewMem match {
       case None => None
-      case Some(m) => {
+      case Some(m) =>
         if (isSat(m))
         {
           Some(m)
@@ -385,7 +338,6 @@ abstract class AbstractInstructionExecutor extends InstructionExecutor {
         {
           None
         }
-      }
     }
   }
   
@@ -440,12 +392,12 @@ abstract class AbstractInstructionExecutor extends InstructionExecutor {
     (List[State], List[State]) = { 
     val AssignRaw(a, exp, t) = instruction
     a(s) match {
-      case Some(int) => { exp instantiate  s match {
+      case Some(int) => exp instantiate  s match {
         case Left(e) => optionToStatePair(s, s"Error during assignment at $a") (s => {
           s.memory.Assign(int, e)
         })
         case Right(err) => execute(Fail(err), s, v)
-      }}
+      }
       case None => execute(Fail(TagExp.brokenTagExpErrorMessage), s,v)
     }
   }

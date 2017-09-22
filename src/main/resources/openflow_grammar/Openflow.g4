@@ -1,7 +1,7 @@
 grammar Openflow;
-@header {
-package generated.openflow_grammar;
-}
+//@header {
+//package generated.openflow_grammar;
+//}
 
 HEADLINE : 'NXST_FLOW' .*? NL -> skip;
 flows : HEADLINE? flow* EOF;
@@ -66,6 +66,7 @@ fieldName : 'in_port'
    | 'ct_state'
    | 'ct_zone'
    | 'ct_mark'
+   | 'conj_id'
    | nxm_reg;
 
 value : MAC | IP | NUMBER | IP6 | varName | STATE_LIST; 
@@ -151,6 +152,7 @@ target : 'output:' port #outputPort
 |  'mod_vlan_vid:' NUMBER #modVlanVid
 |  'mod_vlan_pcp:' NUMBER #modVlanPcp
 |  'strip_vlan' #stripVlan
+|  'pop_vlan' #popVlan
 |  'push_vlan:' NUMBER #pushVlan
 |  'push_mpls:' NUMBER #pushMpls
 |  'pop_mpls:' NUMBER #popMpls
@@ -185,6 +187,7 @@ target : 'output:' port #outputPort
 |  'learn' '(' (match | argument | flowMetadata | target)*  ')'  #learn
 |  'ct' '(' ctarg+ ')' #ctArged
 |  'ct' #ct
+|  'conjunction' '(' NUMBER NUMBER '/' NUMBER ')' #conjunction
 |  'exit' #exit 
 |  port #forwardToPortTarget 
 | loadAction  #load
@@ -252,7 +255,7 @@ MAC : HEX_DIGIT HEX_DIGIT ':'
 NUMBER : INT | ('0x' HEX_DIGIT+);
 INT : DIGIT+;
 NAME : (ALPHA) (ALPHA | DIGIT)*;
-WS : ([ \t\,])+ -> skip ; // skip spaces and commas
+WS : ([ \t,])+ -> skip ; // skip spaces and commas
 NL : '\r'? '\n';
 EQUALS : '=';
 fragment DIGIT : [0-9]; 
