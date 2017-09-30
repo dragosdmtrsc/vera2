@@ -1,1 +1,4 @@
-in :: Discard;
+in :: Null;
+out :: Discard;
+
+in -> out;

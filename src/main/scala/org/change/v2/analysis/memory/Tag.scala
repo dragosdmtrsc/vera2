@@ -29,7 +29,7 @@ case class TagExp(plusTags: List[Tag], minusTags: List[Tag], rest: Int) extends 
   def -(other: Int): TagExp = TagExp(plusTags, minusTags , rest-other)
 
   override def apply(v1: State): Option[Int] = if ((plusTags ++ minusTags).forall(t => v1.memory.memTags.contains(t.name)))
-    Some(minusTags.foldLeft(plusTags.foldLeft(rest)((acc, t) => acc + v1.memory.memTags(t.name))) ((acc, t) => acc - v1.memory.memTags(t.name)))
+    Some(minusTags.foldLeft(plusTags.foldLeft(rest)((acc, t) => acc + v1.memory.memTags(t.name)))((acc, t) => acc - v1.memory.memTags(t.name)))
   else
     None
 

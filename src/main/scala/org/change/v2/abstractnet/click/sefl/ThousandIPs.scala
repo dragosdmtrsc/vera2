@@ -22,7 +22,7 @@ class ThousandIPs(name: String,
     configParams) {
 
   override def instructions: Map[LocationId, Instruction] = Map(
-    (inputPortName(0), InstructionBlock(InstructionBlock ((1 to 100000).toList.map((i : Int) => Constrain(IPSrc,:~:(:==:(ConstantValue(i)))))),
+    (inputPortName(0), InstructionBlock(InstructionBlock ((1 to 1000).toList.map((i : Int) => Constrain(IPSrc,:~:(:==:(ConstantValue(i)))))),
                                         Constrain(IPSrc,(:==:(ConstantValue(1)))),
                                         Forward(outputPortName(0))))
   )

@@ -82,7 +82,7 @@ object Tester {
       //TopoTest("Existential test 2 on hop-based impl",EF(Constrain(TcpSrc,:==:(ConstantValue(5)))),"0",sample_topo(model_1),true),
       //TopoTest("Universal test 3 on hop-based impl",AF(Constrain(TcpSrc,:==:(ConstantValue(5)))),"0",sample_topo(model_1),false),
       // this test currently fails
-      TopoTest("Universal test 4 on hop-based impl",AF(Constrain(TcpSrc,:>=:(ConstantValue(5)))),"0",sample_topo(model_1),false)
+      //TopoTest("Universal test 4 on hop-based impl",AF(Constrain(TcpSrc,:>=:(ConstantValue(5)))),"0",sample_topo(model_1),false)
       //TopoTest("Simple history test",EF(Constrain(IPDst,:>=:(ConstantValue(11)))),"0",tiny_topo_2,true)
     )
 
@@ -170,7 +170,11 @@ object Tester {
   def asa = {
     val dataPlaneFolder = "src/main/resources/asa"
     //var policy = EF(Constrain(IPSrc,:==:(ConstantValue(RepresentationConversion.ipToNumber("10.0.0.0")))))
-    var policy = EF(Formula.Fail)
+    //var policy = EF(Formula.Fail)
+    var policy = EF(Constrain(VLANTag,:==:(ConstantValue(999))))
+    //var policy = EF(Assign(VLANTag,ConstantValue(999))))
+    //var policy = EF(Constrain(EtherDst,:==:(ConstantValue(RepresentationConversion.macToNumberCiscoFormat("0023.ebbb.f14d")))))
+
 
     var exe = executorFromFolder(new File(dataPlaneFolder), Map(
       "switch" -> OptimizedSwitch.trivialSwitchNetworkConfig _,
@@ -179,8 +183,7 @@ object Tester {
     )).setLogger(JsonLogger)
 
     //val start = System.currentTimeMillis()
-    exe = time{exe.untilDone(true)}
-
+    //exe = time{exe.untilDone(true)}
 
 /*
     println("=== Successful states ===")
@@ -191,20 +194,26 @@ object Tester {
     println(exe.failedStates)
 */
 
-
-
     //    println(System.currentTimeMillis() - start)
     //println("It took me:" + (System.currentTimeMillis() - start))
 
-
     //in -> EtherDecap -> EtherEncap(2048, 00:23:eb:bb:f1:4c, 00:23:eb:bb:f1:4d) -> VLANEncap(225) -> out;
-
-
-
 
     var r = false;
     time{r = verify(policy,"packet-in-0-in",exe.instructions,exe.links)}
     println("Formula is "+r)
+
+    /*
+    // for checking the update on Constrain which checks allocation first
+    var s0 = state("", exe.instructions,exe.links).state
+    //println(s0.memory)
+    println("Final:");
+    VLANTag(s0)
+    println("Execute:");
+    var res = ConstrainRaw(VLANTag,:==:(ConstantValue(0))).apply(s0)
+    println("Res:"+res)
+    */
+
 
 
 

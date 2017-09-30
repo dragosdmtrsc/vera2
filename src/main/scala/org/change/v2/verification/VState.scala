@@ -13,6 +13,8 @@ import org.change.v2.analysis.processingmodels._
 
 
 trait PolicyState {
+  def instructionHistory = state.instructionHistory
+
   def execute (p:Instruction):PolicyState
   def state : State
   def forward (s:String) : PolicyState
@@ -20,6 +22,7 @@ trait PolicyState {
   def copy : PolicyState
   def nextHop (l : LocationId): LocationId
 
+  def stuck (s:State) : Boolean = s.errorCause match {case Some(str) => !(str.startsWith("Memory object") || str.startsWith("Symbol")) case _ => false}
 }
 
 case class NoMapState (val state:State) extends PolicyState {
@@ -28,7 +31,7 @@ case class NoMapState (val state:State) extends PolicyState {
 
 
     p.apply(state,true) match {
-      case (Nil,_) => FailedState
+      case (Nil,sp :: _) => if (stuck(sp)) UnsatisfState else FailedState
       case (sp :: _,_) => new NoMapState(sp)
     }
   }
@@ -46,8 +49,9 @@ case class MapState (location : LocationId,
 
   override def execute(p:Instruction) : PolicyState = {
     //Policy.verbose_print("Executed "+p+"\n************\n",OverallMode);
+
     p.apply(state,true) match {
-      case (Nil,_) => FailedState
+      case (Nil,sp :: _) => if (stuck(sp)) {UnsatisfState} else {FailedState}
       case (sp :: _,_) => new MapState(location,topology,links,sp)
     }
   }
@@ -77,12 +81,20 @@ case class MapState (location : LocationId,
                                           else {Policy.verbose_print("Next hop:"+links(l),OverallMode); new MapState(links(l),topology,links,state)}
 
 }
-
 case object FailedState extends PolicyState {
   override def execute (p:Instruction) : PolicyState = null
   override def state: State = null
   override def forward (s:String) = null
   override def instructionAt (s:String) : Instruction = null
   override def copy = FailedState
+  override def nextHop(l : LocationId) = null
+}
+
+case object UnsatisfState extends PolicyState {
+  override def execute (p:Instruction) : PolicyState = null
+  override def state: State = null
+  override def forward (s:String) = null
+  override def instructionAt (s:String) : Instruction = null
+  override def copy = UnsatisfState
   override def nextHop(l : LocationId) = null
 }

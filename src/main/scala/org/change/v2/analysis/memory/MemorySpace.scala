@@ -169,6 +169,8 @@ case class MemorySpace(val symbols: Map[String, MemoryObject] = Map.empty,
     }
   })
 
+
+
   private[this] def memoryToOption(m: MemorySpace): Option[MemorySpace] =
     if (m.isZ3Valid)
       Some(m)

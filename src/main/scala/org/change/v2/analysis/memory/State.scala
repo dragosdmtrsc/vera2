@@ -99,6 +99,7 @@ object State {
     Assign(Tag("L2")+EtherSrcOffset,SymbolicValue()),
     Allocate(Tag("L2")+EtherDstOffset,48),
     Assign(Tag("L2")+EtherDstOffset,SymbolicValue()),
+//
 //    Assign(Tag("L2")+EtherDstOffset,ConstantValue(macToNumberCiscoFormat("0023.ebbb.f14d"))),
     Allocate(Tag("L2")+EtherTypeOffset,16),
 

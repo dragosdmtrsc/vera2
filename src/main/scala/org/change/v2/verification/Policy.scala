@@ -3,15 +3,10 @@ package org.change.v2.verification
 import org.change.v2.analysis.constraint.NOT
 import org.change.v2.analysis.memory.State
 import org.change.v2.analysis.processingmodels._
-import org.change.v2.analysis.processingmodels.instructions._
-
-import org.change.v2.analysis.processingmodels.instructions.{Fail => SEFLFail}
-import sun.font.TrueTypeFont
-
-
+import org.change.v2.analysis.processingmodels.instructions.{Assign, Fail => SEFLFail, _}
 import org.change.v2.verification.Formula._
 
-
+import org.change.v2.util._
 /**
  * Created by matei on 12/01/17.
  * TODO: optimise such that subformulae are not checked repeatedly. Suspended because it might make debugging harder
@@ -25,7 +20,7 @@ object Policy {
   //def mode = ModelCheckMode::Nil
   //def mode = MCMode::OverallMode::LocMode::Nil
   //def mode = OverallMode::LocMode::Nil
-  def mode = LocMode::Nil
+  def mode =  OverallMode::LocMode::Nil
   //def mode = Nil
 
   def EF(f:Formula) = Exists(Future(f))
@@ -44,7 +39,7 @@ object Policy {
   def Or(p:Instruction, pp:Instruction) : Formula = Formula.Or(Atomic(p),Atomic(pp))
   def Or(f:Formula, fp:Formula) : Formula = Formula.Or(f,fp)
 
-  def state : NoMapState = new NoMapState(State.bigBang)
+  def state : NoMapState = new NoMapState(State.allSymbolic)
   def state(l:LocationId, t: Topology, links:Map[LocationId,LocationId]) =
     new MapState(l,t,links,State.allSymbolic)
 
@@ -63,11 +58,27 @@ object Policy {
   def isSatisfied (state: PolicyState, i : Instruction) : Boolean = {
 
     var comp = complement(i)
+    /*
+    println("Current state:"+state.state)
+    var sp = comp.apply(state.state,true)
+
+    if (!sp._2.isEmpty) {
+      println("Bad state:" + sp._2.head)
+      println("Result:" + sp._2.head.errorCause)
+    }*/
+
+    println("Current state:"+state.state.instructionHistory)
+
+    state.state.instructionHistory.head match {
+      case AssignRaw(tag,e,_) => println(">>>>>>>>> Asigning "+tag+" to "+e)
+      case _ =>
+    }
+
     state.execute(comp) match {
       case FailedState => true
       case _ => false
     }
-    false
+
   }
 
   def isComposite (i: Instruction) : Boolean =
@@ -113,15 +124,12 @@ object Policy {
       }} + "\n"
   }
 
-
-
   //def changesState (i: Instruction) : Boolean = true
   def changesState (i: Instruction) : Boolean =
     i match {
       case Forward(_) => true
       case _ => false
     }
-
 
   trait PrintMode {};
   case object MCMode extends PrintMode;
@@ -131,19 +139,15 @@ object Policy {
   def verbose_print(s : String, t : PrintMode ) = if (mode.contains(t)) println(s)
 
   def atomic_check (p : Instruction, s : PolicyState, logger:PolicyLogger) : (Formula,PolicyLogger) =
+    {//println("Checking "+p);//println(s.state.instructionHistory);
 
-    (if (isSatisfied(s, p))
-    {verbose_print (show(p)+" is true \n",MCMode); make(Atomic(p),Satisfied)}
-    else {verbose_print (show(p)+" is false \n",MCMode); make(Atomic(p),Falsified)}, logger)
-
-
+  (if (isSatisfied(s, p))
+    {verbose_print (show(p)+" is true \n",MCMode); println("true"); make(Atomic(p),Satisfied)}
+    else {verbose_print (show(p)+" is false \n",MCMode); println("false");  make(Atomic(p),Falsified)}, logger)}
 
   /* VG ( VG f )  if VG is pending, it is not false in the current state, hence the search continues.
      VG f - if f is pending, then if it is true in a future state, it will be true in the current (pending) state
-
-
    */
-
 
   // this procedure verifies boolean formulae (and is independent on the program context verification, unlike temporal formulae
   // the check function represents the "program context" in which it appears
@@ -228,15 +232,15 @@ def check (f : Formula, p: Instruction, s : PolicyState, logger : PolicyLogger) 
 
   verbose_print("Verifying " + f + "\n on program \n" + show(p),OverallMode);
 
-  if (s == FailedState)
+  if (s == UnsatisfState || s == FailedState)
     verbose_print("Failed branch (at port "+logger.currentPort+")"+" failed instruction "+logger.lastInstruction,LocMode);
 
    //matching after formula and program
    (s,f,p) match {
       // failed state
-     case (FailedState,Forall(Globally(_)),_) |
-          (FailedState,Exists(Globally(_)),_) => verbose_print ("FG(f) is true (failed state)\n",OverallMode); (make(f,Satisfied),logger)
-     case (FailedState,_,_) => verbose_print ("f is false (failed state)\n",OverallMode);
+     case (UnsatisfState,Forall(Globally(_)),_) | (FailedState,Forall(Globally(_)),_) |
+          (UnsatisfState,Exists(Globally(_)),_) | (FailedState,Exists(Globally(_)),_) => verbose_print ("FG(f) is true (failed state)\n",OverallMode); (make(f,Satisfied),logger)
+     case (UnsatisfState,_,_) | (FailedState,_,_)=> verbose_print ("f is false (failed state)\n",OverallMode);
        //verbose_print("Program:"+last_instruction+"\n",OverallMode);
        (make(f,Falsified),logger)
 
@@ -277,7 +281,7 @@ def check (f : Formula, p: Instruction, s : PolicyState, logger : PolicyLogger) 
                                                             log.addPort(loc);
                                                             log.addInstruction(Forward(loc))
                                                             log.addPort(s.nextHop(loc))
-                                                            check(clone(fp),s.instructionAt(loc),sp,log);
+                                                             check(clone(fp),s.instructionAt(loc),sp,log);
              case pair@(MapState(_,_,_,_), InstructionBlock(Forward(loc) :: _)) => var sp = s.forward(loc);
                                                                                    log.addPort(loc)
                                                                                    log.addInstruction(Forward(loc))
@@ -288,10 +292,10 @@ def check (f : Formula, p: Instruction, s : PolicyState, logger : PolicyLogger) 
 
      case (_,_,InstructionBlock(pr :: rest)) => //take an instruction
        logger.addInstruction(pr)
-       //verbose_print("Executed instruction "+pr,LocMode);
+       verbose_print("Executed instruction "+pr,LocMode);
        val sp = s.execute(pr)  // execute program pr in state s,
 
-       if (sp == FailedState)
+       if (sp == UnsatisfState || sp == FailedState)
          {
            //logger.lastInstruction = pr
            verbose_print("Instruction "+pr+" failed ",LocMode)
@@ -313,7 +317,7 @@ def check (f : Formula, p: Instruction, s : PolicyState, logger : PolicyLogger) 
            // the "true" case
          case (Satisfied,Forall(Future(_))) | (Satisfied,Exists(Future(_))) =>
            verbose_print ("f is true (successful check of an instruction in an IB)\n",OverallMode); (make(f,Satisfied),lprime)
-         case (_,Forall(Future(_))) | (_,Exists(Future(_))) => check(reeval(fval),InstructionBlock(rest),sp,lprime);
+         case (_,Forall(Future(_))) | (_,Exists(Future(_))) => println("Reeval on "+rest); check(reeval(fval),InstructionBlock(rest),sp,lprime);
          case (_,Forall(_)) | (_,Exists(_)) => throw new Exception("Not a CTL formula")
 
            // the rest
@@ -453,15 +457,16 @@ def check (f : Formula, p: Instruction, s : PolicyState, logger : PolicyLogger) 
   // "top-level" verification procedure for topologies
   def verify (f: Formula, start:LocationId ,topology: Topology, links:Map[LocationId,LocationId]) : Boolean = {
 
+    //println("Initial state:"+state(start,topology,links).state)
     var (fp,logger) = check(f,topology(start),state(start,topology,links), new PolicyLogger(start))
 
     //logger.getInstructionTrace
+    println(logger.instructionTrace)
 
     fp.status match {
       case Falsified => verbose_print("Formula is false",OverallMode); false     // should report the failing path
       case Satisfied => verbose_print("Formula is true",OverallMode); true
       case Pending => verbose_print("There are still pending subformulae",OverallMode); false
-
     }
   }
 
