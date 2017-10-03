@@ -6,6 +6,7 @@ import org.change.v2.p4.model.actions.P4ParameterInstance;
 import org.change.v2.p4.model.table.MatchKind;
 import org.change.v2.p4.model.table.TableMatch;
 import org.change.v2.util.conversion.RepresentationConversion;
+import scala.Int;
 import sun.net.util.IPAddressUtil;
 
 import java.io.*;
@@ -21,6 +22,12 @@ public class SwitchInstance {
 
     private Map<String, List<FlowInstance>> flowInstanceMap = new HashMap<String, List<FlowInstance>>();
     private Map<String, P4ActionCall> defaultActionMap = new HashMap<String, P4ActionCall>();
+
+    public Map<Integer, Integer> getCloneSpec2EgressSpec() {
+        return cloneSpec2EgressSpec;
+    }
+
+    private Map<Integer, Integer> cloneSpec2EgressSpec = new HashMap<Integer, Integer>();
 
     public List<FlowInstance> flowInstanceIterator(String perTable) {
         if (flowInstanceMap.containsKey(perTable))
@@ -79,19 +86,32 @@ public class SwitchInstance {
 
     public static SwitchInstance fromP4AndDataplane(String p4File, String dataplane, List<String> ifaces) throws IOException {
         File f = new File(p4File);
-        return fromP4AndDataplane(p4File, dataplane, p4File, ifaces);
-    }
-
-    public static SwitchInstance fromP4AndDataplane(String p4File,
-                                                    String dataplane,
-                                                    String name,
-                                                    List<String> ifaces) throws IOException {
-        Switch sw = Switch.fromFile(p4File);
         Map<Integer, String> mapped = new HashMap<Integer, String>();
         int i = 0;
         for (String s : ifaces) {
             mapped.put(i++, s);
         }
+        return fromP4AndDataplane(p4File, dataplane, p4File, mapped);
+    }
+    public static SwitchInstance fromP4AndDataplane(String p4File,
+                                                    String dataplane,
+                                                    String name,
+                                                    List<String> ifaces) throws IOException {
+        Map<Integer, String> mapped = new HashMap<Integer, String>();
+        int i = 0;
+        for (String s : ifaces) {
+            mapped.put(i++, s);
+        }
+        return fromP4AndDataplane(p4File, dataplane, name, mapped);
+    }
+
+    public static SwitchInstance fromP4AndDataplane(String p4File,
+                                                    String dataplane,
+                                                    String name,
+                                                    Map<Integer, String> ifaces) throws IOException {
+        Switch sw = Switch.fromFile(p4File);
+        Map<Integer, String> mapped = new HashMap<Integer, String>();
+        mapped.putAll(ifaces);
 
         BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(dataplane)));
         String crt = null;
@@ -165,6 +185,11 @@ public class SwitchInstance {
                     }
                 }
                 switchInstance.setDefaultAction(tableName, theCall);
+            } else if (crt.startsWith("mirroring_add")) {
+                String[] split = crt.split(" ");
+                String clone = split[1];
+                String egress = split[2];
+                switchInstance.cloneSpec2EgressSpec.put(Integer.decode(clone), Integer.decode(egress));
             }
         }
         br.close();

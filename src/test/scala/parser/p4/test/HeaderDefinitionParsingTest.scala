@@ -1,11 +1,18 @@
 package parser.p4.test
 
-import java.io.PrintStream
+import java.io.{BufferedInputStream, BufferedOutputStream, FileOutputStream, PrintStream}
 import java.util
 
 import org.change.parser.p4._
 import org.change.parser.p4.control.P4ToAbstractNetwork
+import org.change.parser.p4.parser.{DFSState, StateExpander}
 import org.change.utils.prettifier.JsonUtil
+import org.change.v2.analysis.executor.{DecoratedInstructionExecutor, OVSExecutor}
+import org.change.v2.analysis.executor.solvers.Z3BVSolver
+import org.change.v2.analysis.expression.concrete.ConstantValue
+import org.change.v2.analysis.memory.{State, Tag}
+import org.change.v2.analysis.processingmodels.instructions._
+import org.change.v2.executor.clickabstractnetwork.ClickExecutionContext
 import org.change.v2.p4.model.SwitchInstance
 import org.scalatest.FunSuite
 
@@ -180,7 +187,7 @@ class HeaderDefinitionParsingTest extends FunSuite {
   test("CONTROL flow and table integration") {
     val p4 = "inputs/simple-router/simple_router.p4"
     val dataplane = "inputs/simple-router/commands.txt"
-    val res = ControlFlowInterpreter(p4, dataplane, List[String]("veth0", "veth1"),"router")
+    val res = ControlFlowInterpreter(p4, dataplane, Map[Int, String](0 -> "veth0", 1 -> "veth1", 11 -> "cpu"),"router")
     println(JsonUtil.toJson(res.instructions()))
     println(JsonUtil.toJson(res.links))
   }
@@ -188,7 +195,7 @@ class HeaderDefinitionParsingTest extends FunSuite {
   test("CONTROL flow and table integration for simple nat") {
     val p4 = "inputs/simple-nat/simple_nat-ppc.p4"
     val dataplane = "inputs/simple-nat/commands.txt"
-    val res = ControlFlowInterpreter(p4, dataplane, List[String]("veth0", "veth1"),"router")
+    val res = ControlFlowInterpreter(p4, dataplane, Map[Int, String](0 -> "veth0", 1 -> "veth1", 11 -> "cpu"),"router")
     val ps = new PrintStream("inputs/simple-nat/ctrl1-instrs.json")
     ps.println(JsonUtil.toJson(res.instructions()))
     ps.println(JsonUtil.toJson(res.links))
@@ -199,11 +206,132 @@ class HeaderDefinitionParsingTest extends FunSuite {
   test("CONTROL flow and table integration for mtag-edge") {
     val p4 = "inputs/mTag/mtag-edge-ppc.p4"
     val dataplane = "inputs/mTag/commands.txt"
-    val res = ControlFlowInterpreter(p4, dataplane, List[String]("veth0", "veth1"),"router")
+    val res = ControlFlowInterpreter(p4, dataplane, Map[Int, String](0 -> "veth0", 1 -> "veth1", 11 -> "cpu"),"router")
     val ps = new PrintStream("inputs/simple-nat/ctrl1-instrs.json")
     ps.println(JsonUtil.toJson(res.instructions()))
     ps.println(JsonUtil.toJson(res.links))
     ps.close()
   }
+
+
+  test("PARSER - generating all packet layouts") {
+    val p4 = "inputs/simple-nat/simple_nat-ppc.p4"
+    val dataplane = "inputs/simple-nat/commands.txt"
+    val res = ControlFlowInterpreter(p4, dataplane, Map[Int, String](0 -> "veth0", 1 -> "veth1", 11 -> "cpu"),"router")
+    val bvExec = new DecoratedInstructionExecutor(new Z3BVSolver)
+
+    val fork = StateExpander.generateAllPossiblePackets(
+      new StateExpander(res.switch, "start").doDFS(DFSState(0)), res.switch
+    )
+    val ps = new PrintStream("inputs/simple-nat/initial-possibilities.json")
+    val (ok, fail) = bvExec.execute(fork, State.clean, true)
+    ps.println(JsonUtil.toJson(ok))
+    ps.close()
+    assert(fail.isEmpty)
+  }
+
+  test("PARSER - run #1") {
+    val p4 = "inputs/simple-nat/simple_nat-ppc.p4"
+    val dataplane = "inputs/simple-nat/commands.txt"
+    val res = ControlFlowInterpreter(p4, dataplane, Map[Int, String](0 -> "veth0", 1 -> "veth1", 11 -> "cpu"),"router")
+    val bvExec = new DecoratedInstructionExecutor(new Z3BVSolver)
+    val fork = res.allParserStatesInstruction()
+    val initCode = res.initialize(0)
+
+    val tests = InstructionBlock(
+      initCode,
+      res.parserCode()
+    )
+    var ps = new PrintStream("inputs/simple-nat/initial-possibilities.json")
+    val (ok, fail) = bvExec.execute(fork, State.clean, true)
+    ps.println(JsonUtil.toJson(ok))
+    ps.close()
+
+    ps = new PrintStream("inputs/simple-nat/parser-run-ok.json")
+    val (newok, newf) = ok.foldLeft((Nil : List[State], Nil : List[State]))((acc, x) => {
+      val (okk, faill) = bvExec.execute(tests, x, true)
+      (acc._1 ++ okk, acc._2 ++ faill)
+    })
+    ps.println(JsonUtil.toJson(newok))
+    ps.close()
+    ps = new PrintStream("inputs/simple-nat/parser-run-fail.json")
+    ps.println(JsonUtil.toJson(newf))
+    ps.close()
+    assert(newok.size == ok.size)
+  }
+
+  test("INTEGRATION - graph") {
+    val p4 = "inputs/simple-nat/simple_nat-ppc.p4"
+    val dataplane = "inputs/simple-nat/commands.txt"
+    val res = ControlFlowInterpreter(p4, dataplane, Map[Int, String](0 -> "veth0", 1 -> "veth1", 11 -> "cpu"), "router")
+    val fin = "inputs/simple-nat/graph.dot"
+    val ps = new PrintStream(fin)
+    ps.println(res.toDot())
+    ps.close()
+    import sys.process._
+    s"dot -Tpng $fin -O" !
+  }
+
+  test("INTEGRATION - run #1") {
+    val p4 = "inputs/simple-nat/simple_nat-ppc.p4"
+    val dataplane = "inputs/simple-nat/commands.txt"
+    val res = ControlFlowInterpreter(p4, dataplane, Map[Int, String](1 -> "veth0", 2 -> "veth1", 11 -> "cpu"), "router")
+//    val fin = "inputs/simple-nat/graph.dot"
+//    val ps = new PrintStream(fin)
+//    ps.println(res.toDot())
+//    ps.close()
+//    import sys.process._
+//    s"dot -Tpng $fin -O" !
+    val ib = InstructionBlock(
+      res.allParserStatesInstruction(),
+//      Constrain(Tag("START") + 0, :~:(:==:(ConstantValue(0)))),
+      Forward("router.input.1")
+    )
+
+
+    val ps = new PrintStream("inputs/simple-nat/ctrl1-instrs.json")
+    ps.println(JsonUtil.toJson(res.instructions()))
+    ps.println(JsonUtil.toJson(res.links))
+    ps.close()
+
+    val bvExec = new OVSExecutor(new Z3BVSolver)
+
+    var clickExecutionContext = P4ExecutionContext(
+      res.instructions(), res.links(), bvExec.execute(ib, State.clean, true)._1, bvExec
+    )
+    var init = System.currentTimeMillis()
+    var runs  = 0
+    while (!clickExecutionContext.isDone && runs < 10000) {
+      clickExecutionContext = clickExecutionContext.execute(true)
+      runs = runs + 1
+    }
+
+    println(s"Failed # ${clickExecutionContext.failedStates.size}, Ok # ${clickExecutionContext.stuckStates.size}")
+    println(s"Time is ${System.currentTimeMillis() - init}ms")
+
+    val psok = new BufferedOutputStream(new FileOutputStream("inputs/simple-nat/click-exec-ok-port0.json"))
+    JsonUtil.toJson(clickExecutionContext.stuckStates, psok)
+    psok.close()
+
+    val relevant = clickExecutionContext.failedStates.filter(x => {
+      !x.history.head.startsWith("router.parser")
+//      true
+    })
+
+    val psko = new BufferedOutputStream(new FileOutputStream("inputs/simple-nat/click-exec-fail-port0.json"))
+    JsonUtil.toJson(relevant, psko)
+    psko.close()
+
+
+    val psokpretty = new PrintStream("inputs/simple-nat/click-exec-ok-port0-pretty.json")
+    psokpretty.println(clickExecutionContext.stuckStates)
+    psokpretty.close()
+
+    val pskopretty = new PrintStream("inputs/simple-nat/click-exec-fail-port0-pretty.json")
+    pskopretty.println(relevant)
+    pskopretty.close()
+
+  }
+
 
 }

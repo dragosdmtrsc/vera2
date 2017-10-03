@@ -22,6 +22,7 @@ import scala.collection.mutable.{Map => MutableMap}
 case class MemorySpace(val symbols: Map[String, MemoryObject] = Map.empty,
                        val rawObjects: Map[Int, MemoryObject] = Map.empty,
                        val memTags: Map[String, Int] = Map.empty) {
+  def destroyPacket(): MemorySpace = copy(rawObjects = Map.empty)
 
   private def resolveBy[K](id: K, m: Map[K, MemoryObject]): Option[Value] =
     m.get(id).flatMap(_.value)
@@ -71,11 +72,15 @@ case class MemorySpace(val symbols: Map[String, MemoryObject] = Map.empty,
    * @return
    */
   def Allocate(id: String): Option[MemorySpace] =
+    Allocate(id, 0)
+
+  def Allocate(id : String, size : Int) : Option[MemorySpace] = {
     Some(MemorySpace(
-      symbols + ( id -> (if (! symbolIsDefined(id)) MemoryObject() else symbols(id).allocateNewStack)),
+      symbols + ( id -> (if (! symbolIsDefined(id)) MemoryObject(size = size) else symbols(id).allocateNewStack)),
       rawObjects,
       memTags
     ))
+  }
 
   def Allocate(a: Int, size: Int): Option[MemorySpace] = if (canModifyExisting(a, size))
     Some(MemorySpace(
@@ -289,7 +294,7 @@ case class MemorySpace(val symbols: Map[String, MemoryObject] = Map.empty,
 
   def assignNewValue(id: String, v: Value): Option[MemorySpace] =
     Some(MemorySpace(
-      symbols + (id -> (if (symbolIsDefined(id)) symbols(id).addValue(v) else MemoryObject().addValue(v))),
+      symbols + (id -> (if (symbolIsDefined(id)) symbols(id).addValue(v) else MemoryObject(size = 64).addValue(v))),
       rawObjects,
       memTags
     ))

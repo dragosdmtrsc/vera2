@@ -9,7 +9,7 @@ import org.change.v2.abstractnet.mat.condition.Range
 import org.change.v2.abstractnet.mat.tree.Node
 import org.change.v2.analysis.constraint.Constraint
 import org.change.v2.analysis.expression.abst.FloatingExpression
-import org.change.v2.analysis.expression.concrete.nonprimitive.{:+:, :@}
+import org.change.v2.analysis.expression.concrete.nonprimitive.{:&&:, :+:, :@}
 import org.change.v2.analysis.expression.concrete.{ConstantValue, SymbolicValue}
 import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.analysis.processingmodels.instructions._
@@ -63,15 +63,21 @@ class TableRangeMatcher(tableMatch : TableMatch) extends Constrainable {
   override def constraint(switchInstance: SwitchInstance, which : Int): Instruction = {
     val node = rrng(which)
     val (hdr, fieldName) = fieldDef(tableMatch.getKey)
+    val actual = switchInstance.getSwitchSpec.getInstance(hdr)
     val cvalid = Constrain(s"$hdr.IsValid", :==:(ConstantValue(1)))
     val cinRange = :&:(:<=:(ConstantValue(node.condition.upper)), :>=:(ConstantValue(node.condition.lower)))
     val coutRange = (node.children ++ node.lateral).foldLeft(cinRange)((acc, x) => {
       :&:(acc, :~:(:&:(:<=:(ConstantValue(x.condition.upper)), :>=:(ConstantValue(x.condition.lower)))))
     })
-    InstructionBlock(
-      cvalid,
-      Constrain(s"$hdr.$fieldName", coutRange)
-    )
+    if (!actual.isMetadata)
+      InstructionBlock(
+        cvalid,
+        Constrain(s"$hdr.$fieldName", coutRange)
+      )
+    else
+      InstructionBlock(
+        Constrain(s"$hdr.$fieldName", coutRange)
+      )
   }
 }
 object P4Utils {
@@ -146,7 +152,7 @@ object MaskTests {
   }
 }
 
-class TableTernaryMatcher(tableMatch: TableMatch) extends Constrainable {
+class TableTernaryMatcher(tableMatch: TableMatch, useBv : Boolean = true) extends Constrainable {
 
   def extractMask(long : Long, width : Int) = {
     var crt = long
@@ -166,33 +172,43 @@ class TableTernaryMatcher(tableMatch: TableMatch) extends Constrainable {
     val (hdr, fld) = P4Utils.fieldDef(tableMatch.getKey)
     val width = switchInstance.getSwitchSpec.getInstance(hdr).getLayout.getFields.find(x => x.getName == fld).get.getLength
     val actualMask = extractMask(mask, width)
-    val badBasis = actualMask.zipWithIndex.filter(x => x._1 == 0)
-    val contiguous = badBasis.drop(1).foldLeft(((badBasis.head._2, badBasis.head._2), List[(Int, Int)]()))((acc, x) => {
-      val end = x._2
-      if (end == acc._1._2+1) {
-        ((acc._1._1, end), acc._2)
-      } else {
-        ((end, end), acc._2 :+ acc._1)
-      }
-    })
-    val intervals = (contiguous._2 :+ contiguous._1)
-    val A =value&mask
-    val newsyms = intervals.map(x => {
-      UUID.randomUUID().toString.replace("-", "")
-    })
-    val fexp = intervals.zip(newsyms).map(x => {
-      (0l until 1l<<x._1._1).foldLeft(ConstantValue(0) : FloatingExpression)((acc, _) => {
-        :+:(acc, :@(s"sym${x._2}"))
+    if (!useBv) {
+      val badBasis = actualMask.zipWithIndex.filter(x => x._1 == 0)
+      val contiguous = badBasis.drop(1).foldLeft(((badBasis.head._2, badBasis.head._2), List[(Int, Int)]()))((acc, x) => {
+        val end = x._2
+        if (end == acc._1._2+1) {
+          ((acc._1._1, end), acc._2)
+        } else {
+          ((end, end), acc._2 :+ acc._1)
+        }
       })
-    }).foldLeft(ConstantValue(A) : FloatingExpression)((acc, x) => {
-      :+:(acc, x)
-    })
-    val ass = newsyms.map(x => {
-      Assign("sym" + x, SymbolicValue())
-    })
-    val constrains = Constrain(tableMatch.getKey, :==:(fexp)) :: intervals.zip(newsyms).
-      map(x => Constrain("sym" + x._2, :&:(:<=:(ConstantValue((1l<<((x._1._2 - x._1._1)+1))-1)), :>=:(ConstantValue(0)))))
-    InstructionBlock(ass ++ constrains)
+      val intervals = (contiguous._2 :+ contiguous._1)
+      val A =value&mask
+      val newsyms = intervals.map(x => {
+        UUID.randomUUID().toString.replace("-", "")
+      })
+      val fexp = intervals.zip(newsyms).map(x => {
+        (0l until 1l<<x._1._1).foldLeft(ConstantValue(0) : FloatingExpression)((acc, _) => {
+          :+:(acc, :@(s"sym${x._2}"))
+        })
+      }).foldLeft(ConstantValue(A) : FloatingExpression)((acc, x) => {
+        :+:(acc, x)
+      })
+      val ass = newsyms.map(x => {
+        Assign("sym" + x, SymbolicValue())
+      })
+      val constrains = Constrain(tableMatch.getKey, :==:(fexp)) :: intervals.zip(newsyms).
+        map(x => Constrain("sym" + x._2, :&:(:<=:(ConstantValue((1l<<((x._1._2 - x._1._1)+1))-1)), :>=:(ConstantValue(0)))))
+      InstructionBlock(ass ++ constrains)
+    } else {
+      val crtrnd = UUID.randomUUID().toString
+      InstructionBlock(
+        Allocate(s"tmp$crtrnd", width),
+        Assign(s"tmp$crtrnd", :&&:(:@(tableMatch.getKey), ConstantValue(mask))),
+        Constrain(s"tmp$crtrnd", :==:(ConstantValue(mask & value)))
+      )
+    }
+
   }
 
   override def instantiate(arg: String, prio: Int): Unit = {
@@ -287,7 +303,8 @@ class FullTable(tableName : String, switchInstance: SwitchInstance, id : String 
       x.asInstanceOf[InstructionBlock]
     })
     (init.map ( x => {
-      InstructionBlock(x.instructions.filter(x => x.isInstanceOf[AssignNamedSymbol]))
+      InstructionBlock(x.instructions.filter(x => x.isInstanceOf[AssignNamedSymbol] ||
+          x.isInstanceOf[AllocateSymbol] || x.isInstanceOf[AllocateRaw]))
     }), init.map ( x => {
       InstructionBlock(x.instructions.filter(x => x.isInstanceOf[ConstrainNamedSymbol] || x.isInstanceOf[ConstrainRaw]))
     }))
@@ -307,10 +324,12 @@ class FullTable(tableName : String, switchInstance: SwitchInstance, id : String 
 //      InstructionBlock(x.instructions.filter(x => x.isInstanceOf[ConstrainNamedSymbol] || x.isInstanceOf[ConstrainRaw]))
 //    })
   private def action(index : Int) = new FireAction(tableName, index, switchInstance).symnetCode()
-  private def default() : Instruction = InstructionBlock(
-    new FireDefaultAction(tableName, switchInstance).symnetCode(),
-    Assign("default.Fired", ConstantValue(1)),
-    Assign(s"$tableName.Hit", ConstantValue(0))
+  private def default() : Instruction = If (Constrain("IsClone", :==:(ConstantValue(0))),
+    InstructionBlock(
+      new FireDefaultAction(tableName, switchInstance).symnetCode(),
+      Assign("default.Fired", ConstantValue(1)),
+      Assign(s"$tableName.Hit", ConstantValue(0))
+    )
   )
   private def initializeTable() : Instruction = {
     InstructionBlock(
@@ -319,6 +338,9 @@ class FullTable(tableName : String, switchInstance: SwitchInstance, id : String 
       }) ++ List[Instruction](
         Assign("default.Fired", ConstantValue(0)),
         Assign(s"$tableName.Hit", ConstantValue(0))
+      ) ++ List[Instruction](
+        Allocate("IsClone", 1),
+        Assign("IsClone", ConstantValue(0))
       )
     )
   }
@@ -329,28 +351,32 @@ class FullTable(tableName : String, switchInstance: SwitchInstance, id : String 
   }
 
   def fullAction() = InstructionBlock(
-    initializeTable(),
-    flows.zipWithIndex.foldRight(default())((x, acc) => {
-      val priorAndCt = priorAndConstraints(x._2)
-      priorAndCt._2.zip(priorAndCt._1).foldRight(action(x._2))((y, acc2) => {
-        InstructionBlock(
-          y._2,
-          If (y._1,
+      initializeTable(),
+      flows.zipWithIndex.foldRight(default())((x, acc) => {
+        val priorAndCt = priorAndConstraints(x._2)
+        priorAndCt._2.zip(priorAndCt._1).foldRight(action(x._2))((y, acc2) => {
+          If (Constrain("IsClone", :==:(ConstantValue(0))),
             InstructionBlock(
-              acc2,
-              Assign(s"${actionDef(x._2)}.Fired", ConstantValue(1)),
-              Assign(s"$tableName.Hit", ConstantValue(1))
-            ),
-            InstructionBlock(
-              acc,
-              Assign(s"${actionDef(x._2)}.Fired", ConstantValue(0)),
-              Assign(s"$tableName.Hit", ConstantValue(0))
+              y._2,
+              If (y._1,
+                InstructionBlock(
+                  acc2,
+                  Assign(s"${actionDef(x._2)}.Fired", ConstantValue(1)),
+                  Assign(s"$tableName.Hit", ConstantValue(1))
+                ),
+                InstructionBlock(
+                  Assign(s"${actionDef(x._2)}.Fired", ConstantValue(0)),
+                  Assign(s"$tableName.Hit", ConstantValue(0)),
+                  acc
+                )
+              )
             )
           )
-        )
-      })
-    }),
-    Forward(s"table.$tableName.out" + (if (id.length != 0) s".$id" else ""))
-  )
+        })
+      }),
+      If (Constrain("IsClone", :==:(ConstantValue(0))),
+        Forward(s"table.$tableName.out" + (if (id.length != 0) s".$id" else ""))
+      )
+    )
 
 }

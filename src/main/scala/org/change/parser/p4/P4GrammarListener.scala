@@ -1,7 +1,7 @@
 package org.change.parser.p4
 
 import java.util
-import java.util.UUID
+import java.util.{Collections, UUID}
 
 import generated.parse.p4.P4GrammarParser._
 import generated.parse.p4.{P4GrammarBaseListener, P4GrammarParser}
@@ -15,6 +15,7 @@ import org.change.v2.analysis.memory.TagExp._
 import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.analysis.processingmodels.instructions._
 import org.change.v2.p4.model._
+import org.change.v2.p4.model.parser._
 import org.change.v2.p4.model.table.{MatchKind, TableMatch}
 
 import scala.collection.mutable
@@ -172,17 +173,29 @@ class P4GrammarListener extends P4GrammarBaseListener {
 
   val declaredFunctions: MutableMap[String, ParserFunctionDeclaration] = MutableMap()
 
+  val parserFunctions  = new util.HashMap[String, State]()
+
+
   override def exitParser_function_declaration(ctx: P4GrammarParser.Parser_function_declarationContext): Unit = {
     ctx.functionDeclaration = ParserFunctionDeclaration(
       ctx.parser_state_name().getText,
       ctx.parser_function_body().extract_or_set_statement().toList.map(_.functionStatement)
     )
+    ctx.state = ctx.parser_function_body().statements.foldLeft(new State().
+      setName(ctx.parser_state_name().getText))((acc, x) => {
+      acc.add(x)
+    })
+    parserFunctions.put(ctx.state.getName, ctx.state)
   }
 
   override def exitExtract_or_set_statement(ctx: P4GrammarParser.Extract_or_set_statementContext): Unit = {
     ctx.functionStatement = Option(ctx.extract_statement()).map(_.extractStatement).orElse(
         Some(SetFunction(ctx.set_statement().field_ref().getText, ctx.set_statement().metadata_expr().getText))
       ).get
+    ctx.statement = if (ctx.set_statement() != null)
+      ctx.set_statement().statement
+    else
+      ctx.extract_statement().statement
   }
 
   override def enterExtract_statement(ctx: P4GrammarParser.Extract_statementContext): Unit = {
@@ -771,36 +784,40 @@ class P4GrammarListener extends P4GrammarBaseListener {
         blocks.get(ctx.bool_expr)
       ),
       Forward(ctx.parent + "[if][0]"),
-      Forward(s"${ctx.parent}[else][0]")
+      if (ctx.else_block() != null)
+        Forward(s"${ctx.parent}[else][0]")
+      else
+        NoOp
     )
 
     this.links.put(ctx.parent + "[if].out", s"${ctx.parent}.out")
-    this.links.put(ctx.parent + "[else].out", s"${ctx.parent}.out")
+    if (ctx.else_block() != null)
+      this.links.put(ctx.parent + "[else].out", s"${ctx.parent}.out")
 
-    val constr = blocks.get(ctx.bool_expr).head
-    blocks.get(ctx.bool_expr).remove(0)
-
-    val negated = for (x <- blocks.get(ctx.bool_expr)) yield {
-      x match {
-        case ConstrainNamedSymbol(a,c,d) => ConstrainNamedSymbol(a, :~:(c),d)
-        case ConstrainRaw(a,c,d) => ConstrainRaw(a, :~:(c),d)
-      }
-    }
-
-    currentInstructions.head.append(
-      If (constr,
-        InstructionBlock(blocks.get(ctx.bool_expr) ++ blocks.get(ctx.control_block)),
-        if (ctx.else_block==null) NoOp
-        else InstructionBlock(negated ++ blocks.get(ctx.else_block))
-      ))
-
-    blocksLast.get(ctx.control_block).append(Forward(labelName))
-    if (ctx.else_block!=null)
-      blocksLast.get(ctx.else_block.control_block).append(Forward(labelName))
-
-    currentInstructions.remove(0)
-    currentInstructions.prepend(new ListBuffer[Instruction])
-    ports += (labelName -> currentInstructions.head)
+//    val constr = blocks.get(ctx.bool_expr).head
+//    blocks.get(ctx.bool_expr).remove(0)
+//
+//    val negated = for (x <- blocks.get(ctx.bool_expr)) yield {
+//      x match {
+//        case ConstrainNamedSymbol(a,c,d) => ConstrainNamedSymbol(a, :~:(c),d)
+//        case ConstrainRaw(a,c,d) => ConstrainRaw(a, :~:(c),d)
+//      }
+//    }
+//
+//    currentInstructions.head.append(
+//      If (constr,
+//        InstructionBlock(blocks.get(ctx.bool_expr) ++ blocks.get(ctx.control_block)),
+//        if (ctx.else_block==null) NoOp
+//        else InstructionBlock(negated ++ blocks.get(ctx.else_block))
+//      ))
+//
+//    blocksLast.get(ctx.control_block).append(Forward(labelName))
+//    if (ctx.else_block!=null)
+//      blocksLast.get(ctx.else_block.control_block).append(Forward(labelName))
+//
+//    currentInstructions.remove(0)
+//    currentInstructions.prepend(new ListBuffer[Instruction])
+//    ports += (labelName -> currentInstructions.head)
   }
 
   override def enterElse_block(ctx: Else_blockContext): Unit = {
@@ -902,7 +919,7 @@ class P4GrammarListener extends P4GrammarBaseListener {
   }
 
   override def exitRelop_bool_expr(ctx:Relop_bool_exprContext){
-    println("Matched relop bool expr " + expressions.get(ctx.exp(0))+ " " + expressions.get(ctx.exp(1)))
+    println("Matched relop bool expr " + expressions.get(ctx.exp(0))+ s"${ctx.rel_op.getText}" + expressions.get(ctx.exp(1)))
 
     val exp1 = expressions.get(ctx.exp(0))
     val exp2 = expressions.get(ctx.exp(1))
@@ -911,30 +928,26 @@ class P4GrammarListener extends P4GrammarBaseListener {
 
     exp1 match {
       case Symbol(x) =>
-        println ("Found symbol "+x)
-
         ctx.rel_op.getText match {
           case "==" =>
             constraints.put(ctx, :==:(exp2))
             blocks.get(ctx).append(Constrain(x,:==:(exp2)))
 
-          case "!=" => println ("!= relop")
+          case "!=" =>
             constraints.put(ctx, :~:(:==:(exp2)))
             blocks.get(ctx).append(Constrain(x,:~:(:==:(exp2))))
 
-          case "<" => println ("< relop")
+          case "<" =>
             constraints.put(ctx, :<:(exp2))
             blocks.get(ctx).append(Constrain(x,:<:(exp2)))
 
-          case ">" => println ("> relop")
+          case ">" =>
             constraints.put(ctx, :>:(exp2))
             blocks.get(ctx).append(Constrain(x,:>:(exp2)))
-
           case _ => println("Unknown relop "+ctx.rel_op);
         }
 
       case Address(x) =>
-        println("Found address "+x)
         ctx.rel_op.getText match {
           case "==" =>
             constraints.put(ctx, :==:(exp2))
@@ -970,6 +983,80 @@ class P4GrammarListener extends P4GrammarBaseListener {
     println("Matched const bool expr.")
 
     values.put(ctx, (if (ctx.getText.equalsIgnoreCase("true")) 1 else 0))
+  }
+
+
+
+  override def exitParser_function_body(ctx: Parser_function_bodyContext) : Unit = {
+    ctx.statements = ctx.extract_or_set_statement().map(x => {
+      x.statement
+    }) :+ ctx.return_statement().statement
+  }
+
+  override def exitExtract_statement(ctx: Extract_statementContext): Unit = {
+    val extractWhere = ctx.header_extract_ref().getText
+    ctx.statement = new ExtractStatement(ParserInterpreter.parseExpression(extractWhere))
+  }
+
+  override def exitSet_statement(ctx: Set_statementContext): Unit = {
+    val dst = ctx.field_ref().getText
+    val src = ctx.metadata_expr().getText
+    ctx.statement = new SetStatement(ParserInterpreter.parseExpression(dst),
+      ParserInterpreter.parseExpression(src))
+  }
+
+  override def exitReturn_value_type(ctx: Return_value_typeContext): Unit = {
+    if (ctx.parser_exception_name() != null) {
+      ctx.statement = new ReturnStatement("").setError(true).setMessage(ctx.parser_exception_name().getText)
+    } else if (ctx.control_function_name() != null) {
+      ctx.statement = new ReturnStatement(ctx.control_function_name().getText)
+    } else if (ctx.parser_state_name() != null) {
+      ctx.statement = new ReturnStatement(ctx.parser_state_name().getText)
+    }
+  }
+
+  override def exitReturn_statement(ctx: Return_statementContext): Unit = {
+    if (ctx.return_value_type() != null)
+      ctx.statement = ctx.return_value_type().statement
+    else {
+      ctx.statement = ctx.case_entry().foldLeft(new ReturnSelectStatement())((acc, x) => {
+        acc.add(ctx.select_exp().expressions.foldLeft(x.caseEntry)((acc2, y) => {
+          acc2.addExpression(y)
+        }))
+      })
+    }
+  }
+
+  override def exitValue_or_masked(ctx : Value_or_maskedContext) : Unit = {
+    ctx.v = new Value(ctx.field_value(0).const_value().constValue.toLong,
+      if (ctx.field_value().size() > 1)
+        ctx.field_value(1).const_value().constValue.toLong
+      else
+        -1l
+      )
+  }
+
+  override def exitValue_list(ctx: Value_listContext): Unit = {
+    if (ctx.value_or_masked() != null)
+      ctx.values = ctx.value_or_masked().map(x => x.v)
+    else
+      ctx.values = util.Arrays.asList(new Value().setValue(0).setMask(0))
+  }
+
+  override def exitCase_entry(ctx: Case_entryContext): Unit = {
+    val retVal = ctx.case_return_value_type().getText
+    val retst = if (ctx.case_return_value_type().parser_exception_name() != null) {
+      new ReturnStatement("").setError(true).setMessage(ctx.case_return_value_type().parser_exception_name().getText)
+    } else  {
+      new ReturnStatement(ctx.case_return_value_type().getText)
+    }
+    ctx.caseEntry = ctx.value_list().values.foldLeft(new CaseEntry())((acc, x) => {
+      acc.addValue(x)
+    }).setReturnStatement(retst)
+  }
+
+  override def exitSelect_exp(ctx: Select_expContext): Unit = {
+    ctx.expressions = ctx.field_or_data_ref().map(x => ParserInterpreter.parseExpression(x.getText))
   }
 
   def buildNetworkConfig() = new NetworkConfig(None, elements.map(element => (element.name, element)).toMap, foundPaths.toList)

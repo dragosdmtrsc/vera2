@@ -24,6 +24,12 @@ case class ConstrainNamedSymbol (id: String, dc: FloatingConstraint, c: Option[C
       s.memory.Constrain(id, c)
     })
   }
+
+
+  def not() : ConstrainNamedSymbol = c match {
+    case None => ConstrainNamedSymbol(id, :~:(dc))
+    case Some(c) => ConstrainNamedSymbol(id, :~:(dc), Some(NOT(c)))
+  }
 }
 
 case class ConstrainRaw (a: Intable, dc: FloatingConstraint, c: Option[Constraint] = None) extends Instruction {
@@ -40,6 +46,11 @@ case class ConstrainRaw (a: Intable, dc: FloatingConstraint, c: Option[Constrain
         })
       }
     case None => Fail(TagExp.brokenTagExpErrorMessage)(s,v)
+  }
+
+  def not() : ConstrainRaw = c match {
+    case None => ConstrainRaw(a, :~:(dc))
+    case Some(c) => ConstrainRaw(a, :~:(dc), Some(NOT(c)))
   }
 }
 
