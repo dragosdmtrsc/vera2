@@ -6,10 +6,10 @@ import org.change.v2.analysis.expression.concrete.nonprimitive._
 import org.change.v2.analysis.memory.{Intable, Tag}
 import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.analysis.processingmodels.instructions.{Assign, InstructionBlock, NoOp, _}
-import org.change.v2.p4.model.{ArrayInstance, SwitchInstance}
+import org.change.v2.p4.model.{ArrayInstance, InstanceType, SwitchInstance}
 import org.change.v2.p4.model.actions._
 import org.change.v2.p4.model.actions.primitives._
-
+import org.change.v2.p4.model.InstanceType._
 import scala.collection.JavaConversions._
 
 class ActionInstance(p4Action: P4Action, argList : List[Any],
@@ -181,7 +181,7 @@ class ActionInstance(p4Action: P4Action, argList : List[Any],
     val actualFieldList = switchInstance.getSwitchSpec.getFieldListMap()(fldList)
     InstructionBlock(
       restore(actualFieldList.getFields.toList),
-      Assign(ctx.resolveField("standard_metadata.instance_type").right.get, ConstantValue(5)),
+      Assign(ctx.resolveField("standard_metadata.instance_type").right.get, ConstantValue(PKT_INSTANCE_TYPE_RESUBMIT.value)),
       Forward(switchInstance.getName + ".parser")
     )
   }
@@ -192,7 +192,7 @@ class ActionInstance(p4Action: P4Action, argList : List[Any],
     InstructionBlock(
       setOriginal(),
       restore(actualFieldList.getFields.toList),
-      Assign(ctx.resolveField("standard_metadata.instance_type").right.get, ConstantValue(6)),
+      Assign(ctx.resolveField("standard_metadata.instance_type").right.get, ConstantValue(PKT_INSTANCE_TYPE_RECIRC.value)),
       Forward(switchInstance.getName + ".parser")
     )
   }
@@ -205,7 +205,7 @@ class ActionInstance(p4Action: P4Action, argList : List[Any],
         InstructionBlock(
           handleCloneCookie(argList.head.toString()),
           restore(actualFieldList.getFields.toList),
-          Assign(ctx.resolveField("standard_metadata.instance_type").right.get, ConstantValue(1)),
+          Assign(ctx.resolveField("standard_metadata.instance_type").right.get, ConstantValue(PKT_INSTANCE_TYPE_INGRESS_CLONE.value)),
           Assign("IsClone", ConstantValue(1)),
           Forward(switchInstance.getName + ".parser")
         ),
@@ -222,7 +222,7 @@ class ActionInstance(p4Action: P4Action, argList : List[Any],
         InstructionBlock(
           handleCloneCookie(argList.head.toString()),
           restore(actualFieldList.getFields.toList),
-          Assign(ctx.resolveField("standard_metadata.instance_type").right.get, ConstantValue(2)),
+          Assign(ctx.resolveField("standard_metadata.instance_type").right.get, ConstantValue(PKT_INSTANCE_TYPE_EGRESS_CLONE.value)),
           Assign("IsClone", ConstantValue(1)),
           Forward(s"${switchInstance.getName}.buffer.in")
         ),
@@ -241,7 +241,7 @@ class ActionInstance(p4Action: P4Action, argList : List[Any],
           handleCloneCookie(argList.head.toString()),
           setOriginal(),
           restore(actualFieldList.getFields.toList),
-          Assign(ctx.resolveField("standard_metadata.instance_type").right.get, ConstantValue(3)),
+          Assign(ctx.resolveField("standard_metadata.instance_type").right.get, ConstantValue(PKT_INSTANCE_TYPE_INGRESS_CLONE.value)),
           Assign("IsClone", ConstantValue(1)),
           Forward(switchInstance.getName + ".parser")
         ),
@@ -269,7 +269,7 @@ class ActionInstance(p4Action: P4Action, argList : List[Any],
           handleCloneCookie(argList.head.toString()),
           setOriginal(),
           restore(actualFieldList.getFields.toList),
-          Assign(ctx.resolveField("standard_metadata.instance_type").right.get, ConstantValue(4)),
+          Assign(ctx.resolveField("standard_metadata.instance_type").right.get, ConstantValue(PKT_INSTANCE_TYPE_EGRESS_CLONE.value)),
           Assign("IsClone", ConstantValue(1)),
           Forward(switchInstance.getName + ".buffer.in")
         ),

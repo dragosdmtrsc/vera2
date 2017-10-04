@@ -3,6 +3,7 @@ package org.change.parser.p4
 import org.change.v2.analysis.expression.concrete.ConstantValue
 import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.analysis.processingmodels.instructions._
+import org.change.v2.p4.model.InstanceType._
 import org.change.v2.p4.model.{ArrayInstance, HeaderInstance, SwitchInstance}
 
 import scala.collection.JavaConversions._
@@ -60,7 +61,7 @@ class InitializeCode(switchInstance : SwitchInstance) {
       initializeMetadata(),
       initializeFields(),
       Assign("standard_metadata.ingress_port", ConstantValue(port)),
-      Assign("standard_metadata.instance_type", ConstantValue(0)),
+      Assign("standard_metadata.instance_type", ConstantValue(PKT_INSTANCE_TYPE_NORMAL.value)),
       Forward(s"${switchInstance.getName}.input.$port.out")
     )
   }
