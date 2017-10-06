@@ -6,7 +6,7 @@ import org.change.v2.analysis.expression.concrete.nonprimitive.:@
 import org.change.v2.analysis.memory.{State, Tag}
 import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.analysis.processingmodels.instructions._
-import org.change.v2.p4.model.SwitchInstance
+import org.change.v2.p4.model.{InstanceType, SwitchInstance}
 import org.change.v2.p4.model.parser._
 
 import scala.collection.JavaConversions._
@@ -34,7 +34,7 @@ class BufferMechanism(switchInstance: SwitchInstance) {
   })
 
   def symnetCode() : Instruction = InstructionBlock(
-      If(Constrain("standard_metadata.instance_type", :==:(ConstantValue(0))),
+      If(Constrain("standard_metadata.instance_type", :==:(ConstantValue(InstanceType.PKT_INSTANCE_TYPE_NORMAL.value))),
         normalCase(),
         cloneCase()
       ),
