@@ -272,6 +272,16 @@ class HeaderDefinitionParsingTest extends FunSuite {
     s"dot -Tpng $fin -O" !
   }
 
+  test("INTEGRATION - vis") {
+    val p4 = "inputs/simple-nat/simple_nat-ppc.p4"
+    val dataplane = "inputs/simple-nat/commands.txt"
+    val res = ControlFlowInterpreter(p4, dataplane, Map[Int, String](0 -> "veth0", 1 -> "veth1", 11 -> "cpu"), "router")
+    val fin = "inputs/simple-nat/graph.html"
+    val ps = new PrintStream(fin)
+    ps.println(res.toVis())
+    ps.close()
+  }
+
   test("INTEGRATION - run #1") {
     val p4 = "inputs/simple-nat/simple_nat-ppc.p4"
     val dataplane = "inputs/simple-nat/commands.txt"
@@ -290,8 +300,13 @@ class HeaderDefinitionParsingTest extends FunSuite {
 
 
     val ps = new PrintStream("inputs/simple-nat/ctrl1-instrs.json")
-    ps.println(JsonUtil.toJson(res.instructions()))
-    ps.println(JsonUtil.toJson(res.links))
+
+    for ((tag,instr)<-res.instructions()){
+      ps.println(tag);
+      ps.println(instr + "\n")
+    }
+    //ps.println(JsonUtil.toJson(res.instructions()))
+    //ps.println(JsonUtil.toJson(res.links))
     ps.close()
 
     val bvExec = new OVSExecutor(new Z3BVSolver)

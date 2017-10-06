@@ -23,6 +23,10 @@ case class InstructionBlock(instructions: Iterable[Instruction]) extends Instruc
         (allValid, allFailed)
       }
     }
+
+  override def toString: String = {
+    "{\n" + instructions.toString + "\n}"
+  }
 }
 
 object InstructionBlock {
