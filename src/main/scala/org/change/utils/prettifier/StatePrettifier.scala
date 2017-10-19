@@ -164,7 +164,7 @@ class StatePrettifier {
         prettify(value, oAlready)
       case None =>
         ""
-      case State(memory, history, errorCause,instructionHistory) =>
+      case State(memory, history, errorCause,instructionHistory, _) =>
           "memory : {\n" + prettify(memory, oAlready) + "\n},"
 //          "history : {\n" + prettify(history, oAlready) + "\n}," +
 //          "error : {\n" + prettify(errorCause, oAlready) + "\n}," 

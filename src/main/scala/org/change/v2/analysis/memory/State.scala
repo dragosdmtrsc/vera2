@@ -22,16 +22,24 @@ import spray.json._
  */
 
 case class State(memory: MemorySpace = MemorySpace.clean,
-
                  history: List[LocationId] = Nil,
-
                  errorCause: Option[ErrorCause] = None,
+                 instructionHistory: List[Instruction] = Nil,
+                 savedStack : Map[String, MemorySpace] = Map[String, MemorySpace]()) {
 
-                 instructionHistory: List[Instruction] = Nil) {
+  def save(location: String): State = {
+    val newstack = savedStack + (location -> memory)
+    this.copy(savedStack = newstack)
+  }
+
+  def load(location : String) : Option[State] = {
+    savedStack.get(location).map(s => this.copy(memory = s))
+  }
+
   def location: LocationId = history.head
-  def forwardTo(locationId: LocationId): State = State(memory, locationId :: history, errorCause, instructionHistory)
+  def forwardTo(locationId: LocationId): State = copy(history = locationId :: history)
   def status = errorCause.getOrElse("OK")
-  def addInstructionToHistory(i: Instruction) = State(memory, history, errorCause, i :: instructionHistory)
+  def addInstructionToHistory(i: Instruction) = copy(instructionHistory = i :: instructionHistory)
 
   def jsonString = {
     import org.change.v2.analysis.memory.jsonformatters.StateToJson._
