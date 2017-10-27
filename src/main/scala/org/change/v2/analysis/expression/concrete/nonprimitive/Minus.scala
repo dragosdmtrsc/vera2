@@ -20,6 +20,16 @@ case class Minus(a: Value, b: Value) extends Expression {
   override def toString = s"(${a.e} - ${b.e})"
 }
 
+case class MinusE(a: Expression, b: Expression) extends Expression {
+  override def toZ3(solver: Option[Z3Solver] = None): (Z3AST, Option[Z3Solver]) = {
+    val (aAst, aSolver) = a.toZ3(solver)
+    val (bAst, bSolver) = b.toZ3(aSolver)
+
+    (Z3Util.z3Context.mkSub(aAst, bAst), bSolver)
+  }
+  override def toString = s"(${a} - ${b})"
+}
+
 case class LogicalOr(a : Value, b : Value) extends Expression {
   override def toZ3(solver: Option[Z3Solver] = None): (Z3AST, Option[Z3Solver]) = {
     val (aAst, aSolver) = a.toZ3(solver)

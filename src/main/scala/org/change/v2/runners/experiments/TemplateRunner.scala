@@ -1,5 +1,4 @@
 package org.change.v2.runners.experiments
-
 import java.io.{File, FileOutputStream, PrintStream}
 
 import org.change.parser.clickfile.ClickToAbstractNetwork
@@ -15,24 +14,18 @@ object TemplateRunner {
   def main (args: Array[String]) {
     val clickConfig = "src/main/resources/click_test_files/Template.click"
     val absNet = ClickToAbstractNetwork.buildConfig(clickConfig)
-    val executor = ClickExecutionContext.fromSingle(absNet).setLogger(JsonLogger)
+    val executor = ClickExecutionContext.fromSingle(absNet).setLogger(ModelValidation)
 
     var crtExecutor = executor
     while (!crtExecutor.isDone) {
       crtExecutor = crtExecutor.execute(verbose = true)
     }
 
-    val output = new PrintStream(new FileOutputStream(new File("template.output")))
-    val (successful, failed) = (crtExecutor.stuckStates, crtExecutor.failedStates)
+//    println(executor.concretizeStates)
 
-    output.println(
-      successful.map(_.jsonString).mkString("Successful: {\n", "\n", "}\n") +
-        failed.map(_.jsonString).mkString("Failed: {\n", "\n", "}\n")
-    )
-
-    output.close()
-
-    println("Check output @ sefl.output")
-    println("Done, check template.output")
+//    val output = new PrintStream(new FileOutputStream(new File("template.output")))
+//    output.println(crtExecutor.stringifyStates())
+//    output.close()
+//    println("Done")
   }
 }

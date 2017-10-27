@@ -20,6 +20,21 @@ case class Plus(a: Value, b: Value) extends Expression {
   override def toString = s"(${a.e} + ${b.e})"
 }
 
+/**
+ * Author: Radu Stoenescu
+ * Don't be a stranger,  symnetic.7.radustoe@spamgourmet.com
+ */
+case class PlusE(a: Expression, b: Expression) extends Expression {
+  override def toZ3(solver: Option[Z3Solver] = None): (Z3AST, Option[Z3Solver]) = {
+    val (aAst, aSolver) = a.toZ3(solver)
+    val (bAst, bSolver) = b.toZ3(aSolver)
+
+    (Z3Util.z3Context.mkAdd(aAst, bAst), bSolver)
+  }
+
+  override def toString = s"(${a} + ${b})"
+}
+
 case class :+:(left: FloatingExpression, right: FloatingExpression) extends FloatingExpression {
   /**
    * A floating expression may include unbounded references (e.g. symbol ids)

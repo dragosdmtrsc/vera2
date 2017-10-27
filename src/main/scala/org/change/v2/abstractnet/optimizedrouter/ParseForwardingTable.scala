@@ -23,22 +23,23 @@ object ParseForwardingTable {
   def main(args: Array[String]): Unit = {
     val state = State.bigBang
     val start = System.currentTimeMillis()
-    val rsmall = makeRouter(getRoutingEntries(small))
+    //    val rsmall = makeRouter(getRoutingEntries(small))
     val stopa = System.currentTimeMillis()
-    val afterSmall = rsmall.map(kv => kv._2.apply(state)).map(_._1).toList.sortBy(_.length)
-    val perPort = afterSmall(afterSmall.length / 2)
-    val stateToHuge = perPort.head
+    //    val afterSmall = rsmall.map(kv => kv._2.apply(state)).map(_._1).toList.sortBy(_.length)
+    //    val perPort = afterSmall(afterSmall.length / 2)
+    //    val stateToHuge = perPort.head
     val stopb = System.currentTimeMillis()
-    val rhuge = makeRouter(getRoutingEntries(huge))
+    //    val rhuge = makeRouter(getRoutingEntries(huge))
     val stopc = System.currentTimeMillis()
 
-    for {
-      (p, i) <- rhuge
-    } i(stateToHuge)
+    //    for {
+    //      (p, i) <- rhuge
+    //    } i(stateToHuge)
 
-    val stopd = System.currentTimeMillis()
-    println(stopa - start + stopc - stopb)
-    println(stopb - stopa + stopd - stopc)
+    //    val stopd = System.currentTimeMillis()
+    //    println(stopa - start + stopc - stopb)
+    //    println(stopb - stopa + stopd - stopc)
+    //  }
   }
 
   def getRoutingEntries(file: String): List[((Long, Long), String)] = {

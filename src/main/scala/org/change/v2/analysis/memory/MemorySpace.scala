@@ -1,10 +1,13 @@
 package org.change.v2.analysis.memory
 
+import java.util.concurrent.{Callable, ExecutorService, Executors}
+
 import org.change.v2.analysis.constraint._
 import org.change.v2.analysis.expression.abst.Expression
 import org.change.v2.analysis.expression.concrete.SymbolicValue
-import org.change.v2.analysis.types.{LongType, NumericType, TypeUtils, Type}
+import org.change.v2.analysis.types.{LongType, NumericType, Type, TypeUtils}
 import org.change.v2.analysis.z3.Z3Util
+import org.change.v2.executor.clickabstractnetwork.ClickExecutionContext
 import org.change.v2.interval.{IntervalOps, ValueSet}
 import org.change.v2.util.codeabstractions._
 import z3.scala.{Z3Model, Z3Solver}
@@ -22,6 +25,8 @@ import org.change.v2.analysis.constraint.EQ_E
 import org.change.v2.analysis.expression.concrete.nonprimitive.Minus
 import org.change.v2.analysis.expression.concrete.nonprimitive.Plus
 import java.io.PrintWriter
+
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize
 
 /**
 *  Author: Radu Stoenescu
@@ -75,23 +80,20 @@ case class MemorySpace(val symbols: Map[String, MemoryObject] = Map.empty,
   def symbolIsDefined(id: String): Boolean = { symbols.contains(id) }
 
   /**
-   * Allocates a new empty stack for a given symbol.
-   * @param id
-   * @return
-   */
+    * Allocates a new empty stack for a given symbol.
+    * @param id
+    * @return
+    */
   def Allocate(id: String): Option[MemorySpace] =
+    Allocate(id, 0)
+
+  def Allocate(id : String, size : Int) : Option[MemorySpace] = {
     Some(MemorySpace(
-      symbols + ( 
-      id -> (
-          if (! symbolIsDefined(id)) 
-            MemoryObject() 
-          else 
-            symbols(id).allocateNewStack
-         )
-      ),
+      symbols + ( id -> (if (! symbolIsDefined(id)) MemoryObject(size = size) else symbols(id).allocateNewStack)),
       rawObjects,
       memTags
     ))
+  }
 
   def Allocate(a: Int, size: Int): Option[MemorySpace] = 
   if (canModifyExisting(a, size))
@@ -167,75 +169,12 @@ case class MemorySpace(val symbols: Map[String, MemoryObject] = Map.empty,
     }
   else
     None
-  
-    
-  
-  def normalize(c : Constraint) : Constraint = {
-    c match {
-      case NOT(EQ_E(expr)) => NOT(EQ_E(normalize(expr)))
-      case NOT(GT_E(expr)) => LTE_E(normalize(expr))
-      case NOT(GTE_E(expr)) => LT_E(normalize(expr))
-      case NOT(LT_E(expr)) => GTE_E(normalize(expr))
-      case NOT(LTE_E(expr)) => GT_E(normalize(expr))
-      case (EQ_E(expr)) => (EQ_E(normalize(expr)))
-      case (GT_E(expr)) => GT_E(normalize(expr))
-      case (GTE_E(expr)) => GTE_E(normalize(expr))
-      case (LT_E(expr)) => LT_E(normalize(expr))
-      case (LTE_E(expr)) => LTE_E(normalize(expr))
-      case NOT(OR(instrs)) => AND(instrs.map { x => NOT(x) })
-      case NOT(AND(instrs)) => OR(instrs.map { x => NOT(x) })
-      case NOT(NOT(z)) => normalize(z)
-      case _ => c
-    }
-  }
-  
-  def normalize(expr : Expression) : Expression = expr match {
-    case ConstantStringValue(x) => ConstantValue(x.hashCode())
-    case Plus(Value(e1, _, _), Value(e2, _, _)) => Plus(Value(normalize(e1)), Value(normalize(e2)))
-    case Minus(Value(e1, _, _), Value(e2, _, _)) => Minus(Value(normalize(e1)), Value(normalize(e2)))
-    case _ => expr
-  }
-  
-  def tryEval(value : Value) : Option[Long] = {
-    normalize(value.e) match {
-      case ConstantValue(x, _, _) => Some(x)
-      case Reference(v, _) => tryEval(v)
-      case _ => {
-        value.cts.foldLeft(None : Option[Long]) { (acc, x) => 
-          if (acc.isDefined)
-            acc
-          else
-            x match {
-              case EQ_E(ConstantValue(z, _, _)) => Some(z)
-              case E(z) => Some(z) 
-              case EQ_E(Reference(v, _)) => tryEval(v)
-              case _ => None
-            }
-        }
-      }
-    }
-  }
-  
-  def checkSat(value : Value, c : Constraint) : (Option[Value], Boolean) = {
-    tryEval(value).foldLeft((Some(value.constrain(c)), false) :  (Option[Value], Boolean)) { (acc, x) => {
-        val newVal = value
-        c match {
-          case EQ_E(ConstantValue(y, _, _)) if y == x => (Some(newVal), true)
-          case EQ_E(ConstantValue(y, _, _)) if y != x => (None, true)
-          case NOT(EQ_E(ConstantValue(y, _, _))) if y == x => (None, true)
-          case LTE_E(ConstantValue(y, _, _)) if x > y => (None, true)
-          case GTE_E(ConstantValue(y, _, _)) if x < y => (None, true)
-          case LT_E(ConstantValue(y, _, _)) if x >= y => (None, true)
-          case GT_E(ConstantValue(y, _, _)) if x <= y => (None, true)
-          case _ => acc
-        }
-      }
-    }
-  }
+
     
   def addConstraint(id : String, c : Constraint) : Option[MemorySpace] = addConstraint(id, c, false)
   def addConstraint(id : String, c : Constraint, defer : Boolean) : Option[MemorySpace] = eval(id).flatMap(smb => {
-    val (newSmb, isSolved) = checkSat(smb.copy(e = normalize(smb.e)), normalize(c))
+//    val (newSmb, isSolved) = checkSat(smb.copy(e = normalize(smb.e)), normalize(c))
+    val (newSmb, isSolved) = (Option[Value](smb.constrain(c)), false)
     if (isSolved)
     {
       if (newSmb.isDefined)
@@ -275,9 +214,15 @@ case class MemorySpace(val symbols: Map[String, MemoryObject] = Map.empty,
     (v.constrain(c), false)
   }
   
+  def addConstraint(r : Either[Int, String], c : Constraint, defer : Boolean) : Option[MemorySpace] = r match {
+    case Left(a) => addConstraint(a, c, defer)
+    case Right(s) => addConstraint(s, c, defer)
+  }
+  
+  
   def addConstraint(a : Int, c : Constraint)  : Option[MemorySpace] = addConstraint(a, c, false)
   def addConstraint(a : Int, c : Constraint, defer : Boolean) : Option[MemorySpace] = eval(a).flatMap(smb => {
-    val (newSmb, isSolved) = checkSat(smb.copy(e = normalize(smb.e)), normalize(c))
+    val (newSmb, isSolved) = (Option[Value](smb.constrain(c)), false)
     if (isSolved)
     {
       if (newSmb.isDefined)
@@ -348,9 +293,7 @@ case class MemorySpace(val symbols: Map[String, MemoryObject] = Map.empty,
 // FOR TESTING purposes ONLY
   private[this] def memoryToOption(m: MemorySpace): Option[MemorySpace] =
     if (m.isZ3Valid)
-    {
       Some(m)
-    }
     else
       None
 
@@ -440,7 +383,19 @@ case class MemorySpace(val symbols: Map[String, MemoryObject] = Map.empty,
   private var isZ3ModelCacheValid = false
   private var modelCache: Option[Z3Model] = _
 
-  def isZ3Valid: Boolean = buildSolver.check().get
+  def isZ3Valid: Boolean = {
+//    val job = MemorySpace.service.submit(new Callable[Boolean]() {
+//      override def call(): Boolean = {
+//        val crt = System.currentTimeMillis()
+        val aux = buildSolver.check().get
+//        MemorySpace.incZ3Time(System.currentTimeMillis()-crt)
+//        MemorySpace.incZ3Call
+        aux
+//      }
+//    })
+//
+//    job.get()
+  }
 
   def buildModel: Option[Z3Model] = if (isZ3ModelCacheValid)
     modelCache
@@ -469,6 +424,12 @@ object MemorySpace {
    * Empty memory.
    * @return
    */
+   var z3Time = 0L;
+   var z3Call = 0L;
+
+   def incZ3Time(i:Long) = z3Time+=i
+   def incZ3Call() = z3Call+=1
+   
   def clean: MemorySpace = new MemorySpace()
 
   /**
@@ -477,4 +438,6 @@ object MemorySpace {
    * @return
    */
   def cleanWithSymolics(symbols: List[String]) = symbols.foldLeft(clean)((mem, s) => mem.Assign(s, SymbolicValue()).get)
+
+//  def service = ClickExecutionContext.getService
 }

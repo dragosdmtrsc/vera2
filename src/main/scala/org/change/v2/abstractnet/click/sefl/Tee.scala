@@ -26,6 +26,7 @@ class Tee(name: String,
       //check that TCP header is allocated, modify TCP options field
       Allocate("tmp"),
       Assign("tmp",SymbolicValue()),
+      //Constrain("tmp",:>:(ConstantValue(100))),
 
       If (Constrain("tmp",:>:(ConstantValue(100))),
         InstructionBlock(
@@ -53,7 +54,7 @@ class TeeElementBuilder(name: String, elementType: String)
 
 object Tee {
   private var unnamedCount = 0
-
+0
   private val genericElementName = "Tee"
 
   private def increment {

@@ -19,8 +19,8 @@ package object  canonicalnames {
   val L2Tag = Tag("L2")
   val L3Tag = Tag("L3")
   val L4Tag = Tag("L4")
-  val TunnelTag = Tag("Tunnel")
-  
+  val MPLS = Tag("MPLS")
+
   val IPVersionString = "IP-Version"
   val IPSrcString = "IP-Src"
   val IPDstString = "IP-Dst"
@@ -29,10 +29,16 @@ package object  canonicalnames {
   val L4ProtoString = "Proto"
   val TTLString = "TTL"
 
-  
-  val TunIdOffset = 0
-  val TunId = TunnelTag + TunIdOffset 
-  
+  //MPLS header offsets and fields
+  val LabelOffset = 0
+  val Label = MPLS + LabelOffset
+  val TCOffset = 20
+  val TC = MPLS + TCOffset
+  val SOffset = 23
+  val S = MPLS + SOffset
+  val MPLSTTLOffset = 24
+  val MPLSTTL = MPLS + MPLSTTLOffset
+
   //Ethernet header offsets and fields
   val EtherDstOffset = 0
   val EtherDst = L2Tag + EtherDstOffset
@@ -41,9 +47,6 @@ package object  canonicalnames {
   val EtherTypeOffset = 96
   val EtherType = L2Tag + EtherTypeOffset
   val PCPOffset = 112
-  val VLANTCIOffset = PCPOffset
-  
-  val VLANTCI = L2Tag + VLANTCIOffset
   val PCP = L2Tag + PCPOffset
   val DEIOffset = 115
   val DEI = L2Tag + DEIOffset
@@ -102,6 +105,9 @@ package object  canonicalnames {
   val ESPNextProtoOffset = -8
   val ESPNextProto = EndTag - ESPNextProtoOffset
 
+  
+  val TunId = -500
+  
   //UDP header offsets
   val UDPSrcOffset = 0
   val UDPSrc = L4Tag + UDPSrcOffset

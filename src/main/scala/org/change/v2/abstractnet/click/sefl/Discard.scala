@@ -22,8 +22,13 @@ class Discard(name: String,
     configParams) {
 
   override def instructions: Map[LocationId, Instruction] = Map(
-    inputPortName(0) -> Fail("Unexpected packet dropped @ " + getName)
+    inputPortName(0) -> InstructionBlock(
+      //check that TCP header is allocated, modify TCP options field
+      	      Fail("Kill pkt in Discard element")
+      )
   )
+
+  override def outputPortName(which: Int): String = s"$getName-out-$which"
 }
 
 class DiscardElementBuilder(name: String, elementType: String)

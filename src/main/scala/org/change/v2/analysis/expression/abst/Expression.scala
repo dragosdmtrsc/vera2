@@ -2,23 +2,17 @@ package org.change.v2.analysis.expression.abst
 
 
 import org.change.v2.analysis.memory.State
-import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.analysis.z3.Z3Able
 
 import scala.util.Random
-import com.fasterxml.jackson.annotation.JsonTypeInfo
 
 /**
  * Created by radu on 3/24/15.
  *
- * A floating expression is a formula with references not yet bound to values.
+ * A floating expression uses references instead of concrete values.
  *
- * These bindings are made according to the context of a state.
+ * The bindings to concrete values are made according to a state.
  */
-@JsonTypeInfo(
-  use = JsonTypeInfo.Id.CLASS, 
-  include = JsonTypeInfo.As.PROPERTY, 
-  property = "type")
 trait FloatingExpression {
   /**
    * A floating expression may include unbounded references (e.g. symbol ids)
@@ -34,10 +28,6 @@ trait FloatingExpression {
  * An expression without dangling references.
  * @param id Every expression has an id for an easy equality check.
  */
-@JsonTypeInfo(
-  use = JsonTypeInfo.Id.NAME, 
-  include = JsonTypeInfo.As.PROPERTY, 
-  property = "type")
 abstract class Expression(val id: Long = Expression.randomId) extends Z3Able
 
 object Expression {

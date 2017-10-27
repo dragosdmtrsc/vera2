@@ -26,5 +26,6 @@ git clone https://github.com/nets-cs-pub-ro/Symnet.git
 
 # Build it and test the rig.
 cd /vagrant
+sudo update-ca-certificates -f
 sbt compile
 sbt sample

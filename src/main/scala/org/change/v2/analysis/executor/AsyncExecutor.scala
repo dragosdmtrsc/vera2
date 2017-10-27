@@ -31,12 +31,13 @@ import java.util.concurrent.Executors
 import scala.collection.mutable.ArrayBuffer
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
+import org.change.v2.analysis.processingmodels.instructions.Translatable
 
 
 class AsyncExecutor(syncExec : InstructionExecutor,
     instructions : Map[LocationId, Instruction],
     maxLevel : Int = 1000,
-    var exec : ExecutorService = Executors.newFixedThreadPool(1)) 
+    var exec : ExecutorService = Executors.newFixedThreadPool(4)) 
     extends Executor[Unit] {
   
   private var pending : AtomicInteger = new AtomicInteger(0)
@@ -128,9 +129,9 @@ class AsyncExecutor(syncExec : InstructionExecutor,
         putOk(s)
       }
       case If(a, b, c) :: tail => {
-        val (c1, c2) = If(a, b, c).branch()
-        this.pushExec(InstructionBlock(c1 :: b :: tail), s, v)
-        this.pushExec(InstructionBlock(c2 :: c :: tail), s, v)
+        val outcomes = If(a, b, c).branch(s)
+        for (o <- outcomes)
+          this.pushExec(InstructionBlock(o :: tail), s, v)
       }
       case Fork(instrs) :: tail => {
         for (inst <- instrs) 
@@ -148,7 +149,8 @@ class AsyncExecutor(syncExec : InstructionExecutor,
 //          this.pushExec(InstructionBlock(tail), s, v)
       }
       case InstructionBlock(instructions) :: tail => {
-        this.executeInstructionBlock(InstructionBlock(instructions.toList ::: tail), s, v)
+        val instrs = instructions.toList ++ tail
+        this.executeInstructionBlock(InstructionBlock(instrs), s, v)
       }
       case head :: tail => {
         val (ok, fail) = syncExec.execute(head, s, v)
@@ -189,7 +191,9 @@ class AsyncExecutor(syncExec : InstructionExecutor,
   def executeConstrainRaw(instruction : ConstrainRaw, 
       s : State, 
       v : Boolean = false) : 
-    Unit = executeInstructionBlock(InstructionBlock(instruction), s, v)
+    Unit = {
+    executeInstructionBlock(InstructionBlock(instruction), s, v)
+  }
   
   def executeConstrainNamedSymbol(instruction : ConstrainNamedSymbol, 
       s : State, 
@@ -240,7 +244,11 @@ class AsyncExecutor(syncExec : InstructionExecutor,
   def executeExoticInstruction(instruction : Instruction,
       s : State,
       v : Boolean = false) : Unit = {
-    this.executeInstructionBlock(InstructionBlock(instruction), s, v)
+    instruction match {
+      case i : Translatable => this.executeInstructionBlock(InstructionBlock(i.generateInstruction()), s, v)
+      case _ => throw new UnsupportedOperationException("Cannot handle non-translatable instructions")
+    }
+    
   }
 
 }

@@ -14,6 +14,8 @@ import org.change.v2.analysis.expression.concrete.ConstantValue
 import org.change.v2.analysis.expression.abst.{FloatingExpression, Expression}
 import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.analysis.memory.{State, TagExp, Intable}
+import com.fasterxml.jackson.annotation.JsonIgnore
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 
 /**
  * Author: Radu Stoenescu
@@ -40,7 +42,8 @@ case class AssignNamedSymbol(id: String, exp: FloatingExpression, t: NumericType
 
 }
 
-case class AssignRaw(a: Intable, exp: FloatingExpression, t: NumericType = LongType) extends Instruction {
+case class AssignRaw(a: Intable, exp: FloatingExpression, 
+    t: NumericType = LongType) extends Instruction {
   /**
    *
    * A state processing block produces a set of new states based on a previous one.

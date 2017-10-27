@@ -1,0 +1,2 @@
+obj :: Null;
+obj -> Discard;
