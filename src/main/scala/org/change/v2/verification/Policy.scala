@@ -103,7 +103,7 @@ object Policy {
       case If(test,th,el) => "if ("+test.toString+") then {"+show(th,indent+1)+"} else {"+show(el,indent+1)+"}"
       case Forward(p)=> "Forward("+p.toString+")"
       case SEFLFail(_) => "Fail"
-      case AllocateSymbol(s) => "allocate("+s+")"
+      case AllocateSymbol(s, _) => "allocate("+s+")"
       case AllocateRaw(s,sz) => "allocate_raw("+s+")"
       case DeallocateRaw(s,_) => "deallocate("+s+")"
       case DeallocateNamedSymbol(s) => "deallocate_n("+s+")"

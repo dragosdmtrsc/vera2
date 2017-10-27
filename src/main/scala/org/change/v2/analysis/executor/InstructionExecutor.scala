@@ -261,7 +261,7 @@ abstract class AbstractInstructionExecutor extends InstructionExecutor {
             val (sa, fa) = execute(InstructionBlock(ConstrainNamedSymbol(what, withWhat, Some(c)), thenWhat), s, v)
             val (sb, fb) = execute(InstructionBlock(ConstrainNamedSymbol(what, :~:(withWhat), Some(NOT(c))), elseWhat), s, v)
             (sa ++ sb, fa ++ fb)
-          case _ => elseWhat(s, v)
+          case _ => execute(elseWhat, s, v)
         }
       case ConstrainRaw(what, withWhat, _) => what(s) match {
         case Some(i) => withWhat instantiate s match {
@@ -406,9 +406,9 @@ abstract class AbstractInstructionExecutor extends InstructionExecutor {
       s : State, 
       v : Boolean = false) : 
     (List[State], List[State]) = { 
-    val AllocateSymbol(id) = instruction
+    val AllocateSymbol(id, size) = instruction
     optionToStatePair(s, s"Cannot allocate $id") (s => {
-      s.memory.Allocate(id)
+      s.memory.Allocate(id, size)
     })
   }
   
