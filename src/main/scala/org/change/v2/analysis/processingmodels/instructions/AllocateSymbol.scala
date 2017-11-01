@@ -45,7 +45,7 @@ case class AllocateRaw(a: Intable, size: Int) extends Instruction {
 
 object Allocate {
   def apply(id: String, size : Int): Instruction = AllocateSymbol(id, size)
-  @Deprecated("Use apply(id, size)")
+
   def apply(id: String): Instruction = apply(id, 64)
   def apply(a: Intable, size: Int): Instruction = AllocateRaw(a, size)
 }

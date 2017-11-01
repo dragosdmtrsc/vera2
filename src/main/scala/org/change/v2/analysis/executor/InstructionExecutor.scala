@@ -273,6 +273,12 @@ abstract class AbstractInstructionExecutor extends InstructionExecutor {
         }
         case None => execute(elseWhat, s,v)
       }
+      case InstructionBlock(instructions) => this.execute(instructions.foldRight(thenWhat)((x, acc) => {
+        If (x, acc, elseWhat)
+      }), s, v)
+      case Fork(instructions) => this.execute(instructions.foldRight(elseWhat)((x, acc) => {
+        If (x, thenWhat, acc)
+      }), s, v)
       case _ => stateToError(s, "Bad test instruction")
     }
     
