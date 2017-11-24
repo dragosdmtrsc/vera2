@@ -1,4 +1,4 @@
-// Generated from /home/dragos/GitHub/symPatru/src/main/resources/p4_grammar/P4Grammar.g4 by ANTLR 4.7
+// Generated from /mbin/projects/internal/symPatru/src/main/resources/p4_grammar/P4Grammar.g4 by ANTLR 4.7
 package generated.parse.p4;
 import org.antlr.v4.runtime.atn.*;
 import org.antlr.v4.runtime.dfa.DFA;
@@ -6007,7 +6007,7 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Control_function_declarationContext extends ParserRuleContext {
-		public String controlFunctionName;
+		public org.change.v2.p4.model.updated.control.ControlFunction controlFunction;
 		public Control_fn_nameContext control_fn_name() {
 			return getRuleContext(Control_fn_nameContext.class,0);
 		}
@@ -6091,8 +6091,7 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Control_blockContext extends ParserRuleContext {
-		public String parent;
-		public java.util.List<org.change.v2.analysis.processingmodels.Instruction> instructions;
+		public org.change.v2.p4.model.updated.control.ControlBlock controlBlock;
 		public List<Control_statementContext> control_statement() {
 			return getRuleContexts(Control_statementContext.class);
 		}
@@ -6152,31 +6151,72 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Control_statementContext extends ParserRuleContext {
-		public String parent;
-		public org.change.v2.analysis.processingmodels.Instruction instruction;
-		public Apply_table_callContext apply_table_call() {
-			return getRuleContext(Apply_table_callContext.class,0);
-		}
-		public Apply_and_select_blockContext apply_and_select_block() {
-			return getRuleContext(Apply_and_select_blockContext.class,0);
-		}
-		public If_else_statementContext if_else_statement() {
-			return getRuleContext(If_else_statementContext.class,0);
-		}
-		public Control_fn_nameContext control_fn_name() {
-			return getRuleContext(Control_fn_nameContext.class,0);
-		}
+		public org.change.v2.p4.model.updated.control.ControlStatement controlStatement;
 		public Control_statementContext(ParserRuleContext parent, int invokingState) {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_control_statement; }
+	 
+		public Control_statementContext() { }
+		public void copyFrom(Control_statementContext ctx) {
+			super.copyFrom(ctx);
+			this.controlStatement = ctx.controlStatement;
+		}
+	}
+	public static class ControlFunctionCallContext extends Control_statementContext {
+		public Control_fn_nameContext control_fn_name() {
+			return getRuleContext(Control_fn_nameContext.class,0);
+		}
+		public ControlFunctionCallContext(Control_statementContext ctx) { copyFrom(ctx); }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).enterControl_statement(this);
+			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).enterControlFunctionCall(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).exitControl_statement(this);
+			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).exitControlFunctionCall(this);
+		}
+	}
+	public static class ApplyAndSelectBlockContext extends Control_statementContext {
+		public Apply_and_select_blockContext apply_and_select_block() {
+			return getRuleContext(Apply_and_select_blockContext.class,0);
+		}
+		public ApplyAndSelectBlockContext(Control_statementContext ctx) { copyFrom(ctx); }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).enterApplyAndSelectBlock(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).exitApplyAndSelectBlock(this);
+		}
+	}
+	public static class IfElseStatementContext extends Control_statementContext {
+		public If_else_statementContext if_else_statement() {
+			return getRuleContext(If_else_statementContext.class,0);
+		}
+		public IfElseStatementContext(Control_statementContext ctx) { copyFrom(ctx); }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).enterIfElseStatement(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).exitIfElseStatement(this);
+		}
+	}
+	public static class ApplyTableCallContext extends Control_statementContext {
+		public Apply_table_callContext apply_table_call() {
+			return getRuleContext(Apply_table_callContext.class,0);
+		}
+		public ApplyTableCallContext(Control_statementContext ctx) { copyFrom(ctx); }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).enterApplyTableCall(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).exitApplyTableCall(this);
 		}
 	}
 
@@ -6188,6 +6228,7 @@ public class P4GrammarParser extends Parser {
 			_errHandler.sync(this);
 			switch ( getInterpreter().adaptivePredict(_input,74,_ctx) ) {
 			case 1:
+				_localctx = new ApplyTableCallContext(_localctx);
 				enterOuterAlt(_localctx, 1);
 				{
 				setState(961);
@@ -6195,6 +6236,7 @@ public class P4GrammarParser extends Parser {
 				}
 				break;
 			case 2:
+				_localctx = new ApplyAndSelectBlockContext(_localctx);
 				enterOuterAlt(_localctx, 2);
 				{
 				setState(962);
@@ -6202,6 +6244,7 @@ public class P4GrammarParser extends Parser {
 				}
 				break;
 			case 3:
+				_localctx = new IfElseStatementContext(_localctx);
 				enterOuterAlt(_localctx, 3);
 				{
 				setState(963);
@@ -6209,6 +6252,7 @@ public class P4GrammarParser extends Parser {
 				}
 				break;
 			case 4:
+				_localctx = new ControlFunctionCallContext(_localctx);
 				enterOuterAlt(_localctx, 4);
 				{
 				setState(964);
@@ -6235,8 +6279,7 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Apply_table_callContext extends ParserRuleContext {
-		public String parent;
-		public org.change.v2.analysis.processingmodels.Instruction instruction;
+		public org.change.v2.p4.model.updated.control.control_statements.ApplyTable applyTable;
 		public Table_nameContext table_name() {
 			return getRuleContext(Table_nameContext.class,0);
 		}
@@ -6284,8 +6327,7 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Apply_and_select_blockContext extends ParserRuleContext {
-		public String parent;
-		public org.change.v2.analysis.processingmodels.Instruction instruction;
+		public org.change.v2.p4.model.updated.control.control_statements.ApplyAndSelectBlock applyAndSelectBlock;
 		public Table_nameContext table_name() {
 			return getRuleContext(Table_nameContext.class,0);
 		}
@@ -6349,8 +6391,7 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Case_listContext extends ParserRuleContext {
-		public String parent;
-		public java.util.List<org.change.v2.analysis.processingmodels.Instruction> instructions;
+		public org.change.v2.p4.model.updated.control.control_statements.case_list.CaseList caseList;
 		public Case_listContext(ParserRuleContext parent, int invokingState) {
 			super(parent, invokingState);
 		}
@@ -6359,42 +6400,41 @@ public class P4GrammarParser extends Parser {
 		public Case_listContext() { }
 		public void copyFrom(Case_listContext ctx) {
 			super.copyFrom(ctx);
-			this.parent = ctx.parent;
-			this.instructions = ctx.instructions;
+			this.caseList = ctx.caseList;
 		}
 	}
-	public static class Case_list_actionContext extends Case_listContext {
+	public static class ActionCasesContext extends Case_listContext {
 		public List<Action_caseContext> action_case() {
 			return getRuleContexts(Action_caseContext.class);
 		}
 		public Action_caseContext action_case(int i) {
 			return getRuleContext(Action_caseContext.class,i);
 		}
-		public Case_list_actionContext(Case_listContext ctx) { copyFrom(ctx); }
+		public ActionCasesContext(Case_listContext ctx) { copyFrom(ctx); }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).enterCase_list_action(this);
+			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).enterActionCases(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).exitCase_list_action(this);
+			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).exitActionCases(this);
 		}
 	}
-	public static class Case_list_hitmissContext extends Case_listContext {
+	public static class HitMissCasesContext extends Case_listContext {
 		public List<Hit_miss_caseContext> hit_miss_case() {
 			return getRuleContexts(Hit_miss_caseContext.class);
 		}
 		public Hit_miss_caseContext hit_miss_case(int i) {
 			return getRuleContext(Hit_miss_caseContext.class,i);
 		}
-		public Case_list_hitmissContext(Case_listContext ctx) { copyFrom(ctx); }
+		public HitMissCasesContext(Case_listContext ctx) { copyFrom(ctx); }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).enterCase_list_hitmiss(this);
+			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).enterHitMissCases(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).exitCase_list_hitmiss(this);
+			if ( listener instanceof P4GrammarListener ) ((P4GrammarListener)listener).exitHitMissCases(this);
 		}
 	}
 
@@ -6408,7 +6448,7 @@ public class P4GrammarParser extends Parser {
 			switch (_input.LA(1)) {
 			case T__45:
 			case NAME:
-				_localctx = new Case_list_actionContext(_localctx);
+				_localctx = new ActionCasesContext(_localctx);
 				enterOuterAlt(_localctx, 1);
 				{
 				setState(988); 
@@ -6429,7 +6469,7 @@ public class P4GrammarParser extends Parser {
 				break;
 			case T__86:
 			case T__87:
-				_localctx = new Case_list_hitmissContext(_localctx);
+				_localctx = new HitMissCasesContext(_localctx);
 				enterOuterAlt(_localctx, 2);
 				{
 				setState(993); 
@@ -6464,8 +6504,7 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Action_caseContext extends ParserRuleContext {
-		public String parent;
-		public org.change.v2.analysis.processingmodels.Instruction instruction;
+		public org.change.v2.p4.model.updated.control.control_statements.case_list.Case caseItem;
 		public Action_or_defaultContext action_or_default() {
 			return getRuleContext(Action_or_defaultContext.class,0);
 		}
@@ -6510,6 +6549,7 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Action_or_defaultContext extends ParserRuleContext {
+		public org.change.v2.p4.model.updated.control.control_statements.case_list.ActionRef actionRef;
 		public Action_nameContext action_name() {
 			return getRuleContext(Action_nameContext.class,0);
 		}
@@ -6564,8 +6604,7 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Hit_miss_caseContext extends ParserRuleContext {
-		public String parent;
-		public org.change.v2.analysis.processingmodels.Instruction instruction;
+		public org.change.v2.p4.model.updated.control.control_statements.case_list.Case caseItem;
 		public Hit_or_missContext hit_or_miss() {
 			return getRuleContext(Hit_or_missContext.class,0);
 		}
@@ -6655,8 +6694,7 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class If_else_statementContext extends ParserRuleContext {
-		public String parent;
-		public org.change.v2.analysis.processingmodels.Instruction instruction;
+		public org.change.v2.p4.model.updated.control.control_statements.IfElse ifElse;
 		public Bool_exprContext bool_expr() {
 			return getRuleContext(Bool_exprContext.class,0);
 		}
@@ -6721,8 +6759,7 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Else_blockContext extends ParserRuleContext {
-		public String parent;
-		public org.change.v2.analysis.processingmodels.Instruction instruction;
+		public org.change.v2.p4.model.updated.control.ControlStatement elseBlock;
 		public Control_blockContext control_block() {
 			return getRuleContext(Control_blockContext.class,0);
 		}
