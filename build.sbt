@@ -15,7 +15,6 @@ libraryDependencies ++= {
     "org.antlr" % "antlr4" % "4.7",
     "org.scalatest" % "scalatest_2.11" % "2.2.4" % "test",
     "io.spray" %%  "spray-json" % "1.3.2",
-    "org.pacesys" % "openstack4j" % "3.0.4",
     "org.apache.commons" % "commons-lang3" % "3.5",
     "com.fasterxml.jackson.core" % "jackson-databind" % "2.8.3",
     "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.8.3",

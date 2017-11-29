@@ -4,11 +4,10 @@ import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Collections;
 
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.MutableTreeNode;
-
-import com.google.common.collect.Lists;
 
 
 
@@ -143,7 +142,7 @@ public class StateGraph {
 	    ((DefaultMutableTreeNode) subtree.getParent()).add(with);
 	    subtree.removeFromParent();
 	} else {
-	    LinkedList<Integer> copy = Lists.newLinkedList(path);
+	    LinkedList<Integer> copy = new LinkedList<Integer>(path);
 	    subtree = (DefaultMutableTreeNode) 
 		    subtree.getChildAt(copy.removeFirst());
 	    replace(subtree, copy, with);
@@ -184,7 +183,7 @@ public class StateGraph {
 	    int i = 0;
 	    while (enumer.hasMoreElements())
 	    {
-		LinkedList<Integer> newPath = Lists.newLinkedList(path);
+		LinkedList<Integer> newPath = new LinkedList<Integer>(path);
 		newPath.add(i++);
 		if (removeOR(enumer.nextElement(), newPath))
 		    return true;
