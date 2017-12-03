@@ -13,7 +13,7 @@ import org.change.v2.analysis.expression.concrete.ConstantValue
 import org.change.v2.analysis.memory.{State, Tag}
 import org.change.v2.analysis.processingmodels.instructions._
 import org.change.v2.executor.clickabstractnetwork.ClickExecutionContext
-import org.change.v2.p4.model.SwitchInstance
+import org.change.v2.p4.model.{Switch, SwitchInstance}
 import org.scalatest.FunSuite
 
 import scala.collection.JavaConversions._
@@ -91,6 +91,14 @@ class HeaderDefinitionParsingTest extends FunSuite {
       println(s"default@$x")
       println(p4ActionCall.symnetCode())
     }
+  }
+
+  test("NAT parsing without data plane config") {
+    val p4 = "inputs/simple-nat/simple_nat-ppc.p4"
+
+    val sw = Switch.fromFile(p4)
+
+    println("hello")
   }
 
   test("NAT spec can be parsed - actions, reg defs and field lists are there") {
