@@ -65,7 +65,7 @@ class OVSExecutor(solver : Solver) extends DecoratedInstructionExecutor(solver) 
     (List[State], List[State]) = { 
     val AssignRaw(a, exp, t) = instruction
     a(s) match {
-      case Some(int) => { exp instantiate  s match {
+      case Some(int) => { instantiate(s, exp) match {
         case Left(e) => optionToStatePair(s, s"Error during assignment at $a") (s => {
           s.memory.Assign(int, e)
         })
@@ -90,7 +90,7 @@ class OVSExecutor(solver : Solver) extends DecoratedInstructionExecutor(solver) 
     val ConstrainRaw(a, dc, c) = instruction
     a(s) match {
       case Some(int) => c match {
-        case None => dc instantiate s match {
+        case None => instantiate(s, dc) match {
           case Left(c) => optionToStatePair(s, s"Memory object @ $a cannot $dc") (s => {
             getNewMemory(Some(s.memory), Left(int), c)
           })
@@ -267,7 +267,7 @@ class OVSExecutor(solver : Solver) extends DecoratedInstructionExecutor(solver) 
     (List[State], List[State]) = {
     val ConstrainNamedSymbol(id, dc, c) = instruction
     c match {
-      case None => dc instantiate s match {
+      case None => instantiate(s, dc) match {
         case Left(c) => optionToStatePair(s, s"Symbol $id cannot $dc") (s => {
 //          val maybeNewMem = s.memory.addConstraint(id, c, true)
           getNewMemory(Some(s.memory), Right(id), c)
@@ -416,7 +416,7 @@ class OVSAsyncExecutor(syncExec : InstructionExecutor,
   def flattenInstruction (instr : Instruction, s : State) : Instruction = instr match {
     case ConstrainRaw(a, dc, c) => {
       val ct : Either[Constraint, String] = c match {
-        case None => dc instantiate s match {
+        case None => instantiate(s, dc) match {
           case Left(c) => Left(c)
           case Right(err) => Right(err)
         }
@@ -446,7 +446,7 @@ class OVSAsyncExecutor(syncExec : InstructionExecutor,
     }
     case ConstrainNamedSymbol(a, dc, c) => {
       val ct : Either[Constraint, String] = c match {
-        case None => dc instantiate s match {
+        case None => instantiate(s, dc) match {
           case Left(c) => Left(c)
           case Right(err) => Right(err)
         }

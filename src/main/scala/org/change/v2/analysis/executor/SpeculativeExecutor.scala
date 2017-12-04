@@ -95,7 +95,7 @@ class SpeculativeExecutor(solver : Solver = new Z3Solver)
     val ConstrainRaw(a, dc, c) = instruction
     a(s) match {
       case Some(int) => c match {
-          case None => dc instantiate s match {
+          case None => instantiate(s, dc) match {
             case Left(c) => optionToStatePair(s, s"Memory object @ $a cannot $dc") (s => {
 //              s.memory.Constrain(int, c)
               this.constrainMemory(s.memory, int, c)
@@ -116,7 +116,7 @@ class SpeculativeExecutor(solver : Solver = new Z3Solver)
     (List[State], List[State]) = {
     val ConstrainNamedSymbol(id, dc, c) = instruction
     c match {
-      case None => dc instantiate s match {
+      case None => instantiate(s, dc) match {
         case Left(c) => optionToStatePair(s, s"Symbol $id cannot $dc") (s => {
 //          s.memory.Constrain(id, c)
             this.constrainMemory(s.memory, id, c)

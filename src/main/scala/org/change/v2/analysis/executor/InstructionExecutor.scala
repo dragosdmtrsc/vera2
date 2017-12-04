@@ -2,6 +2,7 @@ package org.change.v2.analysis.executor
 
 import org.change.v2.analysis.constraint._
 import org.change.v2.analysis.executor.solvers.{Solver, Z3SolverEnhanced}
+import org.change.v2.analysis.expression.abst.{Expression, FloatingExpression}
 import org.change.v2.analysis.memory.{Intable, MemorySpace, State, TagExp}
 import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.analysis.processingmodels.instructions._
@@ -140,6 +141,14 @@ abstract class Executor[T] extends IExecutor[T] {
       s : State, 
       v : Boolean = false) : 
     T
+
+  protected def instantiate(s : State, constraint: FloatingConstraint) : Either[Constraint, String] = {
+    constraint.instantiate(s)
+  }
+
+  protected def instantiate(s : State, expression : FloatingExpression) : Either[Expression, String] = {
+    expression.instantiate(s)
+  }
 }
 
 
@@ -256,7 +265,7 @@ abstract class AbstractInstructionExecutor extends InstructionExecutor {
     
     testInstr match {
       case ConstrainNamedSymbol(what, withWhat, _) =>
-        withWhat instantiate s match {
+        instantiate(s, withWhat) match {
           case Left(c) if s.memory.symbolIsAssigned(what) =>
             val (sa, fa) = execute(InstructionBlock(ConstrainNamedSymbol(what, withWhat, Some(c)), thenWhat), s, v)
             val (sb, fb) = execute(InstructionBlock(ConstrainNamedSymbol(what, :~:(withWhat), Some(NOT(c))), elseWhat), s, v)
@@ -264,7 +273,7 @@ abstract class AbstractInstructionExecutor extends InstructionExecutor {
           case _ => execute(elseWhat, s, v)
         }
       case ConstrainRaw(what, withWhat, _) => what(s) match {
-        case Some(i) => withWhat instantiate s match {
+        case Some(i) => instantiate(s, withWhat) match {
           case Left(c) if s.memory.canRead(i) =>
             val (sa, fa) = execute(InstructionBlock(ConstrainRaw(what, withWhat, Some(c)), thenWhat), s, v)
             val (sb, fb) = execute(InstructionBlock(ConstrainRaw(what, :~:(withWhat), Some(NOT(c))), elseWhat), s, v)
@@ -316,7 +325,7 @@ abstract class AbstractInstructionExecutor extends InstructionExecutor {
     val ConstrainRaw(a, dc, c) = instruction
     a(s) match {
       case Some(int) => c match {
-          case None => dc instantiate s match {
+          case None => instantiate(s, dc) match {
             case Left(c) => optionToStatePair(s, s"Memory object @ $a cannot $dc") (s => {
               val maybeNewMem = s.memory.addConstraint(int, c, true)
               getNewMemory(maybeNewMem)
@@ -351,7 +360,7 @@ abstract class AbstractInstructionExecutor extends InstructionExecutor {
     (List[State], List[State]) = {
     val ConstrainNamedSymbol(id, dc, c) = instruction
     c match {
-      case None => dc instantiate s match {
+      case None => instantiate(s, dc) match {
         case Left(c) => optionToStatePair(s, s"Symbol $id cannot $dc") (s => {
           val maybeNewMem = s.memory.addConstraint(id, c, true)
           getNewMemory(maybeNewMem)
@@ -370,7 +379,7 @@ abstract class AbstractInstructionExecutor extends InstructionExecutor {
       s : State, v : Boolean = false) : 
     (List[State], List[State]) = { 
     val AssignNamedSymbol(id, exp, t) = instruction
-    exp instantiate  s match {
+    instantiate(s, exp) match {
       case Left(e) => optionToStatePair(s, s"Error during assignment of $id") (s => {
         s.memory.Assign(id, e, t)
       })
@@ -398,7 +407,7 @@ abstract class AbstractInstructionExecutor extends InstructionExecutor {
     (List[State], List[State]) = { 
     val AssignRaw(a, exp, t) = instruction
     a(s) match {
-      case Some(int) => exp instantiate  s match {
+      case Some(int) => instantiate(s, exp) match {
         case Left(e) => optionToStatePair(s, s"Error during assignment at $a") (s => {
           s.memory.Assign(int, e)
         })
