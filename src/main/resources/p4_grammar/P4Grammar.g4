@@ -19,7 +19,7 @@ p4_declaration  :   header_type_declaration
                 |   action_profile_declaration
                 |   action_selector_declaration
                 |   table_declaration
-                |   control_function_declaration
+                |   control_function_declaration    //org.change.v2.p4.model.updated.control.ControlFunction
                 ;
 
 const_value     returns [Integer constValue]:
@@ -230,7 +230,7 @@ action_profile_declaration : 'action_profile' action_profile_name '{'
     '}'
     ;
 
-action_name : NAME ;
+action_name returns [org.change.v2.p4.model.updated.TextualActionRef actionName] : NAME ;
 param_name  : NAME ;
 selector_name   : NAME ;
 action_profile_name : NAME ;
@@ -242,51 +242,69 @@ action_selector_declaration : 'action_selector' selector_name '{'
     '}'
     ;
 
-table_declaration : 'table' table_name '{'
-    ( 'reads' '{' field_match+ '}' )?
-    table_actions
-    ( 'min_size' ':' const_value ';' )?
-    ( 'max_size' ':' const_value ';' )?
-    ( 'size' ':' const_value ';' )?
-    ( 'support_timeout' ':' ('true' | 'false') ';' )?
+table_declaration returns [org.change.v2.p4.model.updated.table.TableDeclaration tableDeclaration]:
+    'table' table_name
+    '{'
+        ( 'reads' '{' field_match+ '}' )?
+        table_actions
+        // TODO: Everything below is ignored.
+        ( 'min_size' ':' const_value ';' )?
+        ( 'max_size' ':' const_value ';' )?
+        ( 'size' ':' const_value ';' )?
+        ( 'support_timeout' ':' ('true' | 'false') ';' )?
     '}'
     ;
 
-field_match returns [org.change.v2.p4.model.table.TableMatch tableMatch, String tableName]: field_or_masked_ref ':' field_match_type ';' ;
+field_match returns [org.change.v2.p4.model.updated.table.TableMatch tableMatch]:
+    field_or_masked_ref ':' field_match_type ';' ;
+
 field_or_masked_ref : header_ref | field_ref | field_ref 'mask' const_value ;
 field_match_type returns [org.change.v2.p4.model.table.MatchKind matchKind]: 'exact' | 'ternary' | 'lpm' | 'range' | 'valid' ;
-table_actions : action_specification | action_profile_specification ;
+table_actions returns [org.change.v2.p4.model.updated.table.ActionSpecification tableActions] :
+    action_specification            #ActionSpecification
+    | action_profile_specification  #ActionProfileSpecification
+    ;
 action_profile_specification : 'action_profile' ':' action_profile_name ;
-control_function_declaration returns [String controlFunctionName] : 'control' control_fn_name control_block ;
+
+control_function_declaration returns [org.change.v2.p4.model.updated.control.ControlFunction controlFunction] :
+    'control' control_fn_name control_block ;
 control_fn_name : NAME;
-control_block returns [String parent,
-java.util.List<org.change.v2.analysis.processingmodels.Instruction> instructions] : '{' control_statement* '}' ;
-control_statement returns [String parent,
-org.change.v2.analysis.processingmodels.Instruction instruction]: apply_table_call |
-apply_and_select_block |
-if_else_statement |
-control_fn_name '(' ')' ';' ;
+control_block returns [org.change.v2.p4.model.updated.control.ControlBlock controlBlock] : '{' control_statement* '}' ;
+control_statement returns [org.change.v2.p4.model.updated.control.ControlStatement controlStatement]:
+    apply_table_call                #ApplyTableCall
+    | apply_and_select_block        #ApplyAndSelectBlock
+    | if_else_statement             #IfElseStatement
+    | control_fn_name '(' ')' ';'   #ControlFunctionCall
+    ;
 
-apply_table_call returns [String parent, org.change.v2.analysis.processingmodels.Instruction instruction]: 'apply' '(' table_name ')' ';' ;
+apply_table_call returns [org.change.v2.p4.model.updated.control.control_statements.ApplyTable applyTable] :
+    'apply' '(' table_name ')' ';' ;
 
-apply_and_select_block returns [String parent, org.change.v2.analysis.processingmodels.Instruction instruction]:
-    'apply' '(' table_name ')' '{' ( case_list )? '}' ;
+apply_and_select_block returns
+    [org.change.v2.p4.model.updated.control.control_statements.ApplyAndSelectBlock applyAndSelectBlock] :
+        'apply' '(' table_name ')' '{' ( case_list )? '}' ;
 
-case_list returns [String parent,
-    java.util.List<org.change.v2.analysis.processingmodels.Instruction> instructions]: action_case+ # case_list_action
-          | hit_miss_case+  # case_list_hitmiss;
+case_list returns [org.change.v2.p4.model.updated.control.control_statements.case_list.CaseList caseList] :
+// TODO: This may be incorrect, if a mix of those can occur.
+            action_case+    #ActionCases
+          | hit_miss_case+  #HitMissCases;
 
-action_case returns [String parent,
-    org.change.v2.analysis.processingmodels.Instruction instruction]: action_or_default control_block ;
-action_or_default : action_name | 'default' ;
-hit_miss_case returns [String parent,
-      org.change.v2.analysis.processingmodels.Instruction instruction]: hit_or_miss control_block ;
+action_case returns [org.change.v2.p4.model.updated.control.control_statements.case_list.Case caseItem]:
+    action_or_default control_block ;
+
+action_or_default returns [org.change.v2.p4.model.updated.ActionRef actionRef]:
+    action_name
+    | 'default' ;
+
+hit_miss_case returns [org.change.v2.p4.model.updated.control.control_statements.case_list.Case caseItem]: hit_or_miss control_block ;
 hit_or_miss : 'hit' | 'miss' ;
 
-if_else_statement returns [String parent,
-      org.change.v2.analysis.processingmodels.Instruction instruction]: 'if' '(' bool_expr ')' control_block ( else_block )? ;
-else_block returns [String parent,
-     org.change.v2.analysis.processingmodels.Instruction instruction]: 'else' control_block | 'else' if_else_statement ;
+if_else_statement returns [org.change.v2.p4.model.updated.control.control_statements.IfElse ifElse]:
+    'if' '(' bool_expr ')' control_block ( else_block )? ;
+
+else_block returns [org.change.v2.p4.model.updated.control.ControlStatement elseBlock] :
+       'else' control_block
+     | 'else' if_else_statement ;
 
 bool_expr : 'valid' '(' header_ref ')' # valid_bool_expr
           | bool_expr bool_op bool_expr # compound_bool_expr
