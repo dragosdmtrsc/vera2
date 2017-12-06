@@ -321,7 +321,7 @@ object JsonUtil {
       new NamedType(classOf[AllocateRaw], "AllocateRaw"),
       new NamedType(classOf[DeallocateRaw], "DeallocateRaw"),
       new NamedType(classOf[If], "If"),
-      new NamedType(classOf[InstructionBlock], "If"),
+      new NamedType(classOf[InstructionBlock], "InstructionBlock"),
       new NamedType(classOf[Forward], "Forward"),
       new NamedType(classOf[Fork], "Fork"),
       new NamedType(classOf[Fail], "Fail"),
