@@ -1,15 +1,15 @@
 package org.change.v2.abstractnet.click.sefl
 
 import org.change.utils.RepresentationConversion
-import org.change.v2.abstractnet.generic.{ElementBuilder, GenericElement, ConfigParameter, Port}
+import org.change.v2.abstractnet.generic.{ConfigParameter, ElementBuilder, GenericElement, Port}
 import org.change.v2.analysis.expression.concrete.ConstantValue
 import org.change.v2.analysis.processingmodels._
 import org.change.v2.analysis.processingmodels.instructions._
 import org.change.v2.util.canonicalnames._
 
 /**
- * A small gift from radu to symnetic.
- */
+  * A small gift from radu to symnetic.
+  */
 class LinearIPLookup(name: String,
                      elementType: String,
                      inputPorts: List[Port],
@@ -66,10 +66,11 @@ object LinearIPLookup {
     unnamedCount += 1
   }
 
-  def getBuilder(name: String):  LinearIPLookupElementBuilder = {
-    increment ; new LinearIPLookupElementBuilder(name, "LinearIPLookup")
+  def getBuilder(name: String): LinearIPLookupElementBuilder = {
+    increment;
+    new LinearIPLookupElementBuilder(name, "LinearIPLookup")
   }
 
-  def getBuilder:  LinearIPLookupElementBuilder =
+  def getBuilder: LinearIPLookupElementBuilder =
     getBuilder(s"$genericElementName-$unnamedCount")
 }

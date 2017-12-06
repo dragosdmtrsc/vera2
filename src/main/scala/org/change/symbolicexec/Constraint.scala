@@ -4,9 +4,10 @@ import org.change.symbolicexec.types.NumericType
 
 trait Constraint {
   /**
-   * Materialize a constraint as the set of possible values.
-   * @param valueType For bound checks.
-   */
+    * Materialize a constraint as the set of possible values.
+    *
+    * @param valueType For bound checks.
+    */
   def asSet(valueType: NumericType = NumericType()): List[Interval] = Nil
 }
 
@@ -15,31 +16,37 @@ object No extends Constraint {
     List((valueType.min, valueType.max))
   }
 }
+
 case class LT(v: Long) extends Constraint {
   override def asSet(valueType: NumericType): List[(Long, Long)] = {
-    List((valueType.min, Math.min(v-1, valueType.max)))
+    List((valueType.min, Math.min(v - 1, valueType.max)))
   }
 }
+
 case class LTE(v: Long) extends Constraint {
   override def asSet(valueType: NumericType): List[(Long, Long)] = {
     List((valueType.min, Math.min(v, valueType.max)))
   }
 }
+
 case class GT(v: Long) extends Constraint {
   override def asSet(valueType: NumericType): List[(Long, Long)] = {
-    List((Math.max(v+1, valueType.min), valueType.max))
+    List((Math.max(v + 1, valueType.min), valueType.max))
   }
 }
-case class GTE(v: Long) extends Constraint{
+
+case class GTE(v: Long) extends Constraint {
   override def asSet(valueType: NumericType): List[(Long, Long)] = {
     List((Math.max(v, valueType.min), valueType.max))
   }
 }
-case class E(v: Long) extends Constraint{
+
+case class E(v: Long) extends Constraint {
   override def asSet(valueType: NumericType): List[(Long, Long)] =
-    if (valueType.min <= v && v <= valueType.max) List((v,v))
+    if (valueType.min <= v && v <= valueType.max) List((v, v))
     else Nil
 }
+
 case class Range(v1: Long, v2: Long) extends Constraint {
   override def asSet(valueType: NumericType): List[(Long, Long)] = {
     List((Math.max(v1, valueType.min), Math.min(v2, valueType.max)))

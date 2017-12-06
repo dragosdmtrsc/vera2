@@ -3,12 +3,12 @@ package org.change.v2.abstractnet.click
 import org.change.v2.abstractnet.generic.{ConfigParameter, ElementBuilder, GenericElement, Port}
 
 /**
- * Element corresponding to: "[name] :: Client(tcp, ip, destTcp, destIP)"
- */
+  * Element corresponding to: "[name] :: Client(tcp, ip, destTcp, destIP)"
+  */
 class Client(name: String,
-                 inputPorts: List[Port],
-                 outputPorts: List[Port],
-                 configParams: List[ConfigParameter])
+             inputPorts: List[Port],
+             outputPorts: List[Port],
+             configParams: List[ConfigParameter])
   extends GenericElement(name,
     "Client",
     inputPorts,
@@ -39,7 +39,8 @@ object Client {
   }
 
   def getBuilder(name: String): ClientElementBuilder = {
-    increment ; new ClientElementBuilder(name)
+    increment;
+    new ClientElementBuilder(name)
   }
 
   def getBuilder: ClientElementBuilder =

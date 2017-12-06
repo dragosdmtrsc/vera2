@@ -5,10 +5,10 @@ import org.change.v2.analysis.processingmodels.instructions.Forward
 import org.change.v2.analysis.processingmodels.{Instruction, LocationId}
 
 class NoOpClickElm(name: String,
-         elementType: String,
-         inputPorts: List[Port],
-         outputPorts: List[Port],
-         configParams: List[ConfigParameter])
+                   elementType: String,
+                   inputPorts: List[Port],
+                   outputPorts: List[Port],
+                   configParams: List[ConfigParameter])
   extends GenericElement(name,
     elementType,
     inputPorts,
@@ -40,7 +40,8 @@ object NoOpClickElm {
   }
 
   def getBuilder(name: String, elementType: String): NoOpDeviceElementBuilder = {
-    increment ; new NoOpDeviceElementBuilder(name, elementType)
+    increment;
+    new NoOpDeviceElementBuilder(name, elementType)
   }
 
   def getBuilder(elementType: String): NoOpDeviceElementBuilder =

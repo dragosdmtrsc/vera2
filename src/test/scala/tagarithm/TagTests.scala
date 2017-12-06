@@ -1,19 +1,18 @@
 package tagarithm
 
-import org.scalatest.{FlatSpec, Matchers}
-import org.change.v2.analysis.expression.concrete.nonprimitive.{:@, Symbol, :+:}
-import org.change.v2.analysis.expression.concrete.{ConstantValue, SymbolicValue}
-import org.change.v2.analysis.memory.{State, Tag, Value, MemorySpace}
-import org.change.v2.analysis.processingmodels.instructions._
-import org.scalatest.{Matchers, FlatSpec}
+import org.change.v2.analysis.expression.concrete.SymbolicValue
+import org.change.v2.analysis.expression.concrete.nonprimitive.:@
 import org.change.v2.analysis.memory.TagExp._
+import org.change.v2.analysis.memory.{State, Tag}
+import org.change.v2.analysis.processingmodels.instructions._
 import org.change.v2.util.canonicalnames._
+import org.scalatest.{FlatSpec, Matchers}
 
 /**
- * Author: Radu Stoenescu
- * Don't be a stranger,  symnetic.7.radustoe@spamgourmet.com
- */
-class TagTests extends FlatSpec with Matchers{
+  * Author: Radu Stoenescu
+  * Don't be a stranger,  symnetic.7.radustoe@spamgourmet.com
+  */
+class TagTests extends FlatSpec with Matchers {
 
   "Tag arithmetic" should "work" in {
     val s = State.bigBang
@@ -22,24 +21,24 @@ class TagTests extends FlatSpec with Matchers{
 
     val sPrime = State(m)
 
-    (Tag("L4") + 10 + Tag("L3") - 5)(sPrime) should be (Some(115))
+    (Tag("L4") + 10 + Tag("L3") - 5) (sPrime) should be(Some(115))
   }
 
   "Tag instruction" should "properly set memory tags" in {
     val s = State.bigBang
 
-    val finalState = InstructionBlock (
+    val finalState = InstructionBlock(
       CreateTag("L3", 10),
       CreateTag("L4", Tag("L3") + 15 - 2 + Tag("L3"))
     )(s)
 
-    finalState._1.head.memory.memTags("L4") should be (33)
+    finalState._1.head.memory.memTags("L4") should be(33)
   }
 
   "Overwriting a raw object with one of a different size, yet the same start address" should "cause a failure" in {
     val s = State.bigBang
 
-    val finalState = InstructionBlock (
+    val finalState = InstructionBlock(
       Allocate(0, 10),
       Allocate(0, 5)
     )(s)
@@ -51,7 +50,7 @@ class TagTests extends FlatSpec with Matchers{
   "Raw objects" should "not be ovelapping" in {
     val s = State.bigBang
 
-    val finalState = InstructionBlock (
+    val finalState = InstructionBlock(
       Allocate(0, 10),
       Allocate(-1, 5)
     )(s)
@@ -63,15 +62,15 @@ class TagTests extends FlatSpec with Matchers{
   "Basic instructions involving tags" should "work" in {
     val s = State.bigBang
 
-    val finalState = InstructionBlock (
+    val finalState = InstructionBlock(
       CreateTag("L3", -100),
-      Allocate(L3Tag+20, 10),
-      Assign(L3Tag+20, SymbolicValue()),
-      CreateTag("L4", L3Tag+20),
+      Allocate(L3Tag + 20, 10),
+      Assign(L3Tag + 20, SymbolicValue()),
+      CreateTag("L4", L3Tag + 20),
       Assign("VAL", :@(L4Tag))
     )(s)
 
-    finalState._1.head.memory.eval("VAL").get.e.id should be (finalState._1.head.memory.eval(-80).get.e.id)
+    finalState._1.head.memory.eval("VAL").get.e.id should be(finalState._1.head.memory.eval(-80).get.e.id)
   }
 
 }

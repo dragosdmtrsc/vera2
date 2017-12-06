@@ -5,7 +5,7 @@ import org.change.v2.analysis.memory.MemorySpace
 import org.change.v2.analysis.memory.Intable
 import org.change.v2.analysis.processingmodels.instructions.NoOp
 import org.change.v2.analysis.processingmodels.instructions.Constrain
-import org.change.v2.analysis.expression.concrete.nonprimitive.{ :@ => :@ }
+import org.change.v2.analysis.expression.concrete.nonprimitive.{:@ => :@}
 import org.change.v2.analysis.processingmodels.instructions.Constrain
 import org.change.v2.analysis.processingmodels.instructions.:==:
 import org.change.v2.analysis.processingmodels.instructions.:~:
@@ -49,54 +49,54 @@ import org.change.v2.analysis.expression.concrete.nonprimitive.{:-:, :+:}
 import org.change.v2.analysis.processingmodels.instructions.Forward
 
 object SuperExpression {
-  def fromConstant(x : Long) : SuperExpression = {
+  def fromConstant(x: Long): SuperExpression = {
     SuperExpression(Map("" -> x))
   }
-  
-  def apply(v : Long) : SuperExpression = {
+
+  def apply(v: Long): SuperExpression = {
     fromConstant(v)
   }
-  
-  def apply() : SuperExpression = {
+
+  def apply(): SuperExpression = {
     fromConstant(0)
   }
-  
-  def fromSymbol(y : String) : SuperExpression = {
+
+  def fromSymbol(y: String): SuperExpression = {
     SuperExpression(Map(y -> 1L))
   }
-  
-  def apply(v : SymbolicValue) : SuperExpression = {
+
+  def apply(v: SymbolicValue): SuperExpression = {
     fromSymbol("sym" + v.id.toString())
   }
-  
-  def apply(v : ConstantValue) : SuperExpression = {
+
+  def apply(v: ConstantValue): SuperExpression = {
     fromConstant(v.value)
   }
-  
-  def children(v : DefaultMutableTreeNode) = {
+
+  def children(v: DefaultMutableTreeNode) = {
     val enumer = v.children()
     var lst = List[DefaultMutableTreeNode]()
     while (enumer.hasMoreElements())
       lst = enumer.nextElement().asInstanceOf[DefaultMutableTreeNode] :: lst
     lst
   }
-  
-  def allChildren(v : DefaultMutableTreeNode) (q : DefaultMutableTreeNode => Boolean) : List[DefaultMutableTreeNode] = {
+
+  def allChildren(v: DefaultMutableTreeNode)(q: DefaultMutableTreeNode => Boolean): List[DefaultMutableTreeNode] = {
     if (q(v))
       v :: children(v).flatMap { x => allChildren(x)(q) }
     else
       children(v).flatMap { x => allChildren(x)(q) }
   }
-  
-  private def exprSibling(v : DefaultMutableTreeNode) = {
-    children(v.getParent.asInstanceOf[DefaultMutableTreeNode]).find { x => x.getUserObject.isInstanceOf[StateGraph.NodeTag] && 
-      x.getUserObject.asInstanceOf[StateGraph.NodeTag].isExpression()  
+
+  private def exprSibling(v: DefaultMutableTreeNode) = {
+    children(v.getParent.asInstanceOf[DefaultMutableTreeNode]).find { x =>
+      x.getUserObject.isInstanceOf[StateGraph.NodeTag] &&
+        x.getUserObject.asInstanceOf[StateGraph.NodeTag].isExpression()
     }.get
   }
-  
-  def apply(v : DefaultMutableTreeNode) : SuperExpression = {
-    if (v.getUserObject.isInstanceOf[StateGraph.NodeTag])
-    {
+
+  def apply(v: DefaultMutableTreeNode): SuperExpression = {
+    if (v.getUserObject.isInstanceOf[StateGraph.NodeTag]) {
       val nt = v.getUserObject.asInstanceOf[StateGraph.NodeTag]
       nt match {
         case StateGraph.NodeTag.SYMBOL => fromSymbol(children(v).head.getUserObject.asInstanceOf[String])
@@ -125,140 +125,148 @@ object SuperExpression {
         case StateGraph.NodeTag.EQ => {
           val chlds = children(v)
           val first = chlds.head
-          - apply(first) + apply(exprSibling(v))
+          -apply(first) + apply(exprSibling(v))
         }
         case StateGraph.NodeTag.GT => {
           val chlds = children(v)
           val first = chlds.head
-           apply(first) + SuperExpression(SymbolicValue()) + SuperExpression(1) - apply(exprSibling(v)) 
+          apply(first) + SuperExpression(SymbolicValue()) + SuperExpression(1) - apply(exprSibling(v))
         }
         case StateGraph.NodeTag.GTE => {
           val chlds = children(v)
           val first = chlds.head
-          apply(first) + SuperExpression(SymbolicValue()) - apply(exprSibling(v)) 
+          apply(first) + SuperExpression(SymbolicValue()) - apply(exprSibling(v))
         }
+        case _ => ???
       }
     } else {
       throw new UnsupportedOperationException("Can't handle the truth")
     }
   }
-  
+
 }
 
-case class SuperExpression(coefs : Map[String, Long]) {
-  def -(right : SuperExpression) = {
-    this + (- right)
+case class SuperExpression(coefs: Map[String, Long]) {
+  def -(right: SuperExpression) = {
+    this + (-right)
   }
-  
+
   override def toString = {
-    coefs.map(x => x._2 + { if (x._1 != "") 
-        "*" + x._1 
-      else 
-        "" }
+    coefs.map(x => x._2 + {
+      if (x._1 != "")
+        "*" + x._1
+      else
+        ""
+    }
     ).mkString("+")
   }
-  
-  def isPresent(sym : String) = coefs.contains(sym)
-  def apply(sym : String) = coefs(sym)
-  
-  def +(right : SuperExpression) = {
+
+  def isPresent(sym: String) = coefs.contains(sym)
+
+  def apply(sym: String) = coefs(sym)
+
+  def +(right: SuperExpression) = {
     SuperExpression(coefs.map(kv => {
-      if (right.isPresent(kv._1))
-      {
+      if (right.isPresent(kv._1)) {
         (kv._1 -> (kv._2 + right(kv._1)))
       }
-      else
-      {
+      else {
         kv
       }
-    }) ++ right.coefs.filter{ x => !this.isPresent(x._1) })
+    }) ++ right.coefs.filter { x => !this.isPresent(x._1) })
   }
-  
+
   def unary_-() = {
-    SuperExpression(coefs.map (kv => (kv._1, -kv._2)).toMap)
+    SuperExpression(coefs.map(kv => (kv._1, -kv._2)).toMap)
   }
 }
-case class System(list : List[SuperExpression]) {
+
+case class System(list: List[SuperExpression]) {
   override def toString = {
     list.map { x => x.toString() }.mkString(";\n")
   }
 
-  lazy val orderedVars = variables._1.toSeq.sortWith{ (y, v) => y._2 < v._2 }.map { _._1 }
-  
+  lazy val orderedVars = variables._1.toSeq.sortWith { (y, v) => y._2 < v._2 }.map {
+    _._1
+  }
+
   lazy val vars = variables._1
   lazy val nVars = variables._2
-  
+
   private lazy val variables = {
-    list.foldLeft((Map[String, Int](), 0)) { (acc, x) =>  {
-        x.coefs.foldLeft(acc)((acc2, y) => {
-          if (y._1 != "" && !acc2._1.contains(y._1))
-            (acc2._1 + (y._1 -> acc2._2), acc2._2 + 1)
-          else
-            acc2
-        })
-      }
+    list.foldLeft((Map[String, Int](), 0)) { (acc, x) => {
+      x.coefs.foldLeft(acc)((acc2, y) => {
+        if (y._1 != "" && !acc2._1.contains(y._1))
+          (acc2._1 + (y._1 -> acc2._2), acc2._2 + 1)
+        else
+          acc2
+      })
+    }
     }
   }
-  
-  private lazy val eqMap = list.map { x => x.coefs.map(kv => 
-    if (kv._1 != "")
-      vars(kv._1) -> kv._2
-    else
-      -1 -> kv._2
-    ) 
+
+  private lazy val eqMap = list.map { x =>
+    x.coefs.map(kv =>
+      if (kv._1 != "")
+        vars(kv._1) -> kv._2
+      else
+        -1 -> kv._2
+    )
   }
-  
+
   lazy val systemMatrix = {
-    Array.tabulate (list.size, nVars) ( (x, y) => {
+    Array.tabulate(list.size, nVars)((x, y) => {
       if (eqMap(x).contains(y))
         eqMap(x)(y)
       else 0L
     })
   }
-  
+
   lazy val freeCoefs = Array.tabulate(list.size, 1)((x, y) => {
     if (eqMap(x).contains(-1))
-        -eqMap(x)(-1)
-      else 0L
+      -eqMap(x)(-1)
+    else 0L
   })
-  
-  def dumpToDir(prefix : String) {
+
+  def dumpToDir(prefix: String) {
     val tmpX = new PrintWriter(s"${prefix}_mat")
     val tmpXb = new PrintWriter(s"${prefix}_b")
     val tmpXsyms = new PrintWriter(s"${prefix}_syms")
     tmpX.println("[" + systemMatrix.map { x => "[" + x.mkString(",") + "]" }.mkString(",") + "]")
     tmpXb.println("[" + freeCoefs.map { x => "[" + x.mkString(",") + "]" }.mkString(",") + "]")
-    tmpXsyms.println("[" + orderedVars.map{ "\"" + _ + "\"" }.mkString(",") + "]")
+    tmpXsyms.println("[" + orderedVars.map {
+      "\"" + _ + "\""
+    }.mkString(",") + "]")
     tmpXsyms.close()
     tmpXb.close()
     tmpX.close()
   }
-  
-  def removeTrivials() : System = {
+
+  def removeTrivials(): System = {
     this.copy(list = list.filter { x => x.coefs.keySet.size != 1 })
   }
-  
+
 }
 
 object System {
-  
-  def apply(v : DefaultMutableTreeNode) = {
+
+  def apply(v: DefaultMutableTreeNode) = {
     val states = SuperExpression.children(v).filter { x => x.getUserObject.equals(StateGraph.NodeTag.STATE) }
     states.map { x => {
-        new System(SuperExpression.allChildren(x)(q => q.getUserObject.equals(StateGraph.NodeTag.EQ) ||
-            q.getUserObject.equals(StateGraph.NodeTag.LT) ||
-            q.getUserObject.equals(StateGraph.NodeTag.LTE) ||
-            q.getUserObject.equals(StateGraph.NodeTag.GT) ||
-            q.getUserObject.equals(StateGraph.NodeTag.GTE)
-        ).map { t => SuperExpression(t) }).removeTrivials
-      }
+      new System(SuperExpression.allChildren(x)(q => q.getUserObject.equals(StateGraph.NodeTag.EQ) ||
+        q.getUserObject.equals(StateGraph.NodeTag.LT) ||
+        q.getUserObject.equals(StateGraph.NodeTag.LTE) ||
+        q.getUserObject.equals(StateGraph.NodeTag.GT) ||
+        q.getUserObject.equals(StateGraph.NodeTag.GTE)
+      ).map { t => SuperExpression(t) }).removeTrivials
+    }
     }
   }
 }
 
 object EquivalenceProver {
-  
-  def toSystems(state : State) = {
+
+  def toSystems(state: State) = {
     import Equation._
     val rooted = convertToTree(state)
     StateGraph.removeReferences(rooted)
@@ -267,97 +275,93 @@ object EquivalenceProver {
     val rootpw = new PrintWriter("root.out")
     System(rooted)
   }
-  
-  def existsIn(state : State, 
-      rightStates : List[State],
-      tags : List[Either[Int, String]])(portMapping : (String, String) => Boolean) : Boolean = {
+
+  def existsIn(state: State,
+               rightStates: List[State],
+               tags: List[Either[Int, String]])(portMapping: (String, String) => Boolean): Boolean = {
     import Equation._
     val filtered = rightStates.filter { x => portMapping(x.history.head, state.history.head) }
     val exprs = tags.flatMap { x => {
-        val vOpt = x match {
-          case Left(a) => state.memory.eval(a)
-          case Right(id) => state.memory.eval(id)
+      val vOpt = x match {
+        case Left(a) => state.memory.eval(a)
+        case Right(id) => state.memory.eval(id)
+      }
+      vOpt.map { y => y.e }
+    }
+    }
+
+    val asStates = filtered.map { y => {
+      tags.zip(exprs).foldLeft(Some(y): Option[State]) { (acc, x) => {
+        if (!acc.isEmpty) {
+          val vOpt = x._1 match {
+            case Left(a) => y.memory.addConstraint(a, EQ_E(x._2))
+            case Right(id) => y.memory.addConstraint(id, EQ_E(x._2))
+          }
+          vOpt.map { z => acc.get.copy(memory = z) }
         }
-        vOpt.map { y => y.e }
+        else {
+          acc
+        }
+      }
       }
     }
-    
-    val asStates = filtered.map { y => {
-        tags.zip(exprs).foldLeft(Some(y) : Option[State]) { (acc, x) => {
-            if (!acc.isEmpty)
-            {
-              val vOpt = x._1 match {
-                case Left(a) => y.memory.addConstraint(a, EQ_E(x._2))
-                case Right(id) => y.memory.addConstraint(id, EQ_E(x._2))
-              }
-              vOpt.map { z => acc.get.copy(memory = z) }
-            }
-            else
-            {
-              acc
-            }
-          }
-        }
-      }
     }.filter { x => x.isDefined }.map { x => x.get }
-    
+
     val systems = toSystems(state)
     val allOthers = asStates.flatMap(toSystems)
-    
+
     systems.forall { sys => {
-        allOthers.exists { x => forallSolsExistsSolPrime(sys, x) }
-      }
+      allOthers.exists { x => forallSolsExistsSolPrime(sys, x) }
+    }
     }
   }
-  
-  def main(x : Array[String]) {
+
+  def main(x: Array[String]) {
     import org.change.v2.util.canonicalnames._
     val fis = new FileInputStream(x(0))
-//    val states = JsonUtil.fromJson[List[State]](fis)
-//    val st = states(0)
-    
+    //    val states = JsonUtil.fromJson[List[State]](fis)
+    //    val st = states(0)
+
     val init = State.clean
     val cCommon = InstructionBlock(
-                Allocate("y"),
-                Assign("y", SymbolicValue()),
-                Constrain("y", :&:(:<=:(ConstantValue(100)), :>=:(ConstantValue(0))))
-             )
-//    val cLeft = InstructionBlock(
-//                  Assign("y", :-:(ConstantValue(100), :@("y"))),
-//                  Forward("out")
-//                )
-             
-    
+      Allocate("y"),
+      Assign("y", SymbolicValue()),
+      Constrain("y", :&:(:<=:(ConstantValue(100)), :>=:(ConstantValue(0))))
+    )
+    //    val cLeft = InstructionBlock(
+    //                  Assign("y", :-:(ConstantValue(100), :@("y"))),
+    //                  Forward("out")
+    //                )
+
+
     val cLeft = InstructionBlock(
-          Allocate("x"),
-          Assign("x", :-:(:@("y"), ConstantValue(50))),
-          Assign("y", :+:(:@("x"), ConstantValue(50))),
-          Forward("out")
-        )
+      Allocate("x"),
+      Assign("x", :-:(:@("y"), ConstantValue(50))),
+      Assign("y", :+:(:@("x"), ConstantValue(50))),
+      Forward("out")
+    )
     val cRight = InstructionBlock(
       Assign("y", :@("y")),
       Forward("out")
     )
-    
+
     val st = InstructionBlock(cCommon, cLeft)(init)._1(0)
     val states = InstructionBlock(cCommon, cRight)(init)._1
-                
-    if (existsIn(st, states, List[Either[Int, String]] ( Right("y") ))( (x, y) => x == y))
-    {
+
+    if (existsIn(st, states, List[Either[Int, String]](Right("y")))((x, y) => x == y)) {
       println("Are equivalent")
     }
-    else
-    {
-      println("Not equivalent under " +  Right("y"))
+    else {
+      println("Not equivalent under " + Right("y"))
     }
   }
-  
-  def forallSolsExistsSolPrime(x : System, y : System) : Boolean = {
-    
+
+  def forallSolsExistsSolPrime(x: System, y: System): Boolean = {
+
     x.dumpToDir("tmpX")
     y.dumpToDir("tmpY")
     import sys.process._
-    val result : String = "python solve_system.py tmpX tmpY" !!
+    val result: String = "python solve_system.py tmpX tmpY" !!
     val cp = result.trim().equals("True")
     cp
   }
@@ -365,11 +369,11 @@ object EquivalenceProver {
 
 
 object Equation {
-  
-  def main(argv : Array[String]) {
+
+  def main(argv: Array[String]) {
     val fis = new FileInputStream(argv(0))
     val states = JsonUtil.fromJson[List[State]](fis)
-    
+
     val st = states(0)
     var root = convertToTree(st)
     StateGraph.removeReferences(root)
@@ -379,7 +383,7 @@ object Equation {
     val systems = System(root)
     syspw.println(systems)
     rootpw.println(toString(root))
-    
+
     syspw.println(systems.map { x => (x.vars, x.nVars) })
     syspw.println(systems.map { x => x.systemMatrix.map { x => x.mkString(",") }.mkString(",") })
     syspw.println(systems.map { x => x.freeCoefs.map { x => x.mkString(",") }.mkString(",") })
@@ -387,8 +391,8 @@ object Equation {
     syspw.close
     rootpw.close
   }
-  
-  def toString(treeNode : DefaultMutableTreeNode, level : Int  = 0) : String = {
+
+  def toString(treeNode: DefaultMutableTreeNode, level: Int = 0): String = {
     var str = ""
     for (i <- 0 until level)
       str += "  "
@@ -399,32 +403,32 @@ object Equation {
       str += toString(e.nextElement().asInstanceOf[DefaultMutableTreeNode], level + 1)
     str
   }
-  
-  def toCoefs(expr : Expression) : SuperExpression = {
+
+  def toCoefs(expr: Expression): SuperExpression = {
     expr match {
       case Plus(a, b) => toCoefs(a.e) + toCoefs(b.e)
       case Minus(a, b) => toCoefs(a.e) - toCoefs(b.e)
       case Reference(v, _) => toCoefs(v.e)
       case ConstantValue(v, _, _) => SuperExpression.fromConstant(v)
-      case u : SymbolicValue => SuperExpression.fromSymbol(s"sym${u.id.toString}")
+      case u: SymbolicValue => SuperExpression.fromSymbol(s"sym${u.id.toString}")
     }
   }
-  
-  def isNormal(expr : Expression) : Boolean = {
+
+  def isNormal(expr: Expression): Boolean = {
     expr match {
       case Plus(a, b) => false
-      case Minus(a, b) => false 
+      case Minus(a, b) => false
       case PlusE(a, b) => isNormal(a) && isNormal(b)
       case MinusE(a, b) => isNormal(a) && isNormal(b)
       case Reference(v, _) => false
       case ConstantValue(v, _, _) => true
       case ConstantStringValue(v) => true
-      case u : SymbolicValue => true
+      case u: SymbolicValue => true
       case _ => false
     }
   }
-  
-  def isNormal(c : Constraint) : Boolean = {
+
+  def isNormal(c: Constraint): Boolean = {
     c match {
       case AND(block) => false
       case LTE_E(e) => isNormal(e)
@@ -432,41 +436,40 @@ object Equation {
       case GT_E(e) => isNormal(e)
       case GTE_E(e) => isNormal(e)
       case EQ_E(e) => isNormal(e)
-      case _ =>  false
-    }
-  }
-  
-  def isNormal(value : Value) : Boolean = {
-    isNormal(value.e) && value.cts.forall { x => isNormal(x) }
-  }
-  
-  def isNormal(v : Any) : Boolean = {
-    v match {
-      case y : Value => isNormal(y)
-      case y : Expression => isNormal(y)
-      case y : Constraint => isNormal(y)
-      case y : State => values(y).forall { x => isNormal(x) }
-      case y : Tree => y.nodes.forall(isNormal)
       case _ => false
     }
   }
-  
-  def convertToTree(state : State) : DefaultMutableTreeNode = {
+
+  def isNormal(value: Value): Boolean = {
+    isNormal(value.e) && value.cts.forall { x => isNormal(x) }
+  }
+
+  def isNormal(v: Any): Boolean = {
+    v match {
+      case y: Value => isNormal(y)
+      case y: Expression => isNormal(y)
+      case y: Constraint => isNormal(y)
+      case y: State => values(y).forall { x => isNormal(x) }
+      case y: Tree => y.nodes.forall(isNormal)
+      case _ => false
+    }
+  }
+
+  def convertToTree(state: State): DefaultMutableTreeNode = {
     val root = new DefaultMutableTreeNode()
     root.setUserObject(StateGraph.NodeTag.ROOT)
     val stateNode = new DefaultMutableTreeNode()
     stateNode.setUserObject(StateGraph.NodeTag.STATE)
     root.add(stateNode)
-    
+
     val vals = values(state)
-    for (v <- vals)
-    {
+    for (v <- vals) {
       stateNode.add(convertToTree(v))
     }
     root
   }
-  
-  def convertToTree(value : Value) : DefaultMutableTreeNode = {
+
+  def convertToTree(value: Value): DefaultMutableTreeNode = {
     val root = new DefaultMutableTreeNode()
     root.setUserObject(StateGraph.NodeTag.VALUE)
     root.add(convertToTree(value.e))
@@ -474,8 +477,8 @@ object Equation {
       root.add(convertToTree(c))
     root
   }
-  
-  def convertToTree(ct : Constraint)  : DefaultMutableTreeNode = {
+
+  def convertToTree(ct: Constraint): DefaultMutableTreeNode = {
     val root = new DefaultMutableTreeNode()
     ct match {
       case NOT(ct) => {
@@ -486,7 +489,7 @@ object Equation {
         root.setUserObject(StateGraph.NodeTag.AND)
         for (b <- block)
           root.add(convertToTree(b))
-      } 
+      }
       case OR(block) => {
         root.setUserObject(StateGraph.NodeTag.OR)
         for (b <- block)
@@ -515,8 +518,8 @@ object Equation {
     }
     root
   }
-  
-  def convertToTree(expr : Expression) : DefaultMutableTreeNode = {
+
+  def convertToTree(expr: Expression): DefaultMutableTreeNode = {
     val root = new DefaultMutableTreeNode()
     expr match {
       case ConstantValue(x, _, _) => {
@@ -527,7 +530,7 @@ object Equation {
         root.setUserObject(StateGraph.NodeTag.CONSTANT)
         root.add(new DefaultMutableTreeNode(x.hashCode()))
       }
-      case r : SymbolicValue => {
+      case r: SymbolicValue => {
         root.setUserObject(StateGraph.NodeTag.SYMBOL)
         root.add(new DefaultMutableTreeNode(s"sym${r.id}"))
       }
@@ -552,25 +555,26 @@ object Equation {
     }
     root
   }
-    
-  def values(state : State) : List[Value] = {
+
+  def values(state: State): List[Value] = {
     (state.memory.rawObjects.values.
-      flatMap { x => x.value }.toList ++ 
-    state.memory.symbols.values.flatMap { x => x.value }.toList)
+      flatMap { x => x.value }.toList ++
+      state.memory.symbols.values.flatMap { x => x.value }.toList)
   }
-  
-  case class Tree (nodes : List[List[Value]]) {
-    def addState(state : State) = copy(nodes = values(state) :: nodes)
-    def addValues(vals : List[Value]) = copy(nodes = vals :: nodes)
-    
-    def children(node : Any) : List[Any] = {
+
+  case class Tree(nodes: List[List[Value]]) {
+    def addState(state: State) = copy(nodes = values(state) :: nodes)
+
+    def addValues(vals: List[Value]) = copy(nodes = vals :: nodes)
+
+    def children(node: Any): List[Any] = {
       node match {
-        case y : Tree => nodes
-        case y : SymbolicValue => Nil
-        case y : ConstantValue => Nil
-        case y : ConstantStringValue => Nil
+        case y: Tree => nodes
+        case y: SymbolicValue => Nil
+        case y: ConstantValue => Nil
+        case y: ConstantStringValue => Nil
         case head :: tail if head.isInstanceOf[Value] => head :: tail
-        case y : Value => y.e :: y.cts.asInstanceOf[List[Any]]
+        case y: Value => y.e :: y.cts.asInstanceOf[List[Any]]
         case Plus(a, b) => List[Any](a, b)
         case Minus(a, b) => List[Any](a, b)
         case PlusE(a, b) => List[Any](a, b)
@@ -587,61 +591,61 @@ object Equation {
       }
     }
   }
-  
-  def flatten(initial : State) = {
-    
+
+  def flatten(initial: State) = {
+
   }
-  
-  def toCoefs(expr : Expression, constraint : Constraint) : List[SuperExpression] = {
+
+  def toCoefs(expr: Expression, constraint: Constraint): List[SuperExpression] = {
     constraint match {
       case AND(block) => {
-        block.flatMap (x => toCoefs(expr, x))
+        block.flatMap(x => toCoefs(expr, x))
       }
       case LTE_E(e) => {
-        List[SuperExpression](toCoefs(expr) + 
-            SuperExpression(SymbolicValue()) - 
-            toCoefs(e)
-        ) 
+        List[SuperExpression](toCoefs(expr) +
+          SuperExpression(SymbolicValue()) -
+          toCoefs(e)
+        )
       }
       case LT_E(e) => {
-        List[SuperExpression](toCoefs(expr) + 
-            SuperExpression(SymbolicValue()) + 
-            SuperExpression(1) - 
-            toCoefs(e)
+        List[SuperExpression](toCoefs(expr) +
+          SuperExpression(SymbolicValue()) +
+          SuperExpression(1) -
+          toCoefs(e)
         )
       }
       case GT_E(e) => {
-        List[SuperExpression](toCoefs(e) - toCoefs(expr) + 
-            SuperExpression(SymbolicValue()) + 
-            SuperExpression(1)
+        List[SuperExpression](toCoefs(e) - toCoefs(expr) +
+          SuperExpression(SymbolicValue()) +
+          SuperExpression(1)
         )
       }
       case GTE_E(e) => {
-        List[SuperExpression](toCoefs(e) - toCoefs(expr) + 
-            SuperExpression(SymbolicValue())
+        List[SuperExpression](toCoefs(e) - toCoefs(expr) +
+          SuperExpression(SymbolicValue())
         )
       }
       case EQ_E(e) => {
         List[SuperExpression](toCoefs(e) - toCoefs(expr))
       }
-      case _ =>  throw new UnsupportedOperationException("Flatten first, then come to me")
+      case _ => throw new UnsupportedOperationException("Flatten first, then come to me")
     }
   }
-  
+
 }
 
 object Z3Test {
-  def main(argv : Array[String]) {
+  def main(argv: Array[String]) {
     val z3 = new Z3Context
     val symbol = z3.mkIntSymbol(1)
     val constant = z3.mkIntConst("a")
     val slv = z3.mkSolver()
-    
+
   }
-  
-  def equivalent(left : State, right : State) : Boolean = {
+
+  def equivalent(left: State, right: State): Boolean = {
     // Step 1: Normalize states => i.e. push NOT Inside, flatten AND, pop OR
     true
   }
-  
+
 }

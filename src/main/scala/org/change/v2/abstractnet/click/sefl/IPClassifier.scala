@@ -5,14 +5,13 @@ import org.change.v2.analysis.expression.concrete._
 import org.change.v2.analysis.processingmodels._
 import org.change.v2.analysis.processingmodels.instructions._
 import org.change.v2.util.canonicalnames._
-import org.change.v2.util.conversion.NumberFor
 import org.change.v2.util.conversion.RepresentationConversion._
 import org.change.v2.util.regexes._
 
 class IPClassifier(name: String,
-                    inputPorts: List[Port],
-                    outputPorts: List[Port],
-                    configParams: List[ConfigParameter])
+                   inputPorts: List[Port],
+                   outputPorts: List[Port],
+                   configParams: List[ConfigParameter])
   extends GenericElement(name,
     "IPClassifier",
     inputPorts,
@@ -23,10 +22,11 @@ class IPClassifier(name: String,
 
 
   /**
-   * The method takes an atomic tcpdump condition and creates it's associated constraint.
-   * @param condition
-   * @return
-   */
+    * The method takes an atomic tcpdump condition and creates it's associated constraint.
+    *
+    * @param condition
+    * @return
+    */
   private def conditionToConstraint(condition: String): Instruction = condition match {
     case IPClassifier.color(v) => ConstrainNamedSymbol(Paint.COLOR, :==:(ConstantValue(v.toInt)))
 
@@ -66,34 +66,34 @@ class IPClassifier(name: String,
   val portToInstr = scala.collection.mutable.Map[Int, Instruction]()
 
   /**
-   * The construction of instructions from config params works backwards since the i-th
-   * if needs the i+1-th if as its the else branch.
-   */
+    * The construction of instructions from config params works backwards since the i-th
+    * if needs the i+1-th if as its the else branch.
+    */
   private def buildClassifier(): Unit = for {
-    (p,i) <- configParams.zipWithIndex.reverse
+    (p, i) <- configParams.zipWithIndex.reverse
   } {
-    portToInstr += ((i, paramsToInstructionBlock(p.value,i)))
+    portToInstr += ((i, paramsToInstructionBlock(p.value, i)))
   }
 
   override def instructions: Map[LocationId, Instruction] = {
     // Build it first
     if (portToInstr.isEmpty) buildClassifier() else ()
     // Return it later
-    Map( inputPortName(0) -> portToInstr(0) )
+    Map(inputPortName(0) -> portToInstr(0))
   }
 
   def paramsToInstructionBlock(param: String, whichOne: Int): Instruction = param match {
     case IPClassifier.any(_) => Forward(outputPortName(whichOne))
 
     case IPClassifier.none() => if (whichOne < lastIndex)
-//      If the none/false condition is found, then nothing is processed here, the next instruction
-//      gets executed instead.
+    //      If the none/false condition is found, then nothing is processed here, the next instruction
+    //      gets executed instead.
       portToInstr(whichOne + 1)
-//      Otherwise, nothing is done here
-      else
-        Fail(IPClassifier.failErrorMessage)
+    //      Otherwise, nothing is done here
+    else
+      Fail(IPClassifier.failErrorMessage)
 
-//      Conversion of tcpdump rules
+    //      Conversion of tcpdump rules
     case _ => {
       val conditions = param.split(IPClassifier.conditionSeparator).toList
 
@@ -132,7 +132,8 @@ class IPClassifierElementBuilder(name: String)
 
 object IPClassifier {
   // Supported condition formats.
-  val conditionSeparator = """\s+(and|&&)\s+"""
+  val conditionSeparator =
+    """\s+(and|&&)\s+"""
 
   val color = ("paint color (" + number + ")").r
 
@@ -149,8 +150,8 @@ object IPClassifier {
   val srcPort = ("src (tcp|udp) port (" + number + ")").r
   val dstPort = ("dst (tcp|udp) port (" + number + ")").r
 
-  val etherSrc = ("ether src (" + macCisco +")").r
-  val etherDst = ("ether dst (" + macCisco +")").r
+  val etherSrc = ("ether src (" + macCisco + ")").r
+  val etherDst = ("ether dst (" + macCisco + ")").r
 
   val tcp = "tcp".r
   val udp = "udp".r
@@ -169,7 +170,8 @@ object IPClassifier {
   }
 
   def getBuilder(name: String): IPClassifierElementBuilder = {
-    increment ; new IPClassifierElementBuilder(name)
+    increment;
+    new IPClassifierElementBuilder(name)
   }
 
   def getBuilder: IPClassifierElementBuilder =

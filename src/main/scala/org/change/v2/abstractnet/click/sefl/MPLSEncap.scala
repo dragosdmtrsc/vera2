@@ -2,10 +2,9 @@ package org.change.v2.abstractnet.click.sefl
 
 import org.change.v2.abstractnet.generic.{ConfigParameter, ElementBuilder, GenericElement, Port}
 import org.change.v2.analysis.expression.concrete.ConstantValue
-import org.change.v2.analysis.expression.concrete.nonprimitive.:@
 import org.change.v2.analysis.memory.Tag
-import org.change.v2.analysis.processingmodels.{Instruction, LocationId}
 import org.change.v2.analysis.processingmodels.instructions._
+import org.change.v2.analysis.processingmodels.{Instruction, LocationId}
 import org.change.v2.util.canonicalnames._
 
 /**
@@ -24,14 +23,14 @@ class MPLSEncap(name: String,
 
   override def instructions: Map[LocationId, Instruction] = Map(
     inputPortName(0) -> InstructionBlock(
-      CreateTag("MPLS",Tag("L2")-32),
-      Allocate(Label,20),
+      CreateTag("MPLS", Tag("L2") - 32),
+      Allocate(Label, 20),
       Assign(Label, ConstantValue(configParams(0).value.toInt)),
-      Allocate(TC,3),
+      Allocate(TC, 3),
       Assign(TC, ConstantValue(0)),
-      Allocate(S,1),
+      Allocate(S, 1),
       Assign(S, ConstantValue(1)),
-      Allocate(MPLSTTL,8),
+      Allocate(MPLSTTL, 8),
       Assign(MPLSTTL, ConstantValue(10)),
       Forward(outputPortName(0))
     )
@@ -59,7 +58,8 @@ object MPLSEncap {
   }
 
   def getBuilder(name: String): MPLSEncapElementBuilder = {
-    increment ; new MPLSEncapElementBuilder(name, "MPLSEncap")
+    increment;
+    new MPLSEncapElementBuilder(name, "MPLSEncap")
   }
 
   def getBuilder: MPLSEncapElementBuilder =

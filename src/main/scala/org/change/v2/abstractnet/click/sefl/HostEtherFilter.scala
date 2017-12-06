@@ -2,20 +2,16 @@ package org.change.v2.abstractnet.click.sefl
 
 import org.change.v2.abstractnet.generic.{ConfigParameter, ElementBuilder, GenericElement, Port}
 import org.change.v2.analysis.expression.concrete.ConstantValue
-import org.change.v2.analysis.expression.concrete.nonprimitive.:@
 import org.change.v2.analysis.processingmodels.instructions._
 import org.change.v2.analysis.processingmodels.{Instruction, LocationId}
-import org.change.v2.util.conversion.RepresentationConversion
-import org.change.v2.util.conversion.RepresentationConversion._
 import org.change.v2.util.canonicalnames._
-import org.change.v2.analysis.memory.TagExp._
-import org.change.v2.analysis.memory.Tag
+import org.change.v2.util.conversion.RepresentationConversion
 
 class HostEtherFilter(name: String,
-                   elementType: String,
-                   inputPorts: List[Port],
-                   outputPorts: List[Port],
-                   configParams: List[ConfigParameter])
+                      elementType: String,
+                      inputPorts: List[Port],
+                      outputPorts: List[Port],
+                      configParams: List[ConfigParameter])
   extends GenericElement(name,
     elementType,
     inputPorts,
@@ -24,7 +20,7 @@ class HostEtherFilter(name: String,
 
   override def instructions: Map[LocationId, Instruction] = Map(
     inputPortName(0) -> InstructionBlock(
-      Constrain(EtherDst,:==:(ConstantValue(RepresentationConversion.macToNumber(configParams(0).value)))),
+      Constrain(EtherDst, :==:(ConstantValue(RepresentationConversion.macToNumber(configParams(0).value)))),
       Forward(outputPortName(0))
     )
   )
@@ -51,7 +47,8 @@ object HostEtherFilter {
   }
 
   def getBuilder(name: String): HostEtherFilterElementBuilder = {
-    increment ; new HostEtherFilterElementBuilder(name, "HostEtherFilter")
+    increment;
+    new HostEtherFilterElementBuilder(name, "HostEtherFilter")
   }
 
   def getBuilder: HostEtherFilterElementBuilder =

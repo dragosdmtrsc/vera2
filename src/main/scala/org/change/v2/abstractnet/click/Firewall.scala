@@ -3,12 +3,12 @@ package org.change.v2.abstractnet.click
 import org.change.v2.abstractnet.generic.{ConfigParameter, ElementBuilder, GenericElement, Port}
 
 /**
- * Element corresponding to: "[name] :: Firewall"
- */
+  * Element corresponding to: "[name] :: Firewall"
+  */
 class Firewall(name: String,
-                 inputPorts: List[Port],
-                 outputPorts: List[Port],
-                 configParams: List[ConfigParameter])
+               inputPorts: List[Port],
+               outputPorts: List[Port],
+               configParams: List[ConfigParameter])
   extends GenericElement(name,
     "Firewall",
     inputPorts,
@@ -51,7 +51,8 @@ object Firewall {
   }
 
   def getBuilder(name: String): FirewallElementBuilder = {
-    increment ; new FirewallElementBuilder(name)
+    increment;
+    new FirewallElementBuilder(name)
   }
 
   def getBuilder: FirewallElementBuilder =

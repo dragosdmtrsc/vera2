@@ -7,16 +7,17 @@ package object symbolicexec {
   type Interval = (Long, Long)
   type ValueSet = List[Interval]
   type Symbol = String
-//  The memory consists of a set of symbols to which values are assigned
-//  Observation: because the type is an attribute of the value, not of the symbol,
-//  a symbol may refer to values of different types at different times.
+  //  The memory consists of a set of symbols to which values are assigned
+  //  Observation: because the type is an attribute of the value, not of the symbol,
+  //  a symbol may refer to values of different types at different times.
 
   /**
-   * Check if two intervals intersect.
-   * @param a
-   * @param b
-   * @return
-   */
+    * Check if two intervals intersect.
+    *
+    * @param a
+    * @param b
+    * @return
+    */
   def doIntersect(a: Interval, b: Interval) =
     (a._1 <= b._1 && b._1 <= a._2) || (a._1 <= b._1 && b._2 <= a._2)
 
@@ -28,7 +29,7 @@ package object symbolicexec {
     else None
 
   def unionOfIntersecting(a: Interval, b: Interval) =
-    if (doIntersect(a,b)) Some((Math.min(a._1, b._1), Math.max(a._2, b._2)))
+    if (doIntersect(a, b)) Some((Math.min(a._1, b._1), Math.max(a._2, b._2)))
     else None
 
   def normalize(set: List[Interval]): List[Interval] = {
@@ -47,18 +48,18 @@ package object symbolicexec {
 
   def complement(s: ValueSet, t: NumericType = NumericType()): ValueSet = s match {
     case Nil => List((t.min, t.max))
-    case List((a, b)) if a > t.min && b < t.max => normalize(List((t.min, a-1), (b+1, t.max)))
-    case List((_,_)) => Nil
+    case List((a, b)) if a > t.min && b < t.max => normalize(List((t.min, a - 1), (b + 1, t.max)))
+    case List((_, _)) => Nil
     case _ => {
       val aux = (for {
         w <- s.sliding(2)
         fst = w.head
         snd = w.last
-      } yield (fst._2+1, snd._1-1)).toList
+      } yield (fst._2 + 1, snd._1 - 1)).toList
       normalize(
-        (if (s.head._1 > t.min) List((t.min, s.head._1-1)) else Nil) ++
-        (if (s.last._2 < t.max) List((s.last._2+1, t.max)) else Nil) ++
-        aux)
+        (if (s.head._1 > t.min) List((t.min, s.head._1 - 1)) else Nil) ++
+          (if (s.last._2 < t.max) List((s.last._2 + 1, t.max)) else Nil) ++
+          aux)
     }
   }
 
@@ -75,6 +76,7 @@ package object symbolicexec {
           .map(_.get) ++ looper(rest, stripNeedless)
       }
     }
+
     val nAll = all.map(normalize)
     val res = nAll.reduceLeft(looper)
     res
@@ -85,6 +87,6 @@ package object symbolicexec {
     intersect(List(s, c.asSet(t)))
 
   def applyConstraints(s: ValueSet, cts: List[Constraint],
-                      t: NumericType = NumericType()): ValueSet =
+                       t: NumericType = NumericType()): ValueSet =
     intersect(s :: cts.map(_.asSet()))
 }

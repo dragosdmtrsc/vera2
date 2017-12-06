@@ -3,12 +3,12 @@ package org.change.v2.abstractnet.click
 import org.change.v2.abstractnet.generic.{ConfigParameter, ElementBuilder, GenericElement, Port}
 
 /**
- * Element corresponding to: "[name] :: NAT(outgoing ip address)"
- */
+  * Element corresponding to: "[name] :: NAT(outgoing ip address)"
+  */
 class NAT(name: String,
-                 inputPorts: List[Port],
-                 outputPorts: List[Port],
-                 configParams: List[ConfigParameter])
+          inputPorts: List[Port],
+          outputPorts: List[Port],
+          configParams: List[ConfigParameter])
   extends GenericElement(name,
     "NAT",
     inputPorts,
@@ -51,7 +51,8 @@ object NAT {
   }
 
   def getBuilder(name: String): NATElementBuilder = {
-    increment ; new NATElementBuilder(name)
+    increment;
+    new NATElementBuilder(name)
   }
 
   def getBuilder: NATElementBuilder =

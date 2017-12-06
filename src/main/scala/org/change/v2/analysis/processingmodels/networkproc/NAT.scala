@@ -1,15 +1,15 @@
 package org.change.v2.analysis.processingmodels.networkproc
 
-import org.change.v2.analysis.expression.concrete.{SymbolicValue, ConstantValue}
-import org.change.v2.analysis.memory.State
-import org.change.v2.analysis.processingmodels.instructions._
 import org.change.v2.analysis.expression.concrete.nonprimitive.Symbol
+import org.change.v2.analysis.expression.concrete.{ConstantValue, SymbolicValue}
+import org.change.v2.analysis.memory.State
 import org.change.v2.analysis.processingmodels.Instruction
+import org.change.v2.analysis.processingmodels.instructions._
 
 /**
- * Author: Radu Stoenescu
- * Don't be a stranger,  symnetic.7.radustoe@spamgourmet.com
- */
+  * Author: Radu Stoenescu
+  * Don't be a stranger,  symnetic.7.radustoe@spamgourmet.com
+  */
 case class NATToInternet(toOutsideIP: Long) extends Instruction {
 
   override def apply(s: State, v: Boolean): (List[State], List[State]) =
@@ -22,7 +22,7 @@ case class NATToInternet(toOutsideIP: Long) extends Instruction {
 
       AssignNamedSymbol("IP-Src", Symbol("New-IP-Src")),
       AssignNamedSymbol("Port-Src", Symbol("New-Port-Src"))
-    )(s,v)
+    )(s, v)
 }
 
 object NATFromInternet extends Instruction {
@@ -39,6 +39,6 @@ object NATFromInternet extends Instruction {
         ),
         NoOp
       )
-    )(s,v)
+    )(s, v)
 }
 

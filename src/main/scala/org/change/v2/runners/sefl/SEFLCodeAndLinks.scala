@@ -12,7 +12,7 @@ import org.change.v2.analysis.processingmodels.instructions._
 object SEFLCodeAndLinks {
 
   val i: Map[String, Instruction] = Map(
-    "a" -> InstructionBlock (
+    "a" -> InstructionBlock(
       Assign("a", SymbolicValue()),
       Assign("zero", ConstantValue(0)),
       // State that a is positive
@@ -23,7 +23,7 @@ object SEFLCodeAndLinks {
       Constrain("sum", :==:(:@("zero")))
     ),
 
-"b" -> InstructionBlock (
+    "b" -> InstructionBlock(
       Assign("a", SymbolicValue()),
       Assign("zero", ConstantValue(0)),
       // State that a is positive

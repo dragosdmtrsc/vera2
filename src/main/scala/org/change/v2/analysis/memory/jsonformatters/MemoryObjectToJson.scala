@@ -1,14 +1,14 @@
 package org.change.v2.analysis.memory.jsonformatters
 
 import org.change.v2.analysis.memory.MemoryObject
-import spray.json.DefaultJsonProtocol
-import spray.json._
 import org.change.v2.analysis.memory.jsonformatters.ValueToJson._
+import spray.json.{DefaultJsonProtocol, _}
 
 /**
- * A small gift from radu to symnetic.
- */
+  * A small gift from radu to symnetic.
+  */
 object MemoryObjectToJson extends DefaultJsonProtocol {
+
   implicit object MemoryObjectFormat extends RootJsonFormat[MemoryObject] {
     override def read(json: JsValue): MemoryObject = deserializationError("One way protocol")
 
@@ -18,4 +18,5 @@ object MemoryObjectToJson extends DefaultJsonProtocol {
       case _ => JsString("NoAllocation")
     }
   }
+
 }

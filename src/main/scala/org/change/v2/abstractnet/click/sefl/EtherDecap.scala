@@ -9,10 +9,10 @@ import org.change.v2.analysis.processingmodels.{Instruction, LocationId}
 import org.change.v2.util.canonicalnames._
 
 class EtherDecap(name: String,
-                   elementType: String,
-                   inputPorts: List[Port],
-                   outputPorts: List[Port],
-                   configParams: List[ConfigParameter])
+                 elementType: String,
+                 inputPorts: List[Port],
+                 outputPorts: List[Port],
+                 configParams: List[ConfigParameter])
   extends GenericElement(name,
     elementType,
     inputPorts,
@@ -21,14 +21,14 @@ class EtherDecap(name: String,
 
   override def instructions: Map[LocationId, Instruction] = Map(
     inputPortName(0) -> InstructionBlock(
-      Constrain(Tag("L2")+EtherTypeOffset,:==:(ConstantValue(EtherProtoIP))),
+      Constrain(Tag("L2") + EtherTypeOffset, :==:(ConstantValue(EtherProtoIP))),
       //set eth addr anno
       Allocate("EtherSrc"),
-      Assign("EtherSrc",:@(EtherSrc)),
-      CreateTag("L3",Tag("L2") + 112),
-      Deallocate(Tag("L2")+EtherSrcOffset, 48),
-      Deallocate(Tag("L2")+EtherDstOffset, 48),
-      Deallocate(Tag("L2")+EtherTypeOffset,16),
+      Assign("EtherSrc", :@(EtherSrc)),
+      CreateTag("L3", Tag("L2") + 112),
+      Deallocate(Tag("L2") + EtherSrcOffset, 48),
+      Deallocate(Tag("L2") + EtherDstOffset, 48),
+      Deallocate(Tag("L2") + EtherTypeOffset, 16),
       DestroyTag("L2"),
       Forward(outputPortName(0))
     )
@@ -56,7 +56,8 @@ object EtherDecap {
   }
 
   def getBuilder(name: String): EtherDecapElementBuilder = {
-    increment ; new EtherDecapElementBuilder(name, "EtherDecap")
+    increment;
+    new EtherDecapElementBuilder(name, "EtherDecap")
   }
 
   def getBuilder: EtherDecapElementBuilder =

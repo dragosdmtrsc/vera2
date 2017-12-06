@@ -31,7 +31,7 @@ object PathLocationVisitor extends ReachLangBaseVisitor[PathLocation] {
     val vm = ctx.ID(0).getText
     val elm = ctx.ID(1).getText
     val port = if (ctx.NUMBER() != null) java.lang.Integer.parseInt(ctx.NUMBER().getText)
-      else 0
+    else 0
 
     PathLocation(vm, elm, port, Output)
   }

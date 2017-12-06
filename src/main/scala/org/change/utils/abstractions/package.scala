@@ -1,18 +1,18 @@
 package org.change.utils
 
 /**
- * Author: Radu Stoenescu
- * Don't be a stranger,  symnetic.7.radustoe@spamgourmet.com
- */
+  * Author: Radu Stoenescu
+  * Don't be a stranger,  symnetic.7.radustoe@spamgourmet.com
+  */
 package object abstractions {
 
   def transform[A](option: Option[A])(someTransform: A => Some[A], noneTransform: () => Some[A]) = option
-    match  {
+  match {
     case Some(x) => someTransform(x)
     case _ => noneTransform
-    }
+  }
 
-  def useAndReturn[A,B](subject: A, user: A => B) = {
+  def useAndReturn[A, B](subject: A, user: A => B) = {
     user(subject)
     subject
   }

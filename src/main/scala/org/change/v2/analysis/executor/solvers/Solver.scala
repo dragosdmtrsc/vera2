@@ -4,5 +4,5 @@ import org.change.v2.analysis.memory.MemorySpace
 
 
 trait Solver {
-  def solve(memory : MemorySpace) : Boolean;
+  def solve(memory: MemorySpace): Boolean;
 }

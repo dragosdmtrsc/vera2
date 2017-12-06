@@ -3,10 +3,10 @@ package org.change.v2.util
 import org.change.v2.analysis.memory.Tag
 
 /**
- * Author: Radu Stoenescu
- * Don't be a stranger,  symnetic.7.radustoe@spamgourmet.com
- */
-package object  canonicalnames {
+  * Author: Radu Stoenescu
+  * Don't be a stranger,  symnetic.7.radustoe@spamgourmet.com
+  */
+package object canonicalnames {
 
   def nameToTagExp = Map(
     "IPSrc" -> IPSrc,
@@ -105,9 +105,9 @@ package object  canonicalnames {
   val ESPNextProtoOffset = -8
   val ESPNextProto = EndTag - ESPNextProtoOffset
 
-  
+
   val TunId = -500
-  
+
   //UDP header offsets
   val UDPSrcOffset = 0
   val UDPSrc = L4Tag + UDPSrcOffset

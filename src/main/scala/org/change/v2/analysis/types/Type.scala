@@ -8,10 +8,15 @@ trait Type {
 
 trait NumericType extends Type {
   override def name = "GenericNumeric"
+
   def min: Long = 0
+
   def max: Long = Long.MaxValue
+
   def admissibleRange: Interval = (min, max)
+
   def admissibleSet: ValueSet = List(admissibleRange)
+
   override def toString = name
 }
 

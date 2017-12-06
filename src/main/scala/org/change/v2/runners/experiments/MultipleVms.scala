@@ -1,18 +1,16 @@
 package org.change.v2.runners.experiments
 
-import java.io.{FileOutputStream, PrintStream, FilenameFilter, File}
+import java.io.{File, FileOutputStream, FilenameFilter, PrintStream}
 
 import org.change.parser.clickfile.ClickToAbstractNetwork
 import org.change.parser.interclicklinks.InterClickLinksParser
 import org.change.parser.startpoints.StartPointParser
-import org.change.symbolicexec.verification.RuleSetBuilder
 import org.change.v2.executor.clickabstractnetwork.ClickExecutionContext
-import org.change.parser.startpoints.StartPointParser
 
 /**
- * Author: Radu Stoenescu
- * Don't be a stranger,  symnetic.7.radustoe@spamgourmet.com
- */
+  * Author: Radu Stoenescu
+  * Don't be a stranger,  symnetic.7.radustoe@spamgourmet.com
+  */
 object MultipleVms {
 
   def main(args: Array[String]) = {
@@ -34,18 +32,18 @@ object MultipleVms {
 
     var crtExecutor = ctx
     var steps = 0
-    while(! crtExecutor.isDone && steps < 100) {
+    while (!crtExecutor.isDone && steps < 100) {
       steps += 1
-      crtExecutor = crtExecutor.execute(verbose=true)
+      crtExecutor = crtExecutor.execute(verbose = true)
     }
 
     val successful = crtExecutor.stuckStates
-    val  failed = crtExecutor.failedStates
+    val failed = crtExecutor.failedStates
 
     val outputOk = new PrintStream(new FileOutputStream(new File("sefl.ok.json")))
 
     outputOk.println(
-      successful.map(_.jsonString).mkString("[", ",\n","]")
+      successful.map(_.jsonString).mkString("[", ",\n", "]")
     )
 
     outputOk.close()
@@ -53,7 +51,7 @@ object MultipleVms {
     val outputFail = new PrintStream(new FileOutputStream(new File("sefl.fail.json")))
 
     outputFail.println(
-        failed.map(_.jsonString).mkString("[", ",\n", "]")
+      failed.map(_.jsonString).mkString("[", ",\n", "]")
     )
 
     outputFail.close()

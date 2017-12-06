@@ -1,28 +1,28 @@
-import org.change.v2.analysis.expression.concrete.nonprimitive.{Symbol, :+:}
+import org.change.v2.analysis.expression.concrete.nonprimitive.{:+:, Symbol}
 import org.change.v2.analysis.expression.concrete.{ConstantValue, SymbolicValue}
-import org.change.v2.analysis.memory.{State, Value, MemorySpace}
+import org.change.v2.analysis.memory.{MemorySpace, State}
 import org.change.v2.analysis.processingmodels.instructions._
-import org.scalatest.{Matchers, FlatSpec}
+import org.scalatest.{FlatSpec, Matchers}
 
 /**
- * Author: Radu Stoenescu
- * Don't be a stranger,  symnetic.7.radustoe@spamgourmet.com
- */
+  * Author: Radu Stoenescu
+  * Don't be a stranger,  symnetic.7.radustoe@spamgourmet.com
+  */
 class InstructionTests extends FlatSpec with Matchers {
 
   "Rewrite" should "push another value on the assignment stack" in {
 
-    val (s,f) = InstructionBlock(
+    val (s, f) = InstructionBlock(
       AssignNamedSymbol("IP", SymbolicValue())
 
     )(State.bigBang)
 
-    s.head.memory.eval("IP") shouldBe a [Some[_]]
+    s.head.memory.eval("IP") shouldBe a[Some[_]]
   }
 
   "Dup" should "make two symbol refer the same value" in {
 
-    val (s,f) = InstructionBlock(List(
+    val (s, f) = InstructionBlock(List(
       AssignNamedSymbol("IP", ConstantValue(2)),
       AssignNamedSymbol("IP-Clone", Symbol("IP")),
       ConstrainNamedSymbol("IP-Clone", :==:(Symbol("IP")))
@@ -30,7 +30,7 @@ class InstructionTests extends FlatSpec with Matchers {
 
     val afterState = s.head
 
-    afterState.memory.eval("IP-Clone") shouldBe a [Some[_]]
+    afterState.memory.eval("IP-Clone") shouldBe a[Some[_]]
     afterState.memory.eval("IP").get.e.id shouldEqual afterState.memory.eval("IP-Clone").get.e.id
   }
 
@@ -40,13 +40,13 @@ class InstructionTests extends FlatSpec with Matchers {
     val m = MemorySpace.clean
     val stateZero = State(m)
 
-    val (s1,f1) = rwIP(stateZero)
+    val (s1, f1) = rwIP(stateZero)
 
     // TODO
   }
 
   "If" should "branch execution correctly" in {
-    val (s,f) = InstructionBlock(List(
+    val (s, f) = InstructionBlock(List(
       AssignNamedSymbol("IP", ConstantValue(2)),
       If(ConstrainNamedSymbol("IP", :==:(ConstantValue(2))), NoOp, NoOp)
     ))(State.bigBang)
@@ -56,7 +56,7 @@ class InstructionTests extends FlatSpec with Matchers {
   }
 
   "If" should "branch execution correctly in case of symbolics" in {
-    val (s,f) = InstructionBlock(
+    val (s, f) = InstructionBlock(
       AssignNamedSymbol("IP", SymbolicValue()),
       If(ConstrainNamedSymbol("IP", :==:(ConstantValue(2))),
         InstructionBlock(
@@ -74,7 +74,7 @@ class InstructionTests extends FlatSpec with Matchers {
   }
 
   "Deferrable E" should "pass when applied to the same expression" in {
-    val (s,f) = InstructionBlock(List(
+    val (s, f) = InstructionBlock(List(
       AssignNamedSymbol("A", SymbolicValue()),
       AssignNamedSymbol("B", SymbolicValue()),
 

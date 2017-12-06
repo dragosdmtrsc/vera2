@@ -2,19 +2,15 @@ package org.change.v2.abstractnet.click.sefl
 
 import org.change.v2.abstractnet.generic.{ConfigParameter, ElementBuilder, GenericElement, Port}
 import org.change.v2.analysis.expression.concrete._
-import org.change.v2.analysis.expression.concrete.nonprimitive._
 import org.change.v2.analysis.processingmodels.instructions._
 import org.change.v2.analysis.processingmodels.{Instruction, LocationId}
-import org.change.v2.util.conversion.RepresentationConversion._
 import org.change.v2.util.canonicalnames._
-import org.change.v2.analysis.memory.TagExp._
-import org.change.v2.analysis.memory.Tag
 
 class ClampMTU(name: String,
-                   elementType: String,
-                   inputPorts: List[Port],
-                   outputPorts: List[Port],
-                   configParams: List[ConfigParameter])
+               elementType: String,
+               inputPorts: List[Port],
+               outputPorts: List[Port],
+               configParams: List[ConfigParameter])
   extends GenericElement(name,
     elementType,
     inputPorts,
@@ -23,7 +19,7 @@ class ClampMTU(name: String,
 
   override def instructions: Map[LocationId, Instruction] = Map(
     inputPortName(0) -> InstructionBlock(
-      Constrain(IPLength,:<=:(ConstantValue(configParams(0).value.toInt))),
+      Constrain(IPLength, :<=:(ConstantValue(configParams(0).value.toInt))),
       Forward(outputPortName(1))
     )
   )
@@ -50,7 +46,8 @@ object ClampMTU {
   }
 
   def getBuilder(name: String): ClampMTUElementBuilder = {
-    increment ; new ClampMTUElementBuilder(name, "ClampMTU")
+    increment;
+    new ClampMTUElementBuilder(name, "ClampMTU")
   }
 
   def getBuilder: ClampMTUElementBuilder =

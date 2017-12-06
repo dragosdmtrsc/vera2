@@ -1,10 +1,10 @@
-import org.scalatest.{Matchers, FlatSpec, fixture}
-import z3.scala.{Z3Context, Z3Config}
+import org.scalatest.{FlatSpec, Matchers}
+import z3.scala.{Z3Config, Z3Context}
 
 /**
- * Author: Radu Stoenescu
- * Don't be a stranger,  symnetic.7.radustoe@spamgourmet.com
- */
+  * Author: Radu Stoenescu
+  * Don't be a stranger,  symnetic.7.radustoe@spamgourmet.com
+  */
 class AlwaysOk extends FlatSpec with Matchers {
 
   "Z3" should "work" in {

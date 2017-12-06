@@ -1,33 +1,28 @@
 package org.change.v2.runners.experiments
 
-import java.io.FileInputStream
-import java.io.PrintStream
-import java.io.BufferedReader
-import org.change.utils.prettifier.SomeWriter
-import java.io.InputStreamReader
-import org.change.utils.prettifier.JsonUtil
-import java.io.File
+import java.io._
+
+import org.change.utils.prettifier.{JsonUtil, SomeWriter}
 import org.change.v2.analysis.memory.State
 
 object JSONTests {
-   
-  def main(argv : Array[String]) {
-    val (successful, failed) = SEFLRunner.ex2    
 
-    val str = SomeWriter(Map[String, List[State]](("successful" -> successful), 
-    ("failed" -> failed)))
-        
+  def main(argv: Array[String]) {
+    val (successful, failed) = SEFLRunner.ex2
+
+    val str = SomeWriter(Map[String, List[State]](("successful" -> successful),
+      ("failed" -> failed)))
+
     val pstream = new PrintStream("outputs/json/out.json")
     pstream.println(str)
     pstream.close()
 
-    
+
     val f = new File("outputs/json/out.json")
     val reader = new BufferedReader(new InputStreamReader(new FileInputStream(f)))
     var line = reader.readLine()
     val sb = new StringBuilder()
-    while (line != null)
-    {
+    while (line != null) {
       sb.append(line)
       line = reader.readLine()
     }
@@ -39,7 +34,7 @@ object JSONTests {
     pstream2.println(str)
     pstream2.close()
 
-    
+
   }
 
 }

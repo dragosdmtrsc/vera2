@@ -3,12 +3,12 @@ package org.change.v2.abstractnet.generic
 import scala.collection.mutable.ArrayBuffer
 
 /**
- * Generic element builder implementing common behavior for every
- * Click network element.
- *
- * @param name An unique element ID within a network config
- * @param elementType String representation of the Click element class
- */
+  * Generic element builder implementing common behavior for every
+  * Click network element.
+  *
+  * @param name        An unique element ID within a network config
+  * @param elementType String representation of the Click element class
+  */
 abstract class ElementBuilder(name: String,
                               elementType: String) {
 
@@ -17,15 +17,18 @@ abstract class ElementBuilder(name: String,
   private val configPrams = new ArrayBuffer[ConfigParameter]()
 
   def addInputPort(port: Port): ElementBuilder = {
-    inputPorts += port; this
+    inputPorts += port;
+    this
   }
 
   def addOutputPort(port: Port): ElementBuilder = {
-    outputPorts += port; this
+    outputPorts += port;
+    this
   }
 
   def addConfigParameter(param: ConfigParameter): ElementBuilder = {
-    configPrams += param; this
+    configPrams += param;
+    this
   }
 
   def handleConfigParameter(paramString: String): ElementBuilder = {

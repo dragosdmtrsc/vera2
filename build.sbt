@@ -1,8 +1,8 @@
-organization  := "org.change"
+organization := "org.change"
 
-version       := "0.2-SNAPSHOT"
+version := "0.2-SNAPSHOT"
 
-scalaVersion  := "2.11.1"
+scalaVersion := "2.11.1"
 
 name := "symnet"
 
@@ -14,7 +14,7 @@ libraryDependencies ++= {
   Seq(
     "org.antlr" % "antlr4" % "4.7",
     "org.scalatest" % "scalatest_2.11" % "2.2.4" % "test",
-    "io.spray" %%  "spray-json" % "1.3.2",
+    "io.spray" %% "spray-json" % "1.3.2",
     "org.apache.commons" % "commons-lang3" % "3.5",
     "com.fasterxml.jackson.core" % "jackson-databind" % "2.8.3",
     "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.8.3",
@@ -29,7 +29,7 @@ exportJars := true
 
 unmanagedResourceDirectories in Compile += baseDirectory.value / "lib"
 
-includeFilter in (Compile, unmanagedResourceDirectories):= ".dll,.so"
+includeFilter in(Compile, unmanagedResourceDirectories) := ".dll,.so"
 
 
 test in assembly := {}

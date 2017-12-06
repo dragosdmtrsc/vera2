@@ -5,10 +5,11 @@ import org.change.v2.analysis.processingmodels._
 import org.change.v2.analysis.processingmodels.instructions.Forward
 
 /**
- * Element corresponding to: "[name] :: FromDevice(deviceName)"
- * @param name
- * @param deviceName
- */
+  * Element corresponding to: "[name] :: FromDevice(deviceName)"
+  *
+  * @param name
+  * @param deviceName
+  */
 class FromDevice(name: String,
                  inputPorts: List[Port],
                  outputPorts: List[Port],
@@ -46,7 +47,8 @@ object FromDevice {
   }
 
   def getBuilder(name: String): FromDeviceElementBuilder = {
-    increment ; new FromDeviceElementBuilder(name)
+    increment;
+    new FromDeviceElementBuilder(name)
   }
 
   def getBuilder: FromDeviceElementBuilder =

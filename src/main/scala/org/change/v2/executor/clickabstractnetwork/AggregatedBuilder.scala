@@ -12,8 +12,8 @@ import org.change.v2.abstractnet.optimized.router.OptimizedRouter
 import org.change.v2.executor.clickabstractnetwork.executionlogging.JsonLogger
 
 /**
- * A small gift from radu to symnetic.
- */
+  * A small gift from radu to symnetic.
+  */
 object AggregatedBuilder {
 
   type Link = (String, String, String, String, String, String)
@@ -22,7 +22,7 @@ object AggregatedBuilder {
 
   lazy val parsers: Map[String, ConfigParser] = Map(
     "sw" -> OptimizedSwitch.optimizedSwitchNetworkConfig _,
-    "click" -> {f => ClickToAbstractNetwork.buildConfig(f, prefixedElements = true)},
+    "click" -> { f => ClickToAbstractNetwork.buildConfig(f, prefixedElements = true) },
     "rt" -> OptimizedRouter.optimizedRouterNetworkConfig _
   )
 
@@ -30,8 +30,8 @@ object AggregatedBuilder {
     folder.list(new FilenameFilter {
       override def accept(dir: File, name: String): Boolean =
         name.endsWith(".click") ||
-        name.endsWith(".sw") ||
-        name.endsWith(".rt") ||
+          name.endsWith(".sw") ||
+          name.endsWith(".rt") ||
           name.endsWith(".switch") ||
           name.endsWith(".router")
     }).sorted.map(folder.getPath + File.separatorChar + _).map({ path =>
@@ -81,7 +81,7 @@ object AggregatedBuilder {
     println(exe.instructions.size)
 
     val start = System.currentTimeMillis()
-//    exe.untilDoneFrugally(false)
+    //    exe.untilDoneFrugally(false)
     println(System.currentTimeMillis() - start)
   }
 }

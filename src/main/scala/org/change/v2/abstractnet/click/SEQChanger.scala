@@ -3,8 +3,8 @@ package org.change.v2.abstractnet.click
 import org.change.v2.abstractnet.generic.{ConfigParameter, ElementBuilder, GenericElement, Port}
 
 /**
- * Element corresponding to: "[name] :: SEQChanger"
- */
+  * Element corresponding to: "[name] :: SEQChanger"
+  */
 class SEQChanger(name: String,
                  inputPorts: List[Port],
                  outputPorts: List[Port],
@@ -51,7 +51,8 @@ object SEQChanger {
   }
 
   def getBuilder(name: String): SEQChangerElementBuilder = {
-    increment ; new SEQChangerElementBuilder(name)
+    increment;
+    new SEQChangerElementBuilder(name)
   }
 
   def getBuilder: SEQChangerElementBuilder =

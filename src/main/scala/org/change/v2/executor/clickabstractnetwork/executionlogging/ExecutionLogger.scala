@@ -1,28 +1,25 @@
 package org.change.v2.executor.clickabstractnetwork.executionlogging
 
-import java.io.{FileOutputStream, PrintWriter}
+import java.io.{File, FileOutputStream, OutputStream, PrintWriter}
 
 import org.change.v2.analysis.expression.concrete.ConstantValue
-import org.change.v2.analysis.memory.{TagExp, State}
-import org.change.v2.analysis.processingmodels.instructions.{InstructionBlock, :==:, Constrain}
+import org.change.v2.analysis.memory.{State, TagExp}
+import org.change.v2.analysis.processingmodels.instructions.{:==:, Constrain, InstructionBlock}
 import org.change.v2.executor.clickabstractnetwork.ClickExecutionContext
-import org.change.v2.analysis.memory.jsonformatters.StateToJson._
 import org.change.v2.validation.RunConfig
 import spray.json._
-import java.io.File
-import java.io.OutputStream
 
 /**
- * A small gift from radu to symnetic.
- */
+  * A small gift from radu to symnetic.
+  */
 trait ExecutionLogger {
   def log(ctx: ClickExecutionContext): Unit = {}
 }
 
 object NoLogging extends ExecutionLogger
 
-class JsonLogger(stream : OutputStream) extends ExecutionLogger {
-  override def log(ctx : ClickExecutionContext) : Unit = {
+class JsonLogger(stream: OutputStream) extends ExecutionLogger {
+  override def log(ctx: ClickExecutionContext): Unit = {
     if (ctx.isDone) {
       import org.change.v2.analysis.memory.jsonformatters.ExecutionContextToJson._
       val output = new PrintWriter(stream)
@@ -30,23 +27,23 @@ class JsonLogger(stream : OutputStream) extends ExecutionLogger {
       output.close()
     }
   }
-  
-  def log(state : State) : Unit = {
+
+  def log(state: State): Unit = {
     import org.change.v2.analysis.memory.jsonformatters.StateToJson._
     val output = new PrintWriter(stream)
     output.println(state.toJson.prettyPrint)
     output.close()
   }
-  
-  
-  def log(state : List[State]) : Unit = {
+
+
+  def log(state: List[State]): Unit = {
     import org.change.v2.analysis.memory.jsonformatters.StateToJson._
     val output = new PrintWriter(stream)
     output.println("count : " + state.size + ",")
     output.println(state.toJson.prettyPrint)
     output.close()
   }
-  
+
 }
 
 object JsonLogger extends ExecutionLogger {
@@ -67,9 +64,6 @@ object ModelValidation extends ExecutionLogger {
     val output = new PrintWriter(new FileOutputStream(new File("out.json")))
     output.println(ctx.toJson.prettyPrint)
     output.close()
-
-
-    import org.change.v2.util.canonicalnames._
 
     val (reachedDst, stuckSomewhere) = ctx.stuckStates
       .partition(_.location.toLowerCase().contains("dst"))
@@ -98,7 +92,7 @@ object ModelValidation extends ExecutionLogger {
   }
 
   def verifyState(concreteValues: Map[TagExp, Long])(s: State): Option[String] = {
-    val afterConcreteConstraintApplication = InstructionBlock(concreteValues.map({kv =>
+    val afterConcreteConstraintApplication = InstructionBlock(concreteValues.map({ kv =>
       val (what, withWhat) = kv
       Constrain(what, :==:(ConstantValue(withWhat)))
     }))(s)
@@ -114,9 +108,9 @@ object ModelValidation extends ExecutionLogger {
 object OldStringifier extends ExecutionLogger {
 
   override def log(ctx: ClickExecutionContext): Unit = if (ctx.isDone)
-      println(verboselyStringifyStates(ctx))
+    println(verboselyStringifyStates(ctx))
 
-  def verboselyStringifyStatesWithExample(ss: List[State]): String = ss.zipWithIndex.map( si =>
+  def verboselyStringifyStatesWithExample(ss: List[State]): String = ss.zipWithIndex.map(si =>
     "State #" + si._2 + "\n\n" +
       si._1.history.reverse.mkString("\n") +
       si._1.instructionHistory.reverse.mkString("\n") + "\n\n" +
@@ -126,7 +120,7 @@ object OldStringifier extends ExecutionLogger {
   def stringifyStates(ctx: ClickExecutionContext,
                       includeOk: Boolean = true,
                       includeStuck: Boolean = true,
-                      includeFailed: Boolean= true) = {
+                      includeFailed: Boolean = true) = {
     (if (includeOk)
       s"Ok states (${ctx.okStates.length}):\n" + verboselyStringifyStates(ctx.okStates)
     else
@@ -142,15 +136,15 @@ object OldStringifier extends ExecutionLogger {
   }
 
   /**
-   * @param includeOk
-   * @param includeStuck
-   * @param includeFailed
-   * @return
-   */
+    * @param includeOk
+    * @param includeStuck
+    * @param includeFailed
+    * @return
+    */
   def verboselyStringifyStates(ctx: ClickExecutionContext,
                                includeOk: Boolean = true,
                                includeStuck: Boolean = true,
-                               includeFailed: Boolean= true) = {
+                               includeFailed: Boolean = true) = {
     (if (includeOk)
       s"Ok states (${ctx.okStates.length}):\n" + verboselyStringifyStatesWithExample(ctx.okStates)
     else
@@ -165,7 +159,7 @@ object OldStringifier extends ExecutionLogger {
         "")
   }
 
-  def verboselyStringifyStates(ss: List[State]): String = ss.zipWithIndex.map( si =>
+  def verboselyStringifyStates(ss: List[State]): String = ss.zipWithIndex.map(si =>
     "State #" + si._2 + "\n\n" + si._1.instructionHistory.reverse.mkString("\n") + "\n\n" + si._1.toString)
     .mkString("\n")
 }

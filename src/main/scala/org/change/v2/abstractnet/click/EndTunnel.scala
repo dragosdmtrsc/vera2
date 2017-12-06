@@ -3,12 +3,12 @@ package org.change.v2.abstractnet.click
 import org.change.v2.abstractnet.generic.{ConfigParameter, ElementBuilder, GenericElement, Port}
 
 /**
- * Element corresponding to: "[name] :: EndTunnel(sourceIp, destIP, id)"
- */
+  * Element corresponding to: "[name] :: EndTunnel(sourceIp, destIP, id)"
+  */
 class EndTunnel(name: String,
-                 inputPorts: List[Port],
-                 outputPorts: List[Port],
-                 configParams: List[ConfigParameter])
+                inputPorts: List[Port],
+                outputPorts: List[Port],
+                configParams: List[ConfigParameter])
   extends GenericElement(name,
     "EndTunnel",
     inputPorts,
@@ -16,6 +16,7 @@ class EndTunnel(name: String,
     configParams) {
 
   override def inputPortName(which: Int): String = s"${configParams(2).value}-end-in"
+
   override def outputPortName(which: Int): String = s"${configParams(2).value}-end-out"
 
 }
@@ -42,7 +43,8 @@ object EndTunnel {
   }
 
   def getBuilder(name: String): EndTunnelElementBuilder = {
-    increment ; new EndTunnelElementBuilder(name)
+    increment;
+    new EndTunnelElementBuilder(name)
   }
 
   def getBuilder: EndTunnelElementBuilder =

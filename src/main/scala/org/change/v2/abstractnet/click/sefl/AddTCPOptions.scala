@@ -1,20 +1,15 @@
 package org.change.v2.abstractnet.click.sefl
 
 import org.change.v2.abstractnet.generic.{ConfigParameter, ElementBuilder, GenericElement, Port}
-import org.change.v2.analysis.expression.concrete._
-import org.change.v2.analysis.expression.concrete.nonprimitive._
+import org.change.v2.analysis.memory.State
 import org.change.v2.analysis.processingmodels.instructions._
 import org.change.v2.analysis.processingmodels.{Instruction, LocationId}
-import org.change.v2.util.conversion.RepresentationConversion._
-import org.change.v2.util.canonicalnames._
-import org.change.v2.analysis.memory.TagExp._
-import org.change.v2.analysis.memory.{State, Tag}
 
 class AddTCPOptions(name: String,
-                   elementType: String,
-                   inputPorts: List[Port],
-                   outputPorts: List[Port],
-                   configParams: List[ConfigParameter])
+                    elementType: String,
+                    inputPorts: List[Port],
+                    outputPorts: List[Port],
+                    configParams: List[ConfigParameter])
   extends GenericElement(name,
     elementType,
     inputPorts,
@@ -51,7 +46,8 @@ object AddTCPOptions {
   }
 
   def getBuilder(name: String): AddTCPOptionsElementBuilder = {
-    increment ; new AddTCPOptionsElementBuilder(name, "AddTCPOptions")
+    increment;
+    new AddTCPOptionsElementBuilder(name, "AddTCPOptions")
   }
 
   def getBuilder: AddTCPOptionsElementBuilder =

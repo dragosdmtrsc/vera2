@@ -3,8 +3,7 @@ package org.change.v2.abstractnet.optimized.macswitch
 import java.io.File
 
 import org.change.parser.switch.TrivialSwitchTable
-import org.change.v2.abstractnet.generic.NetworkConfig
-import org.change.v2.abstractnet.generic.{ConfigParameter, ElementBuilder, GenericElement, Port}
+import org.change.v2.abstractnet.generic._
 import org.change.v2.analysis.constraint.{EQ_E, OR}
 import org.change.v2.analysis.expression.concrete.ConstantValue
 import org.change.v2.analysis.processingmodels._
@@ -15,13 +14,13 @@ import org.change.v2.util.conversion.RepresentationConversion
 import scala.io.Source
 
 /**
- * A small gift from radu to symnetic.
- */
+  * A small gift from radu to symnetic.
+  */
 class OptimizedSwitch(name: String,
-              elementType: String,
-              inputPorts: List[Port],
-              outputPorts: List[Port],
-              configParams: List[ConfigParameter])
+                      elementType: String,
+                      inputPorts: List[Port],
+                      outputPorts: List[Port],
+                      configParams: List[ConfigParameter])
   extends GenericElement(name,
     elementType,
     inputPorts,
@@ -53,7 +52,8 @@ object OptimizedSwitch {
   }
 
   def getBuilder(name: String): OptimizedSwitchElementBuilder = {
-    increment ; new OptimizedSwitchElementBuilder(name, "Switch")
+    increment;
+    new OptimizedSwitchElementBuilder(name, "Switch")
   }
 
   def getBuilder: OptimizedSwitchElementBuilder =
@@ -71,7 +71,7 @@ object OptimizedSwitch {
       mac = parts(1)
       port = parts(3)
     } yield {
-        (port, vlan, mac)
+      (port, vlan, mac)
     }).toTraversable
   }
 
@@ -80,20 +80,21 @@ object OptimizedSwitch {
 
     new OptimizedSwitch(name + "-" + name, genericElementName, Nil, Nil, Nil) {
       override def instructions: Map[LocationId, Instruction] = Map(inputPortName("port") -> Fork(
-        parseMacFile(f).groupBy({triplet =>  (triplet._1, triplet._2)}).map({kv => {
+        parseMacFile(f).groupBy({ triplet => (triplet._1, triplet._2) }).map({ kv => {
           val (port, vlan) = kv._1
           val macs = kv._2.map(_._3).map(RepresentationConversion.macToNumberCiscoFormat)
           val macConstraint = ConstrainRaw(EtherDst, OR(macs.map(m => EQ_E(ConstantValue(m))).toList))
 
           InstructionBlock(
             macConstraint,
-            (if(vlan equals "All")
+            (if (vlan equals "All")
               NoOp
             else
               Constrain(VLANTag, :==:(ConstantValue(vlan.toInt)))),
             Forward(outputPortName(port))
           )
-        }})
+        }
+        })
       ))
     }
   }
@@ -103,13 +104,14 @@ object OptimizedSwitch {
 
     new OptimizedSwitch(name, genericElementName, Nil, Nil, Nil) {
       override def instructions: Map[LocationId, Instruction] = Map(inputPortName("0") -> Fork(
-        parseMacFile(f).groupBy(_._1).map({kv => {
+        parseMacFile(f).groupBy(_._1).map({ kv => {
           val port = kv._1
           val macs = kv._2.map(_._3).map(RepresentationConversion.macToNumberCiscoFormat)
           val macConstraint = ConstrainRaw(EtherDst, OR(macs.map(m => EQ_E(ConstantValue(m))).toList))
 
-          InstructionBlock(macConstraint,Forward(outputPortName(port)))
-        }})
+          InstructionBlock(macConstraint, Forward(outputPortName(port)))
+        }
+        })
       ))
     }
   }
@@ -124,8 +126,9 @@ object OptimizedSwitch {
           val macs = kv._2.map(_._2).map(RepresentationConversion.macToNumber)
           val macConstraint = ConstrainRaw(EtherDst, OR(macs.map(m => EQ_E(ConstantValue(m))).toList))
 
-          InstructionBlock(macConstraint,Forward(outputPortName(port)))
-        }})
+          InstructionBlock(macConstraint, Forward(outputPortName(port)))
+        }
+        })
       ))
     }
   }

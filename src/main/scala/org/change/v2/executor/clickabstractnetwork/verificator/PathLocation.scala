@@ -5,9 +5,11 @@ case class PathLocation(vm: String, element: String, port: Int, accessPointType:
 }
 
 class AccessPointType
+
 object Input extends AccessPointType {
   override def toString = "INPUT"
 }
+
 object Output extends AccessPointType {
   override def toString = "OUTPUT"
 }

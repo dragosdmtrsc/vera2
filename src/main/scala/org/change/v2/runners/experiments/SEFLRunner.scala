@@ -1,36 +1,34 @@
 package org.change.v2.runners.experiments
 
-import java.io.{PrintWriter, FileOutputStream, PrintStream, File}
+import java.io.{File, FileOutputStream, PrintStream}
 
 import org.change.v2.analysis.expression.concrete.nonprimitive._
 import org.change.v2.analysis.expression.concrete.{ConstantValue, SymbolicValue}
-import org.change.v2.analysis.memory.State
-import org.change.v2.analysis.processingmodels.instructions._
-import org.change.v2.executor.clickabstractnetwork.ClickExecutionContext
+import org.change.v2.analysis.memory.{State, Tag}
 import org.change.v2.analysis.memory.TagExp._
-import org.change.v2.analysis.memory.Tag
+import org.change.v2.analysis.processingmodels.instructions._
 import org.change.v2.util.conversion.RepresentationConversion._
 
 object SEFLRunner {
 
   lazy val output = new PrintStream(new FileOutputStream(new File("sefl.output")))
 
-  def main (args: Array[String]): Unit = toJSONExample()
+  def main(args: Array[String]): Unit = toJSONExample()
 
   def toJSONExample(): Unit = {
     val (successful, failed) = code(State.clean, true)
 
     output.println(
       successful.map(_.jsonString).mkString("Successful: {\n", "\n", "}\n") +
-      failed.map(_.jsonString).mkString("Failed: {\n", "\n", "}\n")
+        failed.map(_.jsonString).mkString("Failed: {\n", "\n", "}\n")
     )
 
     output.close()
-    
+
     println("Check output @ sefl.output")
   }
 
-  val code = InstructionBlock (
+  val code = InstructionBlock(
     Assign("a", SymbolicValue()),
     Assign("zero", ConstantValue(0)),
     // State that a is positive
@@ -44,11 +42,11 @@ object SEFLRunner {
   )
 
   def ex0: (List[State], List[State]) = {
-   code(State.clean, true)
+    code(State.clean, true)
   }
 
   def ex1: (List[State], List[State]) = {
-    val code = InstructionBlock (
+    val code = InstructionBlock(
       Assign("a", SymbolicValue()),
       Assign("zero", ConstantValue(0)),
       // State that a is positive
@@ -57,9 +55,9 @@ object SEFLRunner {
       Assign("sum", :+:(:@("a"), :@("zero"))),
       // Now, for every branch there will be a path, one successful, one not.
       If(Constrain("sum", :==:(:@("zero"))), {
-          // This instruction will never get executed.
-          Fail("Impossible")
-        }
+        // This instruction will never get executed.
+        Fail("Impossible")
+      }
       )
     )
 
@@ -67,10 +65,10 @@ object SEFLRunner {
   }
 
   /**
-   * A simple IP filtering and forwarding example.
-   */
+    * A simple IP filtering and forwarding example.
+    */
   def ex2: (List[State], List[State]) = {
-    val code = InstructionBlock (
+    val code = InstructionBlock(
       // At address 0 the L3 header starts
       CreateTag("L3HeaderStart", 0),
       // Also mark IP Src and IP Dst fields and allocate memory

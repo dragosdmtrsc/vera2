@@ -1,20 +1,21 @@
 package org.change.v2.abstractnet.click.sefl
 
 /**
- * Author: Radu Stoenescu
- * Don't be a stranger,  symnetic.7.radustoe@spamgourmet.com
- *
- * http://www.read.cs.ucla.edu/click/elements/paint
- */
+  * Author: Radu Stoenescu
+  * Don't be a stranger,  symnetic.7.radustoe@spamgourmet.com
+  *
+  * http://www.read.cs.ucla.edu/click/elements/paint
+  */
+
 import org.change.v2.abstractnet.generic.{ConfigParameter, ElementBuilder, GenericElement, Port}
 import org.change.v2.analysis.expression.concrete.ConstantValue
-import org.change.v2.analysis.processingmodels.instructions.{InstructionBlock, AssignNamedSymbol, Forward}
-import org.change.v2.analysis.processingmodels.{LocationId, Instruction}
+import org.change.v2.analysis.processingmodels.instructions.{AssignNamedSymbol, Forward, InstructionBlock}
+import org.change.v2.analysis.processingmodels.{Instruction, LocationId}
 
 class Paint(name: String,
-                   inputPorts: List[Port],
-                   outputPorts: List[Port],
-                   configParams: List[ConfigParameter])
+            inputPorts: List[Port],
+            outputPorts: List[Port],
+            configParams: List[ConfigParameter])
   extends GenericElement(name,
     "Paint",
     inputPorts,
@@ -68,7 +69,8 @@ object Paint {
   }
 
   def getBuilder(name: String): PaintBuilder = {
-    increment ; new PaintBuilder(name)
+    increment;
+    new PaintBuilder(name)
   }
 
   def getBuilder: PaintBuilder =

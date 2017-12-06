@@ -3,22 +3,23 @@ package org.change.v2.interval
 import org.change.v2.analysis.types.{LongType, NumericType}
 
 /**
- * Created by radu on 3/24/15.
- */
+  * Created by radu on 3/24/15.
+  */
 
 object IntervalOps {
 
   /**
-   * Check if two intervals intersect.
-   * @param a
-   * @param b
-   * @return
-   */
+    * Check if two intervals intersect.
+    *
+    * @param a
+    * @param b
+    * @return
+    */
   def doIntersect(a: Interval, b: Interval): Boolean =
     (a._1 <= b._1 && b._1 <= a._2) || (a._1 <= b._1 && b._2 <= a._2)
 
   def intervalIntersectionIsInterval(al: Int, au: Int, bl: Int, bu: Int): Boolean =
-    ! ((au <= bl) || (bu <= al))
+    !((au <= bl) || (bu <= al))
 
   def intersect(a: Interval, b: Interval): Option[Interval] =
     if (a._1 <= b._1 && b._1 <= a._2) Some((b._1, Math.min(b._2, a._2)))
@@ -28,7 +29,7 @@ object IntervalOps {
     else None
 
   def unionOfIntersecting(a: Interval, b: Interval) =
-    if (doIntersect(a,b)) Some((Math.min(a._1, b._1), Math.max(a._2, b._2)))
+    if (doIntersect(a, b)) Some((Math.min(a._1, b._1), Math.max(a._2, b._2)))
     else None
 
   def normalize(set: List[Interval]): List[Interval] = {
@@ -47,17 +48,17 @@ object IntervalOps {
 
   def complement(s: ValueSet, t: NumericType = LongType): ValueSet = s match {
     case Nil => List((t.min, t.max))
-    case List((a, b)) if a > t.min && b < t.max => normalize(List((t.min, a-1), (b+1, t.max)))
-    case List((_,_)) => Nil
+    case List((a, b)) if a > t.min && b < t.max => normalize(List((t.min, a - 1), (b + 1, t.max)))
+    case List((_, _)) => Nil
     case _ => {
       val aux = (for {
         w <- s.sliding(2)
         fst = w.head
         snd = w.last
-      } yield (fst._2+1, snd._1-1)).toList
+      } yield (fst._2 + 1, snd._1 - 1)).toList
       normalize(
-        (if (s.head._1 > t.min) List((t.min, s.head._1-1)) else Nil) ++
-          (if (s.last._2 < t.max) List((s.last._2+1, t.max)) else Nil) ++
+        (if (s.head._1 > t.min) List((t.min, s.head._1 - 1)) else Nil) ++
+          (if (s.last._2 < t.max) List((s.last._2 + 1, t.max)) else Nil) ++
           aux)
     }
   }
@@ -70,12 +71,13 @@ object IntervalOps {
         stripNeedless
           .takeWhile(i._2 >= _._1)
           .map(that =>
-          intersect(i, that))
+            intersect(i, that))
 
           .filter(_.isDefined)
           .map(_.get) ++ looper(rest, stripNeedless)
       }
     }
+
     val nAll = all.map(normalize)
     val res = nAll.reduceLeft(looper)
     res

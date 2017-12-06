@@ -1,19 +1,19 @@
 package org.change.v2.abstractnet.click.sefl
 
-import org.change.v2.abstractnet.generic.{ElementBuilder, GenericElement, ConfigParameter, Port}
+import org.change.v2.abstractnet.generic.{ConfigParameter, ElementBuilder, GenericElement, Port}
 import org.change.v2.analysis.constraint.EQ_E
-import org.change.v2.analysis.expression.concrete.{ConstantValue, SymbolicValue}
+import org.change.v2.analysis.expression.concrete.ConstantValue
 import org.change.v2.analysis.processingmodels._
 import org.change.v2.analysis.processingmodels.instructions._
 
 /**
- * A small gift from radu to symnetic.
- */
+  * A small gift from radu to symnetic.
+  */
 class PaintSwitch(name: String,
-          elementType: String,
-          inputPorts: List[Port],
-          outputPorts: List[Port],
-          configParams: List[ConfigParameter])
+                  elementType: String,
+                  inputPorts: List[Port],
+                  outputPorts: List[Port],
+                  configParams: List[ConfigParameter])
   extends GenericElement(name,
     elementType,
     inputPorts,
@@ -23,21 +23,21 @@ class PaintSwitch(name: String,
   override def instructions: Map[LocationId, Instruction] = Map(
     inputPortName(0) -> Fork(
       Seq(
-      InstructionBlock(
-        //          Constrain("COLOR", :==:(ConstantValue(color))),
-        ConstrainNamedSymbol(Paint.COLOR, EQ_E(ConstantValue(0))),
-        Forward(outputPortName(0))
-      ),
-//      InstructionBlock(
-//        //          Constrain("COLOR", :==:(ConstantValue(color))),
-//        ConstrainNamedSymbol(Paint.COLOR, EQ_E(ConstantValue(1))),
-//        Forward(outputPortName(1))
-//      ),
-      InstructionBlock(
-        //          Constrain("COLOR", :==:(ConstantValue(color))),
-        ConstrainNamedSymbol(Paint.COLOR, EQ_E(ConstantValue(2))),
-        Forward(outputPortName(2))
-      ))
+        InstructionBlock(
+          //          Constrain("COLOR", :==:(ConstantValue(color))),
+          ConstrainNamedSymbol(Paint.COLOR, EQ_E(ConstantValue(0))),
+          Forward(outputPortName(0))
+        ),
+        //      InstructionBlock(
+        //        //          Constrain("COLOR", :==:(ConstantValue(color))),
+        //        ConstrainNamedSymbol(Paint.COLOR, EQ_E(ConstantValue(1))),
+        //        Forward(outputPortName(1))
+        //      ),
+        InstructionBlock(
+          //          Constrain("COLOR", :==:(ConstantValue(color))),
+          ConstrainNamedSymbol(Paint.COLOR, EQ_E(ConstantValue(2))),
+          Forward(outputPortName(2))
+        ))
     )
   )
 
@@ -62,7 +62,8 @@ object PaintSwitch {
   }
 
   def getBuilder(name: String): PaintSwitchElementBuilder = {
-    increment ; new PaintSwitchElementBuilder(name, "PaintSwitch")
+    increment;
+    new PaintSwitchElementBuilder(name, "PaintSwitch")
   }
 
   def getBuilder: PaintSwitchElementBuilder =

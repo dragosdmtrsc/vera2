@@ -3,18 +3,18 @@ package modelexample
 import org.change.v2.analysis.expression.concrete.{ConstantValue, SymbolicValue}
 import org.change.v2.analysis.memory.State
 import org.change.v2.analysis.processingmodels.instructions._
-import org.scalatest.{Matchers, FlatSpec}
+import org.scalatest.{FlatSpec, Matchers}
 
 /**
- * Author: Radu Stoenescu
- * Don't be a stranger,  symnetic.7.radustoe@spamgourmet.com
- */
+  * Author: Radu Stoenescu
+  * Don't be a stranger,  symnetic.7.radustoe@spamgourmet.com
+  */
 class TestModelExample extends FlatSpec with Matchers {
 
   "A valid model" should "be able to produce concrete examples" in {
     val s = State.bigBang
 
-    val finalState = InstructionBlock (
+    val finalState = InstructionBlock(
       Allocate("a"),
       Assign("a", SymbolicValue()),
       Assign("b", SymbolicValue()),
@@ -33,7 +33,7 @@ class TestModelExample extends FlatSpec with Matchers {
     assert(ea < 10)
     assert(eb >= 10)
 
-    b.memory.exampleFor("b").get should be (0)
+    b.memory.exampleFor("b").get should be(0)
   }
 
 }

@@ -2,14 +2,13 @@ package clickfiletoexecutor
 
 import org.change.parser.clickfile.ClickToAbstractNetwork
 import org.change.v2.abstractnet.click.sefl.IPRewriter
-import org.change.v2.analysis.expression.concrete.ConstantValue
 import org.change.v2.executor.clickabstractnetwork.ClickExecutionContext
-import org.scalatest.{Matchers, FlatSpec}
+import org.scalatest.{FlatSpec, Matchers}
 
 /**
- * Author: Radu Stoenescu
- * Don't be a stranger,  symnetic.7.radustoe@spamgourmet.com
- */
+  * Author: Radu Stoenescu
+  * Don't be a stranger,  symnetic.7.radustoe@spamgourmet.com
+  */
 class IPRewriterTests extends FlatSpec with Matchers {
 
   "An executor context" should "be built from a click having an IPRewriter" in {
@@ -18,7 +17,7 @@ class IPRewriterTests extends FlatSpec with Matchers {
     val executor = ClickExecutionContext.fromSingle(absNet)
 
     var crtExecutor = executor
-    while(! crtExecutor.isDone) {
+    while (!crtExecutor.isDone) {
       crtExecutor = crtExecutor.execute()
     }
 
@@ -27,29 +26,29 @@ class IPRewriterTests extends FlatSpec with Matchers {
     val replayExecutor = new ClickExecutionContext(crtExecutor.instructions, crtExecutor.links, List(crtExecutor.stuckStates.head.forwardTo(absNet.entryLocationId)), Nil, Nil)
 
     crtExecutor = replayExecutor
-    while(! crtExecutor.isDone) {
+    while (!crtExecutor.isDone) {
       crtExecutor = crtExecutor.execute()
     }
   }
 
   "IPRewriter patterns" should "match valid input patterns" in {
     assert("pattern 1.0.0.0 1 10.0.0.1 2 0 1" match {
-      case IPRewriter.rewritePattern(_,_,_,_,_,_) => true
+      case IPRewriter.rewritePattern(_, _, _, _, _, _) => true
       case _ => false
     })
 
     assert("pattern 1.0.0.0 1-2 10.0.0.1 2-15 0 1" match {
-      case IPRewriter.rewritePattern(_,_,_,_,_,_) => true
+      case IPRewriter.rewritePattern(_, _, _, _, _, _) => true
       case _ => false
     })
 
     assert("pattern - - - - 0 1" match {
-      case IPRewriter.rewritePattern(_,_,_,_,_,_) => true
+      case IPRewriter.rewritePattern(_, _, _, _, _, _) => true
       case _ => false
     })
 
     assert("pattern - 1-10 - 14-20 0 1" match {
-      case IPRewriter.rewritePattern(_,_,_,_,_,_) => true
+      case IPRewriter.rewritePattern(_, _, _, _, _, _) => true
       case _ => false
     })
   }
@@ -60,7 +59,7 @@ class IPRewriterTests extends FlatSpec with Matchers {
     val executor = ClickExecutionContext.fromSingle(absNet)
 
     var crtExecutor = executor
-    while(! crtExecutor.isDone) {
+    while (!crtExecutor.isDone) {
       crtExecutor = crtExecutor.execute()
     }
 

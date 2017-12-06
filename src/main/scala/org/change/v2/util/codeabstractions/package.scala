@@ -1,8 +1,8 @@
 package org.change.v2.util
 
 /**
- * Created by radu on 3/27/15.
- */
+  * Created by radu on 3/27/15.
+  */
 package object codeabstractions {
 
   def mutateAndReturn[T](mutable: T)(mutator: T => Unit): T = {
@@ -18,7 +18,7 @@ package object codeabstractions {
     case h :: rest => newHead :: rest
   }
 
-  def addToMapping[K,V](map: Map[K, List[V]], k: K, v: V): Map[K, List[V]] = map.get(k) match {
+  def addToMapping[K, V](map: Map[K, List[V]], k: K, v: V): Map[K, List[V]] = map.get(k) match {
     case None => map + (k -> List(v))
     case Some(l) => map + (k -> (v :: l))
   }

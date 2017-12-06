@@ -1,11 +1,11 @@
 package org.change.v2.runners.experiments
 
+import org.change.v2.analysis.executor.InstructionExecutor
 import org.change.v2.analysis.expression.concrete.SymbolicValue
 import org.change.v2.analysis.memory.State
 import org.change.v2.analysis.processingmodels.instructions.{Assign, Fail, Forward, InstructionBlock}
 import org.change.v2.executor.clickabstractnetwork.ClickExecutionContext
 import org.change.v2.executor.clickabstractnetwork.executionlogging.JsonLogger
-import org.change.v2.analysis.executor.InstructionExecutor
 
 /**
   * A small gift from radu to symnetic.
@@ -27,8 +27,6 @@ object SimpleExecutor {
 
     val done = exe.untilDone(true)
     println(done)
-
-
 
 
   }

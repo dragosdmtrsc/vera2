@@ -1,18 +1,18 @@
 package org.change.v2.abstractnet.optimizedrouter
 
-import org.change.v2.analysis.constraint.{OR, LTE_E, GTE_E, AND, NOT}
+import org.change.v2.analysis.constraint._
 import org.change.v2.analysis.expression.concrete.ConstantValue
 import org.change.v2.analysis.expression.concrete.nonprimitive.:@
 import org.change.v2.analysis.memory.State
-import org.change.v2.analysis.processingmodels.instructions.{:>:, ConstrainRaw}
-import org.change.v2.util.regexes._
-import org.change.v2.util.conversion.RepresentationConversion
-import org.change.v2.util.canonicalnames._
 import org.change.v2.analysis.processingmodels.Instruction
+import org.change.v2.analysis.processingmodels.instructions.{:>:, ConstrainRaw}
+import org.change.v2.util.canonicalnames._
+import org.change.v2.util.conversion.RepresentationConversion
+import org.change.v2.util.regexes._
 
 /**
- * Created by radu on 24.09.2015.
- */
+  * Created by radu on 24.09.2015.
+  */
 object ParseForwardingTable {
 
   type RoutingEntry = (String, String)
@@ -47,63 +47,61 @@ object ParseForwardingTable {
       line <- scala.io.Source.fromFile(file).getLines()
       tokens = line.split("\\s+")
       if (tokens.length >= 3)
-    if tokens(0) != ""
+      if tokens(0) != ""
       matchPattern = tokens(0)
       forwardingPort = tokens(2)
     } yield (
-        matchPattern match {
-          case ipv4netmaskRegex() => {
-            val netMaskTokens = matchPattern.split("/")
-            val netAddr = netMaskTokens(0)
-            val mask = netMaskTokens(1)
-            val (l, u) = RepresentationConversion.ipAndMaskToInterval(netAddr, mask)
-            (l,u)
-          }
-        },
-        forwardingPort
-        )).toList.sortBy(i => i._1._2 - i._1._1)
+      matchPattern match {
+        case ipv4netmaskRegex() => {
+          val netMaskTokens = matchPattern.split("/")
+          val netAddr = netMaskTokens(0)
+          val mask = netMaskTokens(1)
+          val (l, u) = RepresentationConversion.ipAndMaskToInterval(netAddr, mask)
+          (l, u)
+        }
+      },
+      forwardingPort
+    )).toList.sortBy(i => i._1._2 - i._1._1)
   }
 
   def makeRouter(table: List[((Long, Long), String)]): Map[String, Instruction] = {
     table.map(i => {
-      val ((l,u), port) = i
-      (port, AND(List(GTE_E(ConstantValue(l)), LTE_E(ConstantValue(u))) ++
-        {
-          val conflicts = table.takeWhile(i =>  u-l > i._1._2 - i._1._1)filter( other => {
-            val ((otherL, otherU), otherPort) = other
-            port != otherPort &&
-              l <= otherL &&
-              u >= otherU
-          })
+      val ((l, u), port) = i
+      (port, AND(List(GTE_E(ConstantValue(l)), LTE_E(ConstantValue(u))) ++ {
+        val conflicts = table.takeWhile(i => u - l > i._1._2 - i._1._1) filter (other => {
+          val ((otherL, otherU), otherPort) = other
+          port != otherPort &&
+            l <= otherL &&
+            u >= otherU
+        })
 
-          if (conflicts.nonEmpty)
-            List(NOT(OR((conflicts.map( conflictual => {
-              AND(List(GTE_E(ConstantValue(conflictual._1._1)), LTE_E(ConstantValue(conflictual._1._2))))
-            })))))
-          else Nil
-        }))
-    }).groupBy(_._1).map( kv =>
+        if (conflicts.nonEmpty)
+          List(NOT(OR((conflicts.map(conflictual => {
+            AND(List(GTE_E(ConstantValue(conflictual._1._1)), LTE_E(ConstantValue(conflictual._1._2))))
+          })))))
+        else Nil
+      }))
+    }).groupBy(_._1).map(kv =>
       (kv._1, ConstrainRaw(IPSrc, :>:(:@("a")), Some(OR(kv._2.map(_._2)))))
-      )
+    )
   }
 
   def makeNaiveRouter(table: List[((Long, Long), String)]): List[Instruction] =
     table.map(i => {
-      val ((l,u), port) = i
-      ConstrainRaw(IPSrc, :>:(:@("a")), Some(AND(List(GTE_E(ConstantValue(l)), LTE_E(ConstantValue(u))) ++
-        {
-          val conflicts = table.takeWhile(i =>  u-l > i._1._2 - i._1._1)filter( other => {
-            val ((otherL, otherU), otherPort) = other
-            port != otherPort &&
-              l <= otherL &&
-              u >= otherU
-          })
+      val ((l, u), port) = i
+      ConstrainRaw(IPSrc, :>:(:@("a")), Some(AND(List(GTE_E(ConstantValue(l)), LTE_E(ConstantValue(u))) ++ {
+        val conflicts = table.takeWhile(i => u - l > i._1._2 - i._1._1) filter (other => {
+          val ((otherL, otherU), otherPort) = other
+          port != otherPort &&
+            l <= otherL &&
+            u >= otherU
+        })
 
-          if (conflicts.nonEmpty)
-            List(NOT(OR((conflicts.map( conflictual => {
-              AND(List(GTE_E(ConstantValue(conflictual._1._1)), LTE_E(ConstantValue(conflictual._1._2))))
-            })))))
-          else Nil
-        })))
+        if (conflicts.nonEmpty)
+          List(NOT(OR((conflicts.map(conflictual => {
+            AND(List(GTE_E(ConstantValue(conflictual._1._1)), LTE_E(ConstantValue(conflictual._1._2))))
+          })))))
+        else Nil
+      })))
     })
 }

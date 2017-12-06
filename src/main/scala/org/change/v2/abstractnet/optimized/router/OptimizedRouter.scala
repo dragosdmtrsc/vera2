@@ -1,6 +1,7 @@
 package org.change.v2.abstractnet.optimized.router
 
-import org.change.utils
+import java.io.File
+
 import org.change.v2.abstractnet.click.selfbuildingblocks.EtherMumboJumbo
 import org.change.v2.abstractnet.generic._
 import org.change.v2.analysis.constraint._
@@ -8,15 +9,14 @@ import org.change.v2.analysis.expression.concrete.ConstantValue
 import org.change.v2.analysis.processingmodels._
 import org.change.v2.analysis.processingmodels.instructions._
 import org.change.v2.util.canonicalnames._
-import java.io.File
-import scala.io.Source
-import scala.util.matching.Regex
-import org.change.v2.util.regexes._
 import org.change.v2.util.conversion.RepresentationConversion
+import org.change.v2.util.regexes._
+
+import scala.io.Source
 
 /**
- * A small gift from radu to symnetic.
- */
+  * A small gift from radu to symnetic.
+  */
 class OptimizedRouter(name: String,
                       elementType: String,
                       inputPorts: List[Port],
@@ -69,17 +69,17 @@ object OptimizedRouter {
       matchPattern = tokens(0)
       forwardingPort = tokens(2)
     } yield (
-        matchPattern match {
-          case ipv4netmaskRegex() => {
-            val netMaskTokens = matchPattern.split("/")
-            val netAddr = netMaskTokens(0)
-            val mask = netMaskTokens(1)
-            val (l, u) = RepresentationConversion.ipAndMaskToInterval(netAddr, mask)
-            (l,u)
-          }
-        },
-        forwardingPort
-        )).toSeq.sortBy(i => i._1._2 - i._1._1)
+      matchPattern match {
+        case ipv4netmaskRegex() => {
+          val netMaskTokens = matchPattern.split("/")
+          val netAddr = netMaskTokens(0)
+          val mask = netMaskTokens(1)
+          val (l, u) = RepresentationConversion.ipAndMaskToInterval(netAddr, mask)
+          (l, u)
+        }
+      },
+      forwardingPort
+    )).toSeq.sortBy(i => i._1._2 - i._1._1)
   }
 
   def getTrivialRoutingEntries(file: File): Seq[((Long, Long), String)] = {
@@ -95,7 +95,7 @@ object OptimizedRouter {
           val netAddr = netMaskTokens(0)
           val mask = netMaskTokens(1)
           val (l, u) = RepresentationConversion.ipAndMaskToInterval(netAddr, mask)
-          (l,u)
+          (l, u)
         }
       },
       forwardingPort
@@ -103,7 +103,7 @@ object OptimizedRouter {
   }
 
   def getDstMacConstraint(macs: String): Instruction = {
-    ConstrainRaw(EtherDst,NOT(OR((for (m <-Source.fromFile(macs).getLines()) yield {
+    ConstrainRaw(EtherDst, NOT(OR((for (m <- Source.fromFile(macs).getLines()) yield {
       EQ_E(ConstantValue(RepresentationConversion.macToNumberCiscoFormat(m)))
     }).toList)))
   }
@@ -115,26 +115,25 @@ object OptimizedRouter {
     val macsFile = f.getParent + File.separator + name + ".macs"
     val dstMacConstrain = getDstMacConstraint(macsFile)
 
-    new OptimizedRouter(name + "-" + name,"Router", Nil, Nil, Nil) {
+    new OptimizedRouter(name + "-" + name, "Router", Nil, Nil, Nil) {
       override def instructions: Map[LocationId, Instruction] = Map(inputPortName("port") ->
         Fork(table.map(i => {
-          val ((l,u), port) = i
-          (port, AND(List(GTE_E(ConstantValue(l)), LTE_E(ConstantValue(u))) ++
-            {
-              val conflicts = table.takeWhile(i =>  u-l > i._1._2 - i._1._1)filter( other => {
-                val ((otherL, otherU), otherPort) = other
-                port != otherPort &&
-                  l <= otherL &&
-                  u >= otherU
-              })
+          val ((l, u), port) = i
+          (port, AND(List(GTE_E(ConstantValue(l)), LTE_E(ConstantValue(u))) ++ {
+            val conflicts = table.takeWhile(i => u - l > i._1._2 - i._1._1) filter (other => {
+              val ((otherL, otherU), otherPort) = other
+              port != otherPort &&
+                l <= otherL &&
+                u >= otherU
+            })
 
-              if (conflicts.nonEmpty)
-                Seq(NOT(OR((conflicts.map( conflictual => {
-                  AND(List(GTE_E(ConstantValue(conflictual._1._1)), LTE_E(ConstantValue(conflictual._1._2))))
-                }).toList))))
-              else Nil
-            }))
-        }).groupBy(_._1).map( kv =>
+            if (conflicts.nonEmpty)
+              Seq(NOT(OR((conflicts.map(conflictual => {
+                AND(List(GTE_E(ConstantValue(conflictual._1._1)), LTE_E(ConstantValue(conflictual._1._2))))
+              }).toList))))
+            else Nil
+          }))
+        }).groupBy(_._1).map(kv =>
           InstructionBlock(
             ConstrainRaw(IPDst, OR(kv._2.map(_._2).toList)),
             EtherMumboJumbo.stripAllEther,
@@ -145,17 +144,17 @@ object OptimizedRouter {
                 if (vlan == 290)
                   Constrain(EtherSrc, :==:(ConstantValue(RepresentationConversion.macToNumberCiscoFormat("0019.e72a.77ff"))))
                 else
-////                if (vlan == 290)
-////                  Constrain(EtherDst, :==:(ConstantValue(RepresentationConversion.macToNumberCiscoFormat("0018.742f.bd80"))))
-////               else
+                ////                if (vlan == 290)
+                ////                  Constrain(EtherDst, :==:(ConstantValue(RepresentationConversion.macToNumberCiscoFormat("0018.742f.bd80"))))
+                ////               else
                   NoOp
-               )
+              )
             } else {
               EtherMumboJumbo.symbolicEtherEncap
             },
             dstMacConstrain,
             Forward(outputPortName(kv._1)))
-          )))
+        )))
     }
   }
 
@@ -166,27 +165,26 @@ object OptimizedRouter {
     val macsFile = f.getParent + File.separator + name + ".macs"
     val dstMacConstrain = getDstMacConstraint(macsFile)
 
-    new OptimizedRouter(name + "-" + name,"Router", Nil, Nil, Nil) {
+    new OptimizedRouter(name + "-" + name, "Router", Nil, Nil, Nil) {
       override def instructions: Map[LocationId, Instruction] = Map(inputPortName("in") ->
         Fork(table.map(i => {
-          val ((l,u), port) = i
-          (port, AND(List(GTE_E(ConstantValue(l)), LTE_E(ConstantValue(u))) ++
-            {
-              val conflicts = table.takeWhile(i =>  u-l > i._1._2 - i._1._1)filter( other => {
-                val ((otherL, otherU), otherPort) = other
-                port != otherPort &&
-                  l <= otherL &&
-                  u >= otherU
-              })
+          val ((l, u), port) = i
+          (port, AND(List(GTE_E(ConstantValue(l)), LTE_E(ConstantValue(u))) ++ {
+            val conflicts = table.takeWhile(i => u - l > i._1._2 - i._1._1) filter (other => {
+              val ((otherL, otherU), otherPort) = other
+              port != otherPort &&
+                l <= otherL &&
+                u >= otherU
+            })
 
-              if (conflicts.nonEmpty)
-                Seq(NOT(OR((conflicts.map( conflictual => {
-                  AND(List(GTE_E(ConstantValue(conflictual._1._1)), LTE_E(ConstantValue(conflictual._1._2))))
-                }).toList))))
-              else
-                Nil
-            }))
-        }).groupBy(_._1).map( kv =>
+            if (conflicts.nonEmpty)
+              Seq(NOT(OR((conflicts.map(conflictual => {
+                AND(List(GTE_E(ConstantValue(conflictual._1._1)), LTE_E(ConstantValue(conflictual._1._2))))
+              }).toList))))
+            else
+              Nil
+          }))
+        }).groupBy(_._1).map(kv =>
           InstructionBlock(
             ConstrainRaw(IPDst, OR(kv._2.map(_._2).toList)),
             EtherMumboJumbo.stripAllEther,
@@ -204,35 +202,34 @@ object OptimizedRouter {
     var which = 0
 
     val i = table.map(i => {
-      val ((l,u), port) = i
-      (port, AND(List(GTE_E(ConstantValue(l)), LTE_E(ConstantValue(u))) ++
-        {
-          val conflicts = table.takeWhile(i =>  u-l > i._1._2 - i._1._1)filter( other => {
-            val ((otherL, otherU), otherPort) = other
-            port != otherPort &&
-              l <= otherL &&
-              u >= otherU
-          })
+      val ((l, u), port) = i
+      (port, AND(List(GTE_E(ConstantValue(l)), LTE_E(ConstantValue(u))) ++ {
+        val conflicts = table.takeWhile(i => u - l > i._1._2 - i._1._1) filter (other => {
+          val ((otherL, otherU), otherPort) = other
+          port != otherPort &&
+            l <= otherL &&
+            u >= otherU
+        })
 
-          conflictCount += conflicts.size
-          which += 1
+        conflictCount += conflicts.size
+        which += 1
 
-          if (which % 100 == 0) println(which)
+        if (which % 100 == 0) println(which)
 
-          if (conflicts.nonEmpty)
-            Seq(NOT(OR((conflicts.map( conflictual => {
-              AND(List(GTE_E(ConstantValue(conflictual._1._1)), LTE_E(ConstantValue(conflictual._1._2))))
-            }).toList))))
-          else Nil
-        }))
-    }).groupBy(_._1).foldRight(Fail("No route"): Instruction)( (kv, a) =>
+        if (conflicts.nonEmpty)
+          Seq(NOT(OR((conflicts.map(conflictual => {
+            AND(List(GTE_E(ConstantValue(conflictual._1._1)), LTE_E(ConstantValue(conflictual._1._2))))
+          }).toList))))
+        else Nil
+      }))
+    }).groupBy(_._1).foldRight(Fail("No route"): Instruction)((kv, a) =>
       If(ConstrainRaw(IPDst, OR(kv._2.map(_._2).toList)), Forward(kv._1), a)
     )
 
     println("Routing table size " + table.length)
     println("Conflict count " + conflictCount)
 
-    new OptimizedRouter(f.getName,"Router", Nil, Nil, Nil) {
+    new OptimizedRouter(f.getName, "Router", Nil, Nil, Nil) {
       override def instructions: Map[LocationId, Instruction] = Map("0" -> i)
     }
   }

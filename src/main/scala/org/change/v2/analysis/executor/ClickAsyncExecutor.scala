@@ -1,51 +1,24 @@
 package org.change.v2.analysis.executor
 
-import org.change.v2.analysis.memory.State
-import org.change.v2.analysis.processingmodels.Instruction
-import org.change.v2.analysis.memory.Intable
-import org.change.v2.analysis.memory.TagExp
-import org.change.v2.analysis.constraint._
-import org.change.v2.analysis.processingmodels._
-import org.change.v2.analysis.processingmodels.instructions.Fail
-import org.change.v2.analysis.processingmodels.instructions.DeallocateNamedSymbol
-import org.change.v2.analysis.processingmodels.instructions.ConstrainNamedSymbol
-import org.change.v2.analysis.processingmodels.instructions.ConstrainRaw
-import org.change.v2.analysis.processingmodels.instructions.DestroyTag
-import org.change.v2.analysis.processingmodels.instructions.Forward
-import org.change.v2.analysis.processingmodels.instructions.AssignRaw
-import org.change.v2.analysis.processingmodels.instructions.AssignNamedSymbol
-import org.change.v2.analysis.processingmodels.instructions.AllocateSymbol
-import org.change.v2.analysis.memory.TagExp
-import org.change.v2.analysis.processingmodels.instructions.CreateTag
-import org.change.v2.analysis.processingmodels.instructions.AllocateRaw
-import org.change.v2.analysis.processingmodels.instructions.InstructionBlock
-import org.change.v2.analysis.processingmodels.instructions.DeallocateRaw
-import org.change.v2.analysis.processingmodels.instructions.Fork
-import org.change.v2.analysis.processingmodels.instructions.If
-import org.change.v2.analysis.processingmodels.instructions.optionToStatePair
-import org.change.v2.analysis.processingmodels.instructions.stateToError
-import org.change.v2.analysis.processingmodels.instructions.:~:
-import org.change.v2.executor.clickabstractnetwork.executionlogging.ExecutionLogger
-import org.change.v2.executor.clickabstractnetwork.executionlogging.NoLogging
-import org.change.v2.executor.clickabstractnetwork.ClickExecutionContext
+import java.util.concurrent.{ExecutorService, Executors}
+
 import org.change.v2.abstractnet.generic.NetworkConfig
-import java.util.concurrent.ExecutorService
-import java.util.concurrent.Executors
+import org.change.v2.analysis.memory.State
+import org.change.v2.analysis.processingmodels.{Instruction, _}
 
 class ClickAsyncExecutor(
-                 instructions: Map[LocationId, Instruction],
-                 links: Map[LocationId, LocationId],
-                 maxLevel : Int = 1000,
-                 executor : InstructionExecutor = InstructionExecutor(),
-                 nr : Int = 4,
-                 service : Option[ExecutorService] = None
-) extends AsyncExecutor(executor, instructions, maxLevel, 
-    ClickAsyncExecutor.getExecutor(nr, service)) {
+                          instructions: Map[LocationId, Instruction],
+                          links: Map[LocationId, LocationId],
+                          maxLevel: Int = 1000,
+                          executor: InstructionExecutor = InstructionExecutor(),
+                          nr: Int = 4,
+                          service: Option[ExecutorService] = None
+                        ) extends AsyncExecutor(executor, instructions, maxLevel,
+  ClickAsyncExecutor.getExecutor(nr, service)) {
 
-  override def getInstruction(loc : LocationId) : Option[Instruction] = {
+  override def getInstruction(loc: LocationId): Option[Instruction] = {
     val i1 = instructions.get(loc)
-    if (i1.isEmpty)
-    {
+    if (i1.isEmpty) {
       if (links contains loc)
         getInstruction(links(loc))
       else
@@ -54,30 +27,30 @@ class ClickAsyncExecutor(
     else
       i1
   }
-  
+
 }
 
 object ClickAsyncExecutor {
-  
-  def getExecutor(nr : Int, service : Option[ExecutorService]) = {
-   service match {
+
+  def getExecutor(nr: Int, service: Option[ExecutorService]) = {
+    service match {
       case Some(x) => x
       case None => Executors.newFixedThreadPool(nr)
     }
   }
-  
+
   def buildAggregated(
-            configs: Iterable[NetworkConfig],
-            interClickLinks: Iterable[(String, String, String, String, String, String)],
-            startElems: Option[Iterable[(String, String, String)]] = None,
-            nrThreads : Int = 1,
-            instrExec : InstructionExecutor = InstructionExecutor()): 
-            (ClickAsyncExecutor, List[State]) = {
+                       configs: Iterable[NetworkConfig],
+                       interClickLinks: Iterable[(String, String, String, String, String, String)],
+                       startElems: Option[Iterable[(String, String, String)]] = None,
+                       nrThreads: Int = 1,
+                       instrExec: InstructionExecutor = InstructionExecutor()):
+  (ClickAsyncExecutor, List[State]) = {
     // Create a context for every network config.
     val ctxes = configs.map(networkModel => networkModel.elements.values.
-        foldLeft(Map[LocationId, Instruction]())(_ ++ _.instructions))
+      foldLeft(Map[LocationId, Instruction]())(_ ++ _.instructions))
     val intraLinks = configs.map(networkModel => {
-      networkModel.paths.flatMap( _.sliding(2).map(pcp => {
+      networkModel.paths.flatMap(_.sliding(2).map(pcp => {
         val src = pcp.head
         val dst = pcp.last
         networkModel.elements(src._1).outputPortName(src._3) -> networkModel.elements(dst._1).inputPortName(dst._2)
@@ -103,8 +76,8 @@ object ClickAsyncExecutor {
       }
     }
     val instrs = ctxes.foldLeft(Map[String, Instruction]())(_ ++ _)
-    
-    val executor = new ClickAsyncExecutor(instrs, links, executor=instrExec, nr = nrThreads)
+
+    val executor = new ClickAsyncExecutor(instrs, links, executor = instrExec, nr = nrThreads)
     (executor, startStates.toList)
   }
 }

@@ -3,15 +3,13 @@ package clickfiletoexecutor.multipleclicks
 import org.change.parser.clickfile.ClickToAbstractNetwork
 import org.change.parser.interclicklinks.InterClickLinksParser
 import org.change.symbolicexec.verification.RuleSetBuilder
-import org.change.v2.abstractnet.generic.NetworkConfig
-import org.change.v2.analysis.expression.concrete.ConstantValue
 import org.change.v2.executor.clickabstractnetwork.ClickExecutionContext
 import org.scalatest.{FlatSpec, Matchers}
 
 /**
- * Author: Radu Stoenescu
- * Don't be a stranger,  symnetic.7.radustoe@spamgourmet.com
- */
+  * Author: Radu Stoenescu
+  * Don't be a stranger,  symnetic.7.radustoe@spamgourmet.com
+  */
 class ExecuteMultipleClicksTest extends FlatSpec with Matchers {
 
   "Multiple click files" should "produce a valid execution context" in {
@@ -24,7 +22,7 @@ class ExecuteMultipleClicksTest extends FlatSpec with Matchers {
       InterClickLinksParser.parseLinks("src/main/resources/click_test_files/multiple_files/trivial/inter-click-links.links")
     )
 
-    ctx shouldBe a [ClickExecutionContext]
+    ctx shouldBe a[ClickExecutionContext]
     ctx.instructions should have size 6
     ctx.links should have size 5
   }
@@ -40,7 +38,7 @@ class ExecuteMultipleClicksTest extends FlatSpec with Matchers {
       RuleSetBuilder.buildRuleSetFromFile("src/main/resources/spec_lang_tests/multiple_simple")
     )
 
-    ctx shouldBe a [ClickExecutionContext]
+    ctx shouldBe a[ClickExecutionContext]
     ctx.instructions should have size 6
     ctx.links should have size 5
     ctx.checkInstructions should have size 3
@@ -58,11 +56,11 @@ class ExecuteMultipleClicksTest extends FlatSpec with Matchers {
     )
 
     var crtExecutor = ctx
-    while(! crtExecutor.isDone) {
+    while (!crtExecutor.isDone) {
       crtExecutor = crtExecutor.execute()
     }
 
-    ctx shouldBe a [ClickExecutionContext]
+    ctx shouldBe a[ClickExecutionContext]
     ctx.instructions should have size 6
     ctx.links should have size 5
     ctx.checkInstructions should have size 3
@@ -84,11 +82,11 @@ class ExecuteMultipleClicksTest extends FlatSpec with Matchers {
     )
 
     var crtExecutor = ctx
-    while(! crtExecutor.isDone) {
+    while (!crtExecutor.isDone) {
       crtExecutor = crtExecutor.execute()
     }
 
-    ctx shouldBe a [ClickExecutionContext]
+    ctx shouldBe a[ClickExecutionContext]
     ctx.instructions should have size 6
     ctx.links should have size 5
     ctx.checkInstructions should have size 3
@@ -110,11 +108,11 @@ class ExecuteMultipleClicksTest extends FlatSpec with Matchers {
     )
 
     var crtExecutor = ctx
-    while(! crtExecutor.isDone) {
+    while (!crtExecutor.isDone) {
       crtExecutor = crtExecutor.execute()
     }
 
-    ctx shouldBe a [ClickExecutionContext]
+    ctx shouldBe a[ClickExecutionContext]
     ctx.instructions should have size 6
     ctx.links should have size 5
     ctx.checkInstructions should have size 3

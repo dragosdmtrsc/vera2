@@ -2,18 +2,18 @@ package org.change.symbolicexec.blocks.click
 
 import org.change.symbolicexec._
 import org.change.v2.abstractnet.generic.ConfigParameter
-import org.change.v2.util.conversion.{RepresentationConversion, NumberFor}
+import org.change.v2.util.conversion.{NumberFor, RepresentationConversion}
 
 class IPFilterBlock(id: String, params: List[ConfigParameter]) {
 
-//  Extract filtering rules
+  //  Extract filtering rules
   private var rules = params.map(IPFilterBlock.configParamToConstraints(_))
 
   if (rules.last.isEmpty) {
-//    If dash found, then do sth with it
-//    TODO: Extend this to other params.
-    rules = rules.init ++ List(rules.init.map( cs => {
-      cs.map( c => {
+    //    If dash found, then do sth with it
+    //    TODO: Extend this to other params.
+    rules = rules.init ++ List(rules.init.map(cs => {
+      cs.map(c => {
         (c._1, NOT(c._2))
       })
     }).flatten)
@@ -54,7 +54,7 @@ object IPFilterBlock {
   }
 
   private def configParamToConstraints(cp: ConfigParameter): List[(Symbol, Constraint)] = {
-//    The dash is a really shitty case we should be aware.
+    //    The dash is a really shitty case we should be aware.
     if (cp.value.trim.matches("-")) Nil
     else {
       val groups = cp.value.split("\\W+", 2)

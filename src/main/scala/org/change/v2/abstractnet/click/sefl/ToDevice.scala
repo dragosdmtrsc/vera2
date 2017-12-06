@@ -5,10 +5,11 @@ import org.change.v2.analysis.processingmodels._
 import org.change.v2.analysis.processingmodels.instructions.Forward
 
 /**
- * Element corresponding to: "[name] :: ToDevice(deviceName) or FromNetPort(mac)"
- * @param name
- * @param deviceName
- */
+  * Element corresponding to: "[name] :: ToDevice(deviceName) or FromNetPort(mac)"
+  *
+  * @param name
+  * @param deviceName
+  */
 class ToDevice(name: String,
                inputPorts: List[Port],
                outputPorts: List[Port],
@@ -23,7 +24,7 @@ class ToDevice(name: String,
     (inputPortName(0), Forward(outputPortName(0)))
   )
 
-  }
+}
 
 class ToDeviceElementBuilder(name: String)
   extends ElementBuilder(name, "ToDevice") {
@@ -47,7 +48,8 @@ object ToDevice {
   }
 
   def getBuilder(name: String): ToDeviceElementBuilder = {
-    increment ; new ToDeviceElementBuilder(name)
+    increment;
+    new ToDeviceElementBuilder(name)
   }
 
   def getBuilder: ToDeviceElementBuilder =

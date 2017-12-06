@@ -1,17 +1,16 @@
 package org.change.v2.abstractnet.click
 
 /**
- * radu
- * 3/6/14
- */
+  * radu
+  * 3/6/14
+  */
 
-import org.change.symbolicexec.blocks.click.IPFilterBlock
 import org.change.v2.abstractnet.generic.{ConfigParameter, ElementBuilder, GenericElement, Port}
 
 class IPFilter(name: String,
-                 inputPorts: List[Port],
-                 outputPorts: List[Port],
-                 configParams: List[ConfigParameter])
+               inputPorts: List[Port],
+               outputPorts: List[Port],
+               configParams: List[ConfigParameter])
   extends GenericElement(name,
     "IPFilter",
     inputPorts,
@@ -27,7 +26,7 @@ class IPFilterElementBuilder(name: String)
   extends ElementBuilder(name, "IPFilter") {
 
   override def buildElement: IPFilter = {
-//    Add ports for every pattern
+    //    Add ports for every pattern
     if (getInputPorts.isEmpty) for (_ <- getConfigParameters) {
       addInputPort(Port())
       addOutputPort(Port())
@@ -47,7 +46,8 @@ object IPFilter {
   }
 
   def getBuilder(name: String): IPFilterElementBuilder = {
-    increment ; new IPFilterElementBuilder(name)
+    increment;
+    new IPFilterElementBuilder(name)
   }
 
   def getBuilder: IPFilterElementBuilder =

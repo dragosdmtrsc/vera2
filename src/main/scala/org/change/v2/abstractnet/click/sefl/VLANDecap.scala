@@ -6,16 +6,13 @@ import org.change.v2.analysis.expression.concrete.nonprimitive._
 import org.change.v2.analysis.memory.Tag
 import org.change.v2.analysis.processingmodels.instructions._
 import org.change.v2.analysis.processingmodels.{Instruction, LocationId}
-import org.change.v2.util.conversion.RepresentationConversion._
 import org.change.v2.util.canonicalnames._
-import org.change.v2.analysis.memory.TagExp._
-import org.change.v2.analysis.memory.Tag
 
 class VLANDecap(name: String,
-                   elementType: String,
-                   inputPorts: List[Port],
-                   outputPorts: List[Port],
-                   configParams: List[ConfigParameter])
+                elementType: String,
+                inputPorts: List[Port],
+                outputPorts: List[Port],
+                configParams: List[ConfigParameter])
   extends GenericElement(name,
     elementType,
     inputPorts,
@@ -24,22 +21,22 @@ class VLANDecap(name: String,
 
   override def instructions: Map[LocationId, Instruction] = Map(
     inputPortName(0) -> InstructionBlock(
-      Constrain(Tag("L2")+EtherTypeOffset,:==:(ConstantValue(EtherProtoVLAN))),
+      Constrain(Tag("L2") + EtherTypeOffset, :==:(ConstantValue(EtherProtoVLAN))),
       Allocate("s"),
-      Assign("s",:@(Tag("L2")+EtherSrcOffset)),
+      Assign("s", :@(Tag("L2") + EtherSrcOffset)),
       Allocate("d"),
-      Assign("d",:@(Tag("L2")+EtherDstOffset)),
+      Assign("d", :@(Tag("L2") + EtherDstOffset)),
       Deallocate(EtherSrc, 48),
       Deallocate(EtherDst, 48),
       Deallocate(EtherType, 16),
-      Deallocate(PCP,3),
-      Deallocate(DEI,1),
-      Deallocate(VLANTag,12),
-      CreateTag("L2",Tag("L2")+32),
-      Allocate(Tag("L2")+EtherSrcOffset,48),
-      Assign(Tag("L2")+EtherSrcOffset,:@("s")),
-      Allocate(Tag("L2")+EtherDstOffset,48),
-      Assign(Tag("L2")+EtherDstOffset,:@("d")),
+      Deallocate(PCP, 3),
+      Deallocate(DEI, 1),
+      Deallocate(VLANTag, 12),
+      CreateTag("L2", Tag("L2") + 32),
+      Allocate(Tag("L2") + EtherSrcOffset, 48),
+      Assign(Tag("L2") + EtherSrcOffset, :@("s")),
+      Allocate(Tag("L2") + EtherDstOffset, 48),
+      Assign(Tag("L2") + EtherDstOffset, :@("d")),
       Deallocate("s"),
       Deallocate("d"),
       Forward(outputPortName(0))
@@ -68,7 +65,8 @@ object VLANDecap {
   }
 
   def getBuilder(name: String): VLANDecapElementBuilder = {
-    increment ; new VLANDecapElementBuilder(name, "VLANDecap")
+    increment;
+    new VLANDecapElementBuilder(name, "VLANDecap")
   }
 
   def getBuilder: VLANDecapElementBuilder =

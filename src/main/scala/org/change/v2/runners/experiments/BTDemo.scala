@@ -5,8 +5,8 @@ import java.io.File
 import org.change.parser.clickfile.ClickToAbstractNetwork
 import org.change.v2.abstractnet.optimized.macswitch.OptimizedSwitch
 import org.change.v2.abstractnet.optimized.router.OptimizedRouter
-import org.change.v2.executor.clickabstractnetwork.executionlogging.JsonLogger
 import org.change.v2.executor.clickabstractnetwork.AggregatedBuilder._
+import org.change.v2.executor.clickabstractnetwork.executionlogging.JsonLogger
 
 /**
   * This is an example of how to analyze a heterogeneous data plane.
@@ -24,13 +24,13 @@ object BTDemo {
 
     val exe = executorFromFolder(new File(dataPlaneFolder), Map(
       "switch" -> OptimizedSwitch.trivialSwitchNetworkConfig _,
-      "click" -> {f => ClickToAbstractNetwork.buildConfig(f, prefixedElements = true)},
+      "click" -> { f => ClickToAbstractNetwork.buildConfig(f, prefixedElements = true) },
       "router" -> OptimizedRouter.trivialRouterNetwrokConfig _
     )).setLogger(JsonLogger)
 
     val start = System.currentTimeMillis()
-        exe.untilDone(true)
-//    println(System.currentTimeMillis() - start)
+    exe.untilDone(true)
+    //    println(System.currentTimeMillis() - start)
     println("It took me:" + (System.currentTimeMillis() - start))
   }
 

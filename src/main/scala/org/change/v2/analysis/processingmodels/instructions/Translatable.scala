@@ -7,6 +7,6 @@ import org.change.v2.analysis.processingmodels.Instruction
   */
 trait Translatable {
 
-  def generateInstruction() : Instruction;
+  def generateInstruction(): Instruction;
 
 }

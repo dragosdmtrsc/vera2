@@ -1,80 +1,31 @@
 package org.change.utils.prettifier
 
-import org.change.v2.analysis.constraint.AND
-import org.change.v2.analysis.constraint.Constraint
-import org.change.v2.analysis.constraint.E
-import org.change.v2.analysis.constraint.EQ_E
-import org.change.v2.analysis.constraint.GT
-import org.change.v2.analysis.constraint.GTE
-import org.change.v2.analysis.constraint.GTE_E
-import org.change.v2.analysis.constraint.GT_E
-import org.change.v2.analysis.constraint.LT
-import org.change.v2.analysis.constraint.LTE
-import org.change.v2.analysis.constraint.LTE_E
-import org.change.v2.analysis.constraint.LT_E
-import org.change.v2.analysis.constraint.NOT
-import org.change.v2.analysis.constraint.OR
-import org.change.v2.analysis.constraint.Range
-import org.change.v2.analysis.expression.abst.Expression
-import org.change.v2.analysis.expression.concrete.ConstantValue
-import org.change.v2.analysis.expression.concrete.SymbolicValue
-import org.change.v2.analysis.expression.concrete.nonprimitive.Minus
-import org.change.v2.analysis.expression.concrete.nonprimitive.Plus
-import org.change.v2.analysis.expression.concrete.nonprimitive.Reference
-import org.change.v2.analysis.memory.MemoryObject
-import org.change.v2.analysis.memory.MemorySpace
-import org.change.v2.analysis.memory.State
-import org.change.v2.analysis.memory.Value
-import org.change.v2.analysis.memory.ValueStack
-import org.change.v2.analysis.processingmodels.instructions.ConstrainNamedSymbol
-import org.change.v2.analysis.processingmodels.instructions.ConstrainRaw
-import org.change.v2.analysis.types.IP4Type
-import org.change.v2.analysis.types.LongType
-import org.change.v2.analysis.types.MACType
-import org.change.v2.analysis.types.NumericType
-import org.change.v2.analysis.types.PortType
-import org.change.v2.analysis.types.ProtoType
-import org.change.v2.analysis.types.VLANType
-import com.fasterxml.jackson.annotation.JsonTypeInfo
-import com.fasterxml.jackson.databind.DeserializationFeature
-import com.fasterxml.jackson.databind.ObjectMapper
+import java.io.InputStream
+
+import com.fasterxml.jackson.annotation.{JsonIgnoreProperties, JsonTypeInfo}
+import com.fasterxml.jackson.databind.{DeserializationFeature, ObjectMapper}
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize
 import com.fasterxml.jackson.databind.jsontype.NamedType
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.fasterxml.jackson.module.scala.experimental.ScalaObjectMapper
-import org.change.v2.analysis.processingmodels.instructions.AssignNamedSymbol
-import org.change.v2.analysis.processingmodels.instructions.AssignRaw
-import org.change.v2.analysis.processingmodels.instructions.AllocateRaw
-import org.change.v2.analysis.processingmodels.instructions.AllocateSymbol
-import org.change.v2.analysis.processingmodels.instructions.If
-import org.change.v2.analysis.processingmodels.instructions.Forward
-import org.change.v2.analysis.processingmodels.instructions.Fork
-import org.change.v2.analysis.processingmodels.instructions.InstructionBlock
+import org.change.v2.analysis.constraint.{AND, Constraint, E, EQ_E, GT, GTE, GTE_E, GT_E, LT, LTE, LTE_E, LT_E, NOT, OR, Range}
+import org.change.v2.analysis.expression.abst.{Expression, FloatingExpression}
+import org.change.v2.analysis.expression.concrete.{ConstantStringValue, ConstantValue, SymbolicValue}
+import org.change.v2.analysis.expression.concrete.nonprimitive.{:+:, :-:, Address, Minus, Plus, Reference}
+import org.change.v2.analysis.memory._
 import org.change.v2.analysis.processingmodels.Instruction
-import org.change.v2.analysis.processingmodels.instructions.CreateTag
-import org.change.v2.analysis.expression.abst.FloatingExpression
-import org.change.v2.analysis.processingmodels.instructions.FloatingConstraint
-import org.change.v2.analysis.processingmodels.instructions._
-import org.change.v2.analysis.expression.concrete.nonprimitive.{:+:, :-:, :@, Address}
-import org.change.v2.analysis.memory.TagExp
-import org.change.v2.analysis.memory.Tag
-import org.change.v2.analysis.memory.Intable
-import com.fasterxml.jackson.annotation.JsonIgnore
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties
-import java.io.FileInputStream
-import java.io.InputStream
-
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize
-import org.change.v2.analysis.expression.concrete.ConstantStringValue
+import org.change.v2.analysis.processingmodels.instructions.{AllocateRaw, AllocateSymbol, AssignNamedSymbol, AssignRaw, ConstrainNamedSymbol, ConstrainRaw, CreateTag, FloatingConstraint, Fork, Forward, If, InstructionBlock, _}
+import org.change.v2.analysis.types._
 
 class StatePrettifier {
-  
-  def prettifyType(eType : NumericType) = {
+
+  def prettifyType(eType: NumericType) = {
     eType match {
       case LongType =>
         "Long"
       case IP4Type =>
         "IPv4"
-      case MACType => 
+      case MACType =>
         "MACAddress"
       case ProtoType =>
         "ProtocolType"
@@ -85,74 +36,72 @@ class StatePrettifier {
       case _ => ""
     }
   }
-  
-  def prettifyConstraint(ct : Constraint) : String = {
+
+  def prettifyConstraint(ct: Constraint): String = {
     ""
   }
-  
-  def prettifyExpression(expr : Expression) : String = {
+
+  def prettifyExpression(expr: Expression): String = {
     ""
   }
-  
-  def prettifyValue(value : Value) = {
+
+  def prettifyValue(value: Value) = {
     val cts = value.cts
     val exp = value.e
     val eType = value.eType
     val eTypeString = prettifyType(eType)
     val expString = prettifyExpression(exp)
-    val ctsString = cts.map (prettifyConstraint).foldLeft("")( (acc, s) => {
+    val ctsString = cts.map(prettifyConstraint).foldLeft("")((acc, s) => {
       "(assert ($ctsString $expString))"
     })
-    
+
   }
-  
-  def prettifyRawObjects(symbols : Map[String, MemoryObject],
-      rawObjects : Map[Int, MemoryObject],
-      memTags : Map[String, Int]) : String = {
+
+  def prettifyRawObjects(symbols: Map[String, MemoryObject],
+                         rawObjects: Map[Int, MemoryObject],
+                         memTags: Map[String, Int]): String = {
     rawObjects.foldLeft("")((acc, b) => {
       val startPos = b._1
       val theValue = b._2.value
       val name = {
-          val theTag = memTags.find((r) => r._2 == startPos)
-          if (theTag.isEmpty)
-          {
-            ""
-          }
-          else
-          {
-            theTag.get._1
-          }
-        }
-      val actual = name + ": [" + startPos + "," + (b._2.size + startPos) + "] = {" +
-      (
-        if (theValue.isEmpty)
+        val theTag = memTags.find((r) => r._2 == startPos)
+        if (theTag.isEmpty) {
           ""
-        else {
-          
-          theValue.map { s => "Expression = " + prettify(s.e) + "\n" + 
-            "Type = " + s.eType.getClass.getSimpleName + "\n" + 
-            "In Set " + s.cts.foldLeft("")((acc, r) => {
-                r.asSet(s.eType).foldLeft("")((setString, u) =>
-                  {
-                    val sep = if (setString != "") " U " else ""
-                    setString + sep + "[" + u._1 + "," + u._2 + "]"
-                  })
-            }) + "\n}"
-          }
         }
-      )
+        else {
+          theTag.get._1
+        }
+      }
+      val actual = name + ": [" + startPos + "," + (b._2.size + startPos) + "] = {" +
+        (
+          if (theValue.isEmpty)
+            ""
+          else {
+
+            theValue.map { s =>
+              "Expression = " + prettify(s.e) + "\n" +
+                "Type = " + s.eType.getClass.getSimpleName + "\n" +
+                "In Set " + s.cts.foldLeft("")((acc, r) => {
+                r.asSet(s.eType).foldLeft("")((setString, u) => {
+                  val sep = if (setString != "") " U " else ""
+                  setString + sep + "[" + u._1 + "," + u._2 + "]"
+                })
+              }) + "\n}"
+            }
+          }
+          )
       val sep = (
-      if (acc == "")
-        ""
-      else
-        "\n"
-      )
+        if (acc == "")
+          ""
+        else
+          "\n"
+        )
       acc + sep + actual
     })
   }
-  
-  def prettify (v : Any, options : Option[Map[String, Any]] = None) : String = {
-    val current = options.getOrElse(Map[String, Any]( "level" -> 0 ))
+
+  def prettify(v: Any, options: Option[Map[String, Any]] = None): String = {
+    val current = options.getOrElse(Map[String, Any]("level" -> 0))
     val level = current.getOrElse("level", 0).asInstanceOf[Int]
     val already = current + ("level" -> (level + 1))
     val oAlready = Option(already)
@@ -164,31 +113,31 @@ class StatePrettifier {
         prettify(value, oAlready)
       case None =>
         ""
-      case State(memory, history, errorCause,instructionHistory, _) =>
-          "memory : {\n" + prettify(memory, oAlready) + "\n},"
-//          "history : {\n" + prettify(history, oAlready) + "\n}," +
-//          "error : {\n" + prettify(errorCause, oAlready) + "\n}," 
-//          "Instruction history\n" + prettify(instructionHistory)
+      case State(memory, history, errorCause, instructionHistory, _) =>
+        "memory : {\n" + prettify(memory, oAlready) + "\n},"
+      //          "history : {\n" + prettify(history, oAlready) + "\n}," +
+      //          "error : {\n" + prettify(errorCause, oAlready) + "\n},"
+      //          "Instruction history\n" + prettify(instructionHistory)
       case MemorySpace(symbols, rawObjects, memTags) =>
-//          "Symbols : {\n" + prettify(symbols, oAlready) + "\n}," +
-          "Tags : {\n" + prettifyRawObjects(symbols, rawObjects, memTags) + "\n},"
+        //          "Symbols : {\n" + prettify(symbols, oAlready) + "\n}," +
+        "Tags : {\n" + prettifyRawObjects(symbols, rawObjects, memTags) + "\n},"
       case MemoryObject(valueStack, size) =>
-          "size : " + size + "," +
+        "size : " + size + "," +
           "vstack : " + prettify(valueStack, oAlready)
       case ValueStack(head :: tail) =>
-          prettify(head :: tail, oAlready) + ","
+        prettify(head :: tail, oAlready) + ","
       case ValueStack(Nil) =>
-          ""
+        ""
       case Value(expression, kind, constraints) =>
-          "expression : {\n" + prettify(expression, oAlready) + "\n}," +
+        "expression : {\n" + prettify(expression, oAlready) + "\n}," +
           "kind : {" + kind.getClass.getSimpleName + "\n}\n" +
           "constraints : \n" + prettify(constraints, oAlready) + "\n,"
       case head :: tail => {
-        head match  {
+        head match {
           case _ => {
             val lst = head :: tail
             "[" + lst.zipWithIndex.map { s => prettify(s._1, oAlready) }.fold("")((s, acc) => {
-            acc + ",{" + s + "}"
+              acc + ",{" + s + "}"
             }) + "]"
           }
         }
@@ -197,19 +146,19 @@ class StatePrettifier {
         ""
       case AND(head :: tail) =>
         prettify(head) + " AND " +
-        prettify(AND(tail))
+          prettify(AND(tail))
       case OR(head :: tail) =>
         prettify(head) + " OR " +
-        prettify(OR(tail))
+          prettify(OR(tail))
       case E(long) =>
         " = " + long
       case GT(long) =>
         " > " + long
       case LT(long) =>
         " < " + long
-      case GTE (long) =>
+      case GTE(long) =>
         " >= " + long
-      case LTE (long) =>
+      case LTE(long) =>
         " <= " + long
       case NOT(ct) =>
         " !(" + prettify(ct) + ")"
@@ -231,22 +180,22 @@ class StatePrettifier {
         prettify(left, oAlready) + " + " + prettify(right, Option(already + ("ignore" -> true)))
       case Reference(value, _) =>
         prettify(value)
-      case v : ConstantValue =>
+      case v: ConstantValue =>
         v.toString
-      case v : SymbolicValue =>
-        v.id.toString        
-      case v : Map[String, _] =>
-        v.map(s =>  s._1 + ": {\n" + prettify(s._2, oAlready) + "\n}").fold("")((s, acc) => {
-            if (acc.equals("")) s else acc + ",\n" + s
-          }).trim()
+      case v: SymbolicValue =>
+        v.id.toString
+      case v: Map[String, _] =>
+        v.map(s => s._1 + ": {\n" + prettify(s._2, oAlready) + "\n}").fold("")((s, acc) => {
+          if (acc.equals("")) s else acc + ",\n" + s
+        }).trim()
     }
     str
   }
 }
 
 @JsonTypeInfo(
-  use = JsonTypeInfo.Id.NAME, 
-  include = JsonTypeInfo.As.PROPERTY, 
+  use = JsonTypeInfo.Id.NAME,
+  include = JsonTypeInfo.As.PROPERTY,
   property = "type")
 @JsonIgnoreProperties(Array("idHash"))
 trait TypeMixin {
@@ -275,10 +224,10 @@ trait ForgetZ3Valid {
 
 @JsonIgnoreProperties(Array("z3Valid"))
 case class MemorySpaceTrait(val symbols: Map[String, MemoryObject] = Map.empty,
-  @JsonDeserialize(keyAs = classOf[java.lang.Integer])
-  val rawObjects: Map[Int, MemoryObject] = Map.empty,
-  @JsonDeserialize(contentAs = classOf[java.lang.Integer])
-  val memTags: Map[String, Int] = Map.empty) {
+                            @JsonDeserialize(keyAs = classOf[java.lang.Integer])
+                            val rawObjects: Map[Int, MemoryObject] = Map.empty,
+                            @JsonDeserialize(contentAs = classOf[java.lang.Integer])
+                            val memTags: Map[String, Int] = Map.empty) {
 
 }
 
@@ -297,59 +246,59 @@ object JsonUtil {
   mapper.registerModule(DefaultScalaModule)
   mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
   mapper.registerSubtypes(
-            new NamedType(classOf[Minus], "Minus"),
-            new NamedType(classOf[Plus], "Plus"),
-            new NamedType(classOf[Reference], "Reference"),
-            new NamedType(classOf[SymbolicValue], "SymbolicValue"),
-            new NamedType(classOf[ConstantValue], "ConstantValue"),
-            new NamedType(classOf[ConstantStringValue], "ConstantStringValue")
-            )
+    new NamedType(classOf[Minus], "Minus"),
+    new NamedType(classOf[Plus], "Plus"),
+    new NamedType(classOf[Reference], "Reference"),
+    new NamedType(classOf[SymbolicValue], "SymbolicValue"),
+    new NamedType(classOf[ConstantValue], "ConstantValue"),
+    new NamedType(classOf[ConstantStringValue], "ConstantStringValue")
+  )
   mapper.registerSubtypes(classOf[AND], classOf[OR],
-      classOf[E], classOf[GT], classOf[GTE], classOf[LT],
-      classOf[LTE], classOf[NOT], classOf[OR], classOf[Range],
-      classOf[EQ_E], classOf[GT_E], classOf[GTE_E], classOf[LT_E],
-      classOf[LTE_E], NoOp.getClass,
-      LongType.getClass, IP4Type.getClass, MACType.getClass,
-      PortType.getClass, ProtoType.getClass, VLANType.getClass)
+    classOf[E], classOf[GT], classOf[GTE], classOf[LT],
+    classOf[LTE], classOf[NOT], classOf[OR], classOf[Range],
+    classOf[EQ_E], classOf[GT_E], classOf[GTE_E], classOf[LT_E],
+    classOf[LTE_E], NoOp.getClass,
+    LongType.getClass, IP4Type.getClass, MACType.getClass,
+    PortType.getClass, ProtoType.getClass, VLANType.getClass)
   mapper.registerSubtypes(
-      new NamedType(classOf[ConstrainRaw], "ConstrainRaw"),
-      new NamedType(classOf[ConstrainNamedSymbol], "ConstrainNamedSymbol"),
-      new NamedType(classOf[AssignNamedSymbol], "AssignNamedSymbol"),
-      new NamedType(classOf[AssignRaw], "AssignRaw"),
-      new NamedType(classOf[AllocateSymbol], "AllocateSymbol"),
-      new NamedType(classOf[DeallocateNamedSymbol], "DeallocateNamedSymbol"),
-      new NamedType(classOf[AllocateRaw], "AllocateRaw"),
-      new NamedType(classOf[DeallocateRaw], "DeallocateRaw"),
-      new NamedType(classOf[If], "If"),
-      new NamedType(classOf[InstructionBlock], "InstructionBlock"),
-      new NamedType(classOf[Forward], "Forward"),
-      new NamedType(classOf[Fork], "Fork"),
-      new NamedType(classOf[Fail], "Fail"),
-      new NamedType(classOf[CreateTag], "CreateTag")
+    new NamedType(classOf[ConstrainRaw], "ConstrainRaw"),
+    new NamedType(classOf[ConstrainNamedSymbol], "ConstrainNamedSymbol"),
+    new NamedType(classOf[AssignNamedSymbol], "AssignNamedSymbol"),
+    new NamedType(classOf[AssignRaw], "AssignRaw"),
+    new NamedType(classOf[AllocateSymbol], "AllocateSymbol"),
+    new NamedType(classOf[DeallocateNamedSymbol], "DeallocateNamedSymbol"),
+    new NamedType(classOf[AllocateRaw], "AllocateRaw"),
+    new NamedType(classOf[DeallocateRaw], "DeallocateRaw"),
+    new NamedType(classOf[If], "If"),
+    new NamedType(classOf[InstructionBlock], "InstructionBlock"),
+    new NamedType(classOf[Forward], "Forward"),
+    new NamedType(classOf[Fork], "Fork"),
+    new NamedType(classOf[Fail], "Fail"),
+    new NamedType(classOf[CreateTag], "CreateTag")
   )
-  
+
   mapper.registerSubtypes(
-      new NamedType(classOf[:&:], "f_and"),
-      new NamedType(classOf[:|:], "f_or"),
-      new NamedType(classOf[:~:], "f_not"),
-      new NamedType(classOf[:-:], "f_minus"),
-      new NamedType(classOf[:+:], "f_plus"),
-      new NamedType(classOf[org.change.v2.analysis.expression.concrete.nonprimitive.Symbol], "f_sym"),
-      new NamedType(classOf[Address], "f_adr"),
-      new NamedType(classOf[:<:], "f_lt"),
-      new NamedType(classOf[:>:], "f_gt"),
-      new NamedType(classOf[:>=:], "f_gte"),
-      new NamedType(classOf[:<=:], "f_lte"),
-      new NamedType(classOf[:>=:], "f_gte"),
-      new NamedType(classOf[:==:], "$colon$eq$eq$colon")
+    new NamedType(classOf[:&:], "f_and"),
+    new NamedType(classOf[:|:], "f_or"),
+    new NamedType(classOf[:~:], "f_not"),
+    new NamedType(classOf[:-:], "f_minus"),
+    new NamedType(classOf[:+:], "f_plus"),
+    new NamedType(classOf[org.change.v2.analysis.expression.concrete.nonprimitive.Symbol], "f_sym"),
+    new NamedType(classOf[Address], "f_adr"),
+    new NamedType(classOf[:<:], "f_lt"),
+    new NamedType(classOf[:>:], "f_gt"),
+    new NamedType(classOf[:>=:], "f_gte"),
+    new NamedType(classOf[:<=:], "f_lte"),
+    new NamedType(classOf[:>=:], "f_gte"),
+    new NamedType(classOf[:==:], "$colon$eq$eq$colon")
   )
-  
+
   mapper.registerSubtypes(
-      new NamedType(classOf[Tag], "tag"),
-      new NamedType(classOf[TagExp], "tag-expr"),
-      new NamedType(classOf[TagExp.IntImprovements], "int-impr")
+    new NamedType(classOf[Tag], "tag"),
+    new NamedType(classOf[TagExp], "tag-expr"),
+    new NamedType(classOf[TagExp.IntImprovements], "int-impr")
   )
-  
+
   mapper.addMixin[AssignRaw, ForgetTAssignRaw]()
   mapper.addMixin[Constraint, TypeMixin]();
   mapper.addMixin[NumericType, TypeMixin]()
@@ -362,34 +311,34 @@ object JsonUtil {
   mapper.addMixin[Value, ForgetEType]
   mapper.addMixin[MemoryObject, ForgetValueStackVoid]
   mapper.addMixin[MemorySpace, MemorySpaceTrait]
-  
+
   def toJson(value: Map[Symbol, Any]): String = {
-    toJson(value map { case (k,v) => k.name -> v})
+    toJson(value map { case (k, v) => k.name -> v })
   }
 
   def toJson(value: Any): String = {
     mapper.writerWithDefaultPrettyPrinter().writeValueAsString(value)
   }
 
-//  def toMap[V](json:String)(implicit m: Manifest[V]) = fromJson[Map[String,V]](json)
+  //  def toMap[V](json:String)(implicit m: Manifest[V]) = fromJson[Map[String,V]](json)
 
-  def fromJson[T](json: String)(implicit m : Manifest[T]): T = {
+  def fromJson[T](json: String)(implicit m: Manifest[T]): T = {
     mapper.readValue[T](json)
   }
-  
-  def fromJson[T](json: InputStream)(implicit m : Manifest[T]): T = {
+
+  def fromJson[T](json: InputStream)(implicit m: Manifest[T]): T = {
     mapper.readValue[T](json)
   }
 }
 
 object SomeWriter {
-  def apply(state : Any) =  {
+  def apply(state: Any) = {
     JsonUtil.toJson(state)
   }
-  
-  def main(strings : Array[String]) {
+
+  def main(strings: Array[String]) {
     import JsonUtil._
-//    println(toJson(State.bigBang(true)))
+    //    println(toJson(State.bigBang(true)))
     val fromJson = JsonUtil.fromJson[State](toJson(State.bigBang(true)))
     println(fromJson.memory.rawObjects.keys.head)
     println(fromJson.memory.rawObjects.keys.head.getClass)
@@ -399,10 +348,11 @@ object SomeWriter {
     println(State.bigBang(true).memory.rawObjects.keys.head.getClass)
     //    println(toJson(fromJson))
   }
-  
+
 }
 
 object StatePrettifier {
-  def apply(state : State, level : Int) = new StatePrettifier().prettify(state, Some(Map("level" -> 0)))
-  def apply(state : State) = new StatePrettifier().prettify(state, Some(Map("level" -> 0)))
+  def apply(state: State, level: Int) = new StatePrettifier().prettify(state, Some(Map("level" -> 0)))
+
+  def apply(state: State) = new StatePrettifier().prettify(state, Some(Map("level" -> 0)))
 }
