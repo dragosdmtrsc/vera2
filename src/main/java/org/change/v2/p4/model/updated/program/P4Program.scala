@@ -2,7 +2,7 @@ package org.change.v2.p4.model.updated.program
 
 import generated.parse.p4.{P4GrammarLexer, P4GrammarParser}
 import org.antlr.v4.runtime.tree.ParseTreeWalker
-import org.antlr.v4.runtime.{CharStream, CharStreams, CommonTokenStream}
+import org.antlr.v4.runtime.{CharStreams, CommonTokenStream}
 import org.change.parser.p4.P4GrammarListener
 import org.change.v2.p4.model.actions.{P4Action, P4ActionType, P4ComplexAction}
 import org.change.v2.p4.model.updated.control.ControlFunction

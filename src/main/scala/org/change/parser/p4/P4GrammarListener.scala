@@ -183,9 +183,7 @@ class P4GrammarListener extends P4GrammarBaseListener {
   }
 
   val declaredFunctions: MutableMap[String, ParserFunctionDeclaration] = MutableMap()
-
   val parserFunctions  = new util.HashMap[String, State]()
-
 
   override def exitParser_function_declaration(ctx: P4GrammarParser.Parser_function_declarationContext): Unit = {
     ctx.functionDeclaration = ParserFunctionDeclaration(
