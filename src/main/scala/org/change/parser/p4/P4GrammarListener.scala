@@ -249,7 +249,6 @@ class P4GrammarListener extends P4GrammarBaseListener {
     complexAction = null
   }
 
-
   override def enterParam_list(ctx: Param_listContext): Unit = {
     if (p4ActionCall == null && complexAction != null) {
       for (x <- ctx.param_name()) {
