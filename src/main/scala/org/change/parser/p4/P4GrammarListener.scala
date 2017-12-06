@@ -468,7 +468,7 @@ class P4GrammarListener extends P4GrammarBaseListener {
   override def exitTable_declaration(ctx: Table_declarationContext): Unit = {
     ctx.tableDeclaration = TableDeclaration(
       tableName = ctx.table_name().NAME().getText,
-      allowedActions = ctx.table_actions().tableActions.asInstanceOf[BasicActionSpecification].actionRefs,
+      allowedActions = ctx.table_actions().tableActions,
       tableMatches = ctx.field_match().map(_.tableMatch)
     )
 
@@ -492,6 +492,9 @@ class P4GrammarListener extends P4GrammarBaseListener {
   }
 
 
+  override def exitAction_name(ctx: Action_nameContext): Unit = {
+    ctx.actionName = TextualActionRef(ctx.NAME().getText)
+  }
 
   private val currentPort = -1
   private var currentTableName:ListBuffer[String] = new ListBuffer[String]
