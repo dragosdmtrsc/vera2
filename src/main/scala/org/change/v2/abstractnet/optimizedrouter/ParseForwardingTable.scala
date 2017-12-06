@@ -21,7 +21,7 @@ object ParseForwardingTable {
   val small = "/0/projects/internal/Symnetic/src/main/resources/routing_tables/small.txt"
 
   def main(args: Array[String]): Unit = {
-    val state = State.bigBang
+    val state = State.bigBang()
     val start = System.currentTimeMillis()
     //    val rsmall = makeRouter(getRoutingEntries(small))
     val stopa = System.currentTimeMillis()

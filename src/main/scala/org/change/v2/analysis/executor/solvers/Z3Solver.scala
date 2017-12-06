@@ -1,34 +1,18 @@
 package org.change.v2.analysis.executor.solvers
 
 import org.change.v2.analysis.constraint.{GT, LTE}
-import org.change.v2.analysis.executor.translators.Z3Translator
+import org.change.v2.analysis.executor.translators.{Z3BVTranslator, Z3Translator}
 import org.change.v2.analysis.memory.MemorySpace
-import org.smtlib.ICommand.IScript
-import org.smtlib.SMT
 import z3.scala.{Z3Config, Z3Context}
 
-
-class ComparisonSolver(z3s: Z3Solver, smt: SerialSMTSolver)
-  extends AbstractSolver[(z3.scala.Z3Solver, (IScript, SMT))] {
-  override def decide(what: (z3.scala.Z3Solver, (IScript, SMT))): Boolean = {
-    val z3res = z3s.decide(what._1)
-    val smtres = smt.decide(what._2)
-    val (scrs, smts) = what._2
-    if (z3res != smtres)
-      throw new Exception("Oops,\n" + what._1.context +
-        "\n" + z3res +
-        "\nvs\n" +
-        smts.smtConfig.defaultPrinter.toString(what._2._1) +
-        "\n" + smtres)
-    else
-      z3res
+class Z3BVSolver extends Z3Solver {
+  override def translate(mem: MemorySpace): z3.scala.Z3Solver = {
+    val z3 = createContext
+    val transl = new Z3BVTranslator(z3)
+    transl.translate(mem)
   }
-
-  override def translate(memory: MemorySpace): (z3.scala.Z3Solver, (IScript, SMT)) = {
-    (z3s.translate(memory), smt.translate(memory))
-  }
-
 }
+
 
 class Z3Solver extends AbstractSolver[z3.scala.Z3Solver] {
 

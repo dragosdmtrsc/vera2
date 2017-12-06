@@ -222,7 +222,6 @@ class OVSExecutor(solver: Solver) extends DecoratedInstructionExecutor(solver) {
                     case _ => (m.addConstraint(a, c, true), false)
                   }
                 }
-
                 constrainSimple(c, maybeNewMem)
               }
               case _ => (m.addConstraint(a, c, true), false)

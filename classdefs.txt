@@ -1,0 +1,155 @@
+class AddHeader extends P4Action {
+    public AddHeader() {
+        super(P4ActionType.AddHeader);
+    }
+}
+class CopyHeader extends P4Action {
+    public CopyHeader() {
+        super(P4ActionType.CopyHeader);
+    }
+}
+class RemoveHeader extends P4Action {
+    public RemoveHeader() {
+        super(P4ActionType.RemoveHeader);
+    }
+}
+class ModifyField extends P4Action {
+    public ModifyField() {
+        super(P4ActionType.ModifyField);
+    }
+}
+class AddToField extends P4Action {
+    public AddToField() {
+        super(P4ActionType.AddToField);
+    }
+}
+class Add extends P4Action {
+    public Add() {
+        super(P4ActionType.Add);
+    }
+}
+class SubtractFromField extends P4Action {
+    public SubtractFromField() {
+        super(P4ActionType.SubtractFromField);
+    }
+}
+class Subtract extends P4Action {
+    public Subtract() {
+        super(P4ActionType.Subtract);
+    }
+}
+class ModifyFieldWithHashBasedOffset extends P4Action {
+    public ModifyFieldWithHashBasedOffset() {
+        super(P4ActionType.ModifyFieldWithHashBasedOffset);
+    }
+}
+class ModifyFieldRngUniform extends P4Action {
+    public ModifyFieldRngUniform() {
+        super(P4ActionType.ModifyFieldRngUniform);
+    }
+}
+class BitAnd extends P4Action {
+    public BitAnd() {
+        super(P4ActionType.BitAnd);
+    }
+}
+class BitOr extends P4Action {
+    public BitOr() {
+        super(P4ActionType.BitOr);
+    }
+}
+class BitXor extends P4Action {
+    public BitXor() {
+        super(P4ActionType.BitXor);
+    }
+}
+class ShiftLeft extends P4Action {
+    public ShiftLeft() {
+        super(P4ActionType.ShiftLeft);
+    }
+}
+class ShiftRight extends P4Action {
+    public ShiftRight() {
+        super(P4ActionType.ShiftRight);
+    }
+}
+class Truncate extends P4Action {
+    public Truncate() {
+        super(P4ActionType.Truncate);
+    }
+}
+class Drop extends P4Action {
+    public Drop() {
+        super(P4ActionType.Drop);
+    }
+}
+class NoOp extends P4Action {
+    public NoOp() {
+        super(P4ActionType.NoOp);
+    }
+}
+class Push extends P4Action {
+    public Push() {
+        super(P4ActionType.Push);
+    }
+}
+class Pop extends P4Action {
+    public Pop() {
+        super(P4ActionType.Pop);
+    }
+}
+class Count extends P4Action {
+    public Count() {
+        super(P4ActionType.Count);
+    }
+}
+class ExecuteMeter extends P4Action {
+    public ExecuteMeter() {
+        super(P4ActionType.ExecuteMeter);
+    }
+}
+class RegisterRead extends P4Action {
+    public RegisterRead() {
+        super(P4ActionType.RegisterRead);
+    }
+}
+class RegisterWrite extends P4Action {
+    public RegisterWrite() {
+        super(P4ActionType.RegisterWrite);
+    }
+}
+class GenerateDigest extends P4Action {
+    public GenerateDigest() {
+        super(P4ActionType.GenerateDigest);
+    }
+}
+class Resubmit extends P4Action {
+    public Resubmit() {
+        super(P4ActionType.Resubmit);
+    }
+}
+class Recirculate extends P4Action {
+    public Recirculate() {
+        super(P4ActionType.Recirculate);
+    }
+}
+class CloneIngressPktToIngress extends P4Action {
+    public CloneIngressPktToIngress() {
+        super(P4ActionType.CloneIngressPktToIngress);
+    }
+}
+class CloneEgressPktToIngress extends P4Action {
+    public CloneEgressPktToIngress() {
+        super(P4ActionType.CloneEgressPktToIngress);
+    }
+}
+class CloneIngressPktToEgress extends P4Action {
+    public CloneIngressPktToEgress() {
+        super(P4ActionType.CloneIngressPktToEgress);
+    }
+}
+class CloneEgressPktToEgress extends P4Action {
+    public CloneEgressPktToEgress() {
+        super(P4ActionType.CloneEgressPktToEgress);
+    }
+}

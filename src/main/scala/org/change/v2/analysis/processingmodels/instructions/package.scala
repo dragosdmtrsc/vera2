@@ -1,14 +1,11 @@
 package org.change.v2.analysis.processingmodels
 
-;
-
-
-import org.change.v2.analysis.memory.{MemorySpace, State};
+import org.change.v2.analysis.memory.{State, MemorySpace}
 
 /**
-  * Author: Radu Stoenescu
-  * Don't be a stranger,  symnetic.7.radustoe@spamgourmet.com
-  */
+ * Author: Radu Stoenescu
+ * Don't be a stranger,  symnetic.7.radustoe@spamgourmet.com
+ */
 package object instructions {
 
   private val isDebugging = false;
@@ -36,5 +33,3 @@ package object instructions {
 
   def stateToError(previousState: State, error: ErrorCause) = optionToStatePair(previousState, error, true)(_ => None)
 }
-
-
