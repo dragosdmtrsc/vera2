@@ -223,11 +223,11 @@ trait ForgetZ3Valid {
 }
 
 @JsonIgnoreProperties(Array("z3Valid"))
-case class MemorySpaceTrait(val symbols: Map[String, MemoryObject] = Map.empty,
+case class MemorySpaceTrait(symbols: Map[String, MemoryObject] = Map.empty,
                             @JsonDeserialize(keyAs = classOf[java.lang.Integer])
-                            val rawObjects: Map[Int, MemoryObject] = Map.empty,
+                            rawObjects: Map[Int, MemoryObject] = Map.empty,
                             @JsonDeserialize(contentAs = classOf[java.lang.Integer])
-                            val memTags: Map[String, Int] = Map.empty) {
+                            memTags: Map[String, Int] = Map.empty) {
 
 }
 

@@ -1,6 +1,6 @@
 organization := "org.change"
 
-version := "0.2-SNAPSHOT"
+version       := "0.2.1-SNAPSHOT"
 
 scalaVersion := "2.11.1"
 
@@ -34,6 +34,19 @@ includeFilter in(Compile, unmanagedResourceDirectories) := ".dll,.so"
 
 test in assembly := {}
 
+lazy val p4control = taskKey[Unit]("P4 control function to SEFL")
+
+
+//fullRunTask(p4control, Compile, "org.change.v2.runners.experiments.P4ControlRunner")
+p4control := {
+  val file = Option(System.getProperty("file")).getOrElse("/Users/localadmin/poli/symnet/symPatru/src/main/resources/p4_test_files/control.p4")
+  val r = (runner in Compile).value
+  //val cp: Seq[File] = (dependencyClasspath in Compile).value.files
+  val cp = (fullClasspath in Compile).value.files
+  toError(r.run("org.change.v2.runners.experiments.P4ControlRunner", cp, Seq(file), streams.value.log))
+}
+
+
 lazy val sample = taskKey[Unit]("Interpreting")
 
 fullRunTask(sample, Compile, "org.change.v2.runners.experiments.SEFLRunner")
@@ -49,6 +62,10 @@ fullRunTask(symb, Compile, "org.change.v2.runners.experiments.TemplateRunnerWith
 lazy val mc = taskKey[Unit]("Running multiple VMs")
 
 fullRunTask(mc, Compile, "org.change.v2.runners.experiments.MultipleVms")
+
+lazy val fuck= taskKey[Unit]("Running multiple VMs")
+
+fullRunTask(fuck, Compile, "org.change.v2.executor.clickabstractnetwork.AggregatedBuilder")
 
 lazy val neutron = taskKey[Unit]("Neutron")
 
@@ -94,6 +111,3 @@ fullRunTask(matei_int_test, Compile, "org.change.v2.verification.Tester")
 
 
 seq(Revolver.settings: _*)
-
-
-

@@ -6,7 +6,7 @@ import org.change.parser.clickfile.ClickToAbstractNetwork
 import org.change.parser.interclicklinks.InterClickLinksParser
 import org.change.parser.startpoints.StartPointParser
 import org.change.v2.analysis.executor.{DecoratedInstructionExecutor, InstructionExecutor, SpeculativeExecutor}
-import org.change.v2.analysis.executor.solvers.{ComparisonSolver, SerialSMTSolver, Solver, Z3Solver}
+import org.change.v2.analysis.executor.solvers.{SerialSMTSolver, Solver, Z3Solver}
 import org.change.v2.executor.clickabstractnetwork.ClickExecutionContext
 import org.change.v2.executor.clickabstractnetwork.executionlogging.JsonLogger
 
@@ -35,9 +35,8 @@ object MultipleVmsFacultatea_new {
       else if (args(0) == "z3") {
         solver = new Z3Solver()
       }
-      else if (args(0) == "compare") {
-        solver = new ComparisonSolver(new Z3Solver(), new SerialSMTSolver(args(1)))
-      }
+      else if (args(0) == "compare")
+        ???
     }
     val clicks = clicksFolder.list(new FilenameFilter {
       override def accept(dir: File, name: String): Boolean = name.endsWith(".click")

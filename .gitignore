@@ -24,6 +24,10 @@ src/main/scala/org/change/v2/runners/Run.scala
 outputs/
 .settings/
 *.json
+generated/
+*.dot
+*.dot.png
+
 .DS_Store
 ._.DS_Store
 

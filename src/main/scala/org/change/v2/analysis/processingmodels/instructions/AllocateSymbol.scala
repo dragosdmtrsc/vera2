@@ -1,7 +1,7 @@
 package org.change.v2.analysis.processingmodels.instructions
 
-import org.change.v2.analysis.memory.{Intable, State, TagExp}
 import org.change.v2.analysis.processingmodels.Instruction
+import org.change.v2.analysis.memory.{State, TagExp, Intable}
 
 /**
   * Author: Radu Stoenescu
@@ -16,13 +16,11 @@ case class AllocateSymbol(id: String, size: Int = 0) extends Instruction {
     * @return
     */
   override def apply(s: State, v: Boolean): (List[State], List[State]) = {
-    optionToStatePair(if (v) s.addInstructionToHistory(this) else s, s"Cannot allocate $id")(s => {
-      s.memory.Allocate(id, size)
+    optionToStatePair(if (v) s.addInstructionToHistory(this) else s, s"Cannot allocate $id") (s => {
+      s.memory.Allocate(id,size)
     })
   }
-
   override def toString = s"Allocate($id, $size)"
-
 }
 
 case class AllocateRaw(a: Intable, size: Int) extends Instruction {
@@ -39,15 +37,11 @@ case class AllocateRaw(a: Intable, size: Int) extends Instruction {
     })
     case None => Fail(TagExp.brokenTagExpErrorMessage)(s, v)
   }
-
   override def toString = s"Allocate($a, $size)"
-
 }
 
 object Allocate {
   def apply(id: String, size: Int): Instruction = AllocateSymbol(id, size)
-
   def apply(id: String): Instruction = apply(id, 64)
-
   def apply(a: Intable, size: Int): Instruction = AllocateRaw(a, size)
 }

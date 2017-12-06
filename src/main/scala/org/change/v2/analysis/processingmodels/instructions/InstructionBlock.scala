@@ -4,33 +4,29 @@ import org.change.v2.analysis.memory.State
 import org.change.v2.analysis.processingmodels.Instruction
 
 /**
-  * Author: Radu Stoenescu
-  * Don't be a stranger,  symnetic.7.radustoe@spamgourmet.com
-  */
+ * Author: Radu Stoenescu
+ * Don't be a stranger,  symnetic.7.radustoe@spamgourmet.com
+ */
 case class InstructionBlock(instructions: Iterable[Instruction]) extends Instruction {
   /**
-    * A state processing block produces a set of new states based on a previous one.
-    *
-    * @param s
-    * @return
-    */
+   * A state processing block produces a set of new states based on a previous one.
+   *
+   * @param s
+   * @return
+   */
   override def apply(s: State, v: Boolean): (List[State], List[State]) =
     instructions.foldLeft((List(s), Nil: List[State])) { (acc, i) => {
-      val (valid: List[State], failed: List[State]) = acc
-      val (nextValid, nextFailed) = valid.map(i(_, v)).unzip
-      val allValid = nextValid.foldLeft(Nil: List[State])(_ ++ _)
-      val allFailed = nextFailed.foldLeft(failed: List[State])(_ ++ _)
-      (allValid, allFailed)
-    }
+        val (valid: List[State], failed: List[State]) = acc
+        val (nextValid, nextFailed) = valid.map(i(_, v)).unzip
+        val allValid = nextValid.foldLeft(Nil: List[State])(_ ++ _)
+        val allFailed = nextFailed.foldLeft(failed: List[State])(_ ++ _)
+        (allValid, allFailed)
+      }
     }
 
-  override def toString = {
-    "{" + instructions.foldLeft("")((acc, v) => {
-      acc + "\n" + v.toString()
-    }
-    ) + "\n}"
+  override def toString: String = {
+    "{\n" + instructions.toString + "\n}"
   }
-
 }
 
 object InstructionBlock {

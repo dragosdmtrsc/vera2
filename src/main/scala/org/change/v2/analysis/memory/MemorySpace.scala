@@ -6,19 +6,22 @@ import org.change.v2.analysis.expression.concrete.SymbolicValue
 import org.change.v2.analysis.expression.concrete.nonprimitive.Reference
 import org.change.v2.analysis.types.{NumericType, TypeUtils}
 import org.change.v2.analysis.z3.Z3Util
-import org.change.v2.interval.IntervalOps
-import spray.json._
+import org.change.v2.executor.clickabstractnetwork.ClickExecutionContext
+import org.change.v2.interval.{IntervalOps, ValueSet}
+import org.change.v2.util.codeabstractions._
 import z3.scala.{Z3Model, Z3Solver}
-import org.change.v2.analysis.memory.jsonformatters.MemorySpaceToJson._
+import spray.json._
+
 import scala.collection.mutable.{Map => MutableMap}
 
 /**
-  * Author: Radu Stoenescu
-  * Don't be a stranger to symnet.radustoe@spamgourmet.com
-  */
+*  Author: Radu Stoenescu
+*  Don't be a stranger to symnet.radustoe@spamgourmet.com
+*/
 case class MemorySpace(val symbols: Map[String, MemoryObject] = Map.empty,
                        val rawObjects: Map[Int, MemoryObject] = Map.empty,
                        val memTags: Map[String, Int] = Map.empty) {
+  def destroyPacket(): MemorySpace = copy(rawObjects = Map.empty)
 
   private def resolveBy[K](id: K, m: Map[K, MemoryObject]): Option[Value] =
     m.get(id).flatMap(_.value)
@@ -27,30 +30,26 @@ case class MemorySpace(val symbols: Map[String, MemoryObject] = Map.empty,
     m.get(id)
 
   def Tag(name: String, value: Int): Option[MemorySpace] = Some(MemorySpace(symbols, rawObjects, memTags + (name -> value)))
-
   def UnTag(name: String): Option[MemorySpace] = Some(MemorySpace(symbols, rawObjects, memTags - name))
 
   /**
-    * Get the currently visible value associated with a symbol.
-    *
-    * @param id symol name
-    * @return the value or none
-    */
+   * Get the currently visible value associated with a symbol.
+   * @param id symol name
+   * @return the value or none
+   */
   def eval(id: String): Option[Value] = resolveBy(id, symbols)
-
   def eval(a: Int): Option[Value] = resolveBy(a, rawObjects)
 
   def evalToObject(id: String): Option[MemoryObject] = resolveByToObject(id, symbols)
-
   def evalToObject(a: Int): Option[MemoryObject] = resolveByToObject(a, rawObjects)
 
   def canRead(a: Int): Boolean = resolveBy(a, rawObjects).isDefined
 
   def isAllocated(a: Int): Boolean = rawObjects.contains(a)
 
-  private def doesNotOverlap(a: Int, size: Int): Boolean = {
-    (!rawObjects.contains(a)) &&
-      rawObjects.forall(kv => !IntervalOps.intervalIntersectionIsInterval(a, a + size, kv._1, kv._1 + kv._2.size))
+  def doesNotOverlap(a: Int, size: Int): Boolean = {
+    (! rawObjects.contains(a)) &&
+      rawObjects.forall(kv => ! IntervalOps.intervalIntersectionIsInterval(a, a+size, kv._1, kv._1 + kv._2.size))
   }
 
   def canModify(a: Int, size: Int): Boolean =
@@ -60,25 +59,18 @@ case class MemorySpace(val symbols: Map[String, MemoryObject] = Map.empty,
   def canModifyExisting(a: Int, size: Int): Boolean = rawObjects.contains(a) && rawObjects(a).size == size
 
   /**
-    * Checks if a given symbol is assigned to a value.
-    *
-    * @param id
-    * @return
-    */
-  def symbolIsAssigned(id: String): Boolean = {
-    eval(id).isDefined
-  }
-
-  def symbolIsDefined(id: String): Boolean = {
-    symbols.contains(id)
-  }
+   * Checks if a given symbol is assigned to a value.
+   * @param id
+   * @return
+   */
+  def symbolIsAssigned(id: String): Boolean = { eval(id).isDefined }
+  def symbolIsDefined(id: String): Boolean = { symbols.contains(id) }
 
   /**
-    * Allocates a new empty stack for a given symbol.
-    *
-    * @param id
-    * @return
-    */
+   * Allocates a new empty stack for a given symbol.
+   * @param id
+   * @return
+   */
   def Allocate(id: String): Option[MemorySpace] =
     Allocate(id, 0)
 
@@ -90,28 +82,26 @@ case class MemorySpace(val symbols: Map[String, MemoryObject] = Map.empty,
     ))
   }
 
-  def Allocate(a: Int, size: Int): Option[MemorySpace] =
-    if (canModifyExisting(a, size))
-      Some(MemorySpace(
-        symbols,
-        rawObjects + (a -> rawObjects(a).allocateNewStack),
-        memTags
-      ))
-    else if (canModify(a, size))
-      Some(MemorySpace(
-        symbols,
-        rawObjects + (a -> MemoryObject(size = size)),
-        memTags
-      ))
-    else None
+  def Allocate(a: Int, size: Int): Option[MemorySpace] = if (canModifyExisting(a, size))
+    Some(MemorySpace(
+      symbols,
+      rawObjects + ( a -> rawObjects(a).allocateNewStack),
+      memTags
+    ))
+  else if (canModify(a, size))
+    Some(MemorySpace(
+      symbols,
+      rawObjects + ( a -> MemoryObject(size = size)),
+      memTags
+    ))
+  else None
 
   /**
-    * Destroys the newest stack assigned to a value.
-    *
-    * @param id
-    * @return
-    */
-  def Deallocate(id: String): Option[MemorySpace] = symbols.get(id).flatMap(_.deallocateStack).map(o =>
+   * Destroys the newest stack assigned to a value.
+   * @param id
+   * @return
+   */
+  def Deallocate(id: String): Option[MemorySpace] = symbols.get(id).flatMap(_.deallocateStack).map( o =>
     MemorySpace(
       if (o.isVoid) symbols - id else symbols + (id -> o),
       rawObjects,
@@ -131,16 +121,13 @@ case class MemorySpace(val symbols: Map[String, MemoryObject] = Map.empty,
     None
 
   /**
-    * Rewrite a symbol to a new expression.
-    *
-    * @param id
-    * @param exp
-    * @return
-    */
-  def Assign(id: String, exp: Expression, eType: NumericType): Option[MemorySpace] = {
-    assignNewValue(id, exp, eType)
-  }
-
+   * Rewrite a symbol to a new expression.
+   *
+   * @param id
+   * @param exp
+   * @return
+   */
+  def Assign(id: String, exp: Expression, eType: NumericType): Option[MemorySpace] = { assignNewValue(id, exp, eType) }
   def Assign(id: String, exp: Expression): Option[MemorySpace] = Assign(id, exp, TypeUtils.canonicalForSymbol(id))
 
   def Assign(a: Int, exp: Expression): Option[MemorySpace] =
@@ -197,7 +184,6 @@ case class MemorySpace(val symbols: Map[String, MemoryObject] = Map.empty,
         }
       }
     }
-
   })
 
   /**
@@ -318,11 +304,12 @@ case class MemorySpace(val symbols: Map[String, MemoryObject] = Map.empty,
 
   def assignNewValue(id: String, v: Value): Option[MemorySpace] =
     Some(MemorySpace(
-      symbols + (id -> (if (symbolIsDefined(id)) symbols(id).addValue(v) else MemoryObject().addValue(v))),
+      symbols + (id -> (if (symbolIsDefined(id)) symbols(id).addValue(v) else MemoryObject(size = 64).addValue(v))),
       rawObjects,
       memTags
     ))
 
+  import org.change.v2.analysis.memory.jsonformatters.MemorySpaceToJson._
   def jsonString = this.toJson.toString
 
   override def toString = jsonString
@@ -410,26 +397,23 @@ case class MemorySpace(val symbols: Map[String, MemoryObject] = Map.empty,
 
 object MemorySpace {
   /**
-    * Empty memory.
-    *
-    * @return
-    */
-  var z3Time = 0L;
-  var z3Call = 0L;
+   * Empty memory.
+   * @return
+   */
+   var z3Time = 0L;
+   var z3Call = 0L;
 
-  def incZ3Time(i: Long) = z3Time += i
-
-  def incZ3Call() = z3Call += 1
-
+   def incZ3Time(i:Long) = z3Time+=i
+   def incZ3Call() = z3Call+=1
+   
   def clean: MemorySpace = new MemorySpace()
 
   /**
-    * ATTENTION: Remove the ugly get and make a hl func for this
-    *
-    * @param symbols What symbols should the memory contain initially.
-    * @return
-    */
+   * ATTENTION: Remove the ugly get and make a hl func for this
+   * @param symbols What symbols should the memory contain initially.
+   * @return
+   */
   def cleanWithSymolics(symbols: List[String]) = symbols.foldLeft(clean)((mem, s) => mem.Assign(s, SymbolicValue()).get)
 
-  //  def service = ClickExecutionContext.getService
+//  def service = ClickExecutionContext.getService
 }

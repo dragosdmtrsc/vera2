@@ -67,11 +67,11 @@ object ClickAsyncExecutor {
     // Create initial states
     val startStates = startElems match {
       case Some(initialPoints) => initialPoints.map(ip => {
-        val st = State.bigBang
+        val st = State.bigBang()
         st.copy(history = configMap(ip._1).elements(ip._1 + "-" + ip._2).inputPortName(ip._3) :: st.history)
       })
       case None => {
-        val st = State.bigBang
+        val st = State.bigBang()
         List(st.copy(history = configs.head.entryLocationId :: st.history))
       }
     }

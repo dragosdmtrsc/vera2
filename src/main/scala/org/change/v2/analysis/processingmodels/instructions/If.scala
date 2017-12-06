@@ -5,20 +5,20 @@ import org.change.v2.analysis.memory.State
 import org.change.v2.analysis.processingmodels.Instruction
 
 /**
-  * Author: Radu Stoenescu
-  * Don't be a stranger,  symnetic.7.radustoe@spamgourmet.com
-  */
-case class If(testInstr: Instruction, thenWhat: Instruction, elseWhat: Instruction = NoOp) extends Instruction {
+ * Author: Radu Stoenescu
+ * Don't be a stranger,  symnetic.7.radustoe@spamgourmet.com
+ */
+case class If(testInstr: Instruction, thenWhat: Instruction, elseWhat:Instruction = NoOp) extends Instruction {
   /**
-    *
-    * A state processing block produces a set of new states based on a previous one.
-    *
-    * @param s
-    * @return
-    */
+   *
+   * A state processing block produces a set of new states based on a previous one.
+   *
+   * @param s
+   * @return
+   */
   override def apply(s: State, v: Boolean): (List[State], List[State]) = testInstr match {
     // This is quite inappropriate
-    case i@ConstrainNamedSymbol(what, withWhat, _) => {
+    case i @ ConstrainNamedSymbol(what, withWhat, _) => {
       withWhat instantiate s match {
         case Left(c) if s.memory.symbolIsAssigned(what) => {
           val (sa, fa) = InstructionBlock(ConstrainNamedSymbol(what, withWhat, Some(c)), thenWhat)(s, v)
@@ -29,7 +29,7 @@ case class If(testInstr: Instruction, thenWhat: Instruction, elseWhat: Instructi
         case _ => elseWhat(s, v)
       }
     }
-    case rawi@ConstrainRaw(what, withWhat, _) => what(s) match {
+    case rawi @ ConstrainRaw(what, withWhat, _) => what(s) match {
       case Some(i) => withWhat instantiate s match {
         case Left(c) if s.memory.canRead(i) => {
           val (sa, fa) = InstructionBlock(ConstrainRaw(what, withWhat, Some(c)), thenWhat)(s, v)
@@ -42,6 +42,15 @@ case class If(testInstr: Instruction, thenWhat: Instruction, elseWhat: Instructi
         }
       }
       case None => elseWhat(s, v)
+    }
+    case i @ InstructionBlock(instrs) => {
+      if (instrs.forall(x => x.isInstanceOf[ConstrainRaw] || x.isInstanceOf[ConstrainNamedSymbol])) {
+        instrs.foldRight(thenWhat)((x, acc) => {
+          If (x, acc, elseWhat)
+        })(s,v)
+      } else {
+        throw new UnsupportedOperationException("Can't do it. All instructions in conditional instruction block MUST be Constrain")
+      }
     }
     case _ => stateToError(s.addInstructionToHistory(this), "Bad test instruction")
   }
@@ -78,5 +87,3 @@ case class If(testInstr: Instruction, thenWhat: Instruction, elseWhat: Instructi
   }
 
 }
-
-
