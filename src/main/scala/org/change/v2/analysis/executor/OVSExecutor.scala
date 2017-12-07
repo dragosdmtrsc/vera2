@@ -185,22 +185,22 @@ class OVSExecutor(solver: Solver) extends DecoratedInstructionExecutor(solver) {
             None
           else {
             val mm = normalize(value.e) match {
-              case ConstantValue(x) => {
+              case ConstantValue(x,_,_) => {
                 def constrainSimple(c: Constraint, maybeNewMem: Option[MemorySpace]):
                 (Option[MemorySpace], Boolean) = {
                   c match {
-                    case EQ_E(ConstantValue(y)) if y == x => (maybeNewMem, true)
-                    case EQ_E(ConstantValue(y)) if y != x => (None, true)
-                    case NOT(EQ_E(ConstantValue(y))) if y == x => (None, true)
-                    case NOT(EQ_E(ConstantValue(y))) if y != x => (maybeNewMem, true)
-                    case LTE_E(ConstantValue(y)) if x > y => (None, true)
-                    case GTE_E(ConstantValue(y)) if x < y => (None, true)
-                    case LT_E(ConstantValue(y)) if x >= y => (None, true)
-                    case GT_E(ConstantValue(y)) if x <= y => (None, true)
-                    case LTE_E(ConstantValue(y)) if x <= y => (maybeNewMem, true)
-                    case GTE_E(ConstantValue(y)) if x >= y => (maybeNewMem, true)
-                    case LT_E(ConstantValue(y)) if x < y => (maybeNewMem, true)
-                    case GT_E(ConstantValue(y)) if x > y => (maybeNewMem, true)
+                    case EQ_E(ConstantValue(y,_,_)) if y == x => (maybeNewMem, true)
+                    case EQ_E(ConstantValue(y,_,_)) if y != x => (None, true)
+                    case NOT(EQ_E(ConstantValue(y,_,_))) if y == x => (None, true)
+                    case NOT(EQ_E(ConstantValue(y,_,_))) if y != x => (maybeNewMem, true)
+                    case LTE_E(ConstantValue(y,_,_)) if x > y => (None, true)
+                    case GTE_E(ConstantValue(y,_,_)) if x < y => (None, true)
+                    case LT_E(ConstantValue(y,_,_)) if x >= y => (None, true)
+                    case GT_E(ConstantValue(y,_,_)) if x <= y => (None, true)
+                    case LTE_E(ConstantValue(y,_,_)) if x <= y => (maybeNewMem, true)
+                    case GTE_E(ConstantValue(y,_,_)) if x >= y => (maybeNewMem, true)
+                    case LT_E(ConstantValue(y,_,_)) if x < y => (maybeNewMem, true)
+                    case GT_E(ConstantValue(y,_,_)) if x > y => (maybeNewMem, true)
                     case AND(cts) => {
                       cts.foldLeft((maybeNewMem, true))((acc, x) => {
                         if (acc._1.isEmpty)
@@ -232,7 +232,7 @@ class OVSExecutor(solver: Solver) extends DecoratedInstructionExecutor(solver) {
                 log(a, value, c, sat)
                 if (sat) {
                   c match {
-                    case EQ_E(ConstantValue(y)) => {
+                    case EQ_E(ConstantValue(y,_,_)) => {
                       value.e match {
                         //                          case z : SymbolicValue => Some(mapMemory(m2, z.id, y))
                         case _ => Some(m2)

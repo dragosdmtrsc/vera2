@@ -43,4 +43,35 @@ object RepresentationConversion {
     }
     s
   }
+
+  def unpack(bytes: Int) = {
+    List[Byte](
+      ((bytes >>> 24) & 0xff).asInstanceOf[Byte],
+      ((bytes >>> 16) & 0xff).asInstanceOf[Byte],
+      ((bytes >>> 8) & 0xff).asInstanceOf[Byte],
+      ((bytes) & 0xff).asInstanceOf[Byte]
+    )
+  }
+
+  def numberToMac(mac: Long) = {
+    var startStr = ""
+    var start = mac
+    for (i <- 0 until 6) {
+      val crt = start & 0xff
+      start = start >> 8
+      startStr = crt.toHexString + (if (i > 0) ":" else "") + startStr
+    }
+    startStr
+  }
+
+
+  def numberToIp(ip: Long) = {
+    var startStr = ""
+    val start = unpack(ip.asInstanceOf[Int])
+    for (b <- start) {
+      startStr += ((b & 0xFF).asInstanceOf[Int]).toString + "."
+    }
+    startStr = startStr.substring(0, startStr.length() - 1)
+    startStr
+  }
 }

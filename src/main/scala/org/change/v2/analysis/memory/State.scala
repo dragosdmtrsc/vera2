@@ -16,7 +16,18 @@ import spray.json._
 case class State(memory: MemorySpace = MemorySpace.clean,
                  history: List[LocationId] = Nil,
                  errorCause: Option[ErrorCause] = None,
-                 instructionHistory: List[Instruction] = Nil) {
+                 instructionHistory: List[Instruction] = Nil,
+                 savedStack: Map[String, MemorySpace] = Map[String, MemorySpace]()) {
+
+  def save(location: String): State = {
+    val newstack = savedStack + (location -> memory)
+    this.copy(savedStack = newstack)
+  }
+
+  def load(location: String): Option[State] = {
+    savedStack.get(location).map(s => this.copy(memory = s))
+  }
+
   def destroyPacket(): State = {
     copy(memory = memory.destroyPacket())
   }
