@@ -46,9 +46,11 @@ object SymbolicTableCompiler extends SEFLCompiler[P4Program] {
 
     assert((matchValues.keys.toSet intersect symbolicParameters.keys.toSet).isEmpty)
 
+    val symbolTable = (matchValues ++ symbolicParameters).mapValues(e => (e, None)) // these symbols do not get offsets
+
     SEFLCodeContainer(
       instructions = Map.empty,
-      symbolTable = (matchValues ++ symbolicParameters).mapValues(e => (e, None)) // these symbols do not get offsets
+      symbolTable
     )
   }
 }

@@ -6,9 +6,14 @@ import org.antlr.v4.runtime.{CharStreams, CommonTokenStream}
 import org.change.parser.p4.P4GrammarListener
 import org.change.v2.p4.model.actions.{P4Action, P4ActionType, P4ComplexAction}
 import org.change.v2.p4.model.updated.control.ControlFunction
+import org.change.v2.p4.model.updated.header.HeaderDeclaration
+import org.change.v2.p4.model.updated.instance.{HeaderInstance}
 import org.change.v2.p4.model.updated.table.TableDeclaration
 
 case class P4Program(
+                    headerDeclarations: Map[String, HeaderDeclaration],
+                    headerOrMetadataInstances: Map[String, HeaderInstance],
+                    metadataInits: Map[String, Int],
                  controlFunctions: Map[String, ControlFunction],
                  tableDeclarations: Map[String, TableDeclaration],
                  primitiveActions: Map[String, P4Action],
@@ -27,6 +32,9 @@ object P4Program {
     })
 
     P4Program(
+      headerDeclarations = listener.declaredHeaders.toMap,
+      headerOrMetadataInstances = listener.headerInstances.toMap,
+      metadataInits = listener.metadataInit,
       listener.controlFunctions.map(f => f.functionName -> f).toMap,
       listener.tablesDeclarationsNEW.toMap,
       primitiveActions.map(action => action.getActionName -> action).toMap,

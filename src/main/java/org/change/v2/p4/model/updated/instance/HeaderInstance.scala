@@ -1,18 +1,17 @@
-package org.change.parser.p4
+package org.change.v2.p4.model.updated.instance
 
 import org.change.v2.analysis.memory.{ProducesTagExp, Tag, TagExp}
+import org.change.v2.p4.model.updated.header.HeaderDeclaration
 
-sealed trait P4Instance extends ProducesTagExp {
-  def layout: HeaderDeclaration
-}
-
-sealed trait HeaderInstance extends P4Instance {
+sealed trait HeaderInstance extends ProducesTagExp {
   /**
     * Determines a tag expression for a given field (accessed by name)
     * @param fieldName
     * @return
     */
   def getTagOfField(fieldName: String): TagExp = getTagExp + layout.offsetOf(fieldName)
+
+  def layout: HeaderDeclaration
 }
 
 class ScalarHeader(val id: String,

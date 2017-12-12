@@ -1,4 +1,4 @@
-// Generated from /home/radu/0/projects/internal/symnet-stuff/symPatru/src/main/resources/p4_grammar/P4Grammar.g4 by ANTLR 4.7
+// Generated from /mbin/projects/internal/symPatru/src/main/resources/p4_grammar/P4Grammar.g4 by ANTLR 4.7
 package generated.parse.p4;
 import org.antlr.v4.runtime.atn.*;
 import org.antlr.v4.runtime.dfa.DFA;
@@ -683,7 +683,7 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Header_type_declarationContext extends ParserRuleContext {
-		public org.change.parser.p4.HeaderDeclaration headerDeclaration;
+		public org.change.v2.p4.model.updated.header.HeaderDeclaration headerDeclaration;
 		public org.change.v2.p4.model.Header header;
 		public Header_type_nameContext header_type_name() {
 			return getRuleContext(Header_type_nameContext.class,0);
@@ -1288,7 +1288,7 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Instance_declarationContext extends ParserRuleContext {
-		public org.change.parser.p4.P4Instance instance;
+		public org.change.v2.p4.model.updated.instance.HeaderInstance instance;
 		public Instance_declarationContext(ParserRuleContext parent, int invokingState) {
 			super(parent, invokingState);
 		}
@@ -1368,7 +1368,7 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Header_instanceContext extends ParserRuleContext {
-		public org.change.parser.p4.HeaderInstance instance;
+		public org.change.v2.p4.model.updated.instance.HeaderInstance instance;
 		public Header_instanceContext(ParserRuleContext parent, int invokingState) {
 			super(parent, invokingState);
 		}
@@ -1446,8 +1446,7 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Scalar_instanceContext extends ParserRuleContext {
-		public org.change.parser.p4.ScalarHeader instance;
-		public org.change.v2.p4.model.HeaderInstance hdrInstance;
+		public org.change.v2.p4.model.updated.instance.ScalarHeader instance;
 		public Header_type_nameContext header_type_name() {
 			return getRuleContext(Header_type_nameContext.class,0);
 		}
@@ -1496,8 +1495,7 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Array_instanceContext extends ParserRuleContext {
-		public org.change.parser.p4.ArrayHeader instance;
-		public org.change.v2.p4.model.ArrayInstance arrInstance;
+		public org.change.v2.p4.model.updated.instance.ArrayHeader instance;
 		public Header_type_nameContext header_type_name() {
 			return getRuleContext(Header_type_nameContext.class,0);
 		}
@@ -1592,7 +1590,7 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Metadata_instanceContext extends ParserRuleContext {
-		public org.change.parser.p4.MetadataInstance instance;
+		public org.change.v2.p4.model.updated.instance.MetadataInstance instance;
 		public Header_type_nameContext header_type_name() {
 			return getRuleContext(Header_type_nameContext.class,0);
 		}
@@ -2892,7 +2890,7 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Header_extract_refContext extends ParserRuleContext {
-		public org.change.parser.p4.HeaderInstance headerInstance;
+		public org.change.v2.p4.model.updated.instance.HeaderInstance headerInstance;
 		public Instance_nameContext instance_name() {
 			return getRuleContext(Instance_nameContext.class,0);
 		}

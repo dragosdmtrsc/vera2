@@ -147,7 +147,7 @@ public class Switch {
         for (String table : listener.tables())
             sw = sw.createTable(table);
         sw.matches = listener.tableDeclarations();
-        sw.instances = listener.instances();
+//        sw.instances = listener.instances();
         sw.allowedActions = listener.tableAllowedActions();
         sw.parserStates = listener.parserFunctions();
         return sw;

@@ -4,13 +4,13 @@ grammar P4Grammar;
 
 p4_program      :   p4_declaration+ ;
 
-p4_declaration  :   header_type_declaration
-                |   instance_declaration
+p4_declaration  :   header_type_declaration         // org.change.v2.p4.model.updated.header
+                |   instance_declaration            // org.change.v2.p4.model.updated.instance
                 |   field_list_declaration
                 |   field_list_calculation_declaration
                 |   calculated_field_declaration
                 |   value_set_declaration
-                |   parser_function_declaration
+                |   parser_function_declaration     //org.change.parser.p4.ParserFunctionDeclaration
                 |   parser_exception_declaration
                 |   counter_declaration
                 |   meter_declaration
@@ -24,6 +24,7 @@ p4_declaration  :   header_type_declaration
 
 const_value     returns [Integer constValue]:
     ('+'|'-')? width_spec? unsigned_value ;
+
 unsigned_value  returns [Integer unsignedValue]:
     Binary_value            #BinaryUValue
     | Decimal_value         #DecimalUValue
@@ -48,7 +49,7 @@ width_spec  :   Decimal_value '\'' ;
 field_value returns [Integer fieldValue] : const_value ;
 
 // Section 2.1
-header_type_declaration returns [org.change.parser.p4.HeaderDeclaration headerDeclaration, org.change.v2.p4.model.Header header]:
+header_type_declaration returns [org.change.v2.p4.model.updated.header.HeaderDeclaration headerDeclaration, org.change.v2.p4.model.Header header]:
     'header_type' header_type_name '{' header_dec_body '}' ;
 header_type_name : NAME ;
 
@@ -67,23 +68,23 @@ bit_width   :   const_value | '*' ;
 
 // Section 2.2
 //TODO: Support metadata instances.
-instance_declaration returns [org.change.parser.p4.P4Instance instance]:
+instance_declaration returns [org.change.v2.p4.model.updated.instance.HeaderInstance instance]:
     header_instance     #HeaderInstance
     | metadata_instance #MetadataInstance
     ;
 
-header_instance returns [org.change.parser.p4.HeaderInstance instance]:
+header_instance returns [org.change.v2.p4.model.updated.instance.HeaderInstance instance]:
     scalar_instance     #ScalarInstance
     | array_instance    #ArrayInstance
     ;
 
-scalar_instance returns [org.change.parser.p4.ScalarHeader instance, org.change.v2.p4.model.HeaderInstance hdrInstance]:
+scalar_instance returns [org.change.v2.p4.model.updated.instance.ScalarHeader instance]:
     'header' header_type_name instance_name ';' ;
-array_instance  returns [org.change.parser.p4.ArrayHeader instance, org.change.v2.p4.model.ArrayInstance arrInstance]:
+array_instance  returns [org.change.v2.p4.model.updated.instance.ArrayHeader instance]:
     'header' header_type_name instance_name '[' const_value ']' ';' ;
 instance_name   :   NAME ;
 
-metadata_instance returns [org.change.parser.p4.MetadataInstance instance]:
+metadata_instance returns [org.change.v2.p4.model.updated.instance.MetadataInstance instance]:
    'metadata' header_type_name instance_name metadata_initializer? ';' ;
 metadata_initializer returns [scala.collection.Map<String, Integer> inits]:
    '{' ( field_name ':' field_value ';' )+ '}' ;
@@ -135,7 +136,7 @@ org.change.v2.p4.model.parser.Statement statement] :
 extract_statement  returns [org.change.parser.p4.ExtractHeader extractStatement,
     org.change.v2.p4.model.parser.ExtractStatement statement] :
     'extract' '(' header_extract_ref ')' ';' ;
-header_extract_ref returns [org.change.parser.p4.HeaderInstance headerInstance] :
+header_extract_ref returns [org.change.v2.p4.model.updated.instance.HeaderInstance headerInstance] :
     instance_name | instance_name '[' header_extract_index ']' ;
 header_extract_index    : const_value | 'next' ;
 set_statement returns [org.change.v2.p4.model.parser.SetStatement statement]  :
