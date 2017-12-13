@@ -23,7 +23,7 @@ class Z3BVTranslator(context: Z3Context) extends Translator[Z3Solver] {
       case Plus(a, b) => context.mkBVAdd(translate(slv, a, size)._1, translate(slv, b, size)._1)
       case Minus(a, b) => context.mkBVSub(translate(slv, a, size)._1, translate(slv, b, size)._1)
       case Reference(what) => translate(slv, what, size)._1
-      case ConstantValue(v) => context.mkNumeral(v.toString, context.mkBVSort(size))
+      case ConstantValue(v, _, _) => context.mkNumeral(v.toString, context.mkBVSort(size))
       case SymbolicValue() => context.mkConst(e.id.toString, context.mkBVSort(size))
       case Lor(a, b) => context.mkBVOr(translate(slv, a, size)._1, translate(slv, b, size)._1)
       case LAnd(a, b) => context.mkBVAnd(translate(slv, a, size)._1, translate(slv, b, size)._1)

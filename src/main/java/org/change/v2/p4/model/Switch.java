@@ -54,9 +54,6 @@ public class Switch {
         return allowedActions.get(perTable);
     }
 
-
-
-
     public Switch setRegisterSpecificationMap(Map<String, RegisterSpecification> registerSpecificationMap) {
         this.registerSpecificationMap = registerSpecificationMap;
         return this;
