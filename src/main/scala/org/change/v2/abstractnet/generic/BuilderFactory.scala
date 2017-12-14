@@ -47,6 +47,7 @@ object BuilderFactory {
     case "Paint" => Paint.getBuilder(nameValue)
     case "PaintSwitch" => PaintSwitch.getBuilder(nameValue)
     case "LinearIPLookup" => LinearIPLookup.getBuilder(nameValue)
+    case "ThousandIPs" => ThousandIPs.getBuilder(nameValue)
     case _ => NoOpClickElm.getBuilder(nameValue, elementType)
   }
 
@@ -92,6 +93,7 @@ object BuilderFactory {
     case "Paint" => Paint.getBuilder
     case "PaintSwitch" => PaintSwitch.getBuilder
     case "LinearIPLookup" => LinearIPLookup.getBuilder
+    case "ThousandIPs" => ThousandIPs.getBuilder
     case _ => NoOpClickElm.getBuilder(elementType)
   }
 }

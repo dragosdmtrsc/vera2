@@ -34,12 +34,9 @@ case class State(memory: MemorySpace = MemorySpace.clean,
   }
 
   def location: LocationId = history.head
-
-  def forwardTo(locationId: LocationId): State = copy(history = locationId :: history)
-
+  def forwardTo(locationId: LocationId): State = State(memory, locationId :: history, errorCause, instructionHistory)
   def status = errorCause.getOrElse("OK")
-
-  def addInstructionToHistory(i: Instruction) = copy(instructionHistory = i :: instructionHistory)
+  def addInstructionToHistory(i: Instruction) = State(memory, history, errorCause, i :: instructionHistory)
 
   def jsonString = {
     this.toJson.prettyPrint

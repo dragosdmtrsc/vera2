@@ -14,14 +14,14 @@ import org.change.v2.analysis.executor.InstructionExecutor
 import org.change.v2.analysis.executor.SpeculativeExecutor
 
 /**
-  * Author: Radu Stoenescu
-  * Don't be a stranger,  symnetic.7.radustoe@spamgourmet.com
-  *
-  * An execution context is determined by the instructions it can execute and
-  * a set of states that were explored.
-  *
-  * A port is a String id, that maps to an instruction.
-  */
+ * Author: Radu Stoenescu
+ * Don't be a stranger,  symnetic.7.radustoe@spamgourmet.com
+ *
+ * An execution context is determined by the instructions it can execute and
+ * a set of states that were explored.
+ *
+ * A port is a String id, that maps to an instruction.
+ */
 case class ClickExecutionContext(
                                   instructions: Map[LocationId, Instruction],
                                   links: Map[LocationId, LocationId],
@@ -37,11 +37,10 @@ case class ClickExecutionContext(
   def setExecutor(instructionExecutor: InstructionExecutor) = copy(executor = instructionExecutor)
 
   /**
-    * Merges two execution contexts.
-    *
-    * @param that
-    * @return
-    */
+   * Merges two execution contexts.
+   * @param that
+   * @return
+   */
   def +(that: ClickExecutionContext) = copy(
     this.instructions ++ that.instructions,
     this.links ++ that.links,
@@ -52,10 +51,9 @@ case class ClickExecutionContext(
   )
 
   /**
-    * Is there any state further explorable ?
-    *
-    * @return
-    */
+   * Is there any state further explorable ?
+   * @return
+   */
   def isDone: Boolean = okStates.isEmpty
 
   /**
@@ -156,40 +154,40 @@ case class ClickExecutionContext(
 
 object ClickExecutionContext {
 
-  //  private var executorService: ExecutorService = buildNewService()
+//  private var executorService: ExecutorService = buildNewService()
 
-  //  private def buildNewService(): ExecutorService = {
-  //    Executors.newFixedThreadPool(Runtime.getRuntime.availableProcessors)
-  //  }
+//  private def buildNewService(): ExecutorService = {
+//    Executors.newFixedThreadPool(Runtime.getRuntime.availableProcessors)
+//  }
 
-  //  def getService = {
-  //    if (executorService.isShutdown) {
-  //      executorService = buildNewService()
-  //    }
-  //
-  //    executorService
-  //  }
+//  def getService = {
+//    if (executorService.isShutdown) {
+//      executorService = buildNewService()
+//    }
+//
+//    executorService
+//  }
 
   /**
-    * Builds a symbolic execution context out of a single click config file.
-    *
-    * @param networkModel
-    * @param verificationConditions
-    * @param includeInitial
-    * @return
-    */
-  def fromSingle(networkModel: NetworkConfig,
-                 verificationConditions: List[List[Rule]] = Nil,
-                 includeInitial: Boolean = true,
-                 initialIsClean: Boolean = false): ClickExecutionContext = {
+   * Builds a symbolic execution context out of a single click config file.
+   *
+   * @param networkModel
+   * @param verificationConditions
+   * @param includeInitial
+   * @return
+   */
+  def fromSingle( networkModel: NetworkConfig,
+                  verificationConditions: List[List[Rule]] = Nil,
+                  includeInitial: Boolean = true,
+                  initialIsClean: Boolean = false): ClickExecutionContext = {
     // Collect instructions for every element.
     val instructions = networkModel.elements.values.foldLeft(Map[LocationId, Instruction]())(_ ++ _.instructions)
     // Collect check instructions corresponding to network rules.
-    val checkInstructions = verificationConditions.flatten.map(r => {
-      networkModel.elements(r.where.element).outputPortName(r.where.port) -> InstructionBlock(r.whatTraffic)
-    }).toMap
+    val checkInstructions = verificationConditions.flatten.map( r => {
+        networkModel.elements(r.where.element).outputPortName(r.where.port) -> InstructionBlock(r.whatTraffic)
+      }).toMap
     // Create forwarding links.
-    val links = networkModel.paths.flatMap(_.sliding(2).map(pcp => {
+    val links = networkModel.paths.flatMap( _.sliding(2).map(pcp => {
       val src = pcp.head
       val dst = pcp.last
       networkModel.elements(src._1).outputPortName(src._3) -> networkModel.elements(dst._1).inputPortName(dst._2)
@@ -206,11 +204,11 @@ object ClickExecutionContext {
   }
 
   def buildAggregated(
-                       configs: Iterable[NetworkConfig],
-                       interClickLinks: Iterable[(String, String, String, String, String, String)],
-                       verificationConditions: List[List[Rule]] = Nil,
-                       startElems: Option[Iterable[(String, String, String)]] = None,
-                       initialState: State = State.allSymbolic): ClickExecutionContext = {
+            configs: Iterable[NetworkConfig],
+            interClickLinks: Iterable[(String, String, String, String, String, String)],
+            verificationConditions: List[List[Rule]] = Nil,
+            startElems: Option[Iterable[(String, String, String)]] = None,
+            initialState: State = State.allSymbolic): ClickExecutionContext = {
     // Create a context for every network config.
     val ctxes = configs.map(ClickExecutionContext.fromSingle(_, includeInitial = false))
     // Keep the configs for name resolution.
@@ -222,7 +220,7 @@ object ClickExecutionContext {
       configMap(l._1).elements(ela).outputPortName(l._3) -> configMap(l._4).elements(elb).inputPortName(l._6)
     }).toMap
     // Collect check instructions corresponding to network rules.
-    val checkInstructions = verificationConditions.flatten.map(r => {
+    val checkInstructions = verificationConditions.flatten.map( r => {
       val elementName = r.where.vm + "-" + r.where.element
       configMap(r.where.vm).elements(elementName).outputPortName(r.where.port) -> InstructionBlock(r.whatTraffic)
     }).toMap

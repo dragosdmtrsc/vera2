@@ -30,6 +30,7 @@ generated/
 
 .DS_Store
 ._.DS_Store
+.vagrant/
 
 .classpath
 .project
