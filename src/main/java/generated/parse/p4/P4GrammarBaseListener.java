@@ -1,4 +1,4 @@
-// Generated from /home/dragos/GitHub/symPatru/src/main/resources/p4_grammar/P4Grammar.g4 by ANTLR 4.7
+// Generated from /mbin/projects/internal/symPatru/src/main/resources/p4_grammar/P4Grammar.g4 by ANTLR 4.7
 package generated.parse.p4;
 
 import org.antlr.v4.runtime.ParserRuleContext;
@@ -1168,13 +1168,25 @@ public class P4GrammarBaseListener implements P4GrammarListener {
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void enterTable_actions(P4GrammarParser.Table_actionsContext ctx) { }
+	@Override public void enterActionSpecification(P4GrammarParser.ActionSpecificationContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void exitTable_actions(P4GrammarParser.Table_actionsContext ctx) { }
+	@Override public void exitActionSpecification(P4GrammarParser.ActionSpecificationContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void enterActionProfileSpecification(P4GrammarParser.ActionProfileSpecificationContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitActionProfileSpecification(P4GrammarParser.ActionProfileSpecificationContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
@@ -1228,13 +1240,49 @@ public class P4GrammarBaseListener implements P4GrammarListener {
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void enterControl_statement(P4GrammarParser.Control_statementContext ctx) { }
+	@Override public void enterApplyTableCall(P4GrammarParser.ApplyTableCallContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void exitControl_statement(P4GrammarParser.Control_statementContext ctx) { }
+	@Override public void exitApplyTableCall(P4GrammarParser.ApplyTableCallContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void enterApplyAndSelectBlock(P4GrammarParser.ApplyAndSelectBlockContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitApplyAndSelectBlock(P4GrammarParser.ApplyAndSelectBlockContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void enterIfElseStatement(P4GrammarParser.IfElseStatementContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitIfElseStatement(P4GrammarParser.IfElseStatementContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void enterControlFunctionCall(P4GrammarParser.ControlFunctionCallContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitControlFunctionCall(P4GrammarParser.ControlFunctionCallContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
@@ -1264,25 +1312,25 @@ public class P4GrammarBaseListener implements P4GrammarListener {
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void enterCase_list_action(P4GrammarParser.Case_list_actionContext ctx) { }
+	@Override public void enterActionCases(P4GrammarParser.ActionCasesContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void exitCase_list_action(P4GrammarParser.Case_list_actionContext ctx) { }
+	@Override public void exitActionCases(P4GrammarParser.ActionCasesContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void enterCase_list_hitmiss(P4GrammarParser.Case_list_hitmissContext ctx) { }
+	@Override public void enterHitMissCases(P4GrammarParser.HitMissCasesContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void exitCase_list_hitmiss(P4GrammarParser.Case_list_hitmissContext ctx) { }
+	@Override public void exitHitMissCases(P4GrammarParser.HitMissCasesContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *

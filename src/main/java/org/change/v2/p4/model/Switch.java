@@ -54,9 +54,6 @@ public class Switch {
         return allowedActions.get(perTable);
     }
 
-
-
-
     public Switch setRegisterSpecificationMap(Map<String, RegisterSpecification> registerSpecificationMap) {
         this.registerSpecificationMap = registerSpecificationMap;
         return this;
@@ -147,7 +144,7 @@ public class Switch {
         for (String table : listener.tables())
             sw = sw.createTable(table);
         sw.matches = listener.tableDeclarations();
-        sw.instances = listener.instances();
+//        sw.instances = listener.instances();
         sw.allowedActions = listener.tableAllowedActions();
         sw.parserStates = listener.parserFunctions();
         return sw;

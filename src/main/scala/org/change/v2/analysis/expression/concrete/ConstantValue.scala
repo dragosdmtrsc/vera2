@@ -3,9 +3,12 @@ package org.change.v2.analysis.expression.concrete
 import com.fasterxml.jackson.annotation.JsonIgnore
 import org.change.utils.RepresentationConversion._
 import org.change.v2.analysis.expression.abst.{Expression, FloatingExpression}
+import com.fasterxml.jackson.annotation.JsonIgnore
+import org.change.v2.analysis.expression.abst.{Expression, FloatingExpression}
 import org.change.v2.analysis.memory.State
 import org.change.v2.analysis.z3.Z3Util
-import z3.scala.{Z3AST, Z3Solver}
+import z3.scala.{Z3AST, Z3Context, Z3Solver, Z3Sort}
+import org.change.v2.util.conversion.RepresentationConversion._
 
 /**
   *

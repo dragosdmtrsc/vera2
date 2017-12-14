@@ -1,5 +1,7 @@
 package org.change.parser.p4
 
+import org.change.v2.p4.model.updated.instance.HeaderInstance
+
 /**
   * A small gift from radu to symnetic.
   */
@@ -10,6 +12,6 @@ case class ParserFunctionDeclaration(
                                     )
 
 sealed trait ParserFunctionStatement
-case class ExtractHeader(what: HeaderInstance) extends ParserFunctionStatement
 
+case class ExtractHeader(what: HeaderInstance) extends ParserFunctionStatement
 case class SetFunction(field : String, metaExpr : String) extends ParserFunctionStatement

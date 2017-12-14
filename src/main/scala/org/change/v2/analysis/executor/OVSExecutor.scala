@@ -1,6 +1,5 @@
 package org.change.v2.analysis.executor
 
-
 import java.util.concurrent.{ExecutorService, Executors}
 
 import org.change.v2.analysis.constraint._

@@ -33,6 +33,22 @@ Actions currently implemented, but not tested thouroughly: `add_header`, `copy_h
 See test case _"NAT spec can be parsed - actions, reg defs and field lists are there_" in
 `HeaderDefinitionParsingTest` class
 
+#### Actions allowing symbolic parameters: 
+
+Currently implemented: `add_to_field`, `add`, `subtract_from_field`, `subtract`.
+
+Should be implementable: `modify_field`, `modify_field_rng_uniform`, TBD: bitwise operations.
+
+Cannot be implemented: `modify_field_with_hash_based_offset`
+
+#### Actions allowing expansion:
+
+Currently implemented: TBD
+
+Should be implementable: `add_header`, `copy_header`, `remove_header`, `push`, `pop`
+
+Cannot be implemented: TBD
+
 #### Initializers
 
 The switch needs to be initialized whenever it is started - i.e. zero out registers and counters - 
