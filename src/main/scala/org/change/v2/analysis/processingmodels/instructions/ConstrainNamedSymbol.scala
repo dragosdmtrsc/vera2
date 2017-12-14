@@ -69,6 +69,20 @@ object Constrain {
     }
 }
 
+object Assert {
+  def apply(id: String, dc: FloatingConstraint): Instruction =
+    If(ConstrainNamedSymbol(id, dc, None), NoOp, Fail(s"Assertion failure:$id $dc.toString"))
+
+  def apply(a: Intable, dc: FloatingConstraint): Instruction =
+    If(ConstrainRaw(a, dc, None), NoOp, Fail(s"Assertion failure:$a $dc.toString"))
+
+  def apply(a: Either[String, Intable], dc: FloatingConstraint): Instruction =
+    a match {
+      case Left(s) => apply(s, dc)
+      case Right(s) => apply(s, dc)
+    }
+}
+
 trait FloatingConstraint {
   def instantiate(s: State): Either[Constraint, String]
 }
