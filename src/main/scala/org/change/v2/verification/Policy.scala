@@ -17,10 +17,11 @@ object Policy {
 
   type Topology = Map[LocationId,Instruction]
 
+  type Continuation = (Formula,PolicyState,PolicyLogger) => (Formula,PolicyLogger)
+
   //def mode = ModelCheckMode::Nil
   //def mode = MCMode::OverallMode::LocMode::Nil
-  //def mode = OverallMode::LocMode::Nil
-  def mode =  OverallMode::LocMode::Nil
+  def mode = OverallMode::LocMode::Nil
   //def mode = Nil
 
   def EF(f:Formula) = Exists(Future(f))
@@ -57,6 +58,8 @@ object Policy {
 
   def isSatisfied (state: PolicyState, i : Instruction) : Boolean = {
 
+    println("Is satisfied "+i+" on state ")
+    println(state.state.instructionHistory)
     var comp = complement(i)
     /*
     println("Current state:"+state.state)
@@ -67,16 +70,17 @@ object Policy {
       println("Result:" + sp._2.head.errorCause)
     }*/
 
-    println("Current state:"+state.state.instructionHistory)
+    //println("Current state:"+state.state.instructionHistory)
 
+    /*
     state.state.instructionHistory.head match {
       case AssignRaw(tag,e,_) => println(">>>>>>>>> Asigning "+tag+" to "+e)
       case _ =>
     }
-
+*/
     state.execute(comp) match {
-      case FailedState => true
-      case _ => false
+      case FailedState => println("IS true"); true
+      case _ => println("IS false"); false
     }
 
   }
@@ -142,8 +146,8 @@ object Policy {
     {//println("Checking "+p);//println(s.state.instructionHistory);
 
   (if (isSatisfied(s, p))
-    {verbose_print (show(p)+" is true \n",MCMode); println("true"); make(Atomic(p),Satisfied)}
-    else {verbose_print (show(p)+" is false \n",MCMode); println("false");  make(Atomic(p),Falsified)}, logger)}
+    {verbose_print (show(p)+" is true \n",MCMode);  make(Atomic(p),Satisfied)}
+    else {verbose_print (show(p)+" is false \n",MCMode);  make(Atomic(p),Falsified)}, logger)}
 
   /* VG ( VG f )  if VG is pending, it is not false in the current state, hence the search continues.
      VG f - if f is pending, then if it is true in a future state, it will be true in the current (pending) state
@@ -271,7 +275,18 @@ def check (f : Formula, p: Instruction, s : PolicyState, logger : PolicyLogger) 
        // the semantics of Forward, or Forward in an instruction block is essentially the same
        // (the rest of the instruction block, after Forward, is ignored)
      case (_,_,InstructionBlock(Forward(_) :: _)) |
-          (_,_,Forward(_)) =>
+          (_,_,Forward(_)) => (s,p) match {
+                 // the witness state assigned to f is "sp" (containing the new location)
+                 case (MapState(_,_,_,_), Forward(loc)) =>
+                   check_sequence(f, s, Forward(loc), (f,ss,l) => {check(f,s.instructionAt(loc),ss,l)},logger)
+
+                 case pair@(MapState(_,_,_,_), InstructionBlock(Forward(loc) :: _)) =>
+                   check_sequence(f, s, Forward(loc), (f,ss,l) => {check(f,s.instructionAt(loc),ss,l)},logger)
+                 case _ => { /*verbose_print("Skipping \n", MCMode);*/ (f,logger)}
+               }
+
+
+           /*
            var fp = f
            var log = logger
            if (changesState(Forward(""))) {val (fpp,l) = check_in_state(f,s,logger); fp = fpp; log = l} // Forward may change state, hence trigger atomic verification
@@ -289,8 +304,12 @@ def check (f : Formula, p: Instruction, s : PolicyState, logger : PolicyLogger) 
                                                                                    check(clone(fp),s.instructionAt(loc),sp,log);
              case _ => { /*verbose_print("Skipping \n", MCMode);*/ (f,log)}
            }
+           */
 
      case (_,_,InstructionBlock(pr :: rest)) => //take an instruction
+     check_sequence(f,s,pr,(f,s,l) => {check(f,InstructionBlock(rest),s,l)},logger)
+
+     /*
        logger.addInstruction(pr)
        verbose_print("Executed instruction "+pr,LocMode);
        val sp = s.execute(pr)  // execute program pr in state s,
@@ -300,7 +319,6 @@ def check (f : Formula, p: Instruction, s : PolicyState, logger : PolicyLogger) 
            //logger.lastInstruction = pr
            verbose_print("Instruction "+pr+" failed ",LocMode)
          }
-
 
        var (fval,lprime) = check(f,pr,sp,logger) // verify the policy in this new state
 
@@ -324,6 +342,8 @@ def check (f : Formula, p: Instruction, s : PolicyState, logger : PolicyLogger) 
          case (_,_) => (fval,lprime) // if the formula is not temporal, it has been checked;
 
        }
+
+       */
 
      case (_,_,Fork(Fork(xs)::rest)) => check(f,Fork(xs ++ rest),s,logger)
      case (_,_,Fork(lst)) => {val (fp,log) = lst.foldLeft((f,{logger.initFork; logger}))(
@@ -349,83 +369,7 @@ def check (f : Formula, p: Instruction, s : PolicyState, logger : PolicyLogger) 
          }
        }
      ); log.endFork; (fp,log) }
-       /*
-     case (_,Forall(_),Fork(lst)) => lst.foldLeft((f,logger))(
-       (pair : (Formula,PolicyLogger),branch:Instruction) => {
-         val (f,log) = pair
 
-         if (f.status == Falsified || f.status == Pending) (make(f,Falsified),log) //do not execute other branches if f was not proved on a previous branch
-         else {
-           // reporting
-           println("++++++++++")
-           verbose_print("Exploring branch "+branch+" at "+log.currentPort,LocMode);
-           log.addPath
-
-           println("History:")
-           println(logger.getHistory)
-           println("Branches: "+logger.paths)
-           println("Trace: "+logger.getInstructionTrace)
-           println("----------")
-
-           check(reeval(f),branch,s,log) //note that s is the same state built "at the Fork" and the status of the formula has been reset
-         }
-       })
-
-     case (_,Exists(_),Fork(lst)) => lst.foldLeft((f,logger))(
-       (pair : (Formula,PolicyLogger),branch:Instruction) => {
-         val (f,log) = pair
-
-         if (f.status == Satisfied) (make(f,Satisfied),log) //do not execute other branches if f was not proved on a previous branch
-         else {
-           // reporting
-           println("++++++++++")
-           verbose_print("Exploring branch "+branch+" at "+log.currentPort,LocMode);
-           log.addPath
-
-           println("History:")
-           println(logger.getHistory)
-           println("Branches: "+logger.paths)
-           println("Trace: "+logger.getInstructionTrace)
-           println("----------")
-
-           val (fp,lprime) = check(reeval(f),branch,s,log) //note that s is the same state built "at the Fork" and the status of the formula has been reset
-           if (fp.status == Pending) (make(fp,Falsified),lprime) //if an explored branch is pending, falsify it
-           else (fp,lprime)
-         }
-       })
-*/
-
-
-      /*
-     // terminal case for Fork. Note that we use the previously-saved "lastState" to report the witness state
-     case (_,Forall(_),Fork(Nil)) => verbose_print("Final branch checked\n",MCMode); verbose_print ("f is true (finished a Fork)\n",OverallMode); (make(f,Satisfied),logger)
-     case (_,Exists(_),Fork(Nil)) => verbose_print("Final branch checked\n",MCMode); verbose_print ("f is false (finished a Fork)\n",OverallMode); (make(f,Falsified),logger)
-
-     case (_,_,Fork(pr::rest)) => verbose_print("Checking branch:\n"+show(pr),MCMode);
-
-       val (fp,lprime) = check(f,pr,s,logger) // we verify a branch of the Fork
-       // we store the witness state built on that branch (if this is the final branch, "lastState" will be the reported witness state)
-       println("++++++++++")
-       verbose_print("Exploring branch "+pr+" at "+lprime.currentPort,LocMode);
-       lprime.addPath
-
-       println("History:")
-       println(logger.getHistory)
-       println("Branches: "+logger.paths)
-       println("Trace: "+logger.getInstructionTrace)
-       println("----------")
-
-       (f,fp.status) match {
-           // we evaluate the truth-value of the fork
-         case (Exists(_),Satisfied) => verbose_print ("f is true (on a Fork branch)\n",OverallMode); (make (f, Satisfied),lprime)
-         case (Forall(_),Pending) | (Forall(_),Falsified) => verbose_print ("f is false (on a Fork branch)\n",OverallMode); (make(f,Falsified),lprime)
-           // if the truth-value cannot be established, then "s" (the state before executing the branch) is used to continue verification on another branch
-         case (Exists(_),_) | (Forall(_),Satisfied) =>  check(reeval(f),Fork(rest),s,lprime) //the formula must be made pending for the next branch verification
-
-         case (_,_) => throw new Exception ("Cannot evaluate non-temporal formula on a Fork ")
-
-       }
-       */
 
        // IF implementation
      case (_,_,If(testInstr: Instruction, thenWhat: Instruction, elseWhat:Instruction)) =>
@@ -440,6 +384,51 @@ def check (f : Formula, p: Instruction, s : PolicyState, logger : PolicyLogger) 
 
    }
  }
+
+  def check_sequence (f : Formula, s : PolicyState, p : Instruction, block : Continuation, logger:PolicyLogger) : (Formula,PolicyLogger) = {
+    //println("In check-sequence for "+p)
+    //Thread.sleep(1000)
+
+    val (sp,lp) = s.execute(p,logger)  // execute program pr in state s; if sp is unsatisfiable, this is treated by the subsequent "check" call
+
+    // we simply continue execution
+    if (!changesState(p)) { block(f,sp,lp); }
+
+    else {
+      //println("In evaluation of check-sequence for " + p)
+      // otherwise, we check the current state, and possibly continue execution
+      var (fval, lprime) = check_in_state(f, s, lp) //check(f,p,sp,lp) // verify the policy in this new state (
+      // if the current instruction does not change state, fval = f
+
+      println("Current status is:"+fval.status)
+      println("Formula:"+fval)
+      (fval.status, f) match {
+        // s, p;rest |= XG f  iff  s,p |= XG f   and p(s),rest |= XG f
+        // the "false" case
+        case (Falsified, Forall(Globally(_))) | (Falsified, Exists(Globally(_))) =>
+          // the witness state is the current state
+          verbose_print("Linear: f is false \n", OverallMode); (make(f, Falsified), lprime)
+        // otherwise continue verification
+
+        // the "true" case
+        case (Satisfied, Forall(Future(_))) | (Satisfied, Exists(Future(_))) =>
+          println("Linear: f is true"); (make(f, Satisfied), lprime)
+
+        // the valuation of fval is reset, but the witness state is preserved and passed on
+        case (_, Forall(Globally(_))) | (_, Exists(Globally(_))) | (_, Forall(Future(_))) | (_, Exists(Future(_))) => {println("Reeval"); block(reeval(fval), sp, lprime)}
+
+
+
+        case (_, Forall(_)) | (_, Exists(_)) => throw new Exception("Not a CTL formula")
+
+        // the rest
+        case (_, _) => (fval, lprime) // if the formula is not temporal, it has been checked;
+
+      }
+    }
+
+  }
+
 
   def check_in_state(f : Formula, s: PolicyState, logger:PolicyLogger) : (Formula,PolicyLogger) = {
     f match {

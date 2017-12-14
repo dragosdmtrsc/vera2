@@ -78,7 +78,8 @@ object Tester {
 
 
     var tests = List (
-      //TopoTest("Existential test 1 on hop-based impl",EF(Constrain(IPDst,:==:(ConstantValue(100)))),"0",sample_topo(model_1),false),
+      //TopoTest("Existential test 1 on hop-based impl",EF(Constrain(IPDst,:==:(ConstantValue(100)))),"0",sample_topo(model_1),false)
+      TopoTest("Check-sequence test",EF(Constrain(IPDst,:==:(ConstantValue(100)))),"0",linear_topo,false)
       //TopoTest("Existential test 2 on hop-based impl",EF(Constrain(TcpSrc,:==:(ConstantValue(5)))),"0",sample_topo(model_1),true),
       //TopoTest("Universal test 3 on hop-based impl",AF(Constrain(TcpSrc,:==:(ConstantValue(5)))),"0",sample_topo(model_1),false),
       // this test currently fails
@@ -86,11 +87,12 @@ object Tester {
       //TopoTest("Simple history test",EF(Constrain(IPDst,:>=:(ConstantValue(11)))),"0",tiny_topo_2,true)
     )
 
+
     /*
     for (t <- tests){
       t.execute
-    }*/
-
+    }
+*/
 
 
     //costin_example
@@ -137,8 +139,17 @@ object Tester {
   )
 
   def sample_topo(model:Instruction) : Topo = (Map("0" -> InstructionBlock(model, Forward("1")),
-                                "1" -> InstructionBlock(Constrain(TcpDst, :>=:(ConstantValue(10))), Forward("2")),
-                                "2" -> InstructionBlock(Assign(IPDst,ConstantValue(100)), Assign(TcpDst,ConstantValue(0)))), Map():Map[LocationId,LocationId])
+                                "11" -> InstructionBlock(Constrain(TcpDst, :>=:(ConstantValue(10))), Forward("2")),
+                                "22" -> InstructionBlock(Assign(IPDst,ConstantValue(100)), Assign(TcpDst,ConstantValue(0)))), Map("1" -> "11", "2" -> "22"):Map[LocationId,LocationId])
+
+  def linear_topo : Topo =
+    ( Map("0" -> InstructionBlock(Constrain(IPSrc,:==:(ConstantValue(11))),Forward("1")),
+          "11" -> InstructionBlock(Constrain(IPDst,:==:(ConstantValue(12))),Forward("2")),
+          "22" -> InstructionBlock(NoOp)
+    )
+      ,
+      Map("1" -> "11", "2" -> "22"))
+
 
   def tiny_topo : Topo =
 

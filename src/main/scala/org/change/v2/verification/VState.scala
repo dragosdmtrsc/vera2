@@ -2,7 +2,7 @@ package org.change.v2.verification
 
 import org.change.v2.analysis.processingmodels.LocationId
 import org.change.v2.analysis.memory.State
-import org.change.v2.analysis.processingmodels.instructions.NoOp
+import org.change.v2.analysis.processingmodels.instructions.{Forward, NoOp}
 import org.change.v2.verification.Policy.{LocMode, OverallMode, Topology}
 import org.change.v2.analysis.processingmodels._
 
@@ -15,6 +15,7 @@ import org.change.v2.analysis.processingmodels._
 trait PolicyState {
   def instructionHistory = state.instructionHistory
 
+  def execute (p:Instruction,l:PolicyLogger):(PolicyState,PolicyLogger)
   def execute (p:Instruction):PolicyState
   def state : State
   def forward (s:String) : PolicyState
@@ -24,12 +25,16 @@ trait PolicyState {
 
   def stuck (s:State) : Boolean = s.errorCause match {case Some(str) => !(str.startsWith("Memory object") || str.startsWith("Symbol")) case _ => false}
 }
-
+// this has to be re-checked
 case class NoMapState (val state:State) extends PolicyState {
 
-  override def execute(p:Instruction) : PolicyState = {
-
-
+  override def execute(p:Instruction,l:PolicyLogger): (PolicyState,PolicyLogger) = {
+    (p.apply(state,true) match {
+      case (Nil,sp :: _) => if (stuck(sp)) UnsatisfState else FailedState
+      case (sp :: _,_) => new NoMapState(sp)
+    },l)
+  }
+  override def execute (p:Instruction) : PolicyState  = {
     p.apply(state,true) match {
       case (Nil,sp :: _) => if (stuck(sp)) UnsatisfState else FailedState
       case (sp :: _,_) => new NoMapState(sp)
@@ -47,12 +52,28 @@ case class MapState (location : LocationId,
                      links:Map[LocationId,LocationId],
                      state:State) extends PolicyState {
 
-  override def execute(p:Instruction) : PolicyState = {
+  override def execute(p:Instruction, logger : PolicyLogger) : (PolicyState,PolicyLogger) = {
     //Policy.verbose_print("Executed "+p+"\n************\n",OverallMode);
+    logger.addInstruction(p)
 
+    p match {
+      case Forward(loc) => //semantics for Forward
+        logger.addPort(loc)
+        logger.addInstruction(Forward(loc))
+        logger.addPort(nextHop(loc))
+        (forward(loc),logger)
+      case _ => // standard symbolic execution
+        (p.apply(state,true) match {
+          case (Nil,sp :: _) => if (stuck(sp)) {UnsatisfState} else {FailedState}
+          case (sp :: _,_) => new MapState(location,topology,links,sp)
+        }, logger)
+
+    }
+  }
+  override def execute (p:Instruction) : PolicyState  = {
     p.apply(state,true) match {
-      case (Nil,sp :: _) => if (stuck(sp)) {UnsatisfState} else {FailedState}
-      case (sp :: _,_) => new MapState(location,topology,links,sp)
+      case (Nil,sp :: _) => if (stuck(sp)) UnsatisfState else FailedState
+      case (sp :: _,_) => new NoMapState(sp)
     }
   }
 
@@ -81,6 +102,19 @@ case class MapState (location : LocationId,
                                           else {Policy.verbose_print("Next hop:"+links(l),OverallMode); new MapState(links(l),topology,links,state)}
 
 }
+
+case object FailedLocationState extends PolicyState {
+  override def execute (p:Instruction) : PolicyState = null
+  override def state: State = null
+  override def forward (s:String) = null
+  override def instructionAt (s:String) : Instruction = null
+  override def copy = FailedState
+  override def nextHop(l : LocationId) = null
+
+  override def execute(p: Instruction, l: PolicyLogger): (PolicyState, PolicyLogger) = null
+}
+
+
 case object FailedState extends PolicyState {
   override def execute (p:Instruction) : PolicyState = null
   override def state: State = null
@@ -88,6 +122,8 @@ case object FailedState extends PolicyState {
   override def instructionAt (s:String) : Instruction = null
   override def copy = FailedState
   override def nextHop(l : LocationId) = null
+
+  override def execute(p: Instruction, l: PolicyLogger): (PolicyState, PolicyLogger) = null
 }
 
 case object UnsatisfState extends PolicyState {
@@ -97,4 +133,6 @@ case object UnsatisfState extends PolicyState {
   override def instructionAt (s:String) : Instruction = null
   override def copy = UnsatisfState
   override def nextHop(l : LocationId) = null
+
+  override def execute(p: Instruction, l: PolicyLogger): (PolicyState, PolicyLogger) = null
 }
