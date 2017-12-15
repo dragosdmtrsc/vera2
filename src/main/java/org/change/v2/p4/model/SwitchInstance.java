@@ -16,13 +16,14 @@ import java.util.regex.Pattern;
 /**
  * Created by dragos on 31.08.2017.
  */
-public class SwitchInstance {
+public class SwitchInstance implements ISwitchInstance {
     private Switch switchSpec;
     private String name;
 
     private Map<String, List<FlowInstance>> flowInstanceMap = new HashMap<String, List<FlowInstance>>();
     private Map<String, P4ActionCall> defaultActionMap = new HashMap<String, P4ActionCall>();
 
+    @Override
     public Map<Integer, Integer> getCloneSpec2EgressSpec() {
         return cloneSpec2EgressSpec;
     }
@@ -61,6 +62,7 @@ public class SwitchInstance {
         return this;
     }
 
+    @Override
     public Map<Integer, String> getIfaceSpec() {
         return ifaceSpec;
     }
@@ -80,6 +82,7 @@ public class SwitchInstance {
         return switchSpec;
     }
 
+    @Override
     public String getName() {
         return name;
     }
@@ -138,7 +141,11 @@ public class SwitchInstance {
                         if (p.matcher(split[j].trim().toUpperCase()).matches()) {
                             flowInstance.addActionParams(RepresentationConversion.macToNumber(split[j].trim().toUpperCase()));
                         } else {
-                            flowInstance.getActionParams().add(split[j].trim());
+                            try {
+                                flowInstance.addActionParams(Long.parseLong(split[j].trim()));
+                            } catch (NumberFormatException nfe) {
+                                flowInstance.addActionParams(split[j].trim());
+                            }
                         }
                     }
                 }
@@ -180,7 +187,11 @@ public class SwitchInstance {
                         if (p.matcher(split[j].trim().toUpperCase()).matches()) {
                             theCall.addParameter(new P4ParameterInstance().setValue(RepresentationConversion.macToNumber(split[j].trim()) + ""));
                         } else {
-                            theCall.addParameter(new P4ParameterInstance().setValue(split[j].trim()));
+                            try {
+                                theCall.addParameter(new P4ParameterInstance().setValue(Long.decode(split[j].trim()) + ""));
+                            } catch (NumberFormatException nfe) {
+                                theCall.addParameter(new P4ParameterInstance().setValue(split[j].trim()));
+                            }
                         }
                     }
                 }

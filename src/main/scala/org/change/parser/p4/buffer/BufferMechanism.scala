@@ -6,7 +6,7 @@ import org.change.v2.analysis.expression.concrete.nonprimitive.:@
 import org.change.v2.analysis.memory.{State, Tag}
 import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.analysis.processingmodels.instructions._
-import org.change.v2.p4.model.{InstanceType, SwitchInstance}
+import org.change.v2.p4.model.{ISwitchInstance, InstanceType, Switch, SwitchInstance}
 import org.change.v2.p4.model.parser._
 
 import scala.collection.JavaConversions._
@@ -15,7 +15,7 @@ import scala.collection.immutable.Stack
 /**
   * Created by dragos on 15.09.2017.
   */
-class BufferMechanism(switchInstance: SwitchInstance) {
+class BufferMechanism(switchInstance: ISwitchInstance) {
 
   def cloneCase() = InstructionBlock(
     switchInstance.getCloneSpec2EgressSpec.foldRight(Fail("No clone mapping found. Resolve to drop") : Instruction)((x, acc) => {
@@ -26,7 +26,7 @@ class BufferMechanism(switchInstance: SwitchInstance) {
     })
   )
 
-  def normalCase() = switchInstance.getIfaceSpec.keySet().foldRight(Fail("Egress spec not set. Resolve to drop") : Instruction)((x, acc) => {
+  def normalCase(): Instruction = switchInstance.getIfaceSpec.keySet().foldRight(Fail("Egress spec not set. Resolve to drop") : Instruction)((x, acc) => {
     If (Constrain("standard_metadata.egress_spec", :==:(ConstantValue(x.longValue()))),
       Assign("standard_metadata.egress_port", ConstantValue(x.longValue())),
       acc
@@ -41,13 +41,13 @@ class BufferMechanism(switchInstance: SwitchInstance) {
       out()
     )
 
-  def out() = Forward(outName)
+  def out() = Forward(outName())
 
   def outName() = s"${switchInstance.getName}.buffer.out"
 }
 
 
-class OutputMechanism(switchInstance: SwitchInstance) {
+class OutputMechanism(switchInstance: ISwitchInstance) {
   def symnetCode() : Instruction = {
     switchInstance.getIfaceSpec.foldRight(Fail("Cannot find egress_port match for current interfaces") : Instruction)((x, acc) => {
       If (Constrain("standard_metadata.egress_port", :==:(ConstantValue(x._1.longValue()))),
@@ -59,13 +59,13 @@ class OutputMechanism(switchInstance: SwitchInstance) {
 }
 
 
-class DeparserRev(switchInstance: SwitchInstance) {
-  val startState = switchInstance.getSwitchSpec.getParserState("start")
+class DeparserRev(switch: Switch, switchInstance : ISwitchInstance) {
+  val startState = switch.getParserState("start")
   def symnetCode() : Instruction = {
-    val asList = switchInstance.getSwitchSpec.parserStates().toList
+    val asList = switch.parserStates().toList
     val indexedSeq = asList.zipWithIndex.toMap
     val (edges, nodes) = asList.foldLeft((List[(String, String)](), Map[String, Iterable[String]]()))((acc, x) => {
-      val (edges, extracts) = symnetCode(switchInstance.getSwitchSpec.getParserState(x))
+      val (edges, extracts) = symnetCode(switch.getParserState(x))
       (acc._1 ++ edges, acc._2 + (x -> extracts))
     })
 
@@ -81,7 +81,7 @@ class DeparserRev(switchInstance: SwitchInstance) {
         def generateHeaderCode(headerInstances : List[String], off : Int) : Instruction = headerInstances match {
           case Nil => generateCode(tail, off)
           case h2 :: t2 =>
-            val ib = switchInstance.getSwitchSpec.getInstance(h2).getLayout.getFields.
+            val ib = switch.getInstance(h2).getLayout.getFields.
               foldLeft((off, List[Instruction]()))((acc, f) => {
                 (acc._1 + f.getLength,  acc._2 ++ List[Instruction](
                   Allocate(Tag("START") + acc._1, f.getLength),

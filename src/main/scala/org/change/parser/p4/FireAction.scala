@@ -1,5 +1,6 @@
 package org.change.parser.p4
 
+import org.change.v2.analysis.expression.concrete.ConstantValue
 import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.p4.model.SwitchInstance
 import org.change.v2.p4.model.actions.P4ActionCall
@@ -15,10 +16,13 @@ class FireAction(tableName : String, flowNumber : Int, switchInstance: SwitchIns
   private lazy val args = flow.getActionParams
 
   def symnetCode() : Instruction = {
-    return new ActionInstance(action, args.toList, switchInstance, tableName, flowNumber,
+    new ActionInstance(action, args.toList.map(r => ConstantValue(r.asInstanceOf[Long])),
+      switchInstance,
+      switchInstance.getSwitchSpec,
+      tableName,
+      flowNumber,
       s"Dropped by flow $flowNumber@$tableName").sefl()
   }
-
 }
 
 class FireDefaultAction(tableName : String, switchInstance: SwitchInstance) {
@@ -27,9 +31,12 @@ class FireDefaultAction(tableName : String, switchInstance: SwitchInstance) {
       new P4ActionCall(new Drop())
     else
         switchInstance.getDefaultAction(tableName)
-   def symnetCode() : Instruction = {
-    return new ActionInstance(
-      p4ActionCall.getP4Action, p4ActionCall.parameterInstances().map( x => x.getValue).toList,
-      switchInstance, tableName, -1, s"dropped by default@$tableName").sefl()
-  }
+   def symnetCode() : Instruction = new ActionInstance(
+     p4ActionCall.getP4Action,
+     p4ActionCall.parameterInstances().map( x => ConstantValue(x.getValue.toLong)).toList,
+     switchInstance,
+     switchInstance.getSwitchSpec,
+     tableName,
+     -1,
+     s"dropped by default@$tableName").sefl()
 }

@@ -6,27 +6,29 @@ import org.change.v2.analysis.expression.concrete.nonprimitive._
 import org.change.v2.analysis.memory.{Intable, Tag}
 import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.analysis.processingmodels.instructions.{Assign, InstructionBlock, NoOp, _}
-import org.change.v2.p4.model.{ArrayInstance, InstanceType, SwitchInstance}
+import org.change.v2.p4.model._
 import org.change.v2.p4.model.actions._
 import org.change.v2.p4.model.actions.primitives._
 import org.change.v2.p4.model.InstanceType._
+
 import scala.collection.JavaConversions._
 
-class ActionInstance(p4Action: P4Action, argList : List[Any],
-                     switchInstance: SwitchInstance,
+class ActionInstance(p4Action: P4Action,
+                     argList : List[FloatingExpression],
+                     switchInstance: ISwitchInstance,
+                     switch : Switch,
                      table : String,
-                     flowNumber : Int,
+                     flowNumber : Int = -1,
                      dropMessage : String = "Dropped right here") {
 
   override def toString: String = s"${switchInstance.getName}.action.$table.$flowNumber"
 
-  private val ctx = switchInstance.getSwitchSpec.getCtx
 
   def handleComplexAction(complexAction: P4ComplexAction) : Instruction = {
     val arity = complexAction.getParameterList.size()
     if (arity != argList.size)
       throw new IllegalArgumentException(s"Wrong arity got ${argList.size} vs wanted $arity")
-    val argNameToIndex = complexAction.getParameterList().zipWithIndex.map { x => x._1.getParamName -> x._2 }.toMap
+    val argNameToIndex = complexAction.getParameterList.zipWithIndex.map { x => x._1.getParamName -> x._2 }.toMap
     InstructionBlock(complexAction.getActionList.map( v => {
       val x = normalize(v)
       val args = x.parameterInstances().zip(x.getP4Action.getParameterList).map( pair => {
@@ -34,106 +36,44 @@ class ActionInstance(p4Action: P4Action, argList : List[Any],
         val formal = pair._2
         if ((y.getParameter.getType & P4ActionParameterType.UNKNOWN.x) != 0) {
           if ((formal.getType & P4ActionParameterType.FLDLIST.x) != 0) {
-            y.getValue.toString
+            :@(y.getValue)
           } else if ((formal.getType & P4ActionParameterType.HDR.x) != 0) {
-            y.getValue.toString
+            :@(y.getValue)
           } else if ((formal.getType & P4ActionParameterType.R_REF.x) != 0) {
-            y.getValue.toString
+            :@(y.getValue)
           } else {
-            argList(argNameToIndex(y.getValue.toString))
+            argList(argNameToIndex(y.getValue))
           }
         } else {
-          y.getValue
+          :@(y.getValue)
         }
       }).toList
-      new ActionInstance(x.getP4Action, args, switchInstance, table, flowNumber, dropMessage).sefl()
+      new ActionInstance(x.getP4Action, args, switchInstance, switch, table, flowNumber, dropMessage).sefl()
     }).toList
     )
   }
 
   def handleModifyField(modifyField: ModifyField) : Instruction = {
-    val argDest = argList.head
+    val argDest = argList.head.asInstanceOf[Symbol].id
     val argSource = argList(1)
-    val dstField = ctx.resolveField(argDest.toString)
-    argSource match {
-      case value: Int =>
-        dstField match {
-          case Left(j) => Assign(j, ConstantValue(value))
-          case Right(s) => Assign(s, ConstantValue(value))
-        }
-      case value : Long => {
-        dstField match {
-          case Left(j) => Assign(j, ConstantValue(value))
-          case Right(s) => Assign(s, ConstantValue(value))
-        }
-      }
-      case _: String =>
-        try {
-          val value = java.lang.Long.decode(argSource.toString).longValue
-          dstField match {
-            case Left(j) => Assign(j, ConstantValue(value))
-            case Right(s) => Assign(s, ConstantValue(value))
-          }
-        }
-        catch {
-          case nfe: NumberFormatException => ctx.resolveField(argSource.toString) match {
-            case Left(i) => dstField match {
-              case Left(j) => Assign(j, :@(i))
-              case Right(s) => Assign(s, :@(i))
-            }
-            case Right(r) => dstField match {
-              case Left(j) => Assign(j, :@(r))
-              case Right(s) => Assign(s, :@(r))
-            }
-          }
-        }
-      case _ =>
-        throw new IllegalArgumentException(s"$argSource is wrong. Must be String or Int")
-    }
+    val dstField = argDest
+    Assign(dstField, argSource)
   }
 
   def handleAddToField(addToField: AddToField) : Instruction = {
-    val argDest = argList.head
+    val argDest = argList.head.asInstanceOf[Symbol].id
     val argSource = argList(1)
-    val dstField = ctx.resolveField(argDest.toString)
-    val arg = parseArg(argSource)
-    dstField match {
-      case Left(i) => Assign(i, :+:(:@(i), arg))
-      case Right(s) => Assign(s, :+:(:@(s), arg))
-    }
-  }
-
-
-  def parseArg(arg : Any) : FloatingExpression = {
-    arg match {
-      case value: Int => ConstantValue(value)
-      case value: Long => ConstantValue(value)
-      case _: String =>
-        try {
-          val value = java.lang.Long.decode(arg.toString).longValue()
-          ConstantValue(value)
-        }
-        catch {
-          case nfe: NumberFormatException => toFexp(ctx.resolveField(arg.toString))
-        }
-      case _ =>
-        throw new IllegalArgumentException(s"$arg is wrong. Must be String or Int")
-    }
+    Assign(argDest, :+:(:@(argDest), argSource))
   }
 
   def handleSubtractFromField(addToField: SubtractFromField) : Instruction = {
-    val argDest = argList.head
+    val argDest = argList.head.asInstanceOf[Symbol].id
     val argSource = argList(1)
-    val dstField = ctx.resolveField(argDest.toString)
-    val arg = parseArg(argSource)
-    dstField match {
-      case Left(i) => Assign(i, :-:(:@(i), arg))
-      case Right(s) => Assign(s, :-:(:@(s), arg))
-    }
+    Assign(argDest, :-:(:@(argDest), argSource))
   }
 
   def setOriginal() : Instruction = {
-    InstructionBlock(switchInstance.getSwitchSpec.getInstances.flatMap(x => {
+    InstructionBlock(switch.getInstances.flatMap(x => {
         x.getLayout.getFields.map(_.getName).map(y => {
           if (x.isMetadata) {
             NoOp
@@ -146,7 +86,7 @@ class ActionInstance(p4Action: P4Action, argList : List[Any],
   }
 
   def restore(butFor : List[String]) : Instruction = {
-    InstructionBlock(switchInstance.getSwitchSpec.getInstances().flatMap(x => {
+    InstructionBlock(switch.getInstances.flatMap(x => {
         if (!butFor.contains(x.getName)) {
           x.getLayout.getFields.map(y => {
             if (!butFor.contains(x.getName + "." + y.getName)) {
@@ -176,36 +116,36 @@ class ActionInstance(p4Action: P4Action, argList : List[Any],
   }
 
 
-  def handleResubmit(resubmit: Resubmit) = {
+  def handleResubmit(resubmit: Resubmit): InstructionBlock = {
     val fldList = argList.head.toString
-    val actualFieldList = switchInstance.getSwitchSpec.getFieldListMap()(fldList)
+    val actualFieldList = switch.getFieldListMap()(fldList)
     InstructionBlock(
       restore(actualFieldList.getFields.toList),
-      Assign(ctx.resolveField("standard_metadata.instance_type").right.get, ConstantValue(PKT_INSTANCE_TYPE_RESUBMIT.value)),
+      Assign("standard_metadata.instance_type", ConstantValue(PKT_INSTANCE_TYPE_RESUBMIT.value)),
       Forward(switchInstance.getName + ".parser")
     )
   }
 
-  def handleRecirculate(recirculate: Recirculate) = {
+  def handleRecirculate(recirculate: Recirculate): InstructionBlock = {
     val fldList = argList.head.toString
-    val actualFieldList = switchInstance.getSwitchSpec.getFieldListMap()(fldList)
+    val actualFieldList = switch.getFieldListMap()(fldList)
     InstructionBlock(
       setOriginal(),
       restore(actualFieldList.getFields.toList),
-      Assign(ctx.resolveField("standard_metadata.instance_type").right.get, ConstantValue(PKT_INSTANCE_TYPE_RECIRC.value)),
+      Assign("standard_metadata.instance_type", ConstantValue(PKT_INSTANCE_TYPE_RECIRC.value)),
       Forward(switchInstance.getName + ".parser")
     )
   }
 
-  def handleCloneFromIngressToIngress(cloneIngressPktToIngress: CloneIngressPktToIngress) = {
+  def handleCloneFromIngressToIngress(cloneIngressPktToIngress: CloneIngressPktToIngress): Fork = {
     val fldList = argList(1).toString
-    val actualFieldList = switchInstance.getSwitchSpec.getFieldListMap()(fldList)
+    val actualFieldList = switch.getFieldListMap()(fldList)
     Fork(
       List[Instruction](
         InstructionBlock(
-          handleCloneCookie(argList.head.toString()),
+          handleCloneCookie(argList.head.toString),
           restore(actualFieldList.getFields.toList),
-          Assign(ctx.resolveField("standard_metadata.instance_type").right.get, ConstantValue(PKT_INSTANCE_TYPE_INGRESS_CLONE.value)),
+          Assign("standard_metadata.instance_type", ConstantValue(PKT_INSTANCE_TYPE_INGRESS_CLONE.value)),
           Assign("IsClone", ConstantValue(1)),
           Forward(switchInstance.getName + ".parser")
         ),
@@ -214,15 +154,15 @@ class ActionInstance(p4Action: P4Action, argList : List[Any],
     )
   }
 
-  def handleCloneFromIngressToEgress(cloneIngressPktToEgress: CloneIngressPktToEgress) = {
+  def handleCloneFromIngressToEgress(cloneIngressPktToEgress: CloneIngressPktToEgress): Fork = {
     val fldList = argList(1).toString
-    val actualFieldList = switchInstance.getSwitchSpec.getFieldListMap()(fldList)
+    val actualFieldList = switch.getFieldListMap()(fldList)
     Fork(
       List[Instruction](
         InstructionBlock(
-          handleCloneCookie(argList.head.toString()),
+          handleCloneCookie(argList.head.toString),
           restore(actualFieldList.getFields.toList),
-          Assign(ctx.resolveField("standard_metadata.instance_type").right.get, ConstantValue(PKT_INSTANCE_TYPE_EGRESS_CLONE.value)),
+          Assign("standard_metadata.instance_type", ConstantValue(PKT_INSTANCE_TYPE_EGRESS_CLONE.value)),
           Assign("IsClone", ConstantValue(1)),
           Forward(s"${switchInstance.getName}.buffer.in")
         ),
@@ -232,16 +172,16 @@ class ActionInstance(p4Action: P4Action, argList : List[Any],
   }
 
 
-  def handleCloneFromEgressToIngress(cloneEgressPktToIngress: CloneEgressPktToIngress) = {
+  def handleCloneFromEgressToIngress(cloneEgressPktToIngress: CloneEgressPktToIngress): Fork = {
     val fldList = argList(1).toString
-    val actualFieldList = switchInstance.getSwitchSpec.getFieldListMap()(fldList)
+    val actualFieldList = switch.getFieldListMap()(fldList)
     Fork(
       List[Instruction](
         InstructionBlock(
-          handleCloneCookie(argList.head.toString()),
+          handleCloneCookie(argList.head.toString),
           setOriginal(),
           restore(actualFieldList.getFields.toList),
-          Assign(ctx.resolveField("standard_metadata.instance_type").right.get, ConstantValue(PKT_INSTANCE_TYPE_INGRESS_CLONE.value)),
+          Assign("standard_metadata.instance_type", ConstantValue(PKT_INSTANCE_TYPE_INGRESS_CLONE.value)),
           Assign("IsClone", ConstantValue(1)),
           Forward(switchInstance.getName + ".parser")
         ),
@@ -260,16 +200,16 @@ class ActionInstance(p4Action: P4Action, argList : List[Any],
     handleCloneCookie(asLong)
   }
 
-  def handleCloneFromEgressToEgress(cloneEgressPktToIngress: CloneEgressPktToEgress) = {
+  def handleCloneFromEgressToEgress(cloneEgressPktToIngress: CloneEgressPktToEgress): Fork = {
     val fldList = argList(1).toString
-    val actualFieldList = switchInstance.getSwitchSpec.getFieldListMap()(fldList)
+    val actualFieldList = switch.getFieldListMap()(fldList)
     Fork(
       List[Instruction](
         InstructionBlock(
-          handleCloneCookie(argList.head.toString()),
+          handleCloneCookie(argList.head.toString),
           setOriginal(),
           restore(actualFieldList.getFields.toList),
-          Assign(ctx.resolveField("standard_metadata.instance_type").right.get, ConstantValue(PKT_INSTANCE_TYPE_EGRESS_CLONE.value)),
+          Assign("standard_metadata.instance_type", ConstantValue(PKT_INSTANCE_TYPE_EGRESS_CLONE.value)),
           Assign("IsClone", ConstantValue(1)),
           Forward(switchInstance.getName + ".buffer.in")
         ),
@@ -289,26 +229,20 @@ class ActionInstance(p4Action: P4Action, argList : List[Any],
     val argDest = argList.head
     val argSource1 = argList(1)
     val argSource2 = argList(2)
-    val dstField = ctx.resolveField(argDest.toString)
-    val arg1 = parseArg(argSource1)
-    val arg2 = parseArg(argSource2)
-    dstField match {
-      case Left(i) => Assign(i, :+:(arg1, arg2))
-      case Right(s) => Assign(s, :+:(arg1, arg2))
-    }
+    val dstField = argDest.toString
+    val arg1 = argSource1
+    val arg2 = argSource2
+    Assign(dstField, :+:(arg1, arg2))
   }
 
   def handleSubtract(subtract: Subtract) : Instruction = {
     val argDest = argList.head
     val argSource1 = argList(1)
     val argSource2 = argList(2)
-    val dstField = ctx.resolveField(argDest.toString)
-    val arg1 = parseArg(argSource1)
-    val arg2 = parseArg(argSource2)
-    dstField match {
-      case Left(i) => Assign(i, :-:(arg1, arg2))
-      case Right(s) => Assign(s, :-:(arg1, arg2))
-    }
+    val dstField = argDest.toString
+    val arg1 = argSource1
+    val arg2 = argSource2
+    Assign(dstField, :-:(arg1, arg2))
   }
 
   def handleRegisterRead(regRead : RegisterRead) : Instruction = {
@@ -318,15 +252,12 @@ class ActionInstance(p4Action: P4Action, argList : List[Any],
       val argSource2 = argList(2)
       // this is a global register
       val intVal = java.lang.Long.decode(argSource2.toString).longValue()
-      val name = if (!switchInstance.getSwitchSpec.getRegisterSpecificationMap.get(argSource1.toString).isStatic) {
+      val name = if (!switch.getRegisterSpecificationMap.get(argSource1.toString).isStatic) {
         s"${switchInstance.getName}.reg.${argSource1.toString}[$intVal]"
       } else {
         s"${switchInstance.getName}.reg[$table].${argSource1.toString}[$intVal]"
       }
-      ctx.resolveField(argDest.toString) match {
-        case Left(i) => Assign(i, :@(name))
-        case Right(s) => Assign(s, :@(name))
-      }
+      Assign(argDest.toString, :@(name))
     } else {
       // this is a direct register => will be referenced by flow number -> don't forget to allocate when adding a new flow
       throw new UnsupportedOperationException("TODO: Direct registers not yet implemented ")
@@ -334,17 +265,14 @@ class ActionInstance(p4Action: P4Action, argList : List[Any],
   }
 
   def handleRegisterWrite(regRead : RegisterWrite) : Instruction = {
-    val argDest = argList.head
+    val argDest = argList.head.asInstanceOf[Symbol].id
     val argSource1 = argList(1)
     if (argList.length > 2) {
       val argSource2 = argList(2)
       // this is a global register
       val intVal = java.lang.Long.decode(argSource2.toString).longValue
       val name = "reg." + argSource1.toString + "." + intVal
-      ctx.resolveField(argDest.toString) match {
-        case Left(i) => Assign(name, :@(i))
-        case Right(s) => Assign(name, :@(s))
-      }
+      Assign(name, :@(argDest.toString))
     } else {
       // this is a direct register => will be referenced by flow number -> don't forget to allocate when adding a new flow
       throw new UnsupportedOperationException("TODO: Direct registers not yet implemented ")
@@ -352,8 +280,8 @@ class ActionInstance(p4Action: P4Action, argList : List[Any],
   }
 
 
-  def moveHeader(hname : String, index : Int, newIndex : Int) = {
-    val hInstance = switchInstance.getSwitchSpec.getInstance(hname).asInstanceOf[ArrayInstance]
+  def moveHeader(hname : String, index : Int, newIndex : Int): Instruction = {
+    val hInstance = switch.getInstance(hname).asInstanceOf[ArrayInstance]
 
     if (newIndex >= hInstance.getLength)
       NoOp
@@ -369,12 +297,11 @@ class ActionInstance(p4Action: P4Action, argList : List[Any],
     }
   }
 
-  def allocateHeader(hname : String, index : Int = 0): Instruction = switchInstance.getSwitchSpec.getInstance(hname) match {
-    case hInstance : ArrayInstance => {
+  def allocateHeader(hname : String, index : Int = 0): Instruction = switch.getInstance(hname) match {
+    case hInstance : ArrayInstance =>
       if (index >= hInstance.getLength)
         NoOp
       else {
-        val oldInstance = hInstance
         InstructionBlock(hInstance.getLayout.getFields.flatMap(x => {
           List[Instruction](
             Allocate(hname + index + "." + x.getName, x.getLength),
@@ -383,8 +310,7 @@ class ActionInstance(p4Action: P4Action, argList : List[Any],
         }).toList
         )
       }
-    }
-    case sInstance : org.change.v2.p4.model.HeaderInstance => {
+    case sInstance : org.change.v2.p4.model.HeaderInstance =>
       val oldinstance = sInstance
       InstructionBlock(sInstance.getLayout.getFields.flatMap(x => {
         List[Instruction](
@@ -393,12 +319,11 @@ class ActionInstance(p4Action: P4Action, argList : List[Any],
         )
       }).toList
       )
-    }
     case _ => throw new UnsupportedOperationException(s"Cannot translate this register $hname")
 
   }
 
-  def getNameAndIndex(dst : String) = {
+  def getNameAndIndex(dst : String): (String, String, Int) = {
     if (dst.contains("[")) {
       val index = dst.indexOf('[')
       val hname = dst.substring(0, index)
@@ -413,11 +338,10 @@ class ActionInstance(p4Action: P4Action, argList : List[Any],
     val dst = argList.head.toString
     val src = argList(1).toString
 
-    val (regNameDst, hnameDst, indexDst) = getNameAndIndex(dst)
-    val (regNameSrc, hnameSrc, indexSrc) = getNameAndIndex(src)
+    val (regNameDst, _, _) = getNameAndIndex(dst)
+    val (regNameSrc, _, _) = getNameAndIndex(src)
 
-    val instanceDst = switchInstance.getSwitchSpec.getInstance(dst)
-    val instanceSrc = switchInstance.getSwitchSpec.getInstance(src)
+    val instanceDst = switch.getInstance(dst)
     val instrList = InstructionBlock(instanceDst.getLayout.getFields.flatMap(x => {
         val fldName = x.getName
         List[Instruction](
@@ -438,15 +362,14 @@ class ActionInstance(p4Action: P4Action, argList : List[Any],
   def handleRemoveHeader() : Instruction = {
     val headerInstance = argList.head.toString
     val (regName, hname, index) = getNameAndIndex(headerInstance)
-    val hdrInstance = switchInstance.getSwitchSpec.getInstance(regName)
-    val instance = switchInstance.getSwitchSpec.getInstance(headerInstance)
+    val instance = switch.getInstance(headerInstance)
     If (Constrain(regName + ".IsValid", :==:(ConstantValue(1))),
       NoOp,
       InstructionBlock(
         Assign(regName + ".IsValid", ConstantValue(1)),
         if (regName != hname) {
           // if we are at a header array
-          val instance = switchInstance.getSwitchSpec.getInstance(hname).asInstanceOf[ArrayInstance]
+          val instance = switch.getInstance(hname).asInstanceOf[ArrayInstance]
           val moveUpInstruction = (index + 1 until instance.getLength).map( x => {
             val newIndex = x - 1
             If (Constrain(hname + x + ".IsValid", :==:(ConstantValue(1))),
@@ -475,7 +398,6 @@ class ActionInstance(p4Action: P4Action, argList : List[Any],
         },
         InstructionBlock(
           instance.getLayout.getFields.map( x => {
-            val fieldName = x
             InstructionBlock(
               Allocate(instance.getName + "." + x, x.getLength),
               Assign(instance.getName + "." + x, ConstantValue(0))
@@ -490,16 +412,15 @@ class ActionInstance(p4Action: P4Action, argList : List[Any],
   def handleAddHeader(addHeader: AddHeader) : Instruction = {
     val headerInstance = argList.head.toString
     val (regName, hname, index) = getNameAndIndex(headerInstance)
-    val hdrInstance = switchInstance.getSwitchSpec.getInstance(regName)
-    val instance = switchInstance.getSwitchSpec.getInstance(headerInstance)
+    val instance = switch.getInstance(headerInstance)
     If (Constrain(regName + ".IsValid", :==:(ConstantValue(1))),
       NoOp,
       InstructionBlock(
         Assign(regName + ".IsValid", ConstantValue(1)),
         if (regName != hname) {
           // if we are at a header array
-          val instance = switchInstance.getSwitchSpec.getInstance(hname).asInstanceOf[ArrayInstance]
-          val moveUpInstruction = ((instance.getLength - 1).to(index, -1)).map( x => {
+          val instance = switch.getInstance(hname).asInstanceOf[ArrayInstance]
+          val moveUpInstruction = (instance.getLength - 1).to(index, -1).map(x => {
               val newIndex = x + 1
               If (Constrain(hname + x + ".IsValid", :==:(ConstantValue(1))),
                 if (newIndex >= instance.getLength) {
@@ -540,49 +461,49 @@ class ActionInstance(p4Action: P4Action, argList : List[Any],
     )
   }
 
-  def handlePush() = {
+  def handlePush(): InstructionBlock = {
     val arrName = argList.head.toString
     val count = Integer.decode(argList(1).toString).intValue()
-    val hdrArray = switchInstance.getSwitchSpec.getInstance(arrName).asInstanceOf[ArrayInstance]
-    val pushDown = ((hdrArray.getLength - count - 1).to(0, -1)).map(x => {
-        new ActionInstance(switchInstance.getSwitchSpec.getActionRegistrar.getAction("copy_header"),
-          List[String](s"$arrName[${x + count}]", s"$arrName[$x]"), switchInstance, table, flowNumber, dropMessage).sefl()
+    val hdrArray = switch.getInstance(arrName).asInstanceOf[ArrayInstance]
+    val pushDown = (hdrArray.getLength - count - 1).to(0, -1).map(x => {
+        new ActionInstance(switch.getActionRegistrar.getAction("copy_header"),
+          List[FloatingExpression](:@(s"$arrName[${x + count}]"), :@(s"$arrName[$x]")), switchInstance, switch, table, flowNumber, dropMessage).sefl()
     }).toList
 
     val createNews = (0 until count).map (x => {
-      new ActionInstance(switchInstance.getSwitchSpec.getActionRegistrar.getAction("add_header"),
-        List[String](s"$arrName[$x]"), switchInstance, table, flowNumber, dropMessage).sefl()
+      new ActionInstance(switch.getActionRegistrar.getAction("add_header"),
+        List[FloatingExpression](:@(s"$arrName[$x]")), switchInstance, switch, table, flowNumber, dropMessage).sefl()
     }).toList
     InstructionBlock(
-      (pushDown ++ createNews).toList
+      pushDown ++ createNews
     )
   }
 
-  def handlePop() = {
+  def handlePop(): InstructionBlock = {
     val arrName = argList.head.toString
     val count = Integer.decode(argList(1).toString).intValue()
-    val hdrArray = switchInstance.getSwitchSpec.getInstance(arrName).asInstanceOf[ArrayInstance]
+    val hdrArray = switch.getInstance(arrName).asInstanceOf[ArrayInstance]
     val pushUp = (count until hdrArray.getLength).map(x => {
-      new ActionInstance(switchInstance.getSwitchSpec.getActionRegistrar.getAction("copy_header"),
-        List[String](s"$arrName[${x - count}]", s"$arrName[$x]"), switchInstance, table, flowNumber, dropMessage).sefl()
+      new ActionInstance(switch.getActionRegistrar.getAction("copy_header"),
+        List[FloatingExpression](:@(s"$arrName[${x - count}]"), :@(s"$arrName[$x]")), switchInstance, switch, table, flowNumber, dropMessage).sefl()
     })
 
     val deleteNews = (0 until count).map (x => {
-      new ActionInstance(switchInstance.getSwitchSpec.getActionRegistrar.getAction("remove_header"),
-        List[String](s"$arrName[${hdrArray.getLength - x}]"), switchInstance, table, flowNumber, dropMessage).sefl()
+      new ActionInstance(switch.getActionRegistrar.getAction("remove_header"),
+        List[FloatingExpression](:@(s"$arrName[${hdrArray.getLength - x}]")), switchInstance, switch, table, flowNumber, dropMessage).sefl()
     })
     InstructionBlock(
       (pushUp ++ deleteNews).toList
     )
   }
 
-  def handleBitAndOrXor(isAnd : Boolean, isOr : Boolean, isXor : Boolean) = {
+  def handleBitAndOrXor(isAnd : Boolean, isOr : Boolean, isXor : Boolean): Instruction = {
     val argDest = argList.head
     val argSource1 = argList(1)
     val argSource2 = argList(2)
-    val dstField = ctx.resolveField(argDest.toString)
-    val arg1 = parseArg(argSource1)
-    val arg2 = parseArg(argSource2)
+    val dstField = argDest.toString
+    val arg1 = argSource1
+    val arg2 = argSource2
     val fexp = if (isAnd) {
       :&&:(arg1, arg2)
     } else if (isOr) {
@@ -592,10 +513,7 @@ class ActionInstance(p4Action: P4Action, argList : List[Any],
     } else {
       throw new UnsupportedOperationException("AND, OR, XOR supported")
     }
-    dstField match {
-      case Left(i) => Assign(i,fexp)
-      case Right(s) => Assign(s, fexp)
-    }
+    Assign(dstField,fexp)
   }
 
   def handlePrimitiveAction(primitiveAction : P4Action) : Instruction = {
@@ -630,7 +548,7 @@ class ActionInstance(p4Action: P4Action, argList : List[Any],
 
   def normalize(p4Action : P4Action): P4Action = {
     val actual = if (p4Action.getActionType == P4ActionType.UNKNOWN) {
-      switchInstance.getSwitchSpec.getActionRegistrar.getAction(p4Action.getActionName)
+      switch.getActionRegistrar.getAction(p4Action.getActionName)
     } else {
       p4Action
     }
@@ -645,11 +563,7 @@ class ActionInstance(p4Action: P4Action, argList : List[Any],
   }
 
   def sefl() : Instruction = {
-    val actual = if (p4Action.getActionType == P4ActionType.UNKNOWN) {
-      switchInstance.getSwitchSpec.getActionRegistrar.getAction(p4Action.getActionName)
-    } else {
-      p4Action
-    }
+    val actual = normalize(p4Action)
     if (actual == null || actual.getActionType == P4ActionType.UNKNOWN)
       throw new IllegalArgumentException(s"P4 Action is not in the registrar: ${p4Action.toString}")
     InstructionBlock(

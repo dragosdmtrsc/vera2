@@ -10,16 +10,13 @@ import org.change.v2.p4.model.updated.header.HeaderDeclaration
 import org.change.v2.p4.model.updated.instance.{HeaderInstance}
 import org.change.v2.p4.model.updated.table.TableDeclaration
 
-case class P4Program(
-                    headerDeclarations: Map[String, HeaderDeclaration],
-                    headerOrMetadataInstances: Map[String, HeaderInstance],
-                    metadataInits: Map[String, Int],
-                 controlFunctions: Map[String, ControlFunction],
-                 tableDeclarations: Map[String, TableDeclaration],
-                 primitiveActions: Map[String, P4Action],
-                 complexActions: Map[String, P4ComplexAction]
-               ) {
-
+case class P4Program(headerDeclarations: Map[String, HeaderDeclaration],
+                     headerOrMetadataInstances: Map[String, HeaderInstance],
+                     metadataInits: Map[String, Int],
+                     controlFunctions: Map[String, ControlFunction],
+                     tableDeclarations: Map[String, TableDeclaration],
+                     primitiveActions: Map[String, P4Action],
+                     complexActions: Map[String, P4ComplexAction]) {
 }
 
 object P4Program {

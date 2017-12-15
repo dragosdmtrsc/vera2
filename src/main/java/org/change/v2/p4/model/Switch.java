@@ -1,5 +1,6 @@
 package org.change.v2.p4.model;
 
+import scala.collection.JavaConversions;
 import generated.parse.p4.P4GrammarLexer;
 import generated.parse.p4.P4GrammarParser;
 import org.antlr.v4.runtime.CharStream;
@@ -8,10 +9,12 @@ import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.tree.ParseTreeWalker;
 import org.change.parser.p4.P4GrammarListener;
 import org.change.v2.abstractnet.click.sefl.StripIPHeader;
+import org.change.v2.analysis.processingmodels.Instruction;
 import org.change.v2.p4.model.actions.ActionRegistrar;
 import org.change.v2.p4.model.actions.P4Action;
 import org.change.v2.p4.model.parser.State;
 import org.change.v2.p4.model.table.TableMatch;
+import scala.collection.JavaConversions;
 
 import java.io.IOException;
 import java.util.*;
@@ -21,8 +24,6 @@ import java.util.*;
  * which is basically a holder for info regarding the P4 program comprised therein
  */
 public class Switch {
-    private P4GrammarListener ctx = null;
-
     private Map<String, List<String>> allowedActions = new HashMap<String, List<String>>();
     private Map<String, HeaderInstance> instances = new HashMap<String, HeaderInstance>();
     private Map<String, RegisterSpecification> registerSpecificationMap = null;
@@ -31,6 +32,10 @@ public class Switch {
     public Map<String, RegisterSpecification> getRegisterSpecificationMap() {
         return registerSpecificationMap;
     }
+
+    private Map<String, String> controlFlowLinks = null;
+    private Map<String, Instruction> controlFlowInstructions = null;
+
 
     private Map<String, List<TableMatch>> matches = new HashMap<String, List<TableMatch>>();
 
@@ -84,6 +89,24 @@ public class Switch {
         return this;
     }
 
+    public Map<String, String> getControlFlowLinks() {
+        return controlFlowLinks;
+    }
+
+    public Switch setControlFlowLinks(Map<String, String> controlFlowLinks) {
+        this.controlFlowLinks = new HashMap<String, String>(controlFlowLinks);
+        return this;
+    }
+
+    public Map<String, Instruction> getControlFlowInstructions() {
+        return controlFlowInstructions;
+    }
+
+    public Switch setControlFlowInstructions(Map<String, Instruction> controlFlowInstructions) {
+        this.controlFlowInstructions =  new HashMap<String, Instruction>(controlFlowInstructions);
+        return this;
+    }
+
     public ActionRegistrar getActionRegistrar() {
         return actionRegistrar;
     }
@@ -95,15 +118,6 @@ public class Switch {
 
     public Map<String, FieldList> getFieldListMap() {
         return fieldListMap;
-    }
-
-    public Switch setCtx(P4GrammarListener ctx) {
-        this.ctx = ctx;
-        return this;
-    }
-
-    public P4GrammarListener getCtx() {
-        return ctx;
     }
 
     public Switch setFieldListMap(Map<String, FieldList> fieldListMap) {
@@ -139,14 +153,14 @@ public class Switch {
         Switch sw = new Switch().
                 setActionRegistrar(listener.actionRegistrar()).
                 setFieldListMap(listener.fieldLists()).
-                setRegisterSpecificationMap(listener.registerMap()).
-                setCtx(listener);
+                setRegisterSpecificationMap(listener.registerMap());
         for (String table : listener.tables())
             sw = sw.createTable(table);
         sw.matches = listener.tableDeclarations();
-//        sw.instances = listener.instances();
         sw.allowedActions = listener.tableAllowedActions();
         sw.parserStates = listener.parserFunctions();
+
+        sw.instances = new HashMap<String, HeaderInstance>(JavaConversions.mapAsJavaMap(listener.instances()));
         return sw;
     }
 

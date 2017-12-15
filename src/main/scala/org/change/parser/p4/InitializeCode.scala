@@ -4,7 +4,7 @@ import org.change.v2.analysis.expression.concrete.ConstantValue
 import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.analysis.processingmodels.instructions._
 import org.change.v2.p4.model.InstanceType._
-import org.change.v2.p4.model.{ArrayInstance, HeaderInstance, SwitchInstance}
+import org.change.v2.p4.model._
 
 import scala.collection.JavaConversions._
 
@@ -12,13 +12,10 @@ import scala.collection.JavaConversions._
 /**
   * Created by dragos on 01.09.2017.
   */
-class InitializeCode(switchInstance : SwitchInstance) {
-
-  val swSpec = switchInstance.getSwitchSpec
-  val ctx = swSpec.getCtx
-
+class InitializeCode(switchInstance : ISwitchInstance,
+                     swSpec : Switch) {
   def initializeMetadata(butFor : List[String] = Nil) : Instruction = {
-    InstructionBlock(switchInstance.getSwitchSpec.getCtx.instances.values().filter(_.isMetadata).flatMap(x => {
+    InstructionBlock(swSpec.getInstances.filter(_.isMetadata).flatMap(x => {
       if (!butFor.contains(x.getName)) {
         x.getLayout.getFields.map(f => {
           if (!butFor.contains(x.getName + "." + f.getName)) {
@@ -43,7 +40,7 @@ class InitializeCode(switchInstance : SwitchInstance) {
 
   def initializeFields() : Instruction = {
     InstructionBlock(
-      switchInstance.getSwitchSpec.getCtx.instances.values().filter(!_.isMetadata).flatMap(x => x match {
+      swSpec.getInstances.filter(!_.isMetadata).flatMap(x => x match {
         case ai: ArrayInstance =>
           val len = ai.getLength
           (0 to len).map(z => {
@@ -66,31 +63,5 @@ class InitializeCode(switchInstance : SwitchInstance) {
     )
   }
 
-
-  def switchInitializeGlobally() : Instruction = {
-    // handle registers and other stuff like that
-    InstructionBlock(swSpec.getRegisterSpecificationMap.values().filter(r => !r.isDirect && !r.isStatic).flatMap(x => {
-      (0 until x.getCount).map(i => {
-        InstructionBlock(
-          Allocate(s"${switchInstance.getName}.reg.${x.getName}[$i]", x.getWidth),
-          Assign(s"${switchInstance.getName}.reg.${x.getName}[$i]", ConstantValue(0))
-        )
-      })
-    }) ++ swSpec.getRegisterSpecificationMap.values().filter(r => r.isStatic).flatMap(x => {
-      (0 until x.getCount).map(i => {
-        InstructionBlock(
-          Allocate(s"${switchInstance.getName}.reg[${x.getStaticTable}].${x.getName}[$i]", x.getWidth),
-          Assign(s"${switchInstance.getName}.reg[${x.getStaticTable}].${x.getName}[$i]", ConstantValue(0))
-        )
-      })
-    }) ++ swSpec.getRegisterSpecificationMap.values().filter(r => r.isDirect).flatMap(x => {
-      (0 until switchInstance.flowInstanceIterator(x.getStaticTable).size()).map(i => {
-        InstructionBlock(
-          Allocate(s"${switchInstance.getName}.reg[${x.getStaticTable}].${x.getName}[$i]", x.getWidth),
-          Assign(s"${switchInstance.getName}.reg[${x.getStaticTable}].${x.getName}[$i]", ConstantValue(0))
-        )
-      })
-    }))
-
-  }
+  def switchInitializeGlobally() : Instruction = GlobalInitFactory.get(switchInstance.getClass)(switchInstance)
 }

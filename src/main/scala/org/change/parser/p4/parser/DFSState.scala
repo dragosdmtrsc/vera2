@@ -12,8 +12,8 @@ import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.analysis.processingmodels.instructions.{Allocate, Constrain, _}
 import org.change.v2.p4.model.Switch
 import org.change.v2.p4.model.parser._
-
 import org.change.v2.p4.model.parser.Statement
+import org.change.v2.p4.model.updated.program.P4Program
 
 import scala.collection.JavaConversions._
 
@@ -34,11 +34,11 @@ case class DFSState(crt : Int,
 
   def incrementDepth() = DFSState(crt = crt, history = history, depth = depth + 1)
 
-  def incrementHeaderCount(hInstance : String) = {
+  def incrementHeaderCount(hInstance : String): DFSState = {
     val pair = (hInstance -> (currentDepth.getOrElse(hInstance, -1) + 1))
     this.copy(currentDepth = currentDepth + pair)
   }
-  def setLatest(latest : String) = copy(latest = latest)
+  def setLatest(latest : String): DFSState = copy(latest = latest)
 }
 
 class StateExpander (switch: Switch, startAt : String){
