@@ -34,12 +34,9 @@ case class State(memory: MemorySpace = MemorySpace.clean,
   }
 
   def location: LocationId = history.head
-
-  def forwardTo(locationId: LocationId): State = copy(history = locationId :: history)
-
+  def forwardTo(locationId: LocationId): State = State(memory, locationId :: history, errorCause, instructionHistory)
   def status = errorCause.getOrElse("OK")
-
-  def addInstructionToHistory(i: Instruction) = copy(instructionHistory = i :: instructionHistory)
+  def addInstructionToHistory(i: Instruction) = State(memory, history, errorCause, i :: instructionHistory)
 
   def jsonString = {
     this.toJson.prettyPrint
@@ -100,8 +97,8 @@ object State {
     Assign("VAL30",SymbolicValue())
   )
 
- private val start = CreateTag("START",0)
- private val eher = InstructionBlock(
+ val start = CreateTag("START",0)
+ val eher = InstructionBlock(
    CreateTag("L2",Tag("START")-112),
    Allocate(Tag("L2")+EtherSrcOffset,48),
    Assign(Tag("L2")+EtherSrcOffset,SymbolicValue()),
@@ -110,7 +107,7 @@ object State {
    Allocate(Tag("L2")+EtherTypeOffset,16),
    Assign(Tag("L2")+EtherTypeOffset,ConstantValue(EtherProtoIP))
  )
- private val ehervlan = InstructionBlock(
+ val ehervlan = InstructionBlock(
     CreateTag("L2",Tag("START")-144),
     Allocate(Tag("L2")+EtherSrcOffset,48),
     Assign(Tag("L2")+EtherSrcOffset,SymbolicValue()),
@@ -129,8 +126,10 @@ object State {
    Allocate(Tag("L2")+EtherTypeOffset + 32,16),
    Assign(Tag("L2")+EtherTypeOffset + 32,ConstantValue(EtherProtoIP))
   )
- private val ip = InstructionBlock(
-   CreateTag("L3", StartTag + 0),
+
+   val ip = InstructionBlock(
+
+    CreateTag("L3", StartTag + 0),
 
    Allocate(IPVersion, 4),
    Assign(IPVersion, SymbolicValue()),
@@ -161,7 +160,7 @@ object State {
    Assign(IPID, SymbolicValue())
  )
 
-  private val ipSymb = InstructionBlock(
+  val ipSymb = InstructionBlock(
     CreateTag("L3", StartTag + 0),
 
     Allocate(IPVersion, 4),
@@ -198,8 +197,8 @@ object State {
     Assign(IPID, SymbolicValue())
   )
 
- private val transport = InstructionBlock(
-   CreateTag("L4", L3Tag + 160),
+   val transport = InstructionBlock(
+    CreateTag("L4", L3Tag + 160),
 
    Assign(Proto, ConstantValue(TCPProto)),
 
@@ -226,26 +225,30 @@ object State {
    Allocate(TcpReserved,3),
    Assign(TcpReserved,SymbolicValue()),
 
-   Allocate(TcpFlagNS,1),
-   Assign(TcpFlagNS,ConstantValue(0)),
-   Allocate(TcpFlagCWR,1),
-   Assign(TcpFlagCWR,ConstantValue(0)),
-   Allocate(TcpFlagECE,1),
-   Assign(TcpFlagECE,ConstantValue(0)),
-   Allocate(TcpFlagURG,1),
-   Assign(TcpFlagURG,ConstantValue(0)),
-   Allocate(TcpFlagACK,1),
-   Assign(TcpFlagACK,SymbolicValue()),
-   Allocate(TcpFlagACK,1),
-   Assign(TcpFlagACK,SymbolicValue()),
-   Allocate(TcpFlagSYN,1),
-   Assign(TcpFlagSYN,SymbolicValue()),
-   Allocate(TcpFlagRST,1),
-   Assign(TcpFlagRST,ConstantValue(0)),
-   Allocate(TcpFlagPSH,1),
-   Assign(TcpFlagPSH,ConstantValue(0))
- )
- private val end = CreateTag("END", L4Tag + 12000)
+    Allocate(TcpFlagNS, 1),
+    Assign(TcpFlagNS, ConstantValue(0)),
+    Allocate(TcpFlagCWR, 1),
+    Assign(TcpFlagCWR, ConstantValue(0)),
+    Allocate(TcpFlagECE, 1),
+    Assign(TcpFlagECE, ConstantValue(0)),
+    Allocate(TcpFlagURG, 1),
+    Assign(TcpFlagURG, ConstantValue(0)),
+    Allocate(TcpFlagACK, 1),
+    Assign(TcpFlagACK, SymbolicValue()),
+    Allocate(TcpFlagACK, 1),
+    Assign(TcpFlagACK, SymbolicValue()),
+    Allocate(TcpFlagSYN, 1),
+    Assign(TcpFlagSYN, SymbolicValue()),
+    Allocate(TcpFlagRST, 1),
+    Assign(TcpFlagRST, ConstantValue(0)),
+    Allocate(TcpFlagPSH, 1),
+    Assign(TcpFlagPSH, ConstantValue(0))
+  )
+   val end = CreateTag("END", L4Tag + 12000)
+  val tunnel = InstructionBlock(
+    CreateTag("Tunnel", Tag("L2") - 96),
+    Allocate(Tag("Tunnel"), 32)
+  )
 
  def allSymbolic = InstructionBlock(
   start,

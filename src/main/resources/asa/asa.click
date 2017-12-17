@@ -35,9 +35,9 @@ out_LABS_CS :: Null;
 out_LABS_CS_EXIT :: Discard;
             ps_LABS_CS[0] -> out_LABS_CS -> out_LABS_CS_EXIT;
 
-dest_cl[1] -> EtherEncap(2048, 00:23:eb:bb:f1:4c, 00:23:eb:bb:f1:4c) -> VLANEncap(225) -> to_internet :: ToDevice();
+dest_cl[1] -> EtherEncap(2048, 00:23:eb:bb:f1:4c, 00:23:eb:bb:f1:4c) -> VLANEncap(999) -> to_internet :: ToDevice();
 
-main_tee[1] -> to_internet2 :: ToDevice()
+main_tee[1] -> EtherEncap(2048, 11:23:eb:bb:f1:4c, 22:23:eb:bb:f1:4c) -> VLANEncap(999) -> to_internet2 :: ToDevice()
 
 main_output :: FromDevice(eth2,SNIFFER true,OUTBOUND false);
 outside :: Null;

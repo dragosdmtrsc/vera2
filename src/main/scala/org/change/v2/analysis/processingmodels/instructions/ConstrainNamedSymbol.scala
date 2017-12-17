@@ -1,9 +1,11 @@
 package org.change.v2.analysis.processingmodels.instructions
 
+
 import org.change.v2.analysis.constraint._
 import org.change.v2.analysis.expression.abst.FloatingExpression
+import org.change.v2.analysis.memory.{Intable, State, TagExp}
 import org.change.v2.analysis.processingmodels.Instruction
-import org.change.v2.analysis.memory.{State, TagExp, Intable}
+
 
 /**
  * Author: Radu Stoenescu
@@ -34,17 +36,28 @@ case class ConstrainNamedSymbol (id: String, dc: FloatingConstraint, c: Option[C
 case class ConstrainRaw (a: Intable, dc: FloatingConstraint, c: Option[Constraint] = None) extends Instruction {
   override def apply(s: State, v: Boolean): (List[State], List[State]) = a(s) match {
     case Some(int) => c match {
-      case None => dc instantiate s match {
-        case Left(c) => optionToStatePair(if (v) s.addInstructionToHistory(this) else s, s"Memory object @ $a cannot $dc")(s => {
-          s.memory.addConstraint(int, c)
-        })
-        case Right(err) => Fail(err)(s, v)
+        case None => dc instantiate s match {
+          case Left(c) => optionToStatePair(if (v) s.addInstructionToHistory(this) else s, TagExp.brokenTagExpErrorMessage)(s => {
+            if (s.memory.eval(int) != None) Some(s.memory) else None
+          }) match {
+            case (List(st),Nil) => optionToStatePair(st,s"Memory object @ $a cannot $dc") (s => {
+              s.memory.addConstraint(int, c)
+            })
+            case x => x
+          }
+
+          case Right(err) => Fail(err)(s, v)
+        }
+        case Some(c) => optionToStatePair(if (v) s.addInstructionToHistory(this) else s, TagExp.brokenTagExpErrorMessage)(s => {
+          if (s.memory.eval(int) != None) Some(s.memory) else None
+        }) match {
+          case (List(st),Nil) => optionToStatePair(st,s"Memory object @ $a cannot $dc") (s => {
+            s.memory.addConstraint(int, c)
+          })
+          case x => x
+        }
       }
-      case Some(c) => optionToStatePair(if (v) s.addInstructionToHistory(this) else s, s"Memory object @ $a cannot $dc")(s => {
-        s.memory.addConstraint(int, c)
-      })
-    }
-    case None => Fail(TagExp.brokenTagExpErrorMessage)(s, v)
+    case None => Fail(TagExp.brokenTagExpErrorMessage)(s,v)
   }
 
   override def toString = s"Constrain($a, $dc)"
@@ -59,8 +72,22 @@ case class ConstrainRaw (a: Intable, dc: FloatingConstraint, c: Option[Constrain
 object Constrain {
   def apply(id: String, dc: FloatingConstraint): Instruction =
     ConstrainNamedSymbol(id, dc, None)
-  def apply(a: Intable, dc: FloatingConstraint): Instruction =
+  def apply (a: Intable, dc: FloatingConstraint): Instruction =
     ConstrainRaw(a, dc, None)
+
+  def apply(a: Either[String, Intable], dc: FloatingConstraint): Instruction =
+    a match {
+      case Left(s) => apply(s, dc)
+      case Right(s) => apply(s, dc)
+    }
+}
+
+object Assert {
+  def apply(id: String, dc: FloatingConstraint): Instruction =
+    If(ConstrainNamedSymbol(id, dc, None), NoOp, Fail(s"Assertion failure:$id $dc.toString"))
+
+  def apply(a: Intable, dc: FloatingConstraint): Instruction =
+    If(ConstrainRaw(a, dc, None), NoOp, Fail(s"Assertion failure:$a $dc.toString"))
 
   def apply(a: Either[String, Intable], dc: FloatingConstraint): Instruction =
     a match {
