@@ -1,7 +1,5 @@
 package org.change.v2.abstractnet.optimized.router
 
-import java.io.File
-
 import org.change.utils
 import org.change.v2.abstractnet.click.selfbuildingblocks.EtherMumboJumbo
 import org.change.v2.abstractnet.generic._
@@ -162,12 +160,12 @@ object OptimizedRouter {
   }
 
 
-  def makeOptimizedRouter_Costin(f: File): OptimizedRouter = {
+  def makeOptimizedRouter_Costin(f: File, prefix: String): OptimizedRouter = {
     val table = getRoutingEntries(f)
     val name = f.getName.trim.stripSuffix(".rt")
 
-    new OptimizedRouter("OPT","Router", Nil, Nil, Nil) {
-      override def instructions: Map[LocationId, Instruction] = Map("OPT_0" ->
+    new OptimizedRouter(prefix,"Router", Nil, Nil, Nil) {
+      override def instructions: Map[LocationId, Instruction] = Map(s"${prefix}0" ->
         Fork(table.map(i => {
           val ((l,u), port) = i
           (port, AND(List(GTE_E(ConstantValue(l)), LTE_E(ConstantValue(u))) ++
@@ -188,10 +186,10 @@ object OptimizedRouter {
         }).groupBy(_._1).map( kv =>
           InstructionBlock(
             Assert(IPDst, OR(kv._2.map(_._2).toList)),
-            Forward("OPT_"+kv._1))
+            Forward(prefix+kv._1))
         ))) ++
-        table.map(i => "OPT_"+i._2 -> Forward("OPT_"+i._2+"_EXIT").asInstanceOf[Instruction]).toMap ++
-        table.map(i => "OPT_"+i._2+"_EXIT" -> NoOp.asInstanceOf[Instruction]).toMap
+        table.map(i => prefix+i._2 -> Forward(prefix+i._2+"_EXIT").asInstanceOf[Instruction]).toMap ++
+        table.map(i => prefix+i._2+"_EXIT" -> NoOp.asInstanceOf[Instruction]).toMap
     }
   }
 
@@ -271,8 +269,8 @@ object OptimizedRouter {
     new OptimizedRouter("NAIVE","Router", Nil, Nil, Nil) {
       override def instructions: Map[LocationId, Instruction] = {
         table.map(i => i._2 -> Forward(i._2+"_EXIT").asInstanceOf[Instruction]).toMap ++
-          table.map(i => i._2+"_EXIT" -> NoOp.asInstanceOf[Instruction]).toMap +
-          ("0" -> i)
+        table.map(i => i._2+"_EXIT" -> NoOp.asInstanceOf[Instruction]).toMap +
+        ("0" -> i)
       }
     }
   }
