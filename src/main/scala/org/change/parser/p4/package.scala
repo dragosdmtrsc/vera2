@@ -1,5 +1,6 @@
 package org.change.parser
 
+import org.change.parser.p4.factories.{FullTableFactory, GlobalInitFactory, InstanceBasedInitFactory}
 import org.change.v2.p4.model.{ISwitchInstance, SwitchInstance}
 
 package object p4 {

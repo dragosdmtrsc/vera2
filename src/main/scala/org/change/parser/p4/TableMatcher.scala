@@ -1,29 +1,23 @@
 package org.change.parser.p4
 
-import java.util
 import java.util.UUID
-
-import com.sun.xml.internal.bind.util.Which
-import org.change.v2.abstractnet.mat.tree.Node.Forest
 import org.change.v2.abstractnet.mat.condition.Range
 import org.change.v2.abstractnet.mat.tree.Node
-import org.change.v2.analysis.constraint.Constraint
+import org.change.v2.abstractnet.mat.tree.Node.Forest
 import org.change.v2.analysis.expression.abst.FloatingExpression
 import org.change.v2.analysis.expression.concrete.nonprimitive.{:&&:, :+:, :@}
 import org.change.v2.analysis.expression.concrete.{ConstantValue, SymbolicValue}
 import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.analysis.processingmodels.instructions._
-import org.change.v2.p4.model.{FlowInstance, SwitchInstance}
+import org.change.v2.p4.model.SwitchInstance
 import org.change.v2.p4.model.table.{MatchKind, TableMatch}
 import org.change.v2.util.conversion.RepresentationConversion._
-
 import scala.collection.JavaConversions._
-import scala.collection.mutable.Map
 import scala.collection.mutable
 
 trait Constrainable {
   def constraint(switchInstance: SwitchInstance, which : Int) : Instruction
-  def instantiate(arg : String, prio : Int) : Unit
+  def instantiate(arg : String, prio : Int) : Constrainable
 }
 
 /**
@@ -40,7 +34,7 @@ class TableRangeMatcher(tableMatch : TableMatch) extends Constrainable {
 
   var rrng = mutable.Map[Int, Node[Range]]()
 
-  override def instantiate(arg : String, prio : Int) : Unit = {
+  override def instantiate(arg : String, prio : Int) : Constrainable = {
     if (tableMatch.getMatchKind == MatchKind.Lpm) {
       val spl = arg.split("/")
       val mask = java.lang.Integer.decode(spl(1))
@@ -58,6 +52,7 @@ class TableRangeMatcher(tableMatch : TableMatch) extends Constrainable {
     } else {
       throw new UnsupportedOperationException("Don't know how to do it")
     }
+    this
   }
 
   override def constraint(switchInstance: SwitchInstance, which : Int): Instruction = {
@@ -151,7 +146,6 @@ object MaskTests {
     InstructionBlock(ass ++ constrains)
   }
 }
-
 class TableTernaryMatcher(tableMatch: TableMatch, useBv : Boolean = true) extends Constrainable {
 
   def extractMask(long : Long, width : Int) = {
@@ -211,20 +205,19 @@ class TableTernaryMatcher(tableMatch: TableMatch, useBv : Boolean = true) extend
 
   }
 
-  override def instantiate(arg: String, prio: Int): Unit = {
+  override def instantiate(arg: String, prio: Int): Constrainable = {
     if (!arg.contains("&&&"))
       throw new IllegalArgumentException(s"$arg not of ternary type")
     val split = arg.split("&&&")
     flowToValMask.put(prio, (P4Utils.toNumber(split(0)), P4Utils.toNumber(split(1))))
+    this
   }
 }
-
-
 class TableExactMatcher(tableMatch: TableMatch) extends Constrainable {
   var prioToExact = mutable.Map[Int, Long]()
   import P4Utils._
 
-  override def instantiate(arg : String, prio : Int) : Unit = {
+  override def instantiate(arg : String, prio : Int) : Constrainable = {
     val lval = if (arg.contains(".")) {
       ipToNumber(arg)
     } else if (arg.contains(":")) {
@@ -233,6 +226,7 @@ class TableExactMatcher(tableMatch: TableMatch) extends Constrainable {
       java.lang.Long.decode(arg).longValue()
     }
     prioToExact.put(prio, lval)
+    this
   }
 
 
@@ -270,7 +264,6 @@ class TableExactMatcher(tableMatch: TableMatch) extends Constrainable {
     }
   }
 }
-
 object Constrainable {
   def apply(tableMatch: TableMatch): Constrainable = tableMatch.getMatchKind match {
     case MatchKind.Exact => new TableExactMatcher(tableMatch)
@@ -287,7 +280,7 @@ object Constrainable {
 class FullTable(tableName : String, switchInstance: SwitchInstance, id : String = "") {
   private val flows = switchInstance.flowInstanceIterator(tableName)
   private val matchKeys = switchInstance.getSwitchSpec.getTableMatches(tableName)
-  private val constrainables = matchKeys.map(x => Constrainable(x))
+  private val constrainables = matchKeys.map(x => Constrainable(x)).toList
 
   if (flows != null) {
     for (f <- flows.zipWithIndex) {

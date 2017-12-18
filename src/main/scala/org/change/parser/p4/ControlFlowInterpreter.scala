@@ -12,11 +12,12 @@ import org.change.v2.p4.model.{ISwitchInstance, Switch, SwitchInstance}
 
 import scala.collection.JavaConversions._
 import P4PrettyPrinter._
+import org.change.parser.p4.factories.FullTableFactory
 
 /**
   * Created by dragos on 07.09.2017.
   */
-class ControlFlowInterpreter(val switchInstance: ISwitchInstance,
+class ControlFlowInterpreter[T<:ISwitchInstance](val switchInstance: T,
                              val switch: Switch) {
   private val initializeCode = new InitializeCode(switchInstance, switch)
   private lazy val expd = new StateExpander(switch, "start").doDFS(DFSState(0))
@@ -25,13 +26,14 @@ class ControlFlowInterpreter(val switchInstance: ISwitchInstance,
   private val controlFlowLinks = switch.getControlFlowLinks.toMap
 
   private val tableExactMatcher = "table\\.(.*?)\\.out\\.(.*)".r
-  val plugTables: Map[String, Instruction] = controlFlowLinks.filter(r => tableExactMatcher.findFirstMatchIn(r._1).isDefined).flatMap(r => {
-    tableExactMatcher.findFirstMatchIn(r._1).map(x => {
-      val tabName = x.group(1)
-      val id = x.group(2)
-      s"table.$tabName.in.$id" -> FullTableFactory.get(switchInstance.getClass)(switchInstance, tabName, id)
+  val plugTables: Map[String, Instruction] = controlFlowLinks.
+    filter(r => tableExactMatcher.findFirstMatchIn(r._1).isDefined).flatMap(r => {
+      tableExactMatcher.findFirstMatchIn(r._1).map(x => {
+        val tabName = x.group(1)
+        val id = x.group(2)
+        s"table.$tabName.in.$id" -> FullTableFactory.get(switchInstance.getClass)(switchInstance, tabName, id)
+      })
     })
-  })
 
 //
 //  for (l <- switch.getCtx.links) {

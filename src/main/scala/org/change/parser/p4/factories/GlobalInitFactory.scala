@@ -1,4 +1,4 @@
-package org.change.parser.p4
+package org.change.parser.p4.factories
 
 import org.change.v2.analysis.expression.concrete.ConstantValue
 import org.change.v2.analysis.processingmodels.Instruction
@@ -10,10 +10,13 @@ import scala.collection.mutable
 
 object GlobalInitFactory {
   private val registrar = mutable.Map[Class[_<:ISwitchInstance], Function1[ISwitchInstance, Instruction]]()
-  def register[T<:ISwitchInstance](ofClass: Class[T], factoryClass: ISwitchInstance => Instruction) :  Unit =
-    registrar.put(ofClass, factoryClass)
-  def get(ofclass : Class[_<:ISwitchInstance]): Function1[ISwitchInstance, Instruction] = (r : ISwitchInstance) => {
-    registrar.getOrElse(ofclass, (_ : ISwitchInstance) => { NoOp })(r)
+  def register[T<:ISwitchInstance](ofClass: Class[T], factoryClass: T => Instruction) :  Unit =
+    registrar.put(ofClass, {
+      case v: T => factoryClass(v)
+      case _ => throw new ClassCastException(s"Supply an argument of kind ${classOf[T]}")
+    })
+  def get[T<:ISwitchInstance](ofclass : Class[T]): (T) => Instruction = (r : T) => {
+    registrar.getOrElse(ofclass, (_ : T) => NoOp)(r)
   }
 }
 

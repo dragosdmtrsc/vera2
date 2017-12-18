@@ -1,5 +1,6 @@
 package org.change.parser.p4
 
+import org.change.parser.p4.factories.GlobalInitFactory
 import org.change.v2.analysis.expression.concrete.ConstantValue
 import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.analysis.processingmodels.instructions._

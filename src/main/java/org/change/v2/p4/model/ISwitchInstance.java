@@ -9,6 +9,4 @@ public interface ISwitchInstance {
     Map<Integer, String> getIfaceSpec();
 
     String getName();
-
-    List<FlowInstance> flowInstanceIterator(String perTable);
 }
