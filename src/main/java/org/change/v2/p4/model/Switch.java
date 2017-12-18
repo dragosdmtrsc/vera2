@@ -166,8 +166,9 @@ public class Switch {
         sw.matches = listener.tableDeclarations();
         sw.allowedActions = listener.tableAllowedActions();
         sw.parserStates = listener.parserFunctions();
-
-        sw.instances = new HashMap<String, HeaderInstance>(JavaConversions.mapAsJavaMap(listener.instances()));
+        sw.setControlFlowInstructions(JavaConversions.mapAsJavaMap(listener.instructions()));
+        sw.setControlFlowLinks(JavaConversions.mapAsJavaMap(listener.links()));
+        sw.instances = new HashMap<>(listener.instances());
         return sw;
     }
 

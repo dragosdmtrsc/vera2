@@ -13,7 +13,6 @@ import org.change.v2.analysis.processingmodels.instructions.{Allocate, Constrain
 import org.change.v2.p4.model.Switch
 import org.change.v2.p4.model.parser._
 import org.change.v2.p4.model.parser.Statement
-import org.change.v2.p4.model.updated.program.P4Program
 
 import scala.collection.JavaConversions._
 

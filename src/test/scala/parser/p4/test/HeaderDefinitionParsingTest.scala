@@ -13,7 +13,6 @@ import org.change.v2.analysis.memory.{State, Tag}
 import org.change.v2.analysis.processingmodels.instructions._
 import org.change.v2.executor.clickabstractnetwork.ClickExecutionContext
 import org.change.v2.p4.model.updated.instance.MetadataInstance
-import org.change.v2.p4.model.updated.program.P4Program
 import org.change.v2.p4.model.{Switch, SwitchInstance}
 import org.scalatest.FunSuite
 
@@ -95,19 +94,19 @@ class HeaderDefinitionParsingTest extends FunSuite {
       println(p4ActionCall.symnetCode())
     }
   }
-
-  test("NAT parsing without data plane config") {
-    val p4 = "inputs/simple-nat/simple_nat-ppc.p4"
-
-    val p4Switch = Switch.fromFile(p4)
-
-    val p4Program = P4Program.fromP4File(p4)
-
-    val expd = new StateExpander(p4Switch, "start").doDFS(DFSState(0))
-    StateExpander.generateAllPossiblePackets(expd, p4Switch)
-
-    println("hello")
-  }
+//
+//  test("NAT parsing without data plane config") {
+//    val p4 = "inputs/simple-nat/simple_nat-ppc.p4"
+//
+//    val p4Switch = Switch.fromFile(p4)
+//
+//    val p4Program = P4Program.fromP4File(p4)
+//
+//    val expd = new StateExpander(p4Switch, "start").doDFS(DFSState(0))
+//    StateExpander.generateAllPossiblePackets(expd, p4Switch)
+//
+//    println("hello")
+//  }
 
   test("NAT spec can be parsed - actions, reg defs and field lists are there") {
     val p4 = "inputs/simple-nat/simple_nat.p4"

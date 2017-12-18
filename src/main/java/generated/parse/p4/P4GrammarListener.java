@@ -1,4 +1,4 @@
-// Generated from /mbin/projects/internal/symPatru/src/main/resources/p4_grammar/P4Grammar.g4 by ANTLR 4.7
+// Generated from /home/dragos/GitHub/symnet-neutron/src/main/resources/p4_grammar/P4Grammar.g4 by ANTLR 4.7
 package generated.parse.p4;
 import org.antlr.v4.runtime.tree.ParseTreeListener;
 
@@ -982,29 +982,15 @@ public interface P4GrammarListener extends ParseTreeListener {
 	 */
 	void exitField_match_type(P4GrammarParser.Field_match_typeContext ctx);
 	/**
-	 * Enter a parse tree produced by the {@code ActionSpecification}
-	 * labeled alternative in {@link P4GrammarParser#table_actions}.
+	 * Enter a parse tree produced by {@link P4GrammarParser#table_actions}.
 	 * @param ctx the parse tree
 	 */
-	void enterActionSpecification(P4GrammarParser.ActionSpecificationContext ctx);
+	void enterTable_actions(P4GrammarParser.Table_actionsContext ctx);
 	/**
-	 * Exit a parse tree produced by the {@code ActionSpecification}
-	 * labeled alternative in {@link P4GrammarParser#table_actions}.
+	 * Exit a parse tree produced by {@link P4GrammarParser#table_actions}.
 	 * @param ctx the parse tree
 	 */
-	void exitActionSpecification(P4GrammarParser.ActionSpecificationContext ctx);
-	/**
-	 * Enter a parse tree produced by the {@code ActionProfileSpecification}
-	 * labeled alternative in {@link P4GrammarParser#table_actions}.
-	 * @param ctx the parse tree
-	 */
-	void enterActionProfileSpecification(P4GrammarParser.ActionProfileSpecificationContext ctx);
-	/**
-	 * Exit a parse tree produced by the {@code ActionProfileSpecification}
-	 * labeled alternative in {@link P4GrammarParser#table_actions}.
-	 * @param ctx the parse tree
-	 */
-	void exitActionProfileSpecification(P4GrammarParser.ActionProfileSpecificationContext ctx);
+	void exitTable_actions(P4GrammarParser.Table_actionsContext ctx);
 	/**
 	 * Enter a parse tree produced by {@link P4GrammarParser#action_profile_specification}.
 	 * @param ctx the parse tree
@@ -1046,53 +1032,15 @@ public interface P4GrammarListener extends ParseTreeListener {
 	 */
 	void exitControl_block(P4GrammarParser.Control_blockContext ctx);
 	/**
-	 * Enter a parse tree produced by the {@code ApplyTableCall}
-	 * labeled alternative in {@link P4GrammarParser#control_statement}.
+	 * Enter a parse tree produced by {@link P4GrammarParser#control_statement}.
 	 * @param ctx the parse tree
 	 */
-	void enterApplyTableCall(P4GrammarParser.ApplyTableCallContext ctx);
+	void enterControl_statement(P4GrammarParser.Control_statementContext ctx);
 	/**
-	 * Exit a parse tree produced by the {@code ApplyTableCall}
-	 * labeled alternative in {@link P4GrammarParser#control_statement}.
+	 * Exit a parse tree produced by {@link P4GrammarParser#control_statement}.
 	 * @param ctx the parse tree
 	 */
-	void exitApplyTableCall(P4GrammarParser.ApplyTableCallContext ctx);
-	/**
-	 * Enter a parse tree produced by the {@code ApplyAndSelectBlock}
-	 * labeled alternative in {@link P4GrammarParser#control_statement}.
-	 * @param ctx the parse tree
-	 */
-	void enterApplyAndSelectBlock(P4GrammarParser.ApplyAndSelectBlockContext ctx);
-	/**
-	 * Exit a parse tree produced by the {@code ApplyAndSelectBlock}
-	 * labeled alternative in {@link P4GrammarParser#control_statement}.
-	 * @param ctx the parse tree
-	 */
-	void exitApplyAndSelectBlock(P4GrammarParser.ApplyAndSelectBlockContext ctx);
-	/**
-	 * Enter a parse tree produced by the {@code IfElseStatement}
-	 * labeled alternative in {@link P4GrammarParser#control_statement}.
-	 * @param ctx the parse tree
-	 */
-	void enterIfElseStatement(P4GrammarParser.IfElseStatementContext ctx);
-	/**
-	 * Exit a parse tree produced by the {@code IfElseStatement}
-	 * labeled alternative in {@link P4GrammarParser#control_statement}.
-	 * @param ctx the parse tree
-	 */
-	void exitIfElseStatement(P4GrammarParser.IfElseStatementContext ctx);
-	/**
-	 * Enter a parse tree produced by the {@code ControlFunctionCall}
-	 * labeled alternative in {@link P4GrammarParser#control_statement}.
-	 * @param ctx the parse tree
-	 */
-	void enterControlFunctionCall(P4GrammarParser.ControlFunctionCallContext ctx);
-	/**
-	 * Exit a parse tree produced by the {@code ControlFunctionCall}
-	 * labeled alternative in {@link P4GrammarParser#control_statement}.
-	 * @param ctx the parse tree
-	 */
-	void exitControlFunctionCall(P4GrammarParser.ControlFunctionCallContext ctx);
+	void exitControl_statement(P4GrammarParser.Control_statementContext ctx);
 	/**
 	 * Enter a parse tree produced by {@link P4GrammarParser#apply_table_call}.
 	 * @param ctx the parse tree
@@ -1114,29 +1062,29 @@ public interface P4GrammarListener extends ParseTreeListener {
 	 */
 	void exitApply_and_select_block(P4GrammarParser.Apply_and_select_blockContext ctx);
 	/**
-	 * Enter a parse tree produced by the {@code ActionCases}
+	 * Enter a parse tree produced by the {@code case_list_action}
 	 * labeled alternative in {@link P4GrammarParser#case_list}.
 	 * @param ctx the parse tree
 	 */
-	void enterActionCases(P4GrammarParser.ActionCasesContext ctx);
+	void enterCase_list_action(P4GrammarParser.Case_list_actionContext ctx);
 	/**
-	 * Exit a parse tree produced by the {@code ActionCases}
+	 * Exit a parse tree produced by the {@code case_list_action}
 	 * labeled alternative in {@link P4GrammarParser#case_list}.
 	 * @param ctx the parse tree
 	 */
-	void exitActionCases(P4GrammarParser.ActionCasesContext ctx);
+	void exitCase_list_action(P4GrammarParser.Case_list_actionContext ctx);
 	/**
-	 * Enter a parse tree produced by the {@code HitMissCases}
+	 * Enter a parse tree produced by the {@code case_list_hitmiss}
 	 * labeled alternative in {@link P4GrammarParser#case_list}.
 	 * @param ctx the parse tree
 	 */
-	void enterHitMissCases(P4GrammarParser.HitMissCasesContext ctx);
+	void enterCase_list_hitmiss(P4GrammarParser.Case_list_hitmissContext ctx);
 	/**
-	 * Exit a parse tree produced by the {@code HitMissCases}
+	 * Exit a parse tree produced by the {@code case_list_hitmiss}
 	 * labeled alternative in {@link P4GrammarParser#case_list}.
 	 * @param ctx the parse tree
 	 */
-	void exitHitMissCases(P4GrammarParser.HitMissCasesContext ctx);
+	void exitCase_list_hitmiss(P4GrammarParser.Case_list_hitmissContext ctx);
 	/**
 	 * Enter a parse tree produced by {@link P4GrammarParser#action_case}.
 	 * @param ctx the parse tree
