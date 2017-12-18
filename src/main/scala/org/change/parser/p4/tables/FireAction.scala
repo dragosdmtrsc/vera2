@@ -1,5 +1,6 @@
-package org.change.parser.p4
+package org.change.parser.p4.tables
 
+import org.change.parser.p4.ActionInstance
 import org.change.v2.analysis.expression.concrete.ConstantValue
 import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.p4.model.SwitchInstance

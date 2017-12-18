@@ -1,6 +1,6 @@
 package org.change.parser.p4
 
-import org.change.parser.p4.factories.GlobalInitFactory
+import org.change.parser.p4.factories.{GlobalInitFactory, InitCodeFactory}
 import org.change.v2.analysis.expression.concrete.ConstantValue
 import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.analysis.processingmodels.instructions._
@@ -13,8 +13,15 @@ import scala.collection.JavaConversions._
 /**
   * Created by dragos on 01.09.2017.
   */
-class InitializeCode(switchInstance : ISwitchInstance,
-                     swSpec : Switch) {
+class InitializeCode[T<:ISwitchInstance](switchInstance : T,
+                                         swSpec : Switch,
+                                         additionalInitCode : Function2[T, Int, Instruction],
+                                         initFactory: Function1[T, Instruction]) {
+  def this(switchInstance : T,
+           swSpec : Switch) = this(switchInstance, swSpec,
+    InitCodeFactory.get(switchInstance.getClass.asInstanceOf[Class[T]]),
+    GlobalInitFactory.get(switchInstance.getClass.asInstanceOf[Class[T]]))
+
   def initializeMetadata(butFor : List[String] = Nil) : Instruction = {
     InstructionBlock(swSpec.getInstances.filter(_.isMetadata).flatMap(x => {
       if (!butFor.contains(x.getName)) {
@@ -60,9 +67,10 @@ class InitializeCode(switchInstance : ISwitchInstance,
       initializeFields(),
       Assign("standard_metadata.ingress_port", ConstantValue(port)),
       Assign("standard_metadata.instance_type", ConstantValue(PKT_INSTANCE_TYPE_NORMAL.value)),
+      additionalInitCode(switchInstance, port),
       Forward(s"${switchInstance.getName}.input.$port.out")
     )
   }
 
-  def switchInitializeGlobally() : Instruction = GlobalInitFactory.get(switchInstance.getClass)(switchInstance)
+  def switchInitializeGlobally() : Instruction = initFactory(switchInstance)
 }

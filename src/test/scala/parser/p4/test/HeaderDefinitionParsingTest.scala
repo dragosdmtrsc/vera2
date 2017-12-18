@@ -19,6 +19,7 @@ import org.scalatest.FunSuite
 
 import scala.collection.JavaConversions._
 import org.change.parser.p4.P4PrettyPrinter._
+import org.change.parser.p4.tables.{FireAction, FireDefaultAction, FullTable}
 
 class HeaderDefinitionParsingTest extends FunSuite {
 

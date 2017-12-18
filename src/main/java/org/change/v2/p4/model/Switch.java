@@ -70,6 +70,13 @@ public class Switch {
         return null;
     }
 
+    public int getSize(String value) {
+        String[] split = value.split(".");
+        String hName = split[0];
+        HeaderInstance instance = this.getInstance(hName);
+        return instance.getLayout().getField(split[1]).getLength();
+    }
+
     public Switch createTable(String table) {
         if (!this.matches.containsKey(table)) {
             this.matches.put(table, new ArrayList<TableMatch>());

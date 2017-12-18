@@ -2,7 +2,8 @@ package parser.p4.test
 
 import java.util
 
-import org.change.parser.p4.{FireAction, FireDefaultAction}
+import org.change.parser.p4.FireDefaultAction
+import org.change.parser.p4.tables.{FireAction, FireDefaultAction}
 import org.change.utils.prettifier.JsonUtil
 import org.change.v2.p4.model.SwitchInstance
 import org.scalatest.FunSuite

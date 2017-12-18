@@ -14,9 +14,7 @@ object P4ParserRunner {
     val tree = parser.p4_program()
     val walker = new ParseTreeWalker
     val listener = new P4GrammarListener()
-
     walker.walk(listener,tree)
-
     listener
   }
 

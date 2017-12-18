@@ -13,7 +13,7 @@ object FullTableFactory {
   def register[T<:ISwitchInstance](classof : Class[T], fun : Function3[T, String, String, Instruction]) : Unit =
     registrar.put(classof, (x : ISwitchInstance, t : String, id : String) => x match {
       case v : T => fun(v, t, id)
-      case _ => throw new ClassCastException(s"Supply an argument of kind ${classOf[T]}")
+      case _ => throw new ClassCastException(s"Supply an argument of kind $classof")
     })
   def get[T<:ISwitchInstance](classof : Class[T]): (T, String, String) => Instruction =
     (x: T, tabName: String, id: String) =>

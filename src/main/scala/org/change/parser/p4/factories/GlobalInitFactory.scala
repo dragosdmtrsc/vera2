@@ -13,7 +13,7 @@ object GlobalInitFactory {
   def register[T<:ISwitchInstance](ofClass: Class[T], factoryClass: T => Instruction) :  Unit =
     registrar.put(ofClass, {
       case v: T => factoryClass(v)
-      case _ => throw new ClassCastException(s"Supply an argument of kind ${classOf[T]}")
+      case _ => throw new ClassCastException(s"Supply an argument of kind $ofClass")
     })
   def get[T<:ISwitchInstance](ofclass : Class[T]): (T) => Instruction = (r : T) => {
     registrar.getOrElse(ofclass, (_ : T) => NoOp)(r)

@@ -12,14 +12,24 @@ import org.change.v2.p4.model.{ISwitchInstance, Switch, SwitchInstance}
 
 import scala.collection.JavaConversions._
 import P4PrettyPrinter._
-import org.change.parser.p4.factories.FullTableFactory
+import org.change.parser.p4.factories.{FullTableFactory, GlobalInitFactory, InitCodeFactory}
 
 /**
   * Created by dragos on 07.09.2017.
   */
 class ControlFlowInterpreter[T<:ISwitchInstance](val switchInstance: T,
-                             val switch: Switch) {
-  private val initializeCode = new InitializeCode(switchInstance, switch)
+                                                 val switch: Switch,
+                                                 val additionalInitCode : (T, Int) => Instruction,
+                                                 val tableFactory : (T, String, String) => Instruction,
+                                                 val initFactory : (T) => Instruction) {
+  def this(switchInstance: T, switch: Switch) = this(
+    switchInstance, switch,
+    InitCodeFactory.get(switchInstance.getClass.asInstanceOf[Class[T]]),
+    FullTableFactory.get(switchInstance.getClass.asInstanceOf[Class[T]]),
+    GlobalInitFactory.get(switchInstance.getClass.asInstanceOf[Class[T]])
+  )
+
+  private val initializeCode = new InitializeCode(switchInstance, switch, additionalInitCode, initFactory)
   private lazy val expd = new StateExpander(switch, "start").doDFS(DFSState(0))
 
   private val controlFlowInstructions = switch.getControlFlowInstructions.toMap
@@ -31,7 +41,7 @@ class ControlFlowInterpreter[T<:ISwitchInstance](val switchInstance: T,
       tableExactMatcher.findFirstMatchIn(r._1).map(x => {
         val tabName = x.group(1)
         val id = x.group(2)
-        s"table.$tabName.in.$id" -> FullTableFactory.get(switchInstance.getClass)(switchInstance, tabName, id)
+        s"table.$tabName.in.$id" -> tableFactory(switchInstance, tabName, id)
       })
     })
 
@@ -165,10 +175,10 @@ case class P4ExecutionContext(instructions: Map[LocationId, Instruction],
 
 
 object ControlFlowInterpreter {
-  def apply(switchInstance: SwitchInstance): ControlFlowInterpreter = new ControlFlowInterpreter(switchInstance,
+  def apply(switchInstance: SwitchInstance): ControlFlowInterpreter[SwitchInstance] = new ControlFlowInterpreter(switchInstance,
     switchInstance.getSwitchSpec)
 
-  def apply(p4File: String, dataplane: String, ifaces: Map[Int, String], name : String = "") : ControlFlowInterpreter =
+  def apply(p4File: String, dataplane: String, ifaces: Map[Int, String], name : String = ""): ControlFlowInterpreter[SwitchInstance] =
     ControlFlowInterpreter(SwitchInstance.fromP4AndDataplane(p4File, dataplane, name, ifaces.foldLeft(new util.HashMap[Integer, String]())((acc, x) => {
       acc.put(x._1, x._2)
       acc
