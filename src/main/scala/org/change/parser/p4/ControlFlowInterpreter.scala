@@ -12,7 +12,8 @@ import org.change.v2.p4.model.{ISwitchInstance, Switch, SwitchInstance}
 
 import scala.collection.JavaConversions._
 import P4PrettyPrinter._
-import org.change.parser.p4.factories.{FullTableFactory, GlobalInitFactory, InitCodeFactory}
+import org.change.parser.p4.factories.{FullTableFactory, GlobalInitFactory, InitCodeFactory, InstanceBasedInitFactory}
+import org.change.parser.p4.tables.FullTable
 
 /**
   * Created by dragos on 07.09.2017.
@@ -41,53 +42,29 @@ class ControlFlowInterpreter[T<:ISwitchInstance](val switchInstance: T,
       tableExactMatcher.findFirstMatchIn(r._1).map(x => {
         val tabName = x.group(1)
         val id = x.group(2)
-        s"table.$tabName.in.$id" -> tableFactory(switchInstance, tabName, id)
+        s"${switchInstance.getName}.table.$tabName.in.$id" -> tableFactory(switchInstance, tabName, id)
       })
     })
 
-//
-//  for (l <- switch.getCtx.links) {
-//    if (l._1.contains("table.")) {
-//      val tableExactMatcher = "table\\.(.*?)\\.out\\.(.*)".r
-//      tableExactMatcher.findAllMatchIn(l._1).foreach(x => {
-//        val tabName = x.group(1)
-//        val id = x.group(2)
-//        switch.getCtx.instructions.put(s"table.$tabName.in.$id", new FullTable(tabName, switchInstance, id).fullAction())
-//      })
-//    }
-//  }
   // plug in the buffer mechanism
   private lazy val bufferMechanism = new BufferMechanism(switchInstance)
-//  switch.getCtx.instructions.put(s"${switchInstance.getName}.buffer.in", bufferMechanism.symnetCode())
-//  switch.getCtx.links.put(bufferMechanism.outName(), "control.egress")
   private val bufferPlug = Map[String, Instruction](s"${switchInstance.getName}.buffer.in" -> bufferMechanism.symnetCode())
   private val bufferOutLink = Map[String, String](bufferMechanism.outName() -> "control.egress")
 
   // plug in the output mechanism
   private lazy val outputMechanism = new OutputMechanism(switchInstance)
-//  switch.getCtx.instructions.put(s"${switchInstance.getName}.output.in", outputMechanism.symnetCode())
-//  switch.getCtx.links.put("control.egress.out", s"${switchInstance.getName}.deparser.in")
   //plug egress.out -> <sw>.deparser
   private val outputPlug = Map[String, Instruction](s"${switchInstance.getName}.output.in" -> outputMechanism.symnetCode())
-  private val egressOutLink = Map[String, String]("control.egress.out" -> s"${switchInstance.getName}.deparser.in")
-
+  private val egressOutLink = Map[String, String](s"${switchInstance.getName}.control.egress.out" -> s"${switchInstance.getName}.deparser.in")
 
   private lazy val deparser = new DeparserRev(switch, switchInstance)
   // plug in the deparser
   private val deparserPlug = Map[String, Instruction](s"${switchInstance.getName}.deparser.in" -> deparser.symnetCode())
-//  switch.getCtx.instructions.put(s"${switchInstance.getName}.deparser.in", deparser.symnetCode())
   // link deparser -> <sw>.output.in
-//  switch.getCtx.links.put(deparser.outName(), s"${switchInstance.getName}.output.in")
   private val deparserOutLink = Map[String, String](deparser.outName() -> s"${switchInstance.getName}.output.in")
   //plug in the parser
-//  switch.getCtx.instructions.put(s"${switchInstance.getName}.parser", parserCode())
   private val parserPlug = Map[String, Instruction](s"${switchInstance.getName}.parser" -> parserCode())
   // plug in the switch instances
-//  for (x <- switchInstance.getIfaceSpec.keySet()) {
-//    switch.getCtx.instructions.put(s"${switchInstance.getName}.input.$x", initialize(x))
-//    // connect <sw>.input.x.out -> <sw>.parser
-//    switch.getCtx.links.put(s"${switchInstance.getName}.input.$x.out", s"${switchInstance.getName}.parser")
-//  }
   private val ifacePlug = switchInstance.getIfaceSpec.keys.flatMap(x => {
     Map[String, Instruction](s"${switchInstance.getName}.input.$x" -> initialize(x))
   })
@@ -97,17 +74,23 @@ class ControlFlowInterpreter[T<:ISwitchInstance](val switchInstance: T,
   })
 
   // plug control.ingress.out -> <sw>.buffer
-//  switch.getCtx.links.put(s"control.ingress.out", s"${switchInstance.getName}.buffer.in")
-  private val ingressOutLink = Map[String, String](s"control.ingress.out" -> s"${switchInstance.getName}.buffer.in")
+  private val ingressOutLink = Map[String, String](s"${switchInstance.getName}.control.ingress.out" -> s"${switchInstance.getName}.buffer.in")
+  import org.change.v2.util.Rewriter._
+  private val (instructionsCached, linksCached) = (controlFlowInstructions ++ parserPlug ++ outputPlug ++ deparserPlug ++ ifacePlug ++ plugTables ++ bufferPlug,
+    controlFlowLinks ++ deparserOutLink ++ inputOutLink ++ ingressOutLink ++ bufferOutLink ++ egressOutLink).transform()(s => {
+    if (s.startsWith(s"${switchInstance.getName}."))
+      s
+    else
+      s"${switchInstance.getName}.$s"
+  })
 
-  private val instructionsCached = controlFlowInstructions ++ parserPlug ++ outputPlug ++ deparserPlug ++ ifacePlug
-  private val linksCached = controlFlowLinks ++ deparserOutLink ++ inputOutLink ++ ingressOutLink ++ bufferOutLink
-  def instructions() : Map[String, Instruction] = {
-    instructionsCached
-  }
-  def links() : Map[String, String] = {
-    linksCached
-  }
+  def instructions() : Map[String, Instruction] = instructionsCached
+  def links() : Map[String, String] = linksCached
+
+  def startWherever() : Instruction = Fork(switchInstance.getIfaceSpec.keys.map(x => {
+      Forward(s"${switchInstance.getName}.input.$x")
+    }))
+
 
   def initialize(port : Int): Instruction = initializeCode.switchInitializePacketEnter(port)
   def initializeGlobally(): Instruction = initializeCode.switchInitializeGlobally()
@@ -175,6 +158,14 @@ case class P4ExecutionContext(instructions: Map[LocationId, Instruction],
 
 
 object ControlFlowInterpreter {
+
+  GlobalInitFactory.register(classOf[SwitchInstance], (r : ISwitchInstance) => {
+    new InstanceBasedInitFactory(r.asInstanceOf[SwitchInstance]).initCode()
+  })
+  FullTableFactory.register(classof = classOf[SwitchInstance], (switchInstance : ISwitchInstance, tabName : String, id : String) => {
+    new FullTable(tabName, switchInstance.asInstanceOf[SwitchInstance], id).fullAction()
+  })
+
   def apply(switchInstance: SwitchInstance): ControlFlowInterpreter[SwitchInstance] = new ControlFlowInterpreter(switchInstance,
     switchInstance.getSwitchSpec)
 

@@ -97,12 +97,7 @@ class DeparserRev(switch: Switch, switchInstance : ISwitchInstance) {
         }
         generateHeaderCode(headers.toList, offset)
     }
-    InstructionBlock(
-      new Instruction() {
-        // TODO: MASSIVE HACK here => let's figure out a clean way for this one
-        override def apply(s: State, verbose: Boolean): (List[State], List[State]) = (List[State](s.destroyPacket()), Nil)
-      }, generateCode(popper.map(_.intValue()).toList.reverse, 0), Forward(outName())
-    )
+    InstructionBlock(DestroyPacket(), generateCode(popper.map(_.intValue()).toList.reverse, 0), Forward(outName()))
   }
 
   def symnetCode(ss : org.change.v2.p4.model.parser.State) = {

@@ -71,7 +71,7 @@ public class Switch {
     }
 
     public int getSize(String value) {
-        String[] split = value.split(".");
+        String[] split = value.split("\\.");
         String hName = split[0];
         HeaderInstance instance = this.getInstance(hName);
         return instance.getLayout().getField(split[1]).getLength();

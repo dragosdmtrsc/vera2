@@ -9,7 +9,9 @@ case class TernaryMatch(va : FloatingExpression, mask : FloatingExpression) exte
 case class ValidMatch(v : FloatingExpression) extends ParmInstance
 case class Equal(va : FloatingExpression) extends ParmInstance
 
-
+case class P4TableDefinition(flowInstances : List[P4FlowInstance] = Nil, defaultAction: ActionDefinition = DropAction)
 case class P4FlowInstance(matchParams : Map[String, ParmInstance],
                           action : ActionDefinition)
 case class ActionDefinition(action : String, actionParams : Map[String, FloatingExpression])
+
+object DropAction extends ActionDefinition("drop", Map.empty)

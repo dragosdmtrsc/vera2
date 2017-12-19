@@ -116,9 +116,23 @@ public class SwitchInstance implements ISwitchInstance {
         Map<Integer, String> mapped = new HashMap<Integer, String>();
         mapped.putAll(ifaces);
 
-        BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(dataplane)));
         String crt = null;
         SwitchInstance switchInstance = new SwitchInstance(name, sw, mapped);
+        BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(dataplane)));
+        return populateSwitchInstance(br, sw, switchInstance);
+    }
+
+    public static SwitchInstance populateSwitchInstance(String dataplane , Switch sw, SwitchInstance switchInstance) throws IOException {
+        return populateSwitchInstance(new FileInputStream(dataplane), sw, switchInstance);
+    }
+
+    public static SwitchInstance populateSwitchInstance(InputStream is , Switch sw, SwitchInstance switchInstance) throws IOException {
+        BufferedReader br = new BufferedReader(new InputStreamReader(is));
+        return populateSwitchInstance(br, sw, switchInstance);
+    }
+
+    public static SwitchInstance populateSwitchInstance(BufferedReader br, Switch sw, SwitchInstance switchInstance) throws IOException {
+        String crt;
         int crtFlow = 0;
         while ((crt = br.readLine()) != null) {
             crt = crt.trim();
@@ -160,9 +174,15 @@ public class SwitchInstance implements ISwitchInstance {
                         if (tm.getMatchKind() == MatchKind.Lpm) {
                             String matchParm = flowInstance.getMatchParams().get(r).toString();
                             if (matchParm.contains("/")) {
-                                int mask = Integer.decode(matchParm.split("/")[1]);
-                                flowInstance.setPriority(mask);
-                                break;
+                                try
+                                {
+                                    int mask = Integer.decode(matchParm.split("/")[1]);
+                                    flowInstance.setPriority(mask);
+                                    break;
+                                }
+                                catch (NumberFormatException nfe) {
+
+                                }
                             }
                             r++;
                         }

@@ -6,7 +6,7 @@ import java.util
 import org.change.parser.p4._
 import org.change.parser.p4.parser.{DFSState, StateExpander}
 import org.change.utils.prettifier.JsonUtil
-import org.change.v2.analysis.executor.{DecoratedInstructionExecutor, OVSExecutor}
+import org.change.v2.analysis.executor.{CodeAwareInstructionExecutor, DecoratedInstructionExecutor, OVSExecutor}
 import org.change.v2.analysis.executor.solvers.Z3BVSolver
 import org.change.v2.analysis.expression.concrete.ConstantValue
 import org.change.v2.analysis.memory.{State, Tag}
@@ -18,7 +18,9 @@ import org.scalatest.FunSuite
 
 import scala.collection.JavaConversions._
 import org.change.parser.p4.P4PrettyPrinter._
-import org.change.parser.p4.tables.{FireAction, FireDefaultAction, FullTable}
+import org.change.parser.p4.tables._
+import org.change.parser.p4
+import org.change.parser.p4.factories.FullTableFactory
 
 class HeaderDefinitionParsingTest extends FunSuite {
 
@@ -283,66 +285,40 @@ class HeaderDefinitionParsingTest extends FunSuite {
   }
 
   test("INTEGRATION - run #1") {
-    val p4 = "inputs/simple-nat/simple_nat-ppc.p4"
-    val dataplane = "inputs/simple-nat/commands.txt"
+    val dir = "inputs/simple-nat"
+    val p4 = s"$dir/simple_nat-ppc.p4"
+    val dataplane = s"$dir/commands.txt"
     val res = ControlFlowInterpreter(p4, dataplane, Map[Int, String](1 -> "veth0", 2 -> "veth1", 11 -> "cpu"), "router")
-//    val fin = "inputs/simple-nat/graph.dot"
-//    val ps = new PrintStream(fin)
-//    ps.println(res.toDot())
-//    ps.close()
-//    import sys.process._
-//    s"dot -Tpng $fin -O" !
     val ib = InstructionBlock(
       res.allParserStatesInstruction(),
-//      Constrain(Tag("START") + 0, :~:(:==:(ConstantValue(0)))),
+      res.initializeGlobally(),
       Forward("router.input.1")
     )
 
-
-    val ps = new PrintStream("inputs/simple-nat/ctrl1-instrs.json")
-
-    for ((tag,instr)<-res.instructions()){
-      ps.println(tag)
-      ps.println(instr + "\n")
-    }
-    //ps.println(JsonUtil.toJson(res.instructions()))
-    //ps.println(JsonUtil.toJson(res.links))
-    ps.close()
-
-    val bvExec = new OVSExecutor(new Z3BVSolver)
-
-    var clickExecutionContext = P4ExecutionContext(
-      res.instructions(), res.links(), bvExec.execute(ib, State.clean, verbose = true)._1, bvExec
-    )
+    val codeAwareInstructionExecutor = CodeAwareInstructionExecutor(res.instructions(), res.links(), solver = new Z3BVSolver)
     var init = System.currentTimeMillis()
-    var runs  = 0
-    while (!clickExecutionContext.isDone && runs < 10000) {
-      clickExecutionContext = clickExecutionContext.execute(true)
-      runs = runs + 1
-    }
-
-    println(s"Failed # ${clickExecutionContext.failedStates.size}, Ok # ${clickExecutionContext.stuckStates.size}")
+    val (ok, failed) = codeAwareInstructionExecutor.execute(ib, State.clean, verbose = true)
+    println(s"Failed # ${failed.size}, Ok # ${ok.size}")
     println(s"Time is ${System.currentTimeMillis() - init}ms")
 
-    val psok = new BufferedOutputStream(new FileOutputStream("inputs/simple-nat/click-exec-ok-port0.json"))
-    JsonUtil.toJson(clickExecutionContext.stuckStates, psok)
+    val psok = new BufferedOutputStream(new FileOutputStream(s"$dir/click-exec-ok-port0.json"))
+    JsonUtil.toJson(ok, psok)
     psok.close()
 
-    val relevant = clickExecutionContext.failedStates.filter(x => {
+    val relevant = failed.filter(x => {
       !x.history.head.startsWith("router.parser")
-//      true
     })
 
-    val psko = new BufferedOutputStream(new FileOutputStream("inputs/simple-nat/click-exec-fail-port0.json"))
+    val psko = new BufferedOutputStream(new FileOutputStream(s"$dir/click-exec-fail-port0.json"))
     JsonUtil.toJson(relevant, psko)
     psko.close()
 
 
-    val psokpretty = new PrintStream("inputs/simple-nat/click-exec-ok-port0-pretty.json")
-    psokpretty.println(clickExecutionContext.stuckStates)
+    val psokpretty = new PrintStream(s"$dir/click-exec-ok-port0-pretty.json")
+    psokpretty.println(ok)
     psokpretty.close()
 
-    val pskopretty = new PrintStream("inputs/simple-nat/click-exec-fail-port0-pretty.json")
+    val pskopretty = new PrintStream(s"$dir/click-exec-fail-port0-pretty.json")
     pskopretty.println(relevant)
     pskopretty.close()
 
@@ -369,28 +345,18 @@ class HeaderDefinitionParsingTest extends FunSuite {
     ps.println(JsonUtil.toJson(res.links()))
     ps.close()
 
-    val bvExec = new OVSExecutor(new Z3BVSolver)
-
-    var clickExecutionContext = P4ExecutionContext(
-      res.instructions(), res.links(), bvExec.execute(ib, State.clean, verbose = true)._1, bvExec
-    )
+    val codeAwareInstructionExecutor = CodeAwareInstructionExecutor(res.instructions(), res.links(), solver = new Z3BVSolver)
     var init = System.currentTimeMillis()
-    var runs  = 0
-    while (!clickExecutionContext.isDone && runs < 10000) {
-      clickExecutionContext = clickExecutionContext.execute(true)
-      runs = runs + 1
-    }
-
-    println(s"Failed # ${clickExecutionContext.failedStates.size}, Ok # ${clickExecutionContext.stuckStates.size}")
+    val (ok, failed) = codeAwareInstructionExecutor.execute(ib, State.clean, verbose = true)
+    println(s"Failed # ${failed.size}, Ok # ${ok.size}")
     println(s"Time is ${System.currentTimeMillis() - init}ms")
 
     val psok = new BufferedOutputStream(new FileOutputStream(s"$dir/click-exec-ok-port0.json"))
-    JsonUtil.toJson(clickExecutionContext.stuckStates, psok)
+    JsonUtil.toJson(ok, psok)
     psok.close()
 
-    val relevant = clickExecutionContext.failedStates.filter(x => {
+    val relevant = failed.filter(x => {
       !x.history.head.startsWith("router.parser")
-      //      true
     })
 
     val psko = new BufferedOutputStream(new FileOutputStream(s"$dir/click-exec-fail-port0.json"))
@@ -399,7 +365,7 @@ class HeaderDefinitionParsingTest extends FunSuite {
 
 
     val psokpretty = new PrintStream(s"$dir/click-exec-ok-port0-pretty.json")
-    psokpretty.println(clickExecutionContext.stuckStates)
+    psokpretty.println(ok)
     psokpretty.close()
 
     val pskopretty = new PrintStream(s"$dir/click-exec-fail-port0-pretty.json")
@@ -412,12 +378,6 @@ class HeaderDefinitionParsingTest extends FunSuite {
     val p4 = s"$dir/copy_to_cpu-ppc.p4"
     val dataplane = s"$dir/commands.txt"
     val res = ControlFlowInterpreter(p4, dataplane, Map[Int, String](1 -> "veth0", 2 -> "veth1", 3 -> "cpu"), "router")
-    //    val fin = "inputs/simple-nat/graph.dot"
-    //    val ps = new PrintStream(fin)
-    //    ps.println(res.toDot())
-    //    ps.close()
-    //    import sys.process._
-    //    s"dot -Tpng $fin -O" !
     val ib = InstructionBlock(
       res.allParserStatesInstruction(),
       Forward("router.input.1")
@@ -427,28 +387,18 @@ class HeaderDefinitionParsingTest extends FunSuite {
     ps.println(JsonUtil.toJson(res.links()))
     ps.close()
 
-    val bvExec = new OVSExecutor(new Z3BVSolver)
-
-    var clickExecutionContext = P4ExecutionContext(
-      res.instructions(), res.links(), bvExec.execute(ib, State.clean, verbose = true)._1, bvExec
-    )
+    val codeAwareInstructionExecutor = CodeAwareInstructionExecutor(res.instructions(), res.links(), solver = new Z3BVSolver)
     var init = System.currentTimeMillis()
-    var runs  = 0
-    while (!clickExecutionContext.isDone && runs < 10000) {
-      clickExecutionContext = clickExecutionContext.execute(true)
-      runs = runs + 1
-    }
-
-    println(s"Failed # ${clickExecutionContext.failedStates.size}, Ok # ${clickExecutionContext.stuckStates.size}")
+    val (ok, failed) = codeAwareInstructionExecutor.execute(ib, State.clean, verbose = true)
+    println(s"Failed # ${failed.size}, Ok # ${ok.size}")
     println(s"Time is ${System.currentTimeMillis() - init}ms")
 
     val psok = new BufferedOutputStream(new FileOutputStream(s"$dir/click-exec-ok-port0.json"))
-    JsonUtil.toJson(clickExecutionContext.stuckStates, psok)
+    JsonUtil.toJson(ok, psok)
     psok.close()
 
-    val relevant = clickExecutionContext.failedStates.filter(x => {
+    val relevant = failed.filter(x => {
       !x.history.head.startsWith("router.parser")
-      //      true
     })
 
     val psko = new BufferedOutputStream(new FileOutputStream(s"$dir/click-exec-fail-port0.json"))
@@ -457,7 +407,7 @@ class HeaderDefinitionParsingTest extends FunSuite {
 
 
     val psokpretty = new PrintStream(s"$dir/click-exec-ok-port0-pretty.json")
-    psokpretty.println(clickExecutionContext.stuckStates)
+    psokpretty.println(ok)
     psokpretty.close()
 
     val pskopretty = new PrintStream(s"$dir/click-exec-fail-port0-pretty.json")
@@ -465,5 +415,107 @@ class HeaderDefinitionParsingTest extends FunSuite {
     pskopretty.close()
   }
 
+
+  test("INTEGRATION - FullTableWithInstances with SwitchInstance graph") {
+    val dir = "inputs/simple-nat"
+    val p4 = s"$dir/simple_nat-ppc.p4"
+    val dataplane = s"$dir/commands.txt"
+    FullTableFactory.register(classOf[SwitchInstance], (x : SwitchInstance, tableName : String, id : String) => {
+      new InstanceBasedFullTable(tableName, x, id).fullAction()
+    })
+
+    val res = ControlFlowInterpreter(p4, dataplane, Map[Int, String](1 -> "veth0", 2 -> "veth1", 11 -> "cpu"), "router")
+
+    val fin = "inputs/simple-nat/graph_with_newmodel.dot"
+    val ps = new PrintStream(fin)
+    ps.println(res.toDot)
+    ps.close()
+    import sys.process._
+    s"dot -Tpng $fin -O" !
+  }
+
+
+  test("INTEGRATION - FullTableWithInstances run #1") {
+    val dir = "inputs/simple-nat"
+    val p4 = s"$dir/simple_nat-ppc.p4"
+    val dataplane = s"$dir/commands.txt"
+    FullTableFactory.register(classOf[SwitchInstance], (x : SwitchInstance, tableName : String, id : String) => {
+      new InstanceBasedFullTable(tableName, x, id).fullAction()
+    })
+
+    val res = ControlFlowInterpreter(p4, dataplane, Map[Int, String](1 -> "veth0", 2 -> "veth1", 11 -> "cpu"), "router")
+    val ib = InstructionBlock(
+      res.allParserStatesInstruction(),
+      Forward("router.input.1")
+    )
+    val codeAwareInstructionExecutor = CodeAwareInstructionExecutor(res.instructions(), res.links(), solver = new Z3BVSolver)
+    var init = System.currentTimeMillis()
+    val (ok, failed) = codeAwareInstructionExecutor.execute(ib, State.clean, verbose = true)
+    println(s"Failed # ${failed.size}, Ok # ${ok.size}")
+    println(s"Time is ${System.currentTimeMillis() - init}ms")
+
+    val psok = new BufferedOutputStream(new FileOutputStream(s"$dir/click-exec-ok-port0-withfull.json"))
+    JsonUtil.toJson(ok, psok)
+    psok.close()
+
+    val relevant = failed.filter(x => {
+      !x.history.head.startsWith("router.parser")
+    })
+
+    val psko = new BufferedOutputStream(new FileOutputStream(s"$dir/click-exec-fail-port0-withfull.json"))
+    JsonUtil.toJson(relevant, psko)
+    psko.close()
+
+
+    val psokpretty = new PrintStream(s"$dir/click-exec-ok-port0-pretty-withfull.json")
+    psokpretty.println(ok)
+    psokpretty.close()
+
+    val pskopretty = new PrintStream(s"$dir/click-exec-fail-port0-pretty-withfull.json")
+    pskopretty.println(relevant)
+    pskopretty.close()
+  }
+
+  test("INTEGRATION - SymbolicTableInstance run #1") {
+    val dir = "inputs/simple-nat"
+    val p4 = s"$dir/simple_nat-ppc.p4"
+    val dataplane = s"$dir/commands-sym.txt"
+    val switchInstance = SymbolicSwitchInstance.fromFileWithSyms("router", Map[Int, String](1 -> "veth0", 2 -> "veth1", 11 -> "cpu"),
+      Map[Int, Int](250 -> 11), Switch.fromFile(p4), dataplane)
+    val res = new ControlFlowInterpreter(switchInstance, switchInstance.switch)
+    val ib = InstructionBlock(
+      res.allParserStatesInstruction(),
+      Forward("router.input.1")
+    )
+    val codeAwareInstructionExecutor = CodeAwareInstructionExecutor(res.instructions(), res.links(), solver = new Z3BVSolver)
+    var init = System.currentTimeMillis()
+    val (ok, failed) = codeAwareInstructionExecutor.execute(ib, State.clean, verbose = true)
+    println(s"Failed # ${failed.size}, Ok # ${ok.size}")
+    println(s"Time is ${System.currentTimeMillis() - init}ms")
+
+    val psok = new BufferedOutputStream(new FileOutputStream(s"$dir/click-exec-ok-port0-sym.json"))
+    JsonUtil.toJson(ok, psok)
+    psok.close()
+
+    val relevant = failed.filter(x => {
+      !x.history.head.startsWith("router.parser")
+    })
+
+    val psko = new BufferedOutputStream(new FileOutputStream(s"$dir/click-exec-fail-port0-sym.json"))
+    JsonUtil.toJson(relevant, psko)
+    psko.close()
+
+    val psCode = new BufferedOutputStream(new FileOutputStream(s"$dir/click-code-sym.json"))
+    JsonUtil.toJson(res.instructions() ++ res.links().map(r => r._1 -> Forward(r._2)), psCode)
+    psCode.close()
+
+    val psokpretty = new PrintStream(s"$dir/click-exec-ok-port0-pretty-sym.json")
+    psokpretty.println(ok)
+    psokpretty.close()
+
+    val pskopretty = new PrintStream(s"$dir/click-exec-fail-port0-pretty-sym.json")
+    pskopretty.println(relevant)
+    pskopretty.close()
+  }
 
 }

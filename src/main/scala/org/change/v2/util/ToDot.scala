@@ -6,10 +6,7 @@ import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.analysis.processingmodels.instructions.{Fork, Forward, If, InstructionBlock}
 
 case class ToDot(name : String, instructions : Map[String, Instruction], links : Map[String, String]) {
-  private def normalize(str : String) = str.replace(".", "_").
-    replace("[", "_").
-    replace("]", "_").
-    replace("-", "_")
+  private def normalize(str : String) = "\"" + str + "\""
   def toDot: String = {
     val sb = new StringBuilder()
     sb.append(s"digraph $name {\n")

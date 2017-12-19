@@ -77,10 +77,11 @@ class OVSExecutor(solver: Solver) extends DecoratedInstructionExecutor(solver) {
 
   override def executeExoticInstruction(instruction: Instruction, s: State, v: Boolean):
   (List[State], List[State]) = {
-    if (instruction.isInstanceOf[Translatable])
-      this.execute(instruction.asInstanceOf[Translatable].generateInstruction(), s, v)
-    else
-      throw new UnsupportedOperationException("Cannot handle this kind of instruction. Make it Translatable " + instruction)
+    instruction match {
+      case translatable: Translatable => this.execute(translatable.generateInstruction(), s, v)
+      case destroy : DestroyPacket => destroy(s, verbose = true)
+      case _ => throw new UnsupportedOperationException("Cannot handle this kind of instruction. Make it Translatable " + instruction)
+    }
   }
 
 
