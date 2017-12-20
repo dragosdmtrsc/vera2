@@ -54,17 +54,23 @@ case class MapState (location : LocationId,
 
   override def execute(p:Instruction, logger : PolicyLogger) : (PolicyState,PolicyLogger) = {
     //Policy.verbose_print("Executed "+p+"\n************\n",OverallMode);
-    logger.addInstruction(p)
+    //logger.addInstruction(p)
 
     p match {
       case Forward(loc) => //semantics for Forward
         logger.addPort(loc)
         logger.addInstruction(Forward(loc))
         logger.addPort(nextHop(loc))
+        logger.addLink(loc,nextHop(loc))
+        logger.newCodeBlock(nextHop(loc))
         (forward(loc),logger)
+
       case _ => // standard symbolic execution
+        logger.addInstruction(p);
         (p.apply(state,true) match {
-          case (Nil,sp :: _) => if (stuck(sp)) {UnsatisfState} else {FailedState}
+          //case (Nil,sp :: _) => if (stuck(sp)) {UnsatisfState} else {FailedState}
+          case (Nil, Nil) => println("Unsatif state at "+p ); logger.unsatifState(p); UnsatisfState
+          case (Nil, sp :: _) => println("Failed State at"+p ); logger.failedState(p); FailedState
           case (sp :: _,_) => new MapState(location,topology,links,sp)
         }, logger)
 

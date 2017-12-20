@@ -286,6 +286,7 @@ class HeaderDefinitionParsingTest extends FunSuite {
     val p4 = "inputs/simple-nat/simple_nat-ppc.p4"
     val dataplane = "inputs/simple-nat/commands.txt"
     val res = ControlFlowInterpreter(p4, dataplane, Map[Int, String](1 -> "veth0", 2 -> "veth1", 11 -> "cpu"), "router")
+
 //    val fin = "inputs/simple-nat/graph.dot"
 //    val ps = new PrintStream(fin)
 //    ps.println(res.toDot())

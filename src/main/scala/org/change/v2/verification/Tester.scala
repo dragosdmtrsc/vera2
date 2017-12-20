@@ -31,10 +31,9 @@ trait Test {
   def execute : Boolean
 }
 
-
+/*
 case class TopoTest (msg:String, policy:Formula, start: LocationId, topo:Topo, expected:Boolean) extends Test
 {
-
   def execute : Boolean = {
     println("Running "+msg);
     (verify(policy,start,code(topo),links(topo)),expected) match {
@@ -42,8 +41,9 @@ case class TopoTest (msg:String, policy:Formula, start: LocationId, topo:Topo, e
       case (x,y) => println("Test failed, expected "+y+" received "+x); false
     }
   }
-}
+}*/
 
+/*
 class SeflTest (msg:String, policy:Formula, prog:Instruction, expected:Boolean)
 {
   def execute : Boolean = {
@@ -53,7 +53,7 @@ class SeflTest (msg:String, policy:Formula, prog:Instruction, expected:Boolean)
       case (x,y) => println("Test failed, expected "+y+" received "+x); false
     }
   }
-}
+}*/
 
 
 object Tester {
@@ -79,16 +79,17 @@ object Tester {
 
     var tests = List (
       //TopoTest("Existential test 1 on hop-based impl",EF(Constrain(IPDst,:==:(ConstantValue(100)))),"0",sample_topo(model_1),false)
-      TopoTest("Check-sequence test",EF(Constrain(IPDst,:==:(ConstantValue(100)))),"0",linear_topo,false)
+      //TopoTest("Check-sequence test",EF(Constrain(IPDst,:==:(ConstantValue(100)))),"0",linear_topo,false)
       //TopoTest("Existential test 2 on hop-based impl",EF(Constrain(TcpSrc,:==:(ConstantValue(5)))),"0",sample_topo(model_1),true),
-      //TopoTest("Universal test 3 on hop-based impl",AF(Constrain(TcpSrc,:==:(ConstantValue(5)))),"0",sample_topo(model_1),false),
+      //TopoTest("Universal test 3 on hop-based impl",AF(Constrain(TcpSrc,:==:(ConstantValue(5)))),"0",sample_topo(model_1),false)
+
       // this test currently fails
       //TopoTest("Universal test 4 on hop-based impl",AF(Constrain(TcpSrc,:>=:(ConstantValue(5)))),"0",sample_topo(model_1),false)
       //TopoTest("Simple history test",EF(Constrain(IPDst,:>=:(ConstantValue(11)))),"0",tiny_topo_2,true)
     )
 
 
-    /*
+  /*
     for (t <- tests){
       t.execute
     }
@@ -100,11 +101,20 @@ object Tester {
     //future_test
     //println(State.bigBang)
 
-    asa
+                      asa
     //iftest
     //ib test
     //ibtest
 
+    /*
+    var (v,logger) = verify(EF(Formula.Fail), "0", code(tiny_topo),links(tiny_topo))
+    Printer.vizPrinter((logger.code,logger.links),"policy.html")
+
+    println(logger.code)
+    println(logger.links)
+  */
+
+    //println(tiny_topo)
   }
 
 
@@ -154,13 +164,13 @@ object Tester {
   def tiny_topo : Topo =
 
     (Map("0" -> InstructionBlock(Assign(IPSrc,ConstantValue(10)),Fork(Forward("1"),Forward("2"))),
-        "1" -> InstructionBlock(NoOp,Forward("3")),
-        "3" -> InstructionBlock(Fork(InstructionBlock(Assign(IPDst,ConstantValue(10)),Forward("5")),Forward("6"))),
-        "2" -> InstructionBlock(Constrain(IPSrc,:>=:(ConstantValue(4))), Forward("4")),
-        "4" -> NoOp,
-        "5" -> InstructionBlock(Assign(IPDst,ConstantValue(11)),Forward("6")),
-        "6" -> NoOp
-    ),Map():Map[LocationId,LocationId])
+        "11" -> InstructionBlock(NoOp,Forward("3")),
+        "33" -> InstructionBlock(Fork(InstructionBlock(Assign(IPDst,ConstantValue(10)),Forward("5")),Forward("6"))),
+        "22" -> InstructionBlock(Constrain(IPSrc,:>=:(ConstantValue(4))), Forward("4")),
+        "44" -> InstructionBlock(NoOp),
+        "55" -> InstructionBlock(Assign(IPDst,ConstantValue(11)),Forward("6")),
+        "66" -> NoOp
+    ),Map("1" -> "11", "2" -> "22", "3" -> "33", "4" -> "44", "5" -> "55", "6" -> "66"):Map[LocationId,LocationId])
 
   def tiny_topo_2 : Topo =
     (Map("0" -> Fork(Forward("1"),Forward("2"),Forward("3")),
@@ -193,6 +203,10 @@ object Tester {
       "router" -> OptimizedRouter.trivialRouterNetwrokConfig _
     )).setLogger(JsonLogger)
 
+
+    var (v,log) = verify(EF(Formula.Fail),"packet-in-0-in",exe.instructions,exe.links)
+    Printer.vizPrinter((log.code,log.links),"asa.html");
+
     //val start = System.currentTimeMillis()
     //exe = time{exe.untilDone(true)}
 
@@ -210,9 +224,11 @@ object Tester {
 
     //in -> EtherDecap -> EtherEncap(2048, 00:23:eb:bb:f1:4c, 00:23:eb:bb:f1:4d) -> VLANEncap(225) -> out;
 
+    /*
     var r = false;
-    time{r = verify(policy,"packet-in-0-in",exe.instructions,exe.links)}
+    time{(r,_) = verify(policy,"packet-in-0-in",exe.instructions,exe.links)}
     println("Formula is "+r)
+    */
 
     /*
     // for checking the update on Constrain which checks allocation first
@@ -311,18 +327,7 @@ object Tester {
       ,InstructionBlock(Fork(Assign(IPSrc,ConstantValue(3)),Assign(IPSrc,ConstantValue(4)),Assign(IPSrc,ConstantValue(5))),Assign(TcpSrc,ConstantValue(5)))
       ,InstructionBlock(Constrain(IPSrc,:==:(ConstantValue(5))),Fork(Constrain(TcpSrc,:>=:(ConstantValue(3))),Constrain(TcpSrc,:>=:(ConstantValue(4))),Constrain(TcpSrc,:>=:(ConstantValue(5)))))
     )
-/*
-    var modp = InstructionBlock(Constrain(IPSrc,:==:(ConstantValue(5))),
-      Fork(Constrain(TcpSrc,:>=:(ConstantValue(1))),Constrain(TcpSrc,:>=:(ConstantValue(4))),Constrain(TcpSrc,:>=:(ConstantValue(5)))))
 
-    var modpp = Fork(Constrain(TcpSrc,:>=:(ConstantValue(1))),Constrain(TcpSrc,:>=:(ConstantValue(4))),Constrain(TcpSrc,:>=:(ConstantValue(5))))
-    */
-
-    //var policy = AF(And(Constrain(IPSrc,:>=:(ConstantValue(3))),Constrain(TcpSrc,:>=:(ConstantValue(3)))))
-    //should be true
-
-    //var policy = AG(Or(Constrain(IPSrc,:>=:(ConstantValue(5))),Constrain(TcpSrc,:>=:(ConstantValue(5)))))
-    //should be false
 
 
     var policy = And(AG (Or(Constrain(IPSrc,:>=:(ConstantValue(3))),Constrain(TcpSrc,:>=:(ConstantValue(3))))),
@@ -352,125 +357,6 @@ object Tester {
 
   }
 
-   //checking the implementation of the tree-like verification procedure
-  def test_checker_4 = {
-
-    var model = InstructionBlock(
-      Constrain(IPSrc,  :>=:(ConstantValue(1))),
-      Constrain(IPSrc,  :>=:(ConstantValue(2))),
-      Constrain(IPSrc,  :>=:(ConstantValue(3))),
-      Constrain(TcpSrc, :==:(ConstantValue(10))),
-      Constrain(IPSrc,  :>=:(ConstantValue(5))),
-      Constrain(IPSrc,  :>=:(ConstantValue(6))),
-      Constrain(IPSrc,  :>=:(ConstantValue(7))),
-      Constrain(IPSrc,  :==:(ConstantValue(10)))
-
-    )
-
-    var p = And (
-       Or(EF(Constrain(IPSrc, :>=:(ConstantValue(2)))),
-       EF(Constrain(IPSrc, :==:(ConstantValue(99))))
-       ),
-      EF(Constrain(TcpSrc, :==:(ConstantValue(10))))
-    )
-
-    Policy.verify(p,model)
-
-  }
-
-  def test_checker_3 = {
-
-    var model = InstructionBlock(
-      Constrain(TcpSrc, :==:(ConstantValue(10))),
-      Constrain(IPSrc, :>=:(ConstantValue(1))),
-      Constrain(IPSrc, :>=:(ConstantValue(2))),
-      Constrain(IPSrc, :>=:(ConstantValue(3))),
-      Constrain(IPSrc, :>=:(ConstantValue(4))),
-      Constrain(IPSrc, :>=:(ConstantValue(5))),
-      Constrain(IPSrc, :>=:(ConstantValue(6))),
-      Constrain(IPSrc, :>=:(ConstantValue(7)))
-
-    )
-
-    var p = AG(EF(Or(
-      Constrain(IPSrc, :>=:(ConstantValue(5))),
-      Constrain(TcpSrc,:==:(ConstantValue(10)))
-    )))
-
-    Policy.verify(p,model)
-
-  }
-
-  def test_checker_2 = {
-
-    var model = InstructionBlock(
-      Constrain(IPSrc, :>=:(ConstantValue(1))),
-      Constrain(IPSrc, :>=:(ConstantValue(2))),
-      Constrain(IPSrc, :>=:(ConstantValue(3))),
-      Constrain(IPSrc, :>=:(ConstantValue(4))),
-      Constrain(IPSrc, :>=:(ConstantValue(5))),
-      Constrain(IPSrc, :>=:(ConstantValue(6))),
-      Constrain(IPSrc, :>=:(ConstantValue(7))),
-      Constrain(TcpSrc, :==:(ConstantValue(10)))
-
-    )
-
-    var p = AG(Or(
-        And(
-          EF(Constrain(IPSrc, :>=:(ConstantValue(5)))),
-          EF(Constrain(IPDst, :==:(ConstantValue(69))))
-        ),
-      EF(Constrain(TcpSrc,:==:(ConstantValue(10))))
-    ))
-
-    Policy.verify(p,model)
-
-  }
-
-  def test_checker_1 = {
-
-    var model = InstructionBlock(
-      Constrain(IPSrc, :>=:(ConstantValue(1))),
-      Constrain(IPSrc, :>=:(ConstantValue(2))),
-      Constrain(IPSrc, :>=:(ConstantValue(3))),
-      Constrain(IPSrc, :>=:(ConstantValue(4))),
-      Constrain(IPSrc, :>=:(ConstantValue(5))),
-      Constrain(IPSrc, :>=:(ConstantValue(6))),
-      Constrain(IPSrc, :>=:(ConstantValue(7))),
-      Constrain(TcpSrc, :==:(ConstantValue(10)))
-
-    )
-
-    var p = AG(Or(
-      EF(Constrain(IPSrc, :>=:(ConstantValue(5)))),
-        EF(Constrain(TcpSrc,:==:(ConstantValue(10))))
-    ))
-
-    Policy.verify(p,model)
-
-  }
-  def test_checker_0 = {
-
-    var model = InstructionBlock(
-      Constrain(TcpSrc, :==:(ConstantValue(10))),
-      Constrain(IPSrc, :>=:(ConstantValue(1))),
-      Constrain(IPSrc, :>=:(ConstantValue(2))),
-      Constrain(IPSrc, :>=:(ConstantValue(3))),
-      Constrain(IPSrc, :>=:(ConstantValue(4))),
-      Constrain(IPSrc, :>=:(ConstantValue(5))),
-      Constrain(IPSrc, :>=:(ConstantValue(6))),
-      Constrain(IPSrc, :>=:(ConstantValue(7)))
-
-    )
-
-    var p = AG(EF(Or(
-      Constrain(IPSrc, :>=:(ConstantValue(5))),
-      Constrain(TcpSrc,:==:(ConstantValue(10)))
-    )))
-
-    Policy.verify(p,model)
-
-  }
 
 }
 
