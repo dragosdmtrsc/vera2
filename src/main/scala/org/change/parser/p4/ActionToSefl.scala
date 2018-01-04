@@ -374,9 +374,8 @@ class ActionInstance(p4Action: P4Action,
     val (regName, hname, index) = getNameAndIndex(headerInstance)
     val instance = switch.getInstance(headerInstance)
     If (Constrain(regName + ".IsValid", :==:(ConstantValue(1))),
-      NoOp,
       InstructionBlock(
-        Assign(regName + ".IsValid", ConstantValue(1)),
+//        Assign(regName + ".IsValid", ConstantValue(0)),
         if (regName != hname) {
           // if we are at a header array
           val instance = switch.getInstance(hname).asInstanceOf[ArrayInstance]
@@ -415,7 +414,8 @@ class ActionInstance(p4Action: P4Action,
             NoOp
           }).toList
         )
-      )
+      ),
+      Fail("Attempt to remove_header whilst header instance still not valid")
     )
   }
 
@@ -424,7 +424,7 @@ class ActionInstance(p4Action: P4Action,
     val (regName, hname, index) = getNameAndIndex(headerInstance)
     val instance = switch.getInstance(headerInstance)
     If (Constrain(regName + ".IsValid", :==:(ConstantValue(1))),
-      NoOp,
+      Fail("Attempt to add_header whilst header instance is already valid"),
       InstructionBlock(
         Assign(regName + ".IsValid", ConstantValue(1)),
         if (regName != hname) {

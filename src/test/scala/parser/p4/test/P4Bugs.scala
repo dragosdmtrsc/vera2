@@ -17,7 +17,7 @@ import org.scalatest.FunSuite
 
 class P4Bugs extends FunSuite {
   test("INTEGRATION - copy-to-cpu parser bug") {
-    val dir = "inputs/copy-to-cpu/"
+    val dir = "inputs/copy-to-cpu-bug-parser-failed/"
     val p4 = s"$dir/copy_to_cpu-ppc.p4"
     val dataplane = s"$dir/commands.txt"
     val res = ControlFlowInterpreter(p4, dataplane, Map[Int, String](1 -> "veth0", 3 -> "cpu"), "router")
@@ -70,5 +70,75 @@ class P4Bugs extends FunSuite {
       JsArray(u.map(_.toJson).toVector)
     })).prettyPrint)
     pskopretty.close()
+  }
+
+  test("INTEGRATION - copy-to-cpu remove_header good") {
+    val dir = "inputs/copy-to-cpu-remove-header/"
+    val p4 = s"$dir/copy_to_cpu-ppc.p4"
+    val dataplane = s"$dir/commands-good.txt"
+    val res = ControlFlowInterpreter(p4, dataplane, Map[Int, String](1 -> "veth0", 3 -> "cpu"), "router")
+    val port = 1
+    val ib = InstructionBlock(
+      Forward(s"router.input.$port")
+    )
+    val codeAwareInstructionExecutor = CodeAwareInstructionExecutor(res.instructions(), res.links(), solver = new Z3BVSolver)
+    val (initial, _) = codeAwareInstructionExecutor.
+      execute(InstructionBlock(res.allParserStatesInstruction()), State.clean, verbose = true)
+    val (ok: List[State], failed: List[State]) = executeAndPrintStats(ib, initial, codeAwareInstructionExecutor)
+    printResults(dir, port, ok, failed, "good")
+  }
+
+  test("INTEGRATION - copy-to-cpu remove_header bad") {
+    val dir = "inputs/copy-to-cpu-remove-header/"
+    val p4 = s"$dir/copy_to_cpu-ppc.p4"
+    val dataplane = s"$dir/commands-bad.txt"
+    val res = ControlFlowInterpreter(p4, dataplane, Map[Int, String](1 -> "veth0", 3 -> "cpu"), "router")
+    val port = 1
+    val ib = InstructionBlock(
+      Forward(s"router.input.$port")
+    )
+    val codeAwareInstructionExecutor = CodeAwareInstructionExecutor(res.instructions(), res.links(), solver = new Z3BVSolver)
+    val (initial, _) = codeAwareInstructionExecutor.
+      execute(InstructionBlock(res.allParserStatesInstruction()), State.clean, verbose = true)
+    val (ok: List[State], failed: List[State]) = executeAndPrintStats(ib, initial, codeAwareInstructionExecutor)
+    printResults(dir, port, ok, failed, "bad")
+  }
+
+  private def printResults(dir: String, port: Int, ok: List[State], failed: List[State], okBase: String): Unit = {
+    val psok = new BufferedOutputStream(new FileOutputStream(s"$dir/ok-port$port-$okBase.json"))
+    JsonUtil.toJson(ok, psok)
+    psok.close()
+
+    val relevant = failed
+
+    val psko = new BufferedOutputStream(new FileOutputStream(s"$dir/fail-port$port-$okBase.json"))
+    JsonUtil.toJson(relevant, psko)
+    psko.close()
+
+    import spray.json._
+    import JsonWriter._
+    import org.change.v2.analysis.memory.jsonformatters.StateToJson._
+    val psokpretty = new PrintStream(s"$dir/ok-port$port-pretty-$okBase.json")
+    psokpretty.println(ok.toJson(JsonWriter.func2Writer[List[State]](u => {
+      JsArray(u.map(_.toJson).toVector)
+    })).prettyPrint)
+    psokpretty.close()
+
+    val pskopretty = new PrintStream(s"$dir/fail-port$port-pretty-$okBase.json")
+    pskopretty.println(relevant.toJson(JsonWriter.func2Writer[List[State]](u => {
+      JsArray(u.map(_.toJson).toVector)
+    })).prettyPrint)
+    pskopretty.close()
+  }
+
+  private def executeAndPrintStats(ib: InstructionBlock, initial: List[State], codeAwareInstructionExecutor : CodeAwareInstructionExecutor) = {
+    val init = System.currentTimeMillis()
+    val (ok, failed) = initial.foldLeft((Nil, Nil): (List[State], List[State]))((acc, init) => {
+      val (o, f) = codeAwareInstructionExecutor.execute(ib, init, true)
+      (acc._1 ++ o, acc._2 ++ f)
+    })
+    println(s"Failed # ${failed.size}, Ok # ${ok.size}")
+    println(s"Time is ${System.currentTimeMillis() - init}ms")
+    (ok, failed)
   }
 }

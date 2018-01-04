@@ -14,9 +14,9 @@ object StateToJson extends DefaultJsonProtocol {
     override def write(obj: State): JsValue = JsObject(
       "status" -> JsString(obj.status),
       "port_trace" -> JsArray(obj.history.reverse.zipWithIndex.map(ip =>
-        JsObject(ip._2.toString -> JsString(ip._1))).toVector),
+        JsString(ip._1)).toVector),
       "instruction_trace" -> JsArray(obj.instructionHistory.reverse.zipWithIndex.map(ip =>
-        JsObject(ip._2.toString -> JsString(ip._1.toString))).toVector),
+        JsString(ip._1.toString)).toVector),
       {
         import org.change.v2.analysis.memory.jsonformatters.MemorySpaceToJson._
         "memory" -> obj.memory.toJson
