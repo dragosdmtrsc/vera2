@@ -80,6 +80,7 @@ class OVSExecutor(solver: Solver) extends DecoratedInstructionExecutor(solver) {
     instruction match {
       case translatable: Translatable => this.execute(translatable.generateInstruction(), s, v)
       case destroy : DestroyPacket => destroy(s, verbose = true)
+      case AssignNamedSymbolWithLength(id, exp, width) => AssignNamedSymbolWithLength(id, exp, width)(s, v)
       case _ => throw new UnsupportedOperationException("Cannot handle this kind of instruction. Make it Translatable " + instruction)
     }
   }
@@ -91,14 +92,21 @@ class OVSExecutor(solver: Solver) extends DecoratedInstructionExecutor(solver) {
     a(s) match {
       case Some(int) => c match {
         case None => instantiate(s, dc) match {
-          case Left(c) => optionToStatePair(s, s"Memory object @ $a cannot $dc")(s => {
-            getNewMemory(Some(s.memory), Left(int), c)
-          })
+          case Left(c) => s.memory.eval(int) match {
+            case Some(_) => optionToStatePair(s, s"Memory object @ $a cannot $dc")(s => {
+              getNewMemory(Some(s.memory), Left(int), c)
+            })
+            case None => Fail(s"No object found for $int")(s, v)
+          }
+
           case Right(err) => Fail(err)(s, v)
         }
-        case Some(c) => optionToStatePair(s, s"Memory object @ $a cannot $dc")(s => {
-          getNewMemory(Some(s.memory), Left(int), c)
-        })
+        case Some(c) => s.memory.eval(int) match {
+          case Some(_) => optionToStatePair(s, s"Memory object @ $a cannot $dc")(s => {
+            getNewMemory(Some(s.memory), Left(int), c)
+          })
+          case None => Fail(s"No object found for $int")(s, v)
+        }
       }
       case None => execute(Fail(TagExp.brokenTagExpErrorMessage), s, v)
     }
@@ -179,13 +187,13 @@ class OVSExecutor(solver: Solver) extends DecoratedInstructionExecutor(solver) {
 
         maybeValue.flatMap { value => {
           val negd = normalize(NOT(c))
-          if (value.cts.exists { x => x == c })
+          if (value.cts.contains(c))
             maybeNewMem
-          else if (value.cts.exists { x => x == negd })
+          else if (value.cts.contains(negd))
             None
           else {
             val mm = normalize(value.e) match {
-              case ConstantValue(x, _, _) => {
+              case ConstantValue(x, _, _) =>
                 def constrainSimple(c: Constraint, maybeNewMem: Option[MemorySpace]):
                 (Option[MemorySpace], Boolean) = {
                   c match {
@@ -222,8 +230,8 @@ class OVSExecutor(solver: Solver) extends DecoratedInstructionExecutor(solver) {
                     case _ => (m.addConstraint(a, c, true), false)
                   }
                 }
+
                 constrainSimple(c, maybeNewMem)
-              }
               case _ => (m.addConstraint(a, c, true), false)
             }
             if (!mm._2) {
@@ -261,16 +269,22 @@ class OVSExecutor(solver: Solver) extends DecoratedInstructionExecutor(solver) {
     val ConstrainNamedSymbol(id, dc, c) = instruction
     c match {
       case None => instantiate(s, dc) match {
-        case Left(c) => optionToStatePair(s, s"Symbol $id cannot $dc")(s => {
+        case Left(c) => s.memory.eval(id) match {
+          case Some(_) => optionToStatePair(s, s"Symbol $id cannot $dc")(s => {
+            //          val maybeNewMem = s.memory.addConstraint(id, c, true)
+            getNewMemory(Some(s.memory), Right(id), c)
+          })
+          case None => Fail(s"No object found at $id")(s, v)
+        }
+        case Right(err) => Fail(err)(s, v)
+      }
+      case Some(c) => s.memory.eval(id) match {
+        case Some(_) => optionToStatePair(s, s"Symbol $id cannot $dc")(s => {
           //          val maybeNewMem = s.memory.addConstraint(id, c, true)
           getNewMemory(Some(s.memory), Right(id), c)
         })
-        case Right(err) => Fail(err)(s, v)
+        case None => Fail(s"No object found at $id")(s, v)
       }
-      case Some(c) => optionToStatePair(s, s"Symbol $id cannot $dc")(s => {
-        //          val maybeNewMem = s.memory.addConstraint(id, c, true)
-        getNewMemory(Some(s.memory), Right(id), c)
-      })
     }
   }
 }

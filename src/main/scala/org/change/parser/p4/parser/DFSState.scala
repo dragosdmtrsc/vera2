@@ -6,7 +6,7 @@ import java.util.UUID
 import com.fasterxml.jackson.annotation.ObjectIdGenerators.UUIDGenerator
 import org.change.utils.prettifier.JsonUtil
 import org.change.v2.analysis.expression.concrete.{ConstantValue, SymbolicValue}
-import org.change.v2.analysis.expression.concrete.nonprimitive.{:&&:, :@}
+import org.change.v2.analysis.expression.concrete.nonprimitive.{:&&:, :@, Address}
 import org.change.v2.analysis.memory.Tag
 import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.analysis.processingmodels.instructions.{Allocate, Constrain, _}
@@ -183,13 +183,14 @@ object StateExpander {
               case _ => Nil
             }
             def gatherAssign(i: Instruction): Iterable[Instruction] = i match {
-              case InstructionBlock(instructions) => instructions.flatMap(gatherAllocate)
+              case InstructionBlock(instructions) => instructions.flatMap(gatherAssign)
               case v: AssignNamedSymbol => List[Instruction](v)
+              case v: AssignNamedSymbolWithLength => List[Instruction](v)
               case _ => Nil
             }
 
             def gatherConstrain(i: Instruction): Iterable[Instruction] = i match {
-              case InstructionBlock(instructions) => instructions.flatMap(gatherAllocate)
+              case InstructionBlock(instructions) => instructions.flatMap(gatherConstrain)
               case v: ConstrainNamedSymbol => List[Instruction](v.not())
               case _ => Nil
             }
@@ -218,7 +219,7 @@ object StateExpander {
     InstructionBlock(
       v.getValues.zip(v.getExpressions).map(x => {
         x._2 match {
-          case u: StringRef => {
+          case u: StringRef =>
             if (x._1.getMask == -1) {
               Constrain(u.getRef, :==:(ConstantValue(x._1.getValue)))
             } else {
@@ -231,14 +232,13 @@ object StateExpander {
                 Constrain(tmp, :==:(ConstantValue(x._1.getValue)))
               )
             }
-          }
-          case u: DataRef => {
+          case u: DataRef =>
             if (x._1.getMask == -1) {
               val tmp = "tmp" + UUID.randomUUID().toString
               val width = u.getEnd.toInt - u.getStart.toInt
               InstructionBlock(
                 Allocate(tmp, width),
-                Assign(tmp, :@(Tag("START") + u.getStart.toInt)),
+                Assign(tmp, :@(Tag("START") + u.getStart.toInt).asInstanceOf[Address], width),
                 Constrain(tmp, :==:(ConstantValue(x._1.getValue)))
               )
             } else {
@@ -246,11 +246,11 @@ object StateExpander {
               val tmp = "tmp" + UUID.randomUUID().toString
               InstructionBlock(
                 Allocate(tmp, width),
-                Assign(tmp, :&&:(ConstantValue(x._1.getMask), :@(Tag("START") + u.getStart.toInt))),
+                Assign(tmp, :@(Tag("START") + u.getStart.toInt).asInstanceOf[Address], width),
+                Assign(tmp, :&&:(ConstantValue(x._1.getMask), :@(tmp))),
                 Constrain(tmp, :==:(ConstantValue(x._1.getValue)))
               )
             }
-          }
         }
       })
     )

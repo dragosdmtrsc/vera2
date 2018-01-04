@@ -77,7 +77,8 @@ class CodeAwareInstructionExecutor(program : Map[String, Instruction],
         })), s, v)
       //        handleSuperFork(sf, s, v)
       //        this.executeFork(Fork(sf.instructions), s, v)
-      case _ => instruction(s, v)
+      case _ => super.executeExoticInstruction(instruction, s, v)
+//        instruction(s, v)
     }
   }
 

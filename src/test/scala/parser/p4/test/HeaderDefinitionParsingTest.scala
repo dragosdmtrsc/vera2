@@ -377,7 +377,7 @@ class HeaderDefinitionParsingTest extends FunSuite {
     val dir = "inputs/copy-to-cpu/"
     val p4 = s"$dir/copy_to_cpu-ppc.p4"
     val dataplane = s"$dir/commands.txt"
-    val res = ControlFlowInterpreter(p4, dataplane, Map[Int, String](1 -> "veth0", 2 -> "veth1", 3 -> "cpu"), "router")
+    val res = ControlFlowInterpreter(p4, dataplane, Map[Int, String](1 -> "veth0", 3 -> "cpu"), "router")
     val ib = InstructionBlock(
       res.allParserStatesInstruction(),
       Forward("router.input.1")
