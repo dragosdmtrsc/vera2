@@ -6,7 +6,7 @@ import org.change.v2.analysis.expression.concrete.nonprimitive.:@
 import org.change.v2.analysis.memory.{State, Tag}
 import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.analysis.processingmodels.instructions._
-import org.change.v2.p4.model.{ISwitchInstance, InstanceType, Switch, SwitchInstance}
+import org.change.v2.p4.model._
 import org.change.v2.p4.model.parser._
 
 import scala.collection.JavaConversions._
@@ -60,7 +60,6 @@ class OutputMechanism(switchInstance: ISwitchInstance) {
 
 
 class DeparserRev(switch: Switch, switchInstance : ISwitchInstance) {
-  val startState = switch.getParserState("start")
   def symnetCode() : Instruction = {
     val asList = switch.parserStates().toList
     val indexedSeq = asList.zipWithIndex.toMap
@@ -75,7 +74,7 @@ class DeparserRev(switch: Switch, switchInstance : ISwitchInstance) {
         graph.addEdge(indexedSeq(e._1), indexedSeq(e._2))
     val popper = graph.topologicalSort()
     def generateCode(stack : List[Int], offset : Int) : Instruction = stack match {
-      case Nil => NoOp
+      case Nil => Fail("Deparser error: No such packet layout exists")
       case head :: tail =>
         val headers = nodes(asList(head))
         def generateHeaderCode(headerInstances : List[String], off : Int) : Instruction = headerInstances match {
@@ -97,7 +96,8 @@ class DeparserRev(switch: Switch, switchInstance : ISwitchInstance) {
         }
         generateHeaderCode(headers.toList, offset)
     }
-    InstructionBlock(DestroyPacket(), generateCode(popper.map(_.intValue()).toList.reverse, 0), Forward(outName()))
+    val ins = InstructionBlock(DestroyPacket(), generateCode(popper.map(_.intValue()).toList.reverse, 0), Forward(outName()))
+    ins
   }
 
   def symnetCode(ss : org.change.v2.p4.model.parser.State) = {

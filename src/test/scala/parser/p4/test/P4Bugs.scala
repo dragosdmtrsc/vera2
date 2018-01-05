@@ -104,6 +104,23 @@ class P4Bugs extends FunSuite {
     printResults(dir, port, ok, failed, "bad")
   }
 
+  test("INTEGRATION - copy-to-cpu remove_header ethernet") {
+    val dir = "inputs/copy-to-cpu-remove-ethernet/"
+    val p4 = s"$dir/copy_to_cpu-ppc.p4"
+    val dataplane = s"$dir/commands-bad.txt"
+    val res = ControlFlowInterpreter(p4, dataplane, Map[Int, String](1 -> "veth0", 3 -> "cpu"), "router")
+    val port = 1
+    val ib = InstructionBlock(
+      Forward(s"router.input.$port")
+    )
+    val codeAwareInstructionExecutor = CodeAwareInstructionExecutor(res.instructions(), res.links(), solver = new Z3BVSolver)
+    val (initial, _) = codeAwareInstructionExecutor.
+      execute(InstructionBlock(res.allParserStatesInstruction()), State.clean, verbose = true)
+    val (ok: List[State], failed: List[State]) = executeAndPrintStats(ib, initial, codeAwareInstructionExecutor)
+    printResults(dir, port, ok, failed, "bad")
+  }
+
+
   private def printResults(dir: String, port: Int, ok: List[State], failed: List[State], okBase: String): Unit = {
     val psok = new BufferedOutputStream(new FileOutputStream(s"$dir/ok-port$port-$okBase.json"))
     JsonUtil.toJson(ok, psok)
