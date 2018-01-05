@@ -24,24 +24,25 @@ class LoopDetectingOVSExecutor(checkedPorts: Set[LocationId], solver: Solver) ex
   }
 
   override def executeForward(instruction: Forward, s: memory.State, v: Boolean) = {
-    // Perform loop check
-    val port = s.location
-
     var toExecuteNext = () => super.executeForward(instruction, s, v)
 
-    if (checkedPorts contains port)
-      if (stateHistory(port).isEmpty)
-        stateHistory(port).add(s)
-      else {
-        import scala.collection.JavaConverters._
-        if (stateHistory(port).asScala.exists(BVLoopDetector.loop(s, _)))
-          // Stop, loop detected
-          toExecuteNext = () => super.executeFail(Fail("Loop detected"), s, v)
-        else {
-          // Add state to history
+    if (s.history.nonEmpty) {
+      val port = s.location
+
+      if (checkedPorts contains port)
+        if (stateHistory(port).isEmpty)
           stateHistory(port).add(s)
+        else {
+          import scala.collection.JavaConverters._
+          if (stateHistory(port).asScala.exists(BVLoopDetector.loop(s, _)))
+          // Stop, loop detected
+            toExecuteNext = () => super.executeFail(Fail("Loop detected"), s, v)
+          else {
+            // Add state to history
+            stateHistory(port).add(s)
+          }
         }
-      }
+    }
 
     toExecuteNext()
   }
