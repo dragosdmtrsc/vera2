@@ -3,7 +3,7 @@ package org.change.v2.analysis.executor.loopdetection
 import java.util.concurrent.ConcurrentLinkedQueue
 
 import org.change.v2.analysis.executor.OVSExecutor
-import org.change.v2.analysis.executor.solvers.Z3BVSolver
+import org.change.v2.analysis.executor.solvers.{Solver, Z3BVSolver, Z3Solver}
 import org.change.v2.analysis.memory
 import org.change.v2.analysis.memory.State
 import org.change.v2.analysis.processingmodels.LocationId
@@ -11,7 +11,7 @@ import org.change.v2.analysis.processingmodels.instructions.{Fail, Forward}
 
 import scala.collection.concurrent.{TrieMap, Map => ConcurrentMap}
 
-class LoopDetectingOVSExecutor(checkedPorts: Set[LocationId]) extends OVSExecutor(new Z3BVSolver) {
+class LoopDetectingOVSExecutor(checkedPorts: Set[LocationId], solver: Solver) extends OVSExecutor(solver) {
 
   lazy val stateHistory: ConcurrentMap[LocationId, ConcurrentLinkedQueue[State]] = {
     val history = new TrieMap[LocationId, ConcurrentLinkedQueue[State]]()
@@ -46,3 +46,10 @@ class LoopDetectingOVSExecutor(checkedPorts: Set[LocationId]) extends OVSExecuto
     toExecuteNext()
   }
 }
+
+
+class BVLoopDetectingExecutor(checkedPorts: Set[LocationId])
+  extends LoopDetectingOVSExecutor(checkedPorts, new Z3BVSolver())
+
+class VanillaLoopDetectingExecutor(checkedPorts: Set[LocationId])
+  extends LoopDetectingOVSExecutor(checkedPorts, new Z3Solver())
