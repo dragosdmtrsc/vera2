@@ -3,10 +3,8 @@ package org.change.v2.verification
 import org.change.v2.analysis.constraint.NOT
 import org.change.v2.analysis.memory.State
 import org.change.v2.analysis.processingmodels._
-import org.change.v2.analysis.processingmodels.instructions.{Assign, Fail => SEFLFail, _}
+import org.change.v2.analysis.processingmodels.instructions.{:~:, AllocateRaw, AllocateSymbol, AssignRaw, ConstrainNamedSymbol, ConstrainRaw, CreateTag, DeallocateNamedSymbol, DeallocateRaw, DestroyTag, Fork, Forward, If, InstructionBlock, NoOp, Fail => SEFLFail}
 import org.change.v2.verification.Formula._
-
-import org.change.v2.util._
 /**
  * Created by matei on 12/01/17.
  * TODO: optimise such that subformulae are not checked repeatedly. Suspended because it might make debugging harder
