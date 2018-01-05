@@ -11,7 +11,7 @@ import org.change.v2.analysis.memory.State
 import org.change.v2.analysis.processingmodels.instructions.{Forward, InstructionBlock}
 import org.scalatest.FunSuite
 
-class P4LoopDetector extends FunSuite {
+class P4LoopDetectorTests extends FunSuite {
 
   test("copy-to-cpu with loop detector") {
     val dir = "inputs/copy-to-cpu/"
@@ -38,6 +38,7 @@ class P4LoopDetector extends FunSuite {
     var clickExecutionContext = P4ExecutionContext(
       res.instructions(), res.links(), bvExec.execute(ib, State.clean, true)._1, bvExec
     )
+
     var init = System.currentTimeMillis()
     var runs  = 0
     while (!clickExecutionContext.isDone && runs < 10000) {
