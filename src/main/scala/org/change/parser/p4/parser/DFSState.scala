@@ -196,7 +196,7 @@ object StateExpander {
             }
             InstructionBlock(
               cases.flatMap(gatherAllocate) ++ cases.flatMap(gatherAssign) :+
-                Fork(
+                InstructionBlock(
                   cases.flatMap(gatherConstrain)
                 )
             )

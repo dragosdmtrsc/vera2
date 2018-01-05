@@ -46,12 +46,6 @@ header_type mplb_ipopt_t {
         ts : 32;
     }
 }
-header_type hash_metadata_t {
-    fields {
-        mplb_hash : 32;
-        recirculate_flag : 8;
-    }
-}
 header_type routing_metadata_t {
     fields {
         nhop_ipv4 : 32;
@@ -63,10 +57,8 @@ header ipv4_t inner_ipv4;
 header tcp_t tcp;
 header mplb_ipopt_t mplb_ipopt;
 metadata routing_metadata_t routing_metadata;
-metadata hash_metadata_t hash_metadata;
 field_list recirc_FL {
         standard_metadata;
-        hash_metadata;
 }
 parser parse_tcp {
     extract(tcp);
@@ -106,11 +98,11 @@ action set_nhop(nhop_ipv4, port) {
     modify_field(standard_metadata.egress_spec, port);
     add_to_field(ipv4.ttl, -1);
 }
-action set_dst_mplb_port(dst)
+action set_dst_mplb_port()
 {
     add_header(inner_ipv4);
 }
-action set_dst(dst, pdip, ts) {
+action set_dst() {
     add_header(mplb_ipopt);
     add_header(inner_ipv4);
 }
@@ -132,7 +124,7 @@ table mplb_port {
 }
 table mplb {
     reads {
-        hash_metadata.mplb_hash : exact;
+        tcp.dstPort : exact;
     }
     actions {
         set_dst;

@@ -3,16 +3,12 @@ package parser.p4.test
 import java.io.{BufferedOutputStream, FileOutputStream, PrintStream}
 
 import org.change.parser.p4.ControlFlowInterpreter
-import org.change.parser.p4.factories.FullTableFactory
-import org.change.parser.p4.tables.InstanceBasedFullTable
 import org.change.utils.prettifier.JsonUtil
 import org.change.v2.analysis.executor.CodeAwareInstructionExecutor
 import org.change.v2.analysis.executor.solvers.Z3BVSolver
 import org.change.v2.analysis.expression.concrete.ConstantValue
-import org.change.v2.analysis.expression.concrete.nonprimitive.:@
 import org.change.v2.analysis.memory.{State, Tag}
 import org.change.v2.analysis.processingmodels.instructions._
-import org.change.v2.p4.model.SwitchInstance
 import org.scalatest.FunSuite
 
 class P4Bugs extends FunSuite {
@@ -56,9 +52,8 @@ class P4Bugs extends FunSuite {
     JsonUtil.toJson(relevant, psko)
     psko.close()
 
-    import spray.json._
-    import JsonWriter._
     import org.change.v2.analysis.memory.jsonformatters.StateToJson._
+    import spray.json._
     val psokpretty = new PrintStream(s"$dir/click-exec-ok-port0-pretty.json")
     psokpretty.println(ok.toJson(JsonWriter.func2Writer[List[State]](u => {
       JsArray(u.map(_.toJson).toVector)
@@ -120,21 +115,36 @@ class P4Bugs extends FunSuite {
     printResults(dir, port, ok, failed, "bad")
   }
 
+  test("INTEGRATION - mplb no deparse") {
+    val dir = "inputs/parser-deparser-bug/"
+    val p4 = s"$dir/mplb_router-ppc.p4"
+    val dataplane = s"$dir/commands.txt"
+    val res = ControlFlowInterpreter(p4, dataplane, Map[Int, String](1 -> "veth0", 2 -> "veth1"), "router")
+    val port = 1
+    val ib = InstructionBlock(
+      Forward(s"router.input.$port")
+    )
+    val codeAwareInstructionExecutor = CodeAwareInstructionExecutor(res.instructions(), res.links(), solver = new Z3BVSolver)
+    val (initial, _) = codeAwareInstructionExecutor.
+      execute(InstructionBlock(res.allParserStatesInstruction(),
+        Constrain(Tag("START") + 272 + 16, :>=:(ConstantValue(1024)))
+      ), State.clean, verbose = true)
+    val (ok: List[State], failed: List[State]) = executeAndPrintStats(ib, initial, codeAwareInstructionExecutor)
+    val relevant = failed.filter(r => codeAwareInstructionExecutor.execute(Constrain("inner_ipv4.IsValid", :~:(:==:(ConstantValue(1)))), r, true)._1.nonEmpty)
+    printResults(dir, port, ok, relevant, "bad")
+  }
 
   private def printResults(dir: String, port: Int, ok: List[State], failed: List[State], okBase: String): Unit = {
     val psok = new BufferedOutputStream(new FileOutputStream(s"$dir/ok-port$port-$okBase.json"))
     JsonUtil.toJson(ok, psok)
     psok.close()
-
     val relevant = failed
-
     val psko = new BufferedOutputStream(new FileOutputStream(s"$dir/fail-port$port-$okBase.json"))
     JsonUtil.toJson(relevant, psko)
     psko.close()
 
-    import spray.json._
-    import JsonWriter._
     import org.change.v2.analysis.memory.jsonformatters.StateToJson._
+    import spray.json._
     val psokpretty = new PrintStream(s"$dir/ok-port$port-pretty-$okBase.json")
     psokpretty.println(ok.toJson(JsonWriter.func2Writer[List[State]](u => {
       JsArray(u.map(_.toJson).toVector)
