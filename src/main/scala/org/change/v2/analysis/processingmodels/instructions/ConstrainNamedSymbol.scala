@@ -1,9 +1,11 @@
 package org.change.v2.analysis.processingmodels.instructions
 
+
 import org.change.v2.analysis.constraint._
 import org.change.v2.analysis.expression.abst.FloatingExpression
+import org.change.v2.analysis.memory.{Intable, State, TagExp}
 import org.change.v2.analysis.processingmodels.Instruction
-import org.change.v2.analysis.memory.{State, TagExp, Intable}
+
 
 /**
  * Author: Radu Stoenescu

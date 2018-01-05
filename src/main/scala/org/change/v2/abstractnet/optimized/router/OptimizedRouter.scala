@@ -15,8 +15,8 @@ import org.change.v2.util.regexes._
 import org.change.v2.util.conversion.RepresentationConversion
 
 /**
-  * A small gift from radu to symnetic.
-  */
+ * A small gift from radu to symnetic.
+ */
 class OptimizedRouter(name: String,
                       elementType: String,
                       inputPorts: List[Port],
@@ -69,17 +69,17 @@ object OptimizedRouter {
       matchPattern = tokens(0)
       forwardingPort = tokens(2)
     } yield (
-      matchPattern match {
-        case ipv4netmaskRegex() => {
-          val netMaskTokens = matchPattern.split("/")
-          val netAddr = netMaskTokens(0)
-          val mask = netMaskTokens(1)
-          val (l, u) = RepresentationConversion.ipAndMaskToInterval(netAddr, mask)
-          (l,u)
-        }
-      },
-      forwardingPort
-    )).toSeq.sortBy(i => i._1._2 - i._1._1)
+        matchPattern match {
+          case ipv4netmaskRegex() => {
+            val netMaskTokens = matchPattern.split("/")
+            val netAddr = netMaskTokens(0)
+            val mask = netMaskTokens(1)
+            val (l, u) = RepresentationConversion.ipAndMaskToInterval(netAddr, mask)
+            (l,u)
+          }
+        },
+        forwardingPort
+        )).toSeq.sortBy(i => i._1._2 - i._1._1)
   }
 
   def getTrivialRoutingEntries(file: File): Seq[((Long, Long), String)] = {
@@ -145,27 +145,27 @@ object OptimizedRouter {
                 if (vlan == 290)
                   Constrain(EtherSrc, :==:(ConstantValue(RepresentationConversion.macToNumberCiscoFormat("0019.e72a.77ff"))))
                 else
-                ////                if (vlan == 290)
-                ////                  Constrain(EtherDst, :==:(ConstantValue(RepresentationConversion.macToNumberCiscoFormat("0018.742f.bd80"))))
-                ////               else
+////                if (vlan == 290)
+////                  Constrain(EtherDst, :==:(ConstantValue(RepresentationConversion.macToNumberCiscoFormat("0018.742f.bd80"))))
+////               else
                   NoOp
-              )
+               )
             } else {
               EtherMumboJumbo.symbolicEtherEncap
             },
             dstMacConstrain,
             Forward(outputPortName(kv._1)))
-        )))
+          )))
     }
   }
 
 
-  def makeOptimizedRouter_Costin(f: File): OptimizedRouter = {
+  def makeOptimizedRouter_Costin(f: File, prefix: String): OptimizedRouter = {
     val table = getRoutingEntries(f)
     val name = f.getName.trim.stripSuffix(".rt")
 
-    new OptimizedRouter("OPT","Router", Nil, Nil, Nil) {
-      override def instructions: Map[LocationId, Instruction] = Map("OPT_0" ->
+    new OptimizedRouter(prefix,"Router", Nil, Nil, Nil) {
+      override def instructions: Map[LocationId, Instruction] = Map(s"${prefix}0" ->
         Fork(table.map(i => {
           val ((l,u), port) = i
           (port, AND(List(GTE_E(ConstantValue(l)), LTE_E(ConstantValue(u))) ++
@@ -186,10 +186,10 @@ object OptimizedRouter {
         }).groupBy(_._1).map( kv =>
           InstructionBlock(
             Assert(IPDst, OR(kv._2.map(_._2).toList)),
-            Forward("OPT_"+kv._1))
+            Forward(prefix+kv._1))
         ))) ++
-        table.map(i => "OPT_"+i._2 -> Forward("OPT_"+i._2+"_EXIT").asInstanceOf[Instruction]).toMap ++
-        table.map(i => "OPT_"+i._2+"_EXIT" -> NoOp.asInstanceOf[Instruction]).toMap
+        table.map(i => prefix+i._2 -> Forward(prefix+i._2+"_EXIT").asInstanceOf[Instruction]).toMap ++
+        table.map(i => prefix+i._2+"_EXIT" -> NoOp.asInstanceOf[Instruction]).toMap
     }
   }
 
@@ -269,8 +269,8 @@ object OptimizedRouter {
     new OptimizedRouter("NAIVE","Router", Nil, Nil, Nil) {
       override def instructions: Map[LocationId, Instruction] = {
         table.map(i => i._2 -> Forward(i._2+"_EXIT").asInstanceOf[Instruction]).toMap ++
-          table.map(i => i._2+"_EXIT" -> NoOp.asInstanceOf[Instruction]).toMap +
-          ("0" -> i)
+        table.map(i => i._2+"_EXIT" -> NoOp.asInstanceOf[Instruction]).toMap +
+        ("0" -> i)
       }
     }
   }

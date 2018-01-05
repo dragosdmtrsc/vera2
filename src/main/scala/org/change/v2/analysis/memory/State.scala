@@ -126,8 +126,10 @@ object State {
    Allocate(Tag("L2")+EtherTypeOffset + 32,16),
    Assign(Tag("L2")+EtherTypeOffset + 32,ConstantValue(EtherProtoIP))
   )
- val ip = InstructionBlock(
-   CreateTag("L3", StartTag + 0),
+
+   val ip = InstructionBlock(
+
+    CreateTag("L3", StartTag + 0),
 
    Allocate(IPVersion, 4),
    Assign(IPVersion, SymbolicValue()),
@@ -195,8 +197,8 @@ object State {
     Assign(IPID, SymbolicValue())
   )
 
- val transport = InstructionBlock(
-   CreateTag("L4", L3Tag + 160),
+   val transport = InstructionBlock(
+    CreateTag("L4", L3Tag + 160),
 
    Assign(Proto, ConstantValue(TCPProto)),
 
@@ -223,31 +225,30 @@ object State {
    Allocate(TcpReserved,3),
    Assign(TcpReserved,SymbolicValue()),
 
-   Allocate(TcpFlagNS,1),
-   Assign(TcpFlagNS,ConstantValue(0)),
-   Allocate(TcpFlagCWR,1),
-   Assign(TcpFlagCWR,ConstantValue(0)),
-   Allocate(TcpFlagECE,1),
-   Assign(TcpFlagECE,ConstantValue(0)),
-   Allocate(TcpFlagURG,1),
-   Assign(TcpFlagURG,ConstantValue(0)),
-   Allocate(TcpFlagACK,1),
-   Assign(TcpFlagACK,SymbolicValue()),
-   Allocate(TcpFlagACK,1),
-   Assign(TcpFlagACK,SymbolicValue()),
-   Allocate(TcpFlagSYN,1),
-   Assign(TcpFlagSYN,SymbolicValue()),
-   Allocate(TcpFlagRST,1),
-   Assign(TcpFlagRST,ConstantValue(0)),
-   Allocate(TcpFlagPSH,1),
-   Assign(TcpFlagPSH,ConstantValue(0))
- )
- val end = CreateTag("END", L4Tag + 12000)
-
- val tunnel = InstructionBlock(
+    Allocate(TcpFlagNS, 1),
+    Assign(TcpFlagNS, ConstantValue(0)),
+    Allocate(TcpFlagCWR, 1),
+    Assign(TcpFlagCWR, ConstantValue(0)),
+    Allocate(TcpFlagECE, 1),
+    Assign(TcpFlagECE, ConstantValue(0)),
+    Allocate(TcpFlagURG, 1),
+    Assign(TcpFlagURG, ConstantValue(0)),
+    Allocate(TcpFlagACK, 1),
+    Assign(TcpFlagACK, SymbolicValue()),
+    Allocate(TcpFlagACK, 1),
+    Assign(TcpFlagACK, SymbolicValue()),
+    Allocate(TcpFlagSYN, 1),
+    Assign(TcpFlagSYN, SymbolicValue()),
+    Allocate(TcpFlagRST, 1),
+    Assign(TcpFlagRST, ConstantValue(0)),
+    Allocate(TcpFlagPSH, 1),
+    Assign(TcpFlagPSH, ConstantValue(0))
+  )
+   val end = CreateTag("END", L4Tag + 12000)
+  val tunnel = InstructionBlock(
     CreateTag("Tunnel", Tag("L2") - 96),
     Allocate(Tag("Tunnel"), 32)
- )
+  )
 
  def allSymbolic = InstructionBlock(
   start,

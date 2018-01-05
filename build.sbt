@@ -1,4 +1,4 @@
-organization := "org.change"
+ organization := "org.change"
 
 version       := "0.2.1-SNAPSHOT"
 
@@ -108,6 +108,11 @@ lazy val matei_int_test = taskKey[Unit]("Verification tests")
 
 fullRunTask(matei_int_test, Compile, "org.change.v2.verification.Tester")
 
+lazy val p4 = taskKey[Unit]("p4")
+fullRunTask(p4, Compile, "org.change.v2.verification.P4Tester")
+
+ lazy val printer = taskKey[Unit]("printer")
+ fullRunTask(printer, Compile, "org.change.v2.verification.Printer")
 
 
-seq(Revolver.settings: _*)
+ seq(Revolver.settings: _*)
