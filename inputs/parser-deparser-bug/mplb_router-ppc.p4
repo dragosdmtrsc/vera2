@@ -74,8 +74,29 @@ header ipv4_t inner_ipv4;
 header tcp_t tcp;
 header mplb_t mplb;
 header mplb_ipopt_t mplb_ipopt;
-parser start {
-    return parse_ethernet;
+field_list recirc_FL {
+        standard_metadata;
+        hash_metadata;
+}
+parser parse_tcp {
+    extract(tcp);
+    return ingress;
+}
+parser parse_inner_ip {
+    extract(inner_ipv4);
+    return parse_tcp;
+}
+parser parse_mplb_ipopt {
+    extract(mplb_ipopt);
+    return parse_inner_ip;
+}
+parser parse_ipv4 {
+    extract(ipv4);
+    return select(ipv4.protocol) {
+        4: parse_mplb_ipopt;
+        6: parse_tcp;
+        default: ingress;
+    }
 }
 parser parse_ethernet {
     extract(ethernet);
@@ -84,32 +105,8 @@ parser parse_ethernet {
         default: ingress;
     }
 }
-field_list recirc_FL {
-        standard_metadata;
-        hash_metadata;
-}
-parser parse_mplb {
-    extract(mplb);
-    return parse_tcp;
-}
-parser parse_mplb_ipopt {
-    extract(mplb_ipopt);
-    return parse_inner_ip;
-}
-parser parse_inner_ip {
-    extract(inner_ipv4);
-    return parse_tcp;
-}
-parser parse_tcp {
-    extract(tcp);
-    return ingress;
-}
-parser parse_ipv4 {
-    extract(ipv4);
-    return select(ipv4.protocol) {
-        4: parse_mplb_ipopt;
-        default: parse_tcp;
-    }
+parser start {
+    return parse_ethernet;
 }
 action _drop() {
     drop();
@@ -117,6 +114,9 @@ action _drop() {
 metadata routing_metadata_t routing_metadata;
 metadata hash_metadata_t hash_metadata;
 action set_nhop(nhop_ipv4, port) {
+    modify_field(routing_metadata.nhop_ipv4, nhop_ipv4);
+    modify_field(standard_metadata.egress_port, port);
+    add_to_field(ipv4.ttl, -1);
 }
 action set_dst_mplb_port(dst)
 {

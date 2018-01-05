@@ -274,7 +274,9 @@ object JsonUtil {
     new NamedType(classOf[Forward], "Forward"),
     new NamedType(classOf[Fork], "Fork"),
     new NamedType(classOf[Fail], "Fail"),
-    new NamedType(classOf[CreateTag], "CreateTag")
+    new NamedType(classOf[CreateTag], "CreateTag"),
+    new NamedType(classOf[ExistsNamedSymbol], "ExistsNamedSymbol"),
+    new NamedType(classOf[ExistsRaw], "ExistsRaw")
   )
 
   mapper.registerSubtypes(
