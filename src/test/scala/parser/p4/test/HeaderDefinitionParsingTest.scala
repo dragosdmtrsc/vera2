@@ -380,6 +380,34 @@ class HeaderDefinitionParsingTest extends FunSuite {
     pskopretty.close()
   }
 
+
+  private def printResults(dir: String, port: Int, ok: List[State], failed: List[State], okBase: String): Unit = {
+    val psok = new BufferedOutputStream(new FileOutputStream(s"$dir/ok-port$port-$okBase.json"))
+    JsonUtil.toJson(ok, psok)
+    psok.close()
+
+    val relevant = failed
+
+    val psko = new BufferedOutputStream(new FileOutputStream(s"$dir/fail-port$port-$okBase.json"))
+    JsonUtil.toJson(relevant, psko)
+    psko.close()
+
+    import spray.json._
+    import JsonWriter._
+    import org.change.v2.analysis.memory.jsonformatters.StateToJson._
+    val psokpretty = new PrintStream(s"$dir/ok-port$port-pretty-$okBase.json")
+    psokpretty.println(ok.toJson(JsonWriter.func2Writer[List[State]](u => {
+      JsArray(u.map(_.toJson).toVector)
+    })).prettyPrint)
+    psokpretty.close()
+
+    val pskopretty = new PrintStream(s"$dir/fail-port$port-pretty-$okBase.json")
+    pskopretty.println(relevant.toJson(JsonWriter.func2Writer[List[State]](u => {
+      JsArray(u.map(_.toJson).toVector)
+    })).prettyPrint)
+    pskopretty.close()
+  }
+
   test("INTEGRATION - copy-to-cpu run #1") {
     val dir = "inputs/copy-to-cpu/"
     val p4 = s"$dir/copy_to_cpu-ppc.p4"
@@ -400,26 +428,7 @@ class HeaderDefinitionParsingTest extends FunSuite {
     println(s"Failed # ${failed.size}, Ok # ${ok.size}")
     println(s"Time is ${System.currentTimeMillis() - init}ms")
 
-    val psok = new BufferedOutputStream(new FileOutputStream(s"$dir/click-exec-ok-port0.json"))
-    JsonUtil.toJson(ok, psok)
-    psok.close()
-
-    val relevant = failed.filter(x => {
-      !x.history.head.startsWith("router.parser")
-    })
-
-    val psko = new BufferedOutputStream(new FileOutputStream(s"$dir/click-exec-fail-port0.json"))
-    JsonUtil.toJson(relevant, psko)
-    psko.close()
-
-
-    val psokpretty = new PrintStream(s"$dir/click-exec-ok-port0-pretty.json")
-    psokpretty.println(ok)
-    psokpretty.close()
-
-    val pskopretty = new PrintStream(s"$dir/click-exec-fail-port0-pretty.json")
-    pskopretty.println(relevant)
-    pskopretty.close()
+    printResults(dir, 1, ok, failed, "bad")
   }
 
 

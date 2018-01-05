@@ -15,13 +15,14 @@ header_type intrinsic_metadata_t {
 }
 header_type cpu_header_t {
     fields {
+        preamble: 48;
         device: 8;
         reason: 8;
     }
 }
 header cpu_header_t cpu_header;
 parser start {
-    return select(current(0, 64)) {
+    return select(current(0, 48)) {
         0 : parse_cpu_header;
         default: parse_ethernet;
     }

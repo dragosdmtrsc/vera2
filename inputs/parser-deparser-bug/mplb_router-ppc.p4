@@ -35,16 +35,6 @@ header_type tcp_t {
         urgent : 16;
     }
 }
-header_type mplb_t {
-    fields {
-        tip : 8;
-        lengt : 8;
-        pointer : 8;
-        clientip : 32;
-        virtualip : 32;
-        blank : 8;
-    }
-}
 header_type mplb_ipopt_t {
     fields {
         copied : 1;
@@ -59,7 +49,6 @@ header_type mplb_ipopt_t {
 header_type hash_metadata_t {
     fields {
         mplb_hash : 32;
-        mplb_hash_modulo : 32;
         recirculate_flag : 8;
     }
 }
@@ -72,8 +61,9 @@ header ethernet_t ethernet;
 header ipv4_t ipv4;
 header ipv4_t inner_ipv4;
 header tcp_t tcp;
-header mplb_t mplb;
 header mplb_ipopt_t mplb_ipopt;
+metadata routing_metadata_t routing_metadata;
+metadata hash_metadata_t hash_metadata;
 field_list recirc_FL {
         standard_metadata;
         hash_metadata;
@@ -111,11 +101,9 @@ parser start {
 action _drop() {
     drop();
 }
-metadata routing_metadata_t routing_metadata;
-metadata hash_metadata_t hash_metadata;
 action set_nhop(nhop_ipv4, port) {
     modify_field(routing_metadata.nhop_ipv4, nhop_ipv4);
-    modify_field(standard_metadata.egress_port, port);
+    modify_field(standard_metadata.egress_spec, port);
     add_to_field(ipv4.ttl, -1);
 }
 action set_dst_mplb_port(dst)
@@ -126,15 +114,8 @@ action set_dst(dst, pdip, ts) {
     add_header(mplb_ipopt);
     add_header(inner_ipv4);
 }
-action calc_modulo() {
-    modify_field(hash_metadata.mplb_hash_modulo, hash_metadata.mplb_hash);
-}
 action set_dmac(dmac) {
     modify_field(ethernet.dstAddr, dmac);
-}
-action _recirculate() {
-    modify_field(standard_metadata.egress_port, standard_metadata.ingress_port);
-    recirculate(recirc_FL);
 }
 action rewrite_mac(smac) {
     modify_field(ethernet.srcAddr, smac);
@@ -149,18 +130,9 @@ table mplb_port {
     }
     size: 65536;
 }
-table modulo {
-    reads {
-        hash_metadata.mplb_hash : exact;
-    }
-    actions {
-        calc_modulo;
-    }
-    size : 10;
-}
 table mplb {
     reads {
-        hash_metadata.mplb_hash_modulo : exact;
+        hash_metadata.mplb_hash : exact;
     }
     actions {
         set_dst;
@@ -177,15 +149,6 @@ table ipv4_lpm {
         _drop;
     }
     size: 1024;
-}
-table recirc {
-    reads {
-        ipv4.srcAddr : exact;
-    }
-    actions {
-        _recirculate;
-    }
-    size:2;
 }
 table forward {
     reads {
@@ -208,25 +171,17 @@ table send_frame {
     size: 256;
 }
 control ingress {
-    if (standard_metadata.instance_type == 0)
-    {
-        apply(recirc);
-    }
-    else
-    {
-        if(valid(ipv4) and ipv4.ttl > 0) {
-            if (tcp.dstPort < 1024)
-            {
-                apply(modulo);
-                apply(mplb);
-            }
-            else
-            {
-                apply(mplb_port);
-            }
-            apply(ipv4_lpm);
-            apply(forward);
+    if(valid(ipv4) and ipv4.ttl > 0) {
+        if (tcp.dstPort < 1024)
+        {
+            apply(mplb);
         }
+        else
+        {
+            apply(mplb_port);
+        }
+        apply(ipv4_lpm);
+        apply(forward);
     }
 }
 control egress {

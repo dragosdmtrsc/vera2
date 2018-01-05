@@ -33,17 +33,17 @@ class CodeAwareInstructionExecutor(program : Map[String, Instruction],
     this.execute(instruction, state, verbose)
   }
 
-  override def executeInstructionBlock(instruction: InstructionBlock, s: State, v: Boolean): (List[State], List[State]) = {
-    instruction.instructions match {
+  override def executeInstructionBlock(instruction: InstructionBlock, s: State, v: Boolean): (List[State], List[State]) =
+    instruction.instructions.toList match {
       case Forward(place) :: tail => this.executeInternal(Forward(place), s, v)
       case InstructionBlock(is) :: tail => this.executeInternal(InstructionBlock(is ++ tail), s, v)
       case SuperFork(forkBlocks) :: tail =>
         this.executeInternal(SuperFork(forkBlocks.map(f => InstructionBlock(f :: tail))), s, v)
-      //      case If (a, b, c) :: tail => this.execute(If(a, InstructionBlock(b :: tail), InstructionBlock(c :: tail)), s, v)
+      case If (a, b, c) :: tail => this.execute(If(a, InstructionBlock(b :: tail), InstructionBlock(c :: tail)), s, v)
       case Fork(forkBlocks) :: tail => this.executeInternal(Fork(forkBlocks.map(f => InstructionBlock(f :: tail))), s, v)
+      case head :: tail => super.executeInstructionBlock(InstructionBlock(head, InstructionBlock(tail)), s, v)
       case _ => super.executeInstructionBlock(instruction, s, v)
     }
-  }
 
   def +(pair : (String, Instruction)) : CodeAwareInstructionExecutor = {
     new CodeAwareInstructionExecutor(program = program + pair, solver = solver)

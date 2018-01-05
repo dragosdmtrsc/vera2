@@ -209,6 +209,12 @@ object Policy {
             }
             case None => elseWhat
           }
+          case InstructionBlock(instructions) => transform(s, instructions.foldRight(thenWhat)((x, acc) => {
+            If(x, acc, elseWhat)
+          }))
+          case Fork(instructions) => transform(s, instructions.foldRight(elseWhat)((x, acc) => {
+            If(x, thenWhat, acc)
+          }))
         }
       case _ => null
     }

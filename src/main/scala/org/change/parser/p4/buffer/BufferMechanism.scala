@@ -74,7 +74,7 @@ class DeparserRev(switch: Switch, switchInstance : ISwitchInstance) {
         graph.addEdge(indexedSeq(e._1), indexedSeq(e._2))
     val popper = graph.topologicalSort()
     def generateCode(stack : List[Int], offset : Int) : Instruction = stack match {
-      case Nil => Fail("Deparser error: No such packet layout exists")
+      case Nil => NoOp
       case head :: tail =>
         val headers = nodes(asList(head))
         def generateHeaderCode(headerInstances : List[String], off : Int) : Instruction = headerInstances match {
@@ -91,7 +91,7 @@ class DeparserRev(switch: Switch, switchInstance : ISwitchInstance) {
               InstructionBlock(
                 ib._2 :+ generateHeaderCode(t2, ib._1)
               ),
-              generateHeaderCode(t2, off)
+              Fail("Deparser error: No such packet layout exists")
             )
         }
         generateHeaderCode(headers.toList, offset)
