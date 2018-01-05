@@ -1,19 +1,22 @@
-import org.change.v2.analysis.executor.loopdetection.LoopDetector
-import org.change.v2.analysis.expression.concrete.nonprimitive.{:-:, :@}
+package loopdetector
+
+import org.change.v2.analysis.executor.loopdetection.BVLoopDetector
 import org.change.v2.analysis.expression.concrete.{ConstantValue, SymbolicValue}
+import org.change.v2.analysis.expression.concrete.nonprimitive.{:-:, :@}
 import org.change.v2.analysis.memory.State
 import org.change.v2.analysis.processingmodels.instructions.{Assign, InstructionBlock}
 import org.scalatest.FunSuite
-import z3.scala.Z3Context
 
-class LoopDetectorTests extends FunSuite {
+class BVLoopDetectorTests extends FunSuite {
+
+  val loopDetector = BVLoopDetector
 
   test("Empty space is in a loop") {
-    assert(LoopDetector.loop(State.clean, State.clean))
+    assert(loopDetector.loop(State.clean, State.clean))
   }
 
   test("A state and itself form a loop") {
-    assert(LoopDetector.loop(State.allSymbolic, State.allSymbolic))
+    assert(loopDetector.loop(State.allSymbolic, State.allSymbolic))
   }
 
   test("Different constants don't form a loop") {
@@ -21,9 +24,9 @@ class LoopDetectorTests extends FunSuite {
     val codeB = Assign("a", ConstantValue(3))
 
     assert(
-      ! LoopDetector.loop(
-          codeA(State.clean)._1.head,
-          codeB(State.clean)._1.head
+      ! loopDetector.loop(
+        codeA(State.clean)._1.head,
+        codeB(State.clean)._1.head
       )
     )
   }
@@ -36,15 +39,11 @@ class LoopDetectorTests extends FunSuite {
     )
 
     assert(
-      ! LoopDetector.loop(
+      ! loopDetector.loop(
         init(State.clean)._1.head,
         dec(State.clean)._1.head
       )
     )
-  }
-
-  test("") {
-    val ctx = Z3Context
   }
 
 }
