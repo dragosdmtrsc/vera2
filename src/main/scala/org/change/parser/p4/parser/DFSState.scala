@@ -290,9 +290,24 @@ object StateExpander {
     }).toMap
   }
 
-  private def deparserStateToInstruction(x: DFSState, sw : Switch) = {
+  private def deparserStateToInstruction(x: DFSState, sw : Switch, watchForOthers : Boolean = true) = {
+    val mustBeValid = x.history.tail.reverse.collect({
+      case v : ExtractStatement => v.getExpression.asInstanceOf[StringRef].getRef
+    }).toSet
+
+    val watchForOtherHeaders = if (watchForOthers)
+      InstructionBlock(sw.getInstances.filter(i => !i.isMetadata).map(instance => {
+        if (!mustBeValid.contains(instance.getName))
+          If (Constrain(instance.getName + ".IsValid", :==:(ConstantValue(1))),
+            Fail(s"Deparser error: Supplementary valid header ${instance.getName} encountered")
+          )
+        else
+          NoOp
+      }).toList)
+    else NoOp
+
     InstructionBlock(
-      (DestroyPacket() ::
+      (watchForOtherHeaders :: (DestroyPacket() ::
         x.history.tail.filter(!_.isInstanceOf[ReturnStatement]).reverse.map {
           case v: ExtractStatement =>
             val sref = v.getExpression.asInstanceOf[StringRef].getRef
@@ -304,7 +319,7 @@ object StateExpander {
             })
             InstructionBlock(i)
           case _ => NoOp
-        }) :+ (x.history.head match {
+        })) :+ (x.history.head match {
         case v: ReturnStatement => if (!v.isError)
           Forward(s"deparser.out")
         else Fail(s"Parser failure because ${v.getMessage}")
