@@ -2,7 +2,6 @@ package org.change.v2.analysis.executor
 
 import java.util.UUID
 
-import org.change.v2.analysis.executor.OVSExecutor
 import org.change.v2.analysis.executor.solvers.Solver
 import org.change.v2.analysis.expression.abst.FloatingExpression
 import org.change.v2.analysis.expression.concrete.nonprimitive._
@@ -52,6 +51,7 @@ class CodeAwareInstructionExecutor(program : Map[String, Instruction],
   override def executeExoticInstruction(instruction: Instruction, s: State, v: Boolean): (List[State], List[State]) = {
     instruction match {
       case t : Translatable => this.execute(t.generateInstruction(), s, v)
+      case Call(fun) => this.executeForward(Forward(fun), s, v)
       case Unfail(u) => val (ok, failed) = executeInternal(u, s, v)
         (ok ++ failed.map(x => x.copy(errorCause = None).forwardTo(s"Fail(${x.errorCause})")), Nil)
       case Let(string, u) => val (ok, failed) = executeInternal(u, s, v)
@@ -269,8 +269,7 @@ object CodeRewriter {
       case Forward(place) => indent + s"""${normalize(place)}(in);"""
       case ConstrainNamedSymbol(id, floatingConstraint, _) => indent + generateConstraint("in->" + normalize(id.toString), floatingConstraint)
       case CreateTag(name, value) => indent + s"""create_tag(in->packet, \"$name\", ${solveIntable(value)});"""
-      case AllocateSymbol(symb, size) => ""
-        indent + s"in->$symb = allocate(${size});"
+      case AllocateSymbol(symb, size) => indent + s"in->$symb = allocate(${size});"
       case AllocateRaw(a, size) => indent + s"allocate(in->packet, ${solveIntable(a)}, $size);"
       case DeallocateNamedSymbol(a) => ""
       //        indent + s"deallocate($a);"

@@ -124,13 +124,17 @@ class P4Bugs extends FunSuite {
     val ib = InstructionBlock(
       Forward(s"router.input.$port")
     )
+    import org.change.v2.analysis.memory.TagExp.IntImprovements
     val codeAwareInstructionExecutor = CodeAwareInstructionExecutor(res.instructions(), res.links(), solver = new Z3BVSolver)
-    val (initial, _) = codeAwareInstructionExecutor.
-      execute(InstructionBlock(res.allParserStatesInstruction(),
-        Constrain(Tag("START") + 272 + 16, :>=:(ConstantValue(1024)))
+    val (initial, fld) = codeAwareInstructionExecutor.
+      execute(InstructionBlock(
+        CreateTag("START", 0),
+        Call("router.generator.parse_ethernet.parse_ipv4.parse_tcp"),
+        Constrain(Tag("START") + 272 + 16, :==:(ConstantValue(1025)))
       ), State.clean, verbose = true)
     val (ok: List[State], failed: List[State]) = executeAndPrintStats(ib, initial, codeAwareInstructionExecutor)
-    val relevant = failed.filter(r => codeAwareInstructionExecutor.execute(Constrain("inner_ipv4.IsValid", :~:(:==:(ConstantValue(1)))), r, true)._1.nonEmpty)
+    val relevant = failed
+//      .filter(r => codeAwareInstructionExecutor.execute(Constrain("inner_ipv4.IsValid", (:==:(ConstantValue(1)))), r, true)._1.nonEmpty)
     printResults(dir, port, ok, relevant, "bad")
   }
 
