@@ -25,7 +25,7 @@ case class InstructionBlock(instructions: Iterable[Instruction]) extends Instruc
     }
 
   override def toString: String = {
-    "{\n" + instructions.map(_.toString).mkString("\n") + "\n}"
+    "{\n" + instructions.mkString("\n") + "\n}"
   }
 }
 
