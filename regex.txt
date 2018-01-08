@@ -1,1 +1,0 @@
-Name:[ ]+(.*)\nWidth:[ ]+([0-9]+).*\nFormat:[ ]+(.*)\nMasking:[ ]+(.*)\nPrerequisites:.*\nAccess:.*\nOXM:[ ]+(.*)\nNXM:[ ]+(.*)\n

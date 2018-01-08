@@ -6,7 +6,7 @@ import org.change.v2.analysis.executor.solvers.{Z3BVSolver, Z3Solver}
 import org.change.v2.analysis.executor.{AbstractInstructionExecutor, OVSExecutor}
 import org.change.v2.analysis.memory.State
 import org.change.v2.analysis.processingmodels._
-import org.change.v2.analysis.processingmodels.instructions.{Assign, Fail => SEFLFail, _}
+import org.change.v2.analysis.processingmodels.instructions.{:~:, AllocateRaw, AllocateSymbol, AssignRaw, ConstrainNamedSymbol, ConstrainRaw, CreateTag, DeallocateNamedSymbol, DeallocateRaw, DestroyTag, Fork, Forward, If, InstructionBlock, NoOp, Fail => SEFLFail}
 import org.change.v2.verification.Formula._
 import org.change.v2.util._
 /**

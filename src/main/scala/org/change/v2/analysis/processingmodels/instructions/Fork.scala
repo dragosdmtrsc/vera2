@@ -18,6 +18,10 @@ case class Fork(forkBlocks: Iterable[Instruction]) extends Instruction {
     val (success, fail) = forkBlocks.map(i => i(s, verbose)).unzip
     (success.flatten.toList, fail.flatten.toList)
   }
+
+  override def toString: String = {
+    "Fork(\n" + forkBlocks.map(_.toString).mkString(";\n") + "\n)"
+  }
 }
 
 object Fork {

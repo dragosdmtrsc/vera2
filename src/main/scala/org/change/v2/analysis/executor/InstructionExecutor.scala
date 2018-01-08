@@ -340,16 +340,11 @@ abstract class AbstractInstructionExecutor extends InstructionExecutor {
     }
   }
 
-  protected def getNewMemory(maybeNewMem: Option[org.change.v2.analysis.memory.MemorySpace]) = {
+  protected def getNewMemory(maybeNewMem: Option[org.change.v2.analysis.memory.MemorySpace]): Option[MemorySpace] = {
     maybeNewMem match {
       case None => None
       case Some(m) =>
-        if (isSat(m)) {
-          Some(m)
-        }
-        else {
-          None
-        }
+        Some(m).filter(isSat)
     }
   }
 
@@ -469,6 +464,7 @@ abstract class AbstractInstructionExecutor extends InstructionExecutor {
       case None => execute(Fail(TagExp.brokenTagExpErrorMessage), s, v)
     }
   }
+
 }
 
 

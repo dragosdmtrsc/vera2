@@ -16,13 +16,14 @@ import java.util.regex.Pattern;
 /**
  * Created by dragos on 31.08.2017.
  */
-public class SwitchInstance {
+public class SwitchInstance implements ISwitchInstance {
     private Switch switchSpec;
     private String name;
 
     private Map<String, List<FlowInstance>> flowInstanceMap = new HashMap<String, List<FlowInstance>>();
     private Map<String, P4ActionCall> defaultActionMap = new HashMap<String, P4ActionCall>();
 
+    @Override
     public Map<Integer, Integer> getCloneSpec2EgressSpec() {
         return cloneSpec2EgressSpec;
     }
@@ -61,6 +62,7 @@ public class SwitchInstance {
         return this;
     }
 
+    @Override
     public Map<Integer, String> getIfaceSpec() {
         return ifaceSpec;
     }
@@ -80,6 +82,7 @@ public class SwitchInstance {
         return switchSpec;
     }
 
+    @Override
     public String getName() {
         return name;
     }
@@ -113,9 +116,23 @@ public class SwitchInstance {
         Map<Integer, String> mapped = new HashMap<Integer, String>();
         mapped.putAll(ifaces);
 
-        BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(dataplane)));
         String crt = null;
         SwitchInstance switchInstance = new SwitchInstance(name, sw, mapped);
+        BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(dataplane)));
+        return populateSwitchInstance(br, sw, switchInstance);
+    }
+
+    public static SwitchInstance populateSwitchInstance(String dataplane , Switch sw, SwitchInstance switchInstance) throws IOException {
+        return populateSwitchInstance(new FileInputStream(dataplane), sw, switchInstance);
+    }
+
+    public static SwitchInstance populateSwitchInstance(InputStream is , Switch sw, SwitchInstance switchInstance) throws IOException {
+        BufferedReader br = new BufferedReader(new InputStreamReader(is));
+        return populateSwitchInstance(br, sw, switchInstance);
+    }
+
+    public static SwitchInstance populateSwitchInstance(BufferedReader br, Switch sw, SwitchInstance switchInstance) throws IOException {
+        String crt;
         int crtFlow = 0;
         while ((crt = br.readLine()) != null) {
             crt = crt.trim();
@@ -138,7 +155,11 @@ public class SwitchInstance {
                         if (p.matcher(split[j].trim().toUpperCase()).matches()) {
                             flowInstance.addActionParams(RepresentationConversion.macToNumber(split[j].trim().toUpperCase()));
                         } else {
-                            flowInstance.getActionParams().add(split[j].trim());
+                            try {
+                                flowInstance.addActionParams(Long.parseLong(split[j].trim()));
+                            } catch (NumberFormatException nfe) {
+                                flowInstance.addActionParams(split[j].trim());
+                            }
                         }
                     }
                 }
@@ -153,9 +174,15 @@ public class SwitchInstance {
                         if (tm.getMatchKind() == MatchKind.Lpm) {
                             String matchParm = flowInstance.getMatchParams().get(r).toString();
                             if (matchParm.contains("/")) {
-                                int mask = Integer.decode(matchParm.split("/")[1]);
-                                flowInstance.setPriority(mask);
-                                break;
+                                try
+                                {
+                                    int mask = Integer.decode(matchParm.split("/")[1]);
+                                    flowInstance.setPriority(mask);
+                                    break;
+                                }
+                                catch (NumberFormatException nfe) {
+
+                                }
                             }
                             r++;
                         }
@@ -180,7 +207,11 @@ public class SwitchInstance {
                         if (p.matcher(split[j].trim().toUpperCase()).matches()) {
                             theCall.addParameter(new P4ParameterInstance().setValue(RepresentationConversion.macToNumber(split[j].trim()) + ""));
                         } else {
-                            theCall.addParameter(new P4ParameterInstance().setValue(split[j].trim()));
+                            try {
+                                theCall.addParameter(new P4ParameterInstance().setValue(Long.decode(split[j].trim()) + ""));
+                            } catch (NumberFormatException nfe) {
+                                theCall.addParameter(new P4ParameterInstance().setValue(split[j].trim()));
+                            }
                         }
                     }
                 }

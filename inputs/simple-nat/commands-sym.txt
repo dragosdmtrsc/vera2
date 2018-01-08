@@ -1,0 +1,16 @@
+table_set_default if_info _drop
+table_add if_info set_if_info x => x 00:aa:bb:00:00:04 0
+table_add if_info set_if_info x => 192.168.0.1 00:aa:bb:00:00:05 1
+table_set_default nat _drop
+table_add nat nat_miss_ext_to_int 1 1 1 0.0.0.0&&&0.0.0.0 0.0.0.0&&&0.0.0.0 0&&&0 0&&&0 => 99
+table_add nat nat_miss_int_to_ext 0 1 1 0.0.0.0&&&0.0.0.0 0.0.0.0&&&0.0.0.0 0&&&0 0&&&0 => 99
+table_set_default ipv4_lpm _drop
+table_add ipv4_lpm set_nhop x/32 => x x
+table_add ipv4_lpm set_nhop x/x => x x
+table_set_default forward _drop
+table_add forward set_dmac x => 00:04:00:00:00:10
+table_add forward set_dmac 192.168.0.10 => 00:05:00:00:00:10
+table_set_default send_frame _drop
+table_add send_frame do_rewrites x => x
+table_add send_frame do_rewrites x => 00:aa:bb:00:00:05
+table_set_default send_to_cpu do_cpu_encap

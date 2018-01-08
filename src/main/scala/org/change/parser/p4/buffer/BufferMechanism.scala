@@ -6,7 +6,7 @@ import org.change.v2.analysis.expression.concrete.nonprimitive.:@
 import org.change.v2.analysis.memory.{State, Tag}
 import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.analysis.processingmodels.instructions._
-import org.change.v2.p4.model.{InstanceType, SwitchInstance}
+import org.change.v2.p4.model._
 import org.change.v2.p4.model.parser._
 
 import scala.collection.JavaConversions._
@@ -15,7 +15,7 @@ import scala.collection.immutable.Stack
 /**
   * Created by dragos on 15.09.2017.
   */
-class BufferMechanism(switchInstance: SwitchInstance) {
+class BufferMechanism(switchInstance: ISwitchInstance) {
 
   def cloneCase() = InstructionBlock(
     switchInstance.getCloneSpec2EgressSpec.foldRight(Fail("No clone mapping found. Resolve to drop") : Instruction)((x, acc) => {
@@ -26,7 +26,7 @@ class BufferMechanism(switchInstance: SwitchInstance) {
     })
   )
 
-  def normalCase() = switchInstance.getIfaceSpec.keySet().foldRight(Fail("Egress spec not set. Resolve to drop") : Instruction)((x, acc) => {
+  def normalCase(): Instruction = switchInstance.getIfaceSpec.keySet().foldRight(Fail("Egress spec not set. Resolve to drop") : Instruction)((x, acc) => {
     If (Constrain("standard_metadata.egress_spec", :==:(ConstantValue(x.longValue()))),
       Assign("standard_metadata.egress_port", ConstantValue(x.longValue())),
       acc
@@ -41,13 +41,13 @@ class BufferMechanism(switchInstance: SwitchInstance) {
       out()
     )
 
-  def out() = Forward(outName)
+  def out() = Forward(outName())
 
   def outName() = s"${switchInstance.getName}.buffer.out"
 }
 
 
-class OutputMechanism(switchInstance: SwitchInstance) {
+class OutputMechanism(switchInstance: ISwitchInstance) {
   def symnetCode() : Instruction = {
     switchInstance.getIfaceSpec.foldRight(Fail("Cannot find egress_port match for current interfaces") : Instruction)((x, acc) => {
       If (Constrain("standard_metadata.egress_port", :==:(ConstantValue(x._1.longValue()))),
@@ -59,60 +59,98 @@ class OutputMechanism(switchInstance: SwitchInstance) {
 }
 
 
-class DeparserRev(switchInstance: SwitchInstance) {
-  val startState = switchInstance.getSwitchSpec.getParserState("start")
+class DeparserRev(switch: Switch, switchInstance : ISwitchInstance) {
+
+  val isV2 = true
+
+  def generateCode2(crt : String, offset : Int,
+                    nodes : Map[String, Iterable[String]],
+                    edges : Map[String, Iterable[String]]) : Instruction = {
+    val extracts = nodes.getOrElse(crt, Nil)
+    val outgoing = edges.getOrElse(crt, Nil)
+    generateHeaderCode(extracts.toList, offset, off => {
+      if (outgoing.isEmpty)
+        NoOp
+      else
+        Fork(outgoing.map(r => {
+          generateCode2(r, off, nodes, edges)
+        }))
+    })
+  }
+  def generateHeaderCode(headerInstances : List[String], off : Int,
+                         continueWith : Int => Instruction) : Instruction = headerInstances match {
+    case Nil => continueWith(off)
+    case h2 :: t2 =>
+      val ib = switch.getInstance(h2).getLayout.getFields.
+        foldLeft((off, List[Instruction]()))((acc, f) => {
+          (acc._1 + f.getLength,  acc._2 ++ List[Instruction](
+            Allocate(Tag("START") + acc._1, f.getLength),
+            Assign(Tag("START") + acc._1, :@(s"$h2.${f.getName}"))
+          ))
+        })
+      If (Constrain(s"$h2.IsValid", :==:(ConstantValue(1))),
+        InstructionBlock(
+          ib._2 :+ generateHeaderCode(t2, ib._1, continueWith)
+        ),
+        Fail("Deparser error: No such packet layout exists")
+      )
+  }
+
+  def generateCode(stack : List[String], offset : Int,
+                   nodes : Map[String, Iterable[String]],
+                   edges : Iterable[(String, String)]) : Instruction = stack match {
+    case Nil => NoOp
+    case head :: tail =>
+      val headers = nodes(head)
+      generateHeaderCode(headers.toList, offset, off => generateCode(tail, off, nodes, edges))
+  }
+
   def symnetCode() : Instruction = {
-    val asList = switchInstance.getSwitchSpec.parserStates().toList
-    val indexedSeq = asList.zipWithIndex.toMap
+    val asList = switch.parserStates().toList
     val (edges, nodes) = asList.foldLeft((List[(String, String)](), Map[String, Iterable[String]]()))((acc, x) => {
-      val (edges, extracts) = symnetCode(switchInstance.getSwitchSpec.getParserState(x))
+      val (edges, extracts) = parserStatesAndEdges(switch.getParserState(x))
       (acc._1 ++ edges, acc._2 + (x -> extracts))
     })
-
     val graph = new Graph(asList.size)
+    val indexedSeq = asList.zipWithIndex.toMap
     for (e <- edges)
       if (e._2 != "ingress")
         graph.addEdge(indexedSeq(e._1), indexedSeq(e._2))
-    val popper = graph.topologicalSort()
-    def generateCode(stack : List[Int], offset : Int) : Instruction = stack match {
-      case Nil => NoOp
-      case head :: tail =>
-        val headers = nodes(asList(head))
-        def generateHeaderCode(headerInstances : List[String], off : Int) : Instruction = headerInstances match {
-          case Nil => generateCode(tail, off)
-          case h2 :: t2 =>
-            val ib = switchInstance.getSwitchSpec.getInstance(h2).getLayout.getFields.
-              foldLeft((off, List[Instruction]()))((acc, f) => {
-                (acc._1 + f.getLength,  acc._2 ++ List[Instruction](
-                  Allocate(Tag("START") + acc._1, f.getLength),
-                  Assign(Tag("START") + acc._1, :@(s"$h2.${f.getName}"))
-                ))
-              })
-            If (Constrain(s"$h2.IsValid", :==:(ConstantValue(1))),
-              InstructionBlock(
-                ib._2 :+ generateHeaderCode(t2, ib._1)
-              ),
-              generateHeaderCode(t2, off)
-            )
-        }
-        generateHeaderCode(headers.toList, offset)
+    if (!isV2) {
+      val popper = graph.topologicalSort()
+      val ins = InstructionBlock(
+        DestroyPacket(),
+        generateCode(popper.map(_.intValue()).reverse.map(asList(_)).toList, 0, nodes, edges),
+        Forward(outName())
+      )
+      ins
+    } else {
+      val popper = graph.topologicalSort()
+      val startAt = asList(popper.reverse.head)
+      val ins = InstructionBlock(
+        DestroyPacket(),
+        generateCode2(startAt, 0, nodes, edges.groupBy(f => f._1).map(r => r._1 -> r._2.map(h => h._2))),
+        Forward(outName())
+      )
+      ins
     }
-    InstructionBlock(
-      new Instruction() {
-        // TODO: MASSIVE HACK here => let's figure out a clean way for this one
-        override def apply(s: State, verbose: Boolean): (List[State], List[State]) = (List[State](s.destroyPacket()), Nil)
-      }, generateCode(popper.map(_.intValue()).toList.reverse, 0), Forward(outName())
-    )
   }
 
-  def symnetCode(ss : org.change.v2.p4.model.parser.State) = {
-    val edges = ss.getStatements.filter(x => x.isInstanceOf[ReturnStatement] || x.isInstanceOf[ReturnSelectStatement]).flatMap {
+  private def parserStatesAndEdges(ss : org.change.v2.p4.model.parser.State):
+  (Iterable[(String, String)], Iterable[String]) = {
+    val edges = ss.getStatements.
+      filter(x => x.isInstanceOf[ReturnStatement] || x.isInstanceOf[ReturnSelectStatement]).
+      flatMap {
       case rs : ReturnStatement => List[(String, String)]((ss.getName, rs.getWhere))
       case rss : ReturnSelectStatement => rss.getCaseEntryList.map(x => {
         (ss.getName, x.getReturnStatement.getWhere)
       })
     }
-    val extracts = ss.getStatements.filter(x => x.isInstanceOf[ExtractStatement]).map(_.asInstanceOf[ExtractStatement].getExpression.asInstanceOf[StringRef].getRef)
+    val extracts = ss.getStatements.collect({
+      case v : ExtractStatement => v.getExpression
+    }).collect({
+      case v : StringRef => v.getRef
+    })
     (edges, extracts)
   }
 

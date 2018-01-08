@@ -29,7 +29,9 @@ class Z3BVTranslator(context: Z3Context) extends Translator[Z3Solver] {
       case LAnd(a, b) => context.mkBVAnd(translate(slv, a, size)._1, translate(slv, b, size)._1)
       case LXor(a, b) => context.mkBVXor(translate(slv, a, size)._1, translate(slv, b, size)._1)
       case LNot(a) => context.mkBVNot(translate(slv, a, size)._1)
+      case LShift(a, b) => context.mkBVShl(translate(slv, a, size)._1, translate(slv, b, size)._1)
       case ConstantStringValue(v) => context.mkNumeral(v.hashCode.toString, context.mkIntSort)
+      case Concat(expressions) => expressions.map(r => translate(slv, r.value.get, r.size)._1).reduce(context.mkConcat)
     }
     (ast, slv)
   }

@@ -181,7 +181,7 @@ counter_declaration :   'counter' counter_name '{'
     ( 'saturating' ';' )?
     '}'
     ;
-    
+
 counter_type    : 'bytes' | 'packets' | 'packets_and_bytes' ;
 direct_or_static returns [boolean isDirect, String directTable, boolean isStatic, String staticTable]: direct_attribute | static_attribute ;
 direct_attribute returns [String table] : 'direct' ':' table_name ;

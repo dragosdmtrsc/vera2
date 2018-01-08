@@ -1,6 +1,6 @@
 package org.change.utils.prettifier
 
-import java.io.InputStream
+import java.io.{InputStream, OutputStream}
 
 import com.fasterxml.jackson.annotation.{JsonIgnoreProperties, JsonTypeInfo}
 import com.fasterxml.jackson.databind.{DeserializationFeature, ObjectMapper}
@@ -274,7 +274,9 @@ object JsonUtil {
     new NamedType(classOf[Forward], "Forward"),
     new NamedType(classOf[Fork], "Fork"),
     new NamedType(classOf[Fail], "Fail"),
-    new NamedType(classOf[CreateTag], "CreateTag")
+    new NamedType(classOf[CreateTag], "CreateTag"),
+    new NamedType(classOf[ExistsNamedSymbol], "ExistsNamedSymbol"),
+    new NamedType(classOf[ExistsRaw], "ExistsRaw")
   )
 
   mapper.registerSubtypes(
@@ -318,6 +320,10 @@ object JsonUtil {
 
   def toJson(value: Any): String = {
     mapper.writerWithDefaultPrettyPrinter().writeValueAsString(value)
+  }
+
+  def toJson(value: Any, outputStream: OutputStream): Unit = {
+    mapper.writerWithDefaultPrettyPrinter().writeValue(outputStream, value)
   }
 
   //  def toMap[V](json:String)(implicit m: Manifest[V]) = fromJson[Map[String,V]](json)

@@ -1,10 +1,10 @@
 package org.change.v2.analysis.expression.concrete
 
 import com.fasterxml.jackson.annotation.JsonIgnore
-import org.change.utils.RepresentationConversion._
 import org.change.v2.analysis.expression.abst.{Expression, FloatingExpression}
 import org.change.v2.analysis.memory.State
 import org.change.v2.analysis.z3.Z3Util
+import org.change.v2.util.conversion.RepresentationConversion._
 import z3.scala.{Z3AST, Z3Solver}
 
 /**

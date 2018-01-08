@@ -1,8 +1,9 @@
 package org.change.v2.analysis.processingmodels.instructions
 
-import org.change.v2.analysis.expression.abst.FloatingExpression
+import org.change.v2.analysis.expression.abst.{Expression, FloatingExpression}
 import org.change.v2.analysis.expression.concrete.ConstantValue
-import org.change.v2.analysis.memory.{Intable, State, TagExp}
+import org.change.v2.analysis.expression.concrete.nonprimitive.{Address, Concat}
+import org.change.v2.analysis.memory.{Intable, MemoryObject, State, TagExp}
 import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.analysis.types.{IP4Type, LongType, NumericType}
 import org.change.v2.util.conversion.RepresentationConversion._
@@ -52,9 +53,41 @@ case class AssignRaw(a: Intable, exp: FloatingExpression,
     }
     case None => Fail(TagExp.brokenTagExpErrorMessage)(s, v)
   }
-
-
   override def toString = s"$a <- $exp"
+}
+
+
+case class AssignNamedSymbolWithLength(id: String, exp : Address, width : Int) extends Instruction {
+  def concatenate(lst : List[MemoryObject], width : Int, consumed : List[MemoryObject], s : State) : (List[State], List[State]) = {
+    if (width == 0) {
+      s.memory.assignNewValue(id, Concat(consumed), LongType) match {
+        case Some(mem) => (s.copy(memory = mem) :: Nil, Nil)
+        case None => Fail(s"Couldn't assign $id with value ${Concat(consumed)}")(s, true)
+      }
+    } else {
+      if (lst.isEmpty)
+        Fail("Cannot cover width")(s, true)
+      else if (width > 0) {
+        concatenate(lst.tail, width - lst.head.size, consumed :+ lst.head, s)
+      } else {
+        Fail("Cannot cover width")(s, true)
+      }
+    }
+  }
+
+  override def apply(s: State, verbose: Boolean): (List[State], List[State]) = exp.a(s) match {
+    case Some(int) =>  val news = s.addInstructionToHistory(this)
+      news.memory.evalToObject(int) match {
+        case Some(memoryObject) => memoryObject.value match {
+          case Some(value) => concatenate(s.memory.rawObjects.filter(r => {
+            r._1 >= int
+          }).toList.sortBy(f => f._1).map(r => r._2), width, consumed = Nil, s)
+          case None => Fail(s"No object at $int")(s, verbose)
+        }
+        case None => Fail(s"No object at $int")(s, verbose)
+      }
+    case None => Fail(TagExp.brokenTagExpErrorMessage)(s, verbose)
+  }
 }
 
 object Assign {
@@ -68,6 +101,9 @@ object Assign {
       case Left(x) => apply(x, exp, kind)
       case Right(x) => apply(x, exp, kind)
     }
+
+  def apply(id: String, exp : Address, width : Int) : Instruction = AssignNamedSymbolWithLength(id, exp, width)
+
 
   def apply(a: Intable, exp: FloatingExpression): Instruction =
     apply(a, exp, LongType)

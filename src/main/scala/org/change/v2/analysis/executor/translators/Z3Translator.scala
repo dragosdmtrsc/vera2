@@ -29,8 +29,6 @@ class Z3Translator(context: Z3Context) extends Translator[Z3Solver] {
     (ast, slv)
   }
 
-
-
   def translate(slv: Z3Solver, ast: Z3AST, constr: Constraint): (Z3AST, Z3Solver) = {
     val ast2 = constr match {
       case AND(constrs) => context.mkAnd(constrs.map(s => translate(slv, ast, s)._1): _*)

@@ -96,6 +96,7 @@ object Assert {
     }
 }
 
+
 trait FloatingConstraint {
   def instantiate(s: State): Either[Constraint, String]
 }
