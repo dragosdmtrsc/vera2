@@ -2,8 +2,10 @@ package org.change.parser.p4
 
 import java.util
 
-import org.change.parser.p4.buffer.{BufferMechanism, DeparserRev, OutputMechanism}
+import org.change.parser.p4.buffer.{BufferMechanism, OutputMechanism}
+import org.change.parser.p4.factories.{FullTableFactory, GlobalInitFactory, InitCodeFactory, InstanceBasedInitFactory}
 import org.change.parser.p4.parser.{DFSState, StateExpander}
+import org.change.parser.p4.tables.FullTable
 import org.change.v2.analysis.executor.InstructionExecutor
 import org.change.v2.analysis.memory.State
 import org.change.v2.analysis.processingmodels._
@@ -11,10 +13,6 @@ import org.change.v2.analysis.processingmodels.instructions._
 import org.change.v2.p4.model.{ISwitchInstance, Switch, SwitchInstance}
 
 import scala.collection.JavaConversions._
-import P4PrettyPrinter._
-import org.change.parser.p4.factories.{FullTableFactory, GlobalInitFactory, InitCodeFactory, InstanceBasedInitFactory}
-import org.change.parser.p4.tables.FullTable
-import org.change.v2.p4.model.parser.ReturnStatement
 
 /**
   * Created by dragos on 07.09.2017.
@@ -30,6 +28,10 @@ class ControlFlowInterpreter[T<:ISwitchInstance](val switchInstance: T,
     FullTableFactory.get(switchInstance.getClass.asInstanceOf[Class[T]]),
     GlobalInitFactory.get(switchInstance.getClass.asInstanceOf[Class[T]])
   )
+  def setAdditionalInitCode(nadditionalInitCode : (T, Int) => Instruction) = new ControlFlowInterpreter[T](switchInstance,
+    switch, nadditionalInitCode, tableFactory, initFactory)
+  def setTableFactory(ntableFactory : (T, String, String) => Instruction) = new ControlFlowInterpreter[T](switchInstance,
+    switch, additionalInitCode, ntableFactory, initFactory)
 
   private val initializeCode = new InitializeCode(switchInstance, switch, additionalInitCode, initFactory)
   private lazy val expd = new StateExpander(switch, "start").doDFS(DFSState(0))

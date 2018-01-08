@@ -313,8 +313,18 @@ object StateExpander {
             val sref = v.getExpression.asInstanceOf[StringRef].getRef
             val (i, _) = sw.getInstance(sref).getLayout.getFields.foldLeft((Nil: List[Instruction], 0))((acc, r) => {
               (acc._1 ++ List[Instruction](
-                Allocate(Tag("START") + v.getCrt + acc._2, r.getLength),
-                Assign(Tag("START") + v.getCrt + acc._2, :@(sref + s".${r.getName}"))
+                If (Constrain("Truncate", :==:(ConstantValue(1))),
+                  If (Constrain("TruncateSize", :<=:(ConstantValue(v.getCrt + acc._2))),
+                    InstructionBlock(
+                      Allocate(Tag("START") + v.getCrt + acc._2, r.getLength),
+                      Assign(Tag("START") + v.getCrt + acc._2, :@(sref + s".${r.getName}"))
+                    )
+                  ),
+                  InstructionBlock(
+                    Allocate(Tag("START") + v.getCrt + acc._2, r.getLength),
+                    Assign(Tag("START") + v.getCrt + acc._2, :@(sref + s".${r.getName}"))
+                  )
+                )
               ), acc._2 + r.getLength)
             })
             InstructionBlock(i)

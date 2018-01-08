@@ -3,13 +3,16 @@ package parser.p4.test
 import java.io.{BufferedOutputStream, FileOutputStream, PrintStream}
 
 import org.change.parser.p4.ControlFlowInterpreter
+import org.change.parser.p4.factories.{InstanceBasedInitFactory, SymbolicRegistersInitFactory}
 import org.change.utils.prettifier.JsonUtil
 import org.change.v2.analysis.executor.CodeAwareInstructionExecutor
 import org.change.v2.analysis.executor.solvers.Z3BVSolver
 import org.change.v2.analysis.expression.concrete.ConstantValue
 import org.change.v2.analysis.memory.{State, Tag}
 import org.change.v2.analysis.processingmodels.instructions._
+import org.change.v2.p4.model.SwitchInstance
 import org.scalatest.FunSuite
+import org.change.v2.analysis.memory.TagExp.IntImprovements
 
 class P4Bugs extends FunSuite {
   test("INTEGRATION - copy-to-cpu parser bug") {
@@ -124,7 +127,6 @@ class P4Bugs extends FunSuite {
     val ib = InstructionBlock(
       Forward(s"router.input.$port")
     )
-    import org.change.v2.analysis.memory.TagExp.IntImprovements
     val codeAwareInstructionExecutor = CodeAwareInstructionExecutor(res.instructions(), res.links(), solver = new Z3BVSolver)
     val (initial, fld) = codeAwareInstructionExecutor.
       execute(InstructionBlock(
@@ -134,8 +136,78 @@ class P4Bugs extends FunSuite {
       ), State.clean, verbose = true)
     val (ok: List[State], failed: List[State]) = executeAndPrintStats(ib, initial, codeAwareInstructionExecutor)
     val relevant = failed
-//      .filter(r => codeAwareInstructionExecutor.execute(Constrain("inner_ipv4.IsValid", (:==:(ConstantValue(1)))), r, true)._1.nonEmpty)
     printResults(dir, port, ok, relevant, "bad")
+  }
+
+  test("INTEGRATION - ndp_router reg access test") {
+    val dir = "inputs/ndp-router-reg-access/"
+    val p4 = s"$dir/ndp_router-ppc.p4"
+    val dataplane = s"$dir/commands.txt"
+    val res = ControlFlowInterpreter(p4, dataplane, Map[Int, String](1 -> "veth0", 2 -> "veth1"), "router").setAdditionalInitCode((x, y) => {
+      new SymbolicRegistersInitFactory(x).initCode()
+    })
+    val port = 1
+    val ib = InstructionBlock(
+      Forward(s"router.input.$port")
+    )
+    val codeAwareInstructionExecutor = CodeAwareInstructionExecutor(res.instructions(), res.links(), solver = new Z3BVSolver)
+    val (initial, _) = codeAwareInstructionExecutor.
+      execute(InstructionBlock(res.allParserStatesInstruction()), State.clean, verbose = true)
+    val (ok: List[State], failed: List[State]) = executeAndPrintStats(ib, initial, codeAwareInstructionExecutor)
+    printResults(dir, port, ok, failed, "soso")
+  }
+  test("INTEGRATION - ndp_router test") {
+    val dir = "inputs/ndp-router/"
+    val p4 = s"$dir/ndp_router-ppc.p4"
+    val dataplane = s"$dir/commands.txt"
+    val res = ControlFlowInterpreter(p4, dataplane, Map[Int, String](1 -> "veth0", 2 -> "veth1"), "router").setAdditionalInitCode((x, y) => {
+      new SymbolicRegistersInitFactory(x).initCode()
+    })
+    val port = 1
+    val ib = InstructionBlock(
+      Forward(s"router.input.$port")
+    )
+    val codeAwareInstructionExecutor = CodeAwareInstructionExecutor(res.instructions(), res.links(), solver = new Z3BVSolver)
+    val (initial, _) = codeAwareInstructionExecutor.
+      execute(InstructionBlock(res.allParserStatesInstruction()), State.clean, verbose = true)
+    val (ok: List[State], failed: List[State]) = executeAndPrintStats(ib, initial, codeAwareInstructionExecutor)
+    printResults(dir, port, ok, failed, "soso")
+  }
+
+  test("INTEGRATION - simple-nat test") {
+    val dir = "inputs/simple-nat-testing/"
+    val p4 = s"$dir/simple_nat-ppc.p4"
+    val dataplane = s"$dir/commands.txt"
+    val res = ControlFlowInterpreter(p4, dataplane, Map[Int, String](1 -> "veth0", 2 -> "veth1", 11 -> "cpu"), "router")
+    val port = 1
+    val ib = InstructionBlock(
+      Forward(s"router.input.$port")
+    )
+    val codeAwareInstructionExecutor = CodeAwareInstructionExecutor(res.instructions(), res.links(), solver = new Z3BVSolver)
+    val (initial, _) = codeAwareInstructionExecutor.
+      execute(InstructionBlock(
+        res.allParserStatesInstruction()
+      ), State.clean, verbose = true)
+    val (ok: List[State], failed: List[State]) = executeAndPrintStats(ib, initial, codeAwareInstructionExecutor)
+    printResults(dir, port, ok, failed, "soso")
+  }
+
+  test("INTEGRATION - simple-router test") {
+    val dir = "inputs/simple-router-testing/"
+    val p4 = s"$dir/simple_router.p4"
+    val dataplane = s"$dir/commands.txt"
+    val res = ControlFlowInterpreter(p4, dataplane, Map[Int, String](1 -> "veth0", 2 -> "veth1", 11 -> "cpu"), "router")
+    val port = 1
+    val ib = InstructionBlock(
+      Forward(s"router.input.$port")
+    )
+    val codeAwareInstructionExecutor = CodeAwareInstructionExecutor(res.instructions(), res.links(), solver = new Z3BVSolver)
+    val (initial, _) = codeAwareInstructionExecutor.
+      execute(InstructionBlock(
+        res.allParserStatesInstruction()
+      ), State.clean, verbose = true)
+    val (ok: List[State], failed: List[State]) = executeAndPrintStats(ib, initial, codeAwareInstructionExecutor)
+    printResults(dir, port, ok, failed, "soso")
   }
 
   private def printResults(dir: String, port: Int, ok: List[State], failed: List[State], okBase: String): Unit = {

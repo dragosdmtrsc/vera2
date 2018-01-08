@@ -316,9 +316,10 @@ class P4GrammarListener extends P4GrammarBaseListener {
       256 -> ("egress_instance", 64),
       320 -> ("instance_type", 64),
       384 -> ("parser_status", 64),
-      448 -> ("parser_error_location", 64)
+      448 -> ("parser_error_location", 64),
+      512 -> ("egress_priority", 64)
     )
-    declaredHeaders.put("standard_metadata_t", new HeaderDeclaration("standard_metadata_t", hOffs, 512))
+    declaredHeaders.put("standard_metadata_t", HeaderDeclaration("standard_metadata_t", hOffs, 512))
     headers.put("standard_metadata_t", hOffs.foldLeft(new Header().setName("standard_metadata_t").setLength(512))((acc, x) => {
       acc.addField(new Field().setLength(x._2._2).setName(x._2._1))
     }))
