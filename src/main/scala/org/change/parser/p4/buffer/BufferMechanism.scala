@@ -60,54 +60,97 @@ class OutputMechanism(switchInstance: ISwitchInstance) {
 
 
 class DeparserRev(switch: Switch, switchInstance : ISwitchInstance) {
+
+  val isV2 = true
+
+  def generateCode2(crt : String, offset : Int,
+                    nodes : Map[String, Iterable[String]],
+                    edges : Map[String, Iterable[String]]) : Instruction = {
+    val extracts = nodes.getOrElse(crt, Nil)
+    val outgoing = edges.getOrElse(crt, Nil)
+    generateHeaderCode(extracts.toList, offset, off => {
+      if (outgoing.isEmpty)
+        NoOp
+      else
+        Fork(outgoing.map(r => {
+          generateCode2(r, off, nodes, edges)
+        }))
+    })
+  }
+  def generateHeaderCode(headerInstances : List[String], off : Int,
+                         continueWith : Int => Instruction) : Instruction = headerInstances match {
+    case Nil => continueWith(off)
+    case h2 :: t2 =>
+      val ib = switch.getInstance(h2).getLayout.getFields.
+        foldLeft((off, List[Instruction]()))((acc, f) => {
+          (acc._1 + f.getLength,  acc._2 ++ List[Instruction](
+            Allocate(Tag("START") + acc._1, f.getLength),
+            Assign(Tag("START") + acc._1, :@(s"$h2.${f.getName}"))
+          ))
+        })
+      If (Constrain(s"$h2.IsValid", :==:(ConstantValue(1))),
+        InstructionBlock(
+          ib._2 :+ generateHeaderCode(t2, ib._1, continueWith)
+        ),
+        Fail("Deparser error: No such packet layout exists")
+      )
+  }
+
+  def generateCode(stack : List[String], offset : Int,
+                   nodes : Map[String, Iterable[String]],
+                   edges : Iterable[(String, String)]) : Instruction = stack match {
+    case Nil => NoOp
+    case head :: tail =>
+      val headers = nodes(head)
+      generateHeaderCode(headers.toList, offset, off => generateCode(tail, off, nodes, edges))
+  }
+
   def symnetCode() : Instruction = {
     val asList = switch.parserStates().toList
-    val indexedSeq = asList.zipWithIndex.toMap
     val (edges, nodes) = asList.foldLeft((List[(String, String)](), Map[String, Iterable[String]]()))((acc, x) => {
-      val (edges, extracts) = symnetCode(switch.getParserState(x))
+      val (edges, extracts) = parserStatesAndEdges(switch.getParserState(x))
       (acc._1 ++ edges, acc._2 + (x -> extracts))
     })
-
     val graph = new Graph(asList.size)
+    val indexedSeq = asList.zipWithIndex.toMap
     for (e <- edges)
       if (e._2 != "ingress")
         graph.addEdge(indexedSeq(e._1), indexedSeq(e._2))
-    val popper = graph.topologicalSort()
-    def generateCode(stack : List[Int], offset : Int) : Instruction = stack match {
-      case Nil => NoOp
-      case head :: tail =>
-        val headers = nodes(asList(head))
-        def generateHeaderCode(headerInstances : List[String], off : Int) : Instruction = headerInstances match {
-          case Nil => generateCode(tail, off)
-          case h2 :: t2 =>
-            val ib = switch.getInstance(h2).getLayout.getFields.
-              foldLeft((off, List[Instruction]()))((acc, f) => {
-                (acc._1 + f.getLength,  acc._2 ++ List[Instruction](
-                  Allocate(Tag("START") + acc._1, f.getLength),
-                  Assign(Tag("START") + acc._1, :@(s"$h2.${f.getName}"))
-                ))
-              })
-            If (Constrain(s"$h2.IsValid", :==:(ConstantValue(1))),
-              InstructionBlock(
-                ib._2 :+ generateHeaderCode(t2, ib._1)
-              ),
-              Fail("Deparser error: No such packet layout exists")
-            )
-        }
-        generateHeaderCode(headers.toList, offset)
+    if (!isV2) {
+      val popper = graph.topologicalSort()
+      val ins = InstructionBlock(
+        DestroyPacket(),
+        generateCode(popper.map(_.intValue()).reverse.map(asList(_)).toList, 0, nodes, edges),
+        Forward(outName())
+      )
+      ins
+    } else {
+      val popper = graph.topologicalSort()
+      val startAt = asList(popper.reverse.head)
+      val ins = InstructionBlock(
+        DestroyPacket(),
+        generateCode2(startAt, 0, nodes, edges.groupBy(f => f._1).map(r => r._1 -> r._2.map(h => h._2))),
+        Forward(outName())
+      )
+      ins
     }
-    val ins = InstructionBlock(DestroyPacket(), generateCode(popper.map(_.intValue()).toList.reverse, 0), Forward(outName()))
-    ins
   }
 
-  def symnetCode(ss : org.change.v2.p4.model.parser.State) = {
-    val edges = ss.getStatements.filter(x => x.isInstanceOf[ReturnStatement] || x.isInstanceOf[ReturnSelectStatement]).flatMap {
+  private def parserStatesAndEdges(ss : org.change.v2.p4.model.parser.State):
+  (Iterable[(String, String)], Iterable[String]) = {
+    val edges = ss.getStatements.
+      filter(x => x.isInstanceOf[ReturnStatement] || x.isInstanceOf[ReturnSelectStatement]).
+      flatMap {
       case rs : ReturnStatement => List[(String, String)]((ss.getName, rs.getWhere))
       case rss : ReturnSelectStatement => rss.getCaseEntryList.map(x => {
         (ss.getName, x.getReturnStatement.getWhere)
       })
     }
-    val extracts = ss.getStatements.filter(x => x.isInstanceOf[ExtractStatement]).map(_.asInstanceOf[ExtractStatement].getExpression.asInstanceOf[StringRef].getRef)
+    val extracts = ss.getStatements.collect({
+      case v : ExtractStatement => v.getExpression
+    }).collect({
+      case v : StringRef => v.getRef
+    })
     (edges, extracts)
   }
 

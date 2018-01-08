@@ -787,7 +787,7 @@ class P4GrammarListener extends P4GrammarBaseListener {
       if (ctx.else_block() != null)
         Forward(s"${ctx.parent}[else][0]")
       else
-        NoOp
+        Forward(s"${ctx.parent}.out")
     )
 
     this.links.put(ctx.parent + "[if].out", s"${ctx.parent}.out")

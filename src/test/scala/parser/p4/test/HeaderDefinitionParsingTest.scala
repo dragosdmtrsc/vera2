@@ -223,7 +223,7 @@ class HeaderDefinitionParsingTest extends FunSuite {
     val bvExec = new DecoratedInstructionExecutor(new Z3BVSolver)
 
     val fork = StateExpander.generateAllPossiblePackets(
-      new StateExpander(res.switch, "start").doDFS(DFSState(0)), res.switch
+      new StateExpander(res.switch, "start").doDFS(DFSState(0)), res.switch, "router"
     )
     val ps = new PrintStream("inputs/simple-nat/initial-possibilities.json")
     val (ok, fail) = bvExec.execute(fork, State.clean, verbose = true)

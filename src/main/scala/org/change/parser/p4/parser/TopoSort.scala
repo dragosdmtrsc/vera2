@@ -23,8 +23,7 @@ object Graph {
   }
 }
 
-class Graph(var V: Int // No. of vertices
-                           ) //Constructor
+class Graph(var V: Int)
 {
   private var  adj = new Array[LinkedList[Integer]](V)
   var i: Int = 0
@@ -72,9 +71,7 @@ class Graph(var V: Int // No. of vertices
     // one by one
     i = 0
     while (i < V) {
-      if (visited(i) == false) {
-        topologicalSortUtil(i, visited, stack)
-      }
+      if (!visited(i)) topologicalSortUtil(i, visited, stack)
       i += 1
     }
     stack

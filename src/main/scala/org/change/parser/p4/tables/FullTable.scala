@@ -234,7 +234,7 @@ class TableExactMatcher(tableMatch: TableMatch) extends Constrainable {
 
 
 
-  // no question asked: exact only matches field_refs (for the moment)
+  // exact only matches field_refs (for the moment)
   private def handleExact(switchInstance: SwitchInstance, which: Int) : Instruction = {
     val (hdr, fieldName) = fieldDef(tableMatch.getKey)
     val switch = switchInstance.getSwitchSpec

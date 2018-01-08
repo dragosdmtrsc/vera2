@@ -14,6 +14,7 @@ import scala.collection.JavaConversions._
 import P4PrettyPrinter._
 import org.change.parser.p4.factories.{FullTableFactory, GlobalInitFactory, InitCodeFactory, InstanceBasedInitFactory}
 import org.change.parser.p4.tables.FullTable
+import org.change.v2.p4.model.parser.ReturnStatement
 
 /**
   * Created by dragos on 07.09.2017.
@@ -57,12 +58,13 @@ class ControlFlowInterpreter[T<:ISwitchInstance](val switchInstance: T,
   private val outputPlug = Map[String, Instruction](s"${switchInstance.getName}.output.in" -> outputMechanism.symnetCode())
   private val egressOutLink = Map[String, String](s"${switchInstance.getName}.control.egress.out" -> s"${switchInstance.getName}.deparser.in")
 
-  private lazy val deparser = new DeparserRev(switch, switchInstance)
   // plug in the deparser
-  private val deparserPlug = Map[String, Instruction](s"${switchInstance.getName}.deparser.in" -> deparser.symnetCode())
+  private val deparserPlug = Map[String, Instruction](s"${switchInstance.getName}.deparser.in" ->
+    StateExpander.deparserCode(expd, switch))
   // link deparser -> <sw>.output.in
-  private val deparserOutLink = Map[String, String](deparser.outName() -> s"${switchInstance.getName}.output.in")
+  private val deparserOutLink = Map[String, String](s"${switchInstance.getName}.deparser.out" -> s"${switchInstance.getName}.output.in")
   //plug in the parser
+  def parserCode(): Fork = StateExpander.parseStateMachine(expd, switch)
   private val parserPlug = Map[String, Instruction](s"${switchInstance.getName}.parser" -> parserCode())
   // plug in the switch instances
   private val ifacePlug = switchInstance.getIfaceSpec.keys.flatMap(x => {
@@ -76,7 +78,11 @@ class ControlFlowInterpreter[T<:ISwitchInstance](val switchInstance: T,
   // plug control.ingress.out -> <sw>.buffer
   private val ingressOutLink = Map[String, String](s"${switchInstance.getName}.control.ingress.out" -> s"${switchInstance.getName}.buffer.in")
   import org.change.v2.util.Rewriter._
-  private val (instructionsCached, linksCached) = (controlFlowInstructions ++ parserPlug ++ outputPlug ++ deparserPlug ++ ifacePlug ++ plugTables ++ bufferPlug,
+  private def parserDict() : Map[String, Instruction] = StateExpander.stateMachineToDict(expd, switch)
+  private def generatorDict()  = StateExpander.generateAllPossiblePacketsAsDict(expd, switch)
+  private val (instructionsCached, linksCached) =
+    (controlFlowInstructions ++ parserPlug ++ outputPlug ++ deparserPlug ++ ifacePlug ++ plugTables ++ bufferPlug ++
+      parserDict() ++ generatorDict() ++ StateExpander.deparserStateMachineToDict(expd, switch),
     controlFlowLinks ++ deparserOutLink ++ inputOutLink ++ ingressOutLink ++ bufferOutLink ++ egressOutLink).transform()(s => {
     if (s.startsWith(s"${switchInstance.getName}."))
       s
@@ -95,8 +101,8 @@ class ControlFlowInterpreter[T<:ISwitchInstance](val switchInstance: T,
   def initialize(port : Int): Instruction = initializeCode.switchInitializePacketEnter(port)
   def initializeGlobally(): Instruction = initializeCode.switchInitializeGlobally()
 
-  def allParserStatesInstruction(): InstructionBlock = StateExpander.generateAllPossiblePackets(expd, switch)
-  def parserCode(): Fork = StateExpander.parseStateMachine(expd, switch)
+  def allParserStatesInstruction(): InstructionBlock =
+    StateExpander.generateAllPossiblePackets(expd, switch, switchInstance.getName)
 
 }
 
