@@ -5,7 +5,7 @@ import org.change.v2.analysis.expression.abst.Expression
 import org.change.v2.analysis.expression.concrete.{ConstantValue, SymbolicValue}
 import org.change.v2.analysis.expression.concrete.nonprimitive._
 import org.change.v2.analysis.memory.{MemoryObject, MemorySpace, Value}
-import z3.scala.{Z3AST, Z3Config, Z3Context}
+import z3.scala.{Z3AST, Z3Config, Z3Context, Z3Solver}
 
 object CachingBVTranslator {
 
@@ -24,7 +24,7 @@ object CachingBVTranslator {
     )
   }
 
-  def translateMemoryObjects(context: TranslationResult)(memoryObjects: Iterable[MemoryObject]) =
+  def translateMemoryObjects(context: TranslationResult)(memoryObjects: Iterable[MemoryObject]): TranslationResult =
     memoryObjects.foldLeft(context){ (currentContext, memoryObject) => {
       translateValue(currentContext)(memoryObject.value.get, memoryObject.size)._1
     }
@@ -120,8 +120,27 @@ object CachingBVTranslator {
         val astE = z3Context.mkBVNot(astA)
         val newCache = contextWithA._3 + (e.id -> astE)
         ((contextWithA._1, contextWithA._2, newCache), astE)
+
+      /**
+        * Concat translation
+        */
+      case Concat(memoryObjects) =>
+        val translationResult = memoryObjects.scanLeft(context, null: Z3AST){
+          (crtContext: (TranslationResult, Z3AST), memoryObject: MemoryObject) => {
+            val value = memoryObject.value.get
+            translateValue(crtContext._1)(value, memoryObject.size)
+          }
+        }
+
+        val newContext = translationResult.last._1
+        val astE = translationResult.map(_._2).filter(_ != null).reduce(newContext._1.mkConcat)
+        val newCache = newContext._3 + (e.id -> astE)
+        ((newContext._1, newContext._2, newCache), astE)
     }
   }
+
+  def wrapper(expression: Expression, size: Int)(context: TranslationResult): (TranslationResult, Z3AST) =
+    translateExpression(context)(expression, size)
 
   def wrapper(subject: Z3AST, size: Int)(constraint: Constraint)(context: TranslationResult): (TranslationResult, Z3AST) =
     translateConstraint(context)(subject)(constraint, size)
