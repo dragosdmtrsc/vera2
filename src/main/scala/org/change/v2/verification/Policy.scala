@@ -1,11 +1,13 @@
 package org.change.v2.verification
 
+import org.change.parser.p4.ControlFlowInterpreter
 import org.change.v2.analysis.constraint.NOT
+import org.change.v2.analysis.executor.solvers.{Z3BVSolver, Z3Solver}
+import org.change.v2.analysis.executor.{AbstractInstructionExecutor, OVSExecutor}
 import org.change.v2.analysis.memory.State
 import org.change.v2.analysis.processingmodels._
 import org.change.v2.analysis.processingmodels.instructions.{Assign, Fail => SEFLFail, _}
 import org.change.v2.verification.Formula._
-
 import org.change.v2.util._
 /**
  * Created by matei on 12/01/17.
@@ -44,9 +46,36 @@ object Policy {
   def Or(f:Formula, fp:Formula) : Formula = Formula.Or(f,fp)
 
   def state : NoMapState = new NoMapState(State.allSymbolic)
-  def state(l:LocationId, t: Topology, links:Map[LocationId,LocationId]) =
-    new MapState(l,t,links,State.allSymbolic)
 
+  /*
+  def natstate(l:LocationId, t: Topology, links:Map[LocationId,LocationId],exe:AbstractInstructionExecutor, ) = {
+
+    val ib = InstructionBlock(
+      res.allParserStatesInstruction(),
+      //      Constrain(Tag("START") + 0, :~:(:==:(ConstantValue(0)))),
+    )
+
+
+    var (suc :: _, _) = exe.execute(ib,State.clean,true);
+
+  }
+  */
+  def state(t: Topology, links:Map[LocationId,LocationId],exe:AbstractInstructionExecutor) =
+  {
+
+    new MapState(t, links, State.allSymbolic, exe)
+  }
+  def state(res : ControlFlowInterpreter, exe:AbstractInstructionExecutor) = {
+
+    val ib = InstructionBlock(
+      res.allParserStatesInstruction()
+      //      Constrain(Tag("START") + 0, :~:(:==:(ConstantValue(0)))),
+    )
+
+    var (suc :: _, _) = exe.execute(ib,State.clean,true);
+
+    new MapState(res.instructions(),res.links(),suc,exe);
+  }
 
 
   // very simplistic implementation of complement
@@ -94,10 +123,11 @@ object Policy {
    */
 
   def newln = "\\n"
+  def tab = "\\t"
   def show (i : Instruction, indent: Integer) : String = {
-      def aux (sep : String, l : Iterable[Instruction], indent : Integer) = "{ "+newln+(l.map((x)=>show(x,indent+1)).reduce((x,y)=> x+("  "*indent)+sep+newln+y)) + ("  "*indent) + "} "+newln
+      def aux (sep : String, l : Iterable[Instruction], indent : Integer) = "{ "+newln+(l.map((x)=>show(x,indent+1)).reduce((x,y)=> x+(tab*indent)+sep+newln+y)) + (tab*indent) + "} "+newln
 
-      ("  "*indent) + {i match {
+      (tab*indent) + {i match {
       case InstructionBlock(Nil) => "{;}"
       case Fork(Nil) => "{||}"
       case InstructionBlock(l) => aux(" ; ", l, indent)
@@ -105,9 +135,10 @@ object Policy {
       case ConstrainRaw(a,b,c) => a.toString+b.toString
       case ConstrainNamedSymbol(a,b,c) => a.toString+b.toString
       case AssignRaw(a,b,c) => a.toString+"="+b.toString
-      case If(test,th,el) => "if ("+test.toString+") then {"+show(th,indent+1)+"} else {"+show(el,indent+1)+"}"
+      //case If(test,th,el) => "if ("+test.toString+") then {"+show(th,indent+1)+"} else {"+show(el,indent+1)+"}"
+      case If(test,th,el) => "if ("+show(test,0)+") then {"+show(th,indent+1)+"} else {"+show(el,indent+1)+"}"
       case Forward(p)=> "Forward("+p.toString+")"
-      case SEFLFail(_) => "Fail"
+      case SEFLFail(msg) => "Fail("+msg+")"
       case AllocateSymbol(s, sz) => "allocate("+s+")"
       case AllocateRaw(s,sz) => "allocate_raw("+s+")"
       case DeallocateRaw(s,_) => "deallocate("+s+")"
@@ -115,6 +146,7 @@ object Policy {
       case CreateTag(s,v) => "createTag("+s+")"
       case DestroyTag(s) => "destroyTag("+s+")"
       //case AssignNamedSymbol(a,b,c) => a.toString+"="+b.toString
+
       case NoOp => "NoOp"
       case x => x.toString//"???Unknown op???"
       }} + newln
@@ -184,7 +216,6 @@ object Policy {
     }
   }
 
-
   def transform (s: PolicyState, p : Instruction): Instruction = {
     p match {
       case If(testInstr: Instruction, thenWhat: Instruction, elseWhat: Instruction) =>
@@ -211,6 +242,12 @@ object Policy {
             }
             case None => elseWhat
           }
+          case InstructionBlock(instructions) => transform(s, instructions.foldRight(thenWhat)((x, acc) => {
+            If(x, acc, elseWhat)
+          }))
+          case Fork(instructions) => transform(s, instructions.foldRight(elseWhat)((x, acc) => {
+            If(x, thenWhat, acc)
+          }))
         }
       case _ => null
     }
@@ -227,10 +264,10 @@ object Policy {
 
 def check (f : Formula, p: Instruction, s : PolicyState, logger : PolicyLogger) : (Formula,PolicyLogger) = {
 
-  verbose_print("Verifying " + f + "\n on program \n" + showp(p) + " port "+logger.codePort,CustomMode);
+  //verbose_print("Verifying " + f + "\n on program \n" + showp(p) + " port "+logger.currentPort,CustomMode);
 
   if (s == UnsatisfState || s == FailedState)
-    verbose_print("Failed branch (at port "+logger.currentPort+")"+" failed instruction "+logger.lastInstruction,LocMode);
+    verbose_print("Failed branch (at port "+logger.currentPort+")"+" failed instruction ",LocMode);
 
    //matching after formula and program
    (s,f,p) match {
@@ -272,21 +309,28 @@ def check (f : Formula, p: Instruction, s : PolicyState, logger : PolicyLogger) 
           (_,_,Forward(_)) => (s,p) match {
                  // the witness state assigned to f is "sp" (containing the new location)
                  case (MapState(_,_,_,_), Forward(loc)) =>
+                   //println("Will check "+s.instructionAt(loc))
                    check_sequence(f, s, Forward(loc), (f,ss,l) => {check(f,s.instructionAt(loc),ss,l)},logger)
 
                  case pair@(MapState(_,_,_,_), InstructionBlock(Forward(loc) :: _)) =>
+                   //println("IB Will check "+s.instructionAt(loc))
                    check_sequence(f, s, Forward(loc), (f,ss,l) => {check(f,s.instructionAt(loc),ss,l)},logger)
                  case _ => { /*verbose_print("Skipping \n", MCMode);*/ (f,logger)}
                }
 
 
      case (_,_,InstructionBlock(pr :: rest)) => //take an instruction
+       println("InstructionBlock !!");
      check_sequence(f,s,pr,(f,s,l) => {check(f,InstructionBlock(rest),s,l)},logger)
 
+       case(_,_,InstructionBlock(x)) =>
+        check(f,InstructionBlock(x.toList),s,logger)
 
      case (_,_,Fork(Fork(xs)::rest)) => check(f,Fork(xs ++ rest),s,logger)
-     case (_,_,Fork(lst)) => {val (fp,log) = lst.foldLeft((f,{logger.initFork; logger}))(
+     case (_,_,Fork(lst)) => {println("FORK!!");
+       val (fp,log) = lst.foldLeft((f,{logger.initFork; logger}))(
        (pair : (Formula,PolicyLogger),branch:Instruction) => {
+         println("Branch "+branch)
          val (f, log) = pair
          (f,f.status) match {
            case (Exists(_),Satisfied) => verbose_print ("f is true (on a Fork branch)\n",OverallMode); (make (f, Satisfied),log)
@@ -385,8 +429,12 @@ def check (f : Formula, p: Instruction, s : PolicyState, logger : PolicyLogger) 
   // "top-level" verification procedure for topologies
   def verify (f: Formula, start:LocationId ,topology: Topology, links:Map[LocationId,LocationId]) : (Boolean,PolicyLogger) = {
 
+    //
+    var exe:AbstractInstructionExecutor = new OVSExecutor(new Z3BVSolver);
+
     //println("Initial state:"+state(start,topology,links).state)
-    var (fp,logger) = check(f,topology(start),state(start,topology,links), new PolicyLogger(start))
+    var log = new PolicyLogger(start)
+    var (fp,logger) = check(f,topology(start),state(topology,links,exe), log)
 
     //logger.getInstructionTrace
     //println(logger.instructionTrace)
@@ -398,6 +446,33 @@ def check (f : Formula, p: Instruction, s : PolicyState, logger : PolicyLogger) 
     },logger)
   }
 
+  def verify (f: Formula, start:LocationId, res : ControlFlowInterpreter) : PolicyLogger = {
+
+    var exe:AbstractInstructionExecutor = new OVSExecutor(new Z3BVSolver);
+    var (fp,logger) = check(f,res.instructions()(start),state(res, exe), new PolicyLogger(start))
+
+    logger
+  }
+
+  def verifyP4 (f: Formula, start: LocationId, res : ControlFlowInterpreter) : List[PolicyLogger] = {
+    var exe:AbstractInstructionExecutor = new OVSExecutor(new Z3BVSolver);
+
+    val ib = InstructionBlock(
+      res.allParserStatesInstruction()
+      //      Constrain(Tag("START") + 0, :~:(:==:(ConstantValue(0)))),
+    )
+    //build all possible start states
+    var (l, _) = exe.execute(ib,State.clean,true);
+
+    // return a list of loggers
+    l.map ((s:State) => {
+      check(f,res.instructions()(start),new MapState(res.instructions(),res.links(),s,exe),new PolicyLogger(start))._2
+    })
+
+
+  }
+
+  /*
   // "top-level" verification procedure for plain SEFL code
   def verify (f : Formula, model : Instruction) : Boolean = {
 
@@ -409,5 +484,6 @@ def check (f : Formula, p: Instruction, s : PolicyState, logger : PolicyLogger) 
 
     }
   }
+  */
 }
 

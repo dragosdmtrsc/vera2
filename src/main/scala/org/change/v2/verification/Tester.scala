@@ -1,10 +1,14 @@
 package org.change.v2.verification
 
-import java.io.File
+import java.io.{BufferedOutputStream, File, FileOutputStream, PrintStream}
 
 import org.change.parser.clickfile.ClickToAbstractNetwork
+import org.change.parser.p4.{ControlFlowInterpreter, P4ExecutionContext}
+import org.change.utils.prettifier.JsonUtil
 import org.change.v2.abstractnet.optimized.macswitch.OptimizedSwitch
 import org.change.v2.abstractnet.optimized.router.OptimizedRouter
+import org.change.v2.analysis.executor.OVSExecutor
+import org.change.v2.analysis.executor.solvers.Z3BVSolver
 import org.change.v2.analysis.expression.concrete.ConstantValue
 import org.change.v2.analysis.memory.State
 import org.change.v2.analysis.processingmodels.{Instruction, LocationId}
@@ -74,6 +78,101 @@ object Tester {
     InstructionBlock ((1 to 1000).toList.map((i : Int) => Constrain(IPSrc,:~:(:==:(ConstantValue(i))))))
   }
 
+
+  def dragos = {
+    //val p4 = "inputs/simple-nat/simple_nat-ppc.p4"
+    //val dataplane = "inputs/simple-nat/commands.txt"
+    //val res = ControlFlowInterpreter(p4, dataplane, Map[Int, String](1 -> "veth0", 2 -> "veth1", 11 -> "cpu"), "router")
+
+
+    val dir = "inputs/copy-to-cpu/"
+    val p4 = s"$dir/copy_to_cpu-ppc.p4"
+    val dataplane = s"$dir/commands.txt"
+    val res = ControlFlowInterpreter(p4, dataplane, Map[Int, String](1 -> "veth0", 2 -> "veth1", 3 -> "cpu"), "router")
+
+
+    //    val fin = "inputs/simple-nat/graph.dot"
+    //    val ps = new PrintStream(fin)
+    //    ps.println(res.toDot())
+    //    ps.close()
+    //    import sys.process._
+    //    s"dot -Tpng $fin -O" !
+    val ib = InstructionBlock(
+      res.allParserStatesInstruction(),
+      //      Constrain(Tag("START") + 0, :~:(:==:(ConstantValue(0)))),
+      Forward("router.input.1")
+    )
+
+    //println(res.instructions.keys)
+    //println(res.links)
+
+    //println()
+
+    //Printer.vizPrinter((res.instructions(),res.links),"p4cpu.html");
+
+
+
+    var log_list = verifyP4(EF(Formula.Fail),"router.input.1",res)
+
+    var log = log_list(0);
+    Printer.vizPrinter((log.code,log.links),"p4cpu_0.html");
+
+
+    /*
+    var i = 0
+    for (log <- log_list) {
+      Printer.vizPrinter((log.code,log.links),"p4nat_"+i+".html");
+      i += 1
+    }
+    */
+
+
+
+
+
+
+
+    /*
+    val bvExec = new OVSExecutor(new Z3BVSolver)
+
+    var clickExecutionContext = P4ExecutionContext(
+      res.instructions(), res.links(), bvExec.execute(ib, State.clean, true)._1, bvExec
+    )
+    var init = System.currentTimeMillis()
+    var runs  = 0
+    while (!clickExecutionContext.isDone && runs < 10000) {
+      clickExecutionContext = clickExecutionContext.execute(true)
+      runs = runs + 1
+    }
+
+    println(s"Failed # ${clickExecutionContext.failedStates.size}, Ok # ${clickExecutionContext.stuckStates.size}")
+    println(s"Time is ${System.currentTimeMillis() - init}ms")
+
+    val psok = new BufferedOutputStream(new FileOutputStream("inputs/simple-nat/click-exec-ok-port0.json"))
+    JsonUtil.toJson(clickExecutionContext.stuckStates, psok)
+    psok.close()
+
+    val relevant = clickExecutionContext.failedStates.filter(x => {
+      !x.history.head.startsWith("router.parser")
+      //      true
+    })
+
+    val psko = new BufferedOutputStream(new FileOutputStream("inputs/simple-nat/click-exec-fail-port0.json"))
+    JsonUtil.toJson(relevant, psko)
+    psko.close()
+
+
+    val psokpretty = new PrintStream("inputs/simple-nat/click-exec-ok-port0-pretty.json")
+    psokpretty.println(clickExecutionContext.stuckStates)
+    psokpretty.close()
+
+    val pskopretty = new PrintStream("inputs/simple-nat/click-exec-fail-port0-pretty.json")
+    pskopretty.println(relevant)
+    pskopretty.close()
+  */
+
+  }
+
   def main(args: Array[String]): Unit = {
 
 
@@ -96,23 +195,16 @@ object Tester {
 */
 
 
-    //costin_example
-    //topology
-    //future_test
-    //println(State.bigBang)
 
-                      asa
-    //iftest
-    //ib test
-    //ibtest
+                     // asa
+    dragos
 
-    /*
-    var (v,logger) = verify(EF(Formula.Fail), "0", code(tiny_topo),links(tiny_topo))
-    Printer.vizPrinter((logger.code,logger.links),"policy.html")
+    //var (v,logger) = verify(EF(Formula.Fail), "0", code(tiny_topo),links(tiny_topo))
+    //Printer.vizPrinter((logger.code,logger.links),"policy.html")
 
-    println(logger.code)
-    println(logger.links)
-  */
+    //println(logger.code)
+    //println(logger.links)
+
 
     //println(tiny_topo)
   }
@@ -252,33 +344,6 @@ object Tester {
 
   }
 
-  def ibtest = {
-    var model = InstructionBlock(Assign(IPSrc,ConstantValue(5)),
-      Assign(IPDst,ConstantValue(6)),
-      Assign(TcpSrc,ConstantValue(7)),
-      Assign(TcpDst,ConstantValue(8)))
-
-    var policy = AF(Constrain(IPSrc,:>:(ConstantValue(9))))
-    verify(policy,model)
-
-    /*
-    var s = Policy.state
-    var sp = s.execute(Assign(IPSrc,ConstantValue(666)))
-    println("History "+sp.state.instructionHistory)
-    */
-
-
-  }
-
-  def iftest = {
-    var model = InstructionBlock(Assign(IPSrc,ConstantValue(5)),
-                                If(Constrain(IPDst,:==:(ConstantValue(10))),
-                                        Assign(IPSrc,ConstantValue(10)),
-                                        Assign(IPSrc, ConstantValue(9))))
-    var policy = AF(Constrain(IPSrc,:>:(ConstantValue(4))))
-    verify(policy,model)
-  }
-
 
   def topology = {
 
@@ -316,10 +381,7 @@ object Tester {
 
   }
 
-  def future_test = {
-    var model = InstructionBlock(Fork(Assign(IPSrc,ConstantValue(3)),Assign(IPSrc,ConstantValue(4)),Assign(IPSrc,ConstantValue(5))),Assign(TcpSrc,ConstantValue(5)))
-    verify (EF(Constrain(IPDst,:==:(ConstantValue(100)))),model)
-  }
+
 
   def costin_example = {
 
@@ -334,7 +396,6 @@ object Tester {
                  Or(EF(Constrain(IPSrc,:>=:(ConstantValue(5)))),EF(Constrain(TcpSrc,:>=:(ConstantValue(5))))))
 
 
-    verify(policy,model)
 
 
   }
@@ -352,8 +413,6 @@ object Tester {
     )
 
     var policy = AG(EF(Constrain(IPSrc,:>=:(ConstantValue(2)))))
-    verify(policy,model)
-
 
   }
 
