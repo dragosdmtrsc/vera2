@@ -6,8 +6,8 @@ import org.change.v2.analysis.executor.OVSExecutor
 import org.change.v2.analysis.executor.solvers.{Solver, Z3BVSolver, Z3Solver}
 import org.change.v2.analysis.memory
 import org.change.v2.analysis.memory.State
-import org.change.v2.analysis.processingmodels.LocationId
-import org.change.v2.analysis.processingmodels.instructions.{Fail, Forward}
+import org.change.v2.analysis.processingmodels.{Instruction, LocationId}
+import org.change.v2.analysis.processingmodels.instructions.{Call, Fail, Forward}
 
 import scala.collection.concurrent.{TrieMap, Map => ConcurrentMap}
 
@@ -45,6 +45,12 @@ class LoopDetectingOVSExecutor(checkedPorts: Set[LocationId], solver: Solver) ex
     }
 
     toExecuteNext()
+  }
+
+  override def executeExoticInstruction(instruction: Instruction, s: State, v: Boolean) = instruction match {
+    // Map a Call instruction to Forward
+    case Call(i) => executeForward(Forward(i), s, v)
+    case _ => super.executeExoticInstruction(instruction, s, v)
   }
 }
 

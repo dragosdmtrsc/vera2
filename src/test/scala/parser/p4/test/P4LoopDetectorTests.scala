@@ -33,7 +33,7 @@ class P4LoopDetectorTests extends FunSuite {
     ps.println(JsonUtil.toJson(res.links))
     ps.close()
 
-    val bvExec = new BVLoopDetectingExecutor(Set.empty)
+    val bvExec = new OVSExecutor(new Z3BVSolver())
 
     var clickExecutionContext = P4ExecutionContext(
       res.instructions(), res.links(), bvExec.execute(ib, State.clean, true)._1, bvExec
