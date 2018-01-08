@@ -132,14 +132,21 @@ class ActionInstance(p4Action: P4Action,
   }
 
   def handleRecirculate(recirculate: Recirculate): InstructionBlock = {
-    val fldList = argList.head.asInstanceOf[Symbol].id
-    val actualFieldList = switch.getFieldListMap()(fldList)
-    InstructionBlock(
-      setOriginal(),
-      restore(actualFieldList.getFields.toList),
-      Assign("standard_metadata.instance_type", ConstantValue(PKT_INSTANCE_TYPE_RECIRC.value)),
-      Forward(switchInstance.getName + ".parser")
-    )
+    if (argList.nonEmpty) {
+      val fldList = argList.head.asInstanceOf[Symbol].id
+      val actualFieldList = switch.getFieldListMap()(fldList)
+      InstructionBlock(
+        setOriginal(),
+        restore(actualFieldList.getFields.toList),
+        Assign("standard_metadata.instance_type", ConstantValue(PKT_INSTANCE_TYPE_RECIRC.value)),
+        Forward(switchInstance.getName + ".parser")
+      )
+    } else {
+      InstructionBlock(
+        Assign("standard_metadata.instance_type", ConstantValue(PKT_INSTANCE_TYPE_RECIRC.value)),
+        Forward(switchInstance.getName + ".parser")
+      )
+    }
   }
 
   def handleCloneFromIngressToIngress(cloneIngressPktToIngress: CloneIngressPktToIngress): Fork = {
