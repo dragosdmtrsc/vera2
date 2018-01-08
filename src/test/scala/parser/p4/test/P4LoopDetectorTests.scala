@@ -18,22 +18,11 @@ class P4LoopDetectorTests extends FunSuite {
     val p4 = s"$dir/copy_to_cpu-ppc.p4"
     val dataplane = s"$dir/commands.txt"
     val res = ControlFlowInterpreter(p4, dataplane, Map[Int, String](1 -> "veth0", 2 -> "veth1", 3 -> "cpu"), "router")
-    //    val fin = "inputs/simple-nat/graph.dot"
-    //    val ps = new PrintStream(fin)
-    //    ps.println(res.toDot())
-    //    ps.close()
-    //    import sys.process._
-    //    s"dot -Tpng $fin -O" !
     val ib = InstructionBlock(
-      res.allParserStatesInstruction(),
+      res.allParserStatesInline(),
       Forward("router.input.1")
     )
-    val ps = new PrintStream(s"$dir/ctrl1-instrs.json")
-    ps.println(JsonUtil.toJson(res.instructions()))
-    ps.println(JsonUtil.toJson(res.links))
-    ps.close()
-
-    val bvExec = new OVSExecutor(new Z3BVSolver())
+    val bvExec = new BVLoopDetectingExecutor(Set.empty)
 
     var clickExecutionContext = P4ExecutionContext(
       res.instructions(), res.links(), bvExec.execute(ib, State.clean, true)._1, bvExec
@@ -45,30 +34,37 @@ class P4LoopDetectorTests extends FunSuite {
       clickExecutionContext = clickExecutionContext.execute(true)
       runs = runs + 1
     }
-
     println(s"Failed # ${clickExecutionContext.failedStates.size}, Ok # ${clickExecutionContext.stuckStates.size}")
     println(s"Time is ${System.currentTimeMillis() - init}ms")
 
     val psok = new BufferedOutputStream(new FileOutputStream(s"$dir/click-exec-ok-port0.json"))
     JsonUtil.toJson(clickExecutionContext.stuckStates, psok)
     psok.close()
+    val relevant = clickExecutionContext.failedStates
+    printResults(dir, 0, clickExecutionContext.stuckStates,  clickExecutionContext.failedStates, "nasty")
+  }
 
-    val relevant = clickExecutionContext.failedStates.filter(x => {
-      !x.history.head.startsWith("router.parser")
-      //      true
-    })
-
-    val psko = new BufferedOutputStream(new FileOutputStream(s"$dir/click-exec-fail-port0.json"))
+  private def printResults(dir: String, port: Int, ok: List[State], failed: List[State], okBase: String): Unit = {
+    val psok = new BufferedOutputStream(new FileOutputStream(s"$dir/ok-port$port-$okBase.json"))
+    JsonUtil.toJson(ok, psok)
+    psok.close()
+    val relevant = failed
+    val psko = new BufferedOutputStream(new FileOutputStream(s"$dir/fail-port$port-$okBase.json"))
     JsonUtil.toJson(relevant, psko)
     psko.close()
 
-
-    val psokpretty = new PrintStream(s"$dir/click-exec-ok-port0-pretty.json")
-    psokpretty.println(clickExecutionContext.stuckStates)
+    import org.change.v2.analysis.memory.jsonformatters.StateToJson._
+    import spray.json._
+    val psokpretty = new PrintStream(s"$dir/ok-port$port-pretty-$okBase.json")
+    psokpretty.println(ok.toJson(JsonWriter.func2Writer[List[State]](u => {
+      JsArray(u.map(_.toJson).toVector)
+    })).prettyPrint)
     psokpretty.close()
 
-    val pskopretty = new PrintStream(s"$dir/click-exec-fail-port0-pretty.json")
-    pskopretty.println(relevant)
+    val pskopretty = new PrintStream(s"$dir/fail-port$port-pretty-$okBase.json")
+    pskopretty.println(relevant.toJson(JsonWriter.func2Writer[List[State]](u => {
+      JsArray(u.map(_.toJson).toVector)
+    })).prettyPrint)
     pskopretty.close()
   }
 

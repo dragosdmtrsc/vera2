@@ -104,6 +104,16 @@ class ControlFlowInterpreter[T<:ISwitchInstance](val switchInstance: T,
   def allParserStatesInstruction(): InstructionBlock =
     StateExpander.generateAllPossiblePackets(expd, switch, switchInstance.getName)
 
+  def allParserStatesInline() : Instruction = {
+    import org.change.v2.analysis.memory.TagExp.IntImprovements
+    InstructionBlock(
+      CreateTag("START", 0),
+      Fork(
+        expd.map(x => instructionsCached(switchInstance.getName + ".generator." + x.seflPortName))
+      )
+    )
+  }
+
 }
 
 case class P4ExecutionContext(instructions: Map[LocationId, Instruction],
