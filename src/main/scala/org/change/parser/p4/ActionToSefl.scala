@@ -15,6 +15,15 @@ import org.change.v2.p4.model.InstanceType._
 
 import scala.collection.JavaConversions._
 
+object ActionInstance {
+  private val readOnlyFields = Set[String](
+    "standard_metadata.egress_port",
+    "standard_metadata.ingress_port",
+    "standard_metadata.instance_type",
+    "standard_metadata.egress_instance"
+  )
+}
+
 class ActionInstance(p4Action: P4Action,
                      argList : List[FloatingExpression],
                      switchInstance: ISwitchInstance,
@@ -25,6 +34,14 @@ class ActionInstance(p4Action: P4Action,
 
   override def toString: String = s"${switchInstance.getName}.action.$table.$flowNumber"
 
+
+
+  private def handleReadonlyDestination(dst : String, continueWith : Instruction) = {
+    if (ActionInstance.readOnlyFields contains dst)
+      Fail(s"Attempt to write to $dst, a read-only field")
+    else
+      continueWith
+  }
 
   def handleComplexAction(complexAction: P4ComplexAction) : Instruction = {
     val arity = complexAction.getParameterList.size()
@@ -62,19 +79,19 @@ class ActionInstance(p4Action: P4Action,
     val argDest = argList.head.asInstanceOf[Symbol].id
     val argSource = argList(1)
     val dstField = argDest
-    Assign(dstField, argSource)
+    handleReadonlyDestination(dstField, Assign(dstField, argSource))
   }
 
   def handleAddToField(addToField: AddToField) : Instruction = {
     val argDest = argList.head.asInstanceOf[Symbol].id
     val argSource = argList(1)
-    Assign(argDest, :+:(:@(argDest), argSource))
+    handleReadonlyDestination(argDest, Assign(argDest, :+:(:@(argDest), argSource)))
   }
 
   def handleSubtractFromField(addToField: SubtractFromField) : Instruction = {
     val argDest = argList.head.asInstanceOf[Symbol].id
     val argSource = argList(1)
-    Assign(argDest, :-:(:@(argDest), argSource))
+    handleReadonlyDestination(argDest, Assign(argDest, :-:(:@(argDest), argSource)))
   }
 
   def setOriginal() : Instruction = {
@@ -242,7 +259,7 @@ class ActionInstance(p4Action: P4Action,
       } else {
         s"${switchInstance.getName}.reg[${regSpec.getStaticTable}].${argSource1.id}[$intVal]"
       }
-      Assign(argDest.id, :@(name))
+      handleReadonlyDestination(argDest.id, Assign(argDest.id, :@(name)))
     }
 
     if (argList.length > 2) {
@@ -584,7 +601,7 @@ class ActionInstance(p4Action: P4Action,
     } else {
       throw new UnsupportedOperationException("AND, OR, XOR supported")
     }
-    Assign(dstField,fexp)
+    handleReadonlyDestination(dstField, Assign(dstField,fexp))
   }
 
   def handleTruncate(): Instruction = {
@@ -596,7 +613,7 @@ class ActionInstance(p4Action: P4Action,
 
   def handleShiftLeft(): Instruction = {
     val destination = argList.head.asInstanceOf[Symbol]
-    Assign(destination.id, :<<:(argList(1), argList(2)))
+    handleReadonlyDestination(destination.id,  Assign(destination.id, :<<:(argList(1), argList(2))))
   }
 
   def handlePrimitiveAction(primitiveAction : P4Action) : Instruction = {
