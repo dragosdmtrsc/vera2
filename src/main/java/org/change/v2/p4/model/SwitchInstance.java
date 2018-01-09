@@ -158,8 +158,9 @@ public class SwitchInstance implements ISwitchInstance {
                             flowInstance.addActionParams(RepresentationConversion.macToNumber(split[j].trim().toUpperCase()));
                         } else {
                             try {
-                                flowInstance.addActionParams(Long.parseLong(split[j].trim()));
+                                flowInstance.addActionParams(Long.decode(split[j].trim()));
                             } catch (NumberFormatException nfe) {
+                                System.err.println("Match param failed at " + k + " line " + crt + " " + nfe.getMessage());
                                 flowInstance.addActionParams(split[j].trim());
                             }
                         }
@@ -185,7 +186,7 @@ public class SwitchInstance implements ISwitchInstance {
                                     break;
                                 }
                                 catch (NumberFormatException nfe) {
-
+                                    System.err.println("Mask decode failed " + nfe.getMessage());
                                 }
                             }
                             r++;

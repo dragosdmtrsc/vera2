@@ -15,7 +15,7 @@ import org.change.v2.analysis.types.LongType
 /**
   * Created by dragos on 16.10.2017.
   */
-class CodeAwareInstructionExecutor(program : Map[String, Instruction],
+class CodeAwareInstructionExecutor(val program : Map[String, Instruction],
                                    solver : Solver) extends OVSExecutor(solver) {
 
   override def executeForward(instruction: Forward, s: State, v: Boolean): (List[State], List[State]) = {

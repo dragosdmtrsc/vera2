@@ -36,10 +36,13 @@ class ActionInstance(p4Action: P4Action,
 
   private def handleValidDestination(dst : String, continueWith : Instruction) = {
     val hdr = dst.split("\\.")(0)
-    If (Constrain(hdr + ".IsValid", :==:(ConstantValue(1))),
-      continueWith,
-      Fail(s"Attempt to write to $dst, which is part of an invalid header")
-    )
+    if (switch.getInstance(hdr).isMetadata)
+      continueWith
+    else
+      If (Constrain(hdr + ".IsValid", :==:(ConstantValue(1))),
+        continueWith,
+        Fail(s"Attempt to write to $dst, which is part of an invalid header")
+      )
   }
 
   private def handleReadonlyDestination(dst : String, continueWith : Instruction) = {
