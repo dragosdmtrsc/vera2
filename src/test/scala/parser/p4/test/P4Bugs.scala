@@ -232,7 +232,9 @@ class P4Bugs extends FunSuite {
     val dir = "inputs/p4xos"
     val p4 = s"$dir/learner-ppc.p4"
     val dataplane = s"$dir/commands.txt"
-    val res = ControlFlowInterpreter(p4, dataplane, Map[Int, String](1 -> "veth0", 2 -> "veth1", 11 -> "cpu"), "router")
+    val res = ControlFlowInterpreter(p4, dataplane, Map[Int, String](1 -> "veth0", 2 -> "veth1", 11 -> "cpu"), "router").setAdditionalInitCode((x, y) => {
+      new SymbolicRegistersInitFactory(x).initCode()
+    })
     val port = 1
     val ib = InstructionBlock(
       Forward(s"router.input.$port")
@@ -240,10 +242,14 @@ class P4Bugs extends FunSuite {
     val codeAwareInstructionExecutor = CodeAwareInstructionExecutor(res.instructions(), res.links(), solver = new Z3BVSolver)
     val (initial, _) = codeAwareInstructionExecutor.
       execute(InstructionBlock(
-        res.allParserStatesInstruction()
+        CreateTag("START", 0),
+        Call("router.generator.parse_ethernet.parse_ipv4.parse_udp.parse_paxos")
       ), State.clean, verbose = true)
     val (ok: List[State], failed: List[State]) = executeAndPrintStats(ib, initial, codeAwareInstructionExecutor)
-    printResults(dir, port, ok, failed, "soso")
+
+    printResults(dir, port, ok, failed.filter(r => {
+      !(r.history.head.contains("router.parser.") && r.errorCause.exists(r => r.contains("Cannot resolve reference to")))
+    }), "soso")
   }
 
   test("p4xos/coordinator-ppc.p4") {

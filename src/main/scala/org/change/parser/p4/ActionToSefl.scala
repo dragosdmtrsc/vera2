@@ -594,6 +594,11 @@ class ActionInstance(p4Action: P4Action,
     )
   }
 
+  def handleShiftLeft(): Instruction = {
+    val destination = argList.head.asInstanceOf[Symbol]
+    Assign(destination.id, :<<:(argList(1), argList(2)))
+  }
+
   def handlePrimitiveAction(primitiveAction : P4Action) : Instruction = {
     primitiveAction.getActionType match {
       case P4ActionType.AddToField => handleAddToField(primitiveAction.asInstanceOf[AddToField])
@@ -619,6 +624,8 @@ class ActionInstance(p4Action: P4Action,
       case P4ActionType.BitAnd => handleBitAndOrXor(isAnd = true, isOr = false, isXor = false)
       case P4ActionType.BitOr => handleBitAndOrXor(isAnd = false, isOr = true, isXor = false)
       case P4ActionType.BitXor => handleBitAndOrXor(isAnd = false, isOr = false, isXor = true)
+      case P4ActionType.ShiftLeft => handleShiftLeft() 
+//        handleBitAndOrXor(isAnd = false, isOr = false, isXor = true)
       case P4ActionType.Truncate => handleTruncate()
       case _ => throw new UnsupportedOperationException(s"Primitive action of type ${primitiveAction.getActionType} not yet supported")
     }

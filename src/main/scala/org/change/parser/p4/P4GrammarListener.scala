@@ -846,7 +846,7 @@ class P4GrammarListener extends P4GrammarBaseListener {
 
 
   override def exitField_name(ctx:Field_nameContext) {
-    println("Matched field name "+ctx.getText)
+//    println("Matched field name "+ctx.getText)
   }
 
   //exp : exp bin_op exp # compound_exp
@@ -904,7 +904,6 @@ class P4GrammarListener extends P4GrammarBaseListener {
       case "and" =>
         blocks.get(ctx).appendAll(blocks.get(ctx.bool_expr(0)))
         blocks.get(ctx).appendAll(blocks.get(ctx.bool_expr(1)))
-
       case "or" =>
         blocks.get(ctx).append(
           Fork(
@@ -941,11 +940,17 @@ class P4GrammarListener extends P4GrammarBaseListener {
           case "<" =>
             constraints.put(ctx, :<:(exp2))
             blocks.get(ctx).append(Constrain(x,:<:(exp2)))
+          case "<=" =>
+            constraints.put(ctx, :<:(exp2))
+            blocks.get(ctx).append(Constrain(x,:<=:(exp2)))
 
           case ">" =>
             constraints.put(ctx, :>:(exp2))
             blocks.get(ctx).append(Constrain(x,:>:(exp2)))
-          case _ => println("Unknown relop "+ctx.rel_op);
+          case ">=" =>
+            constraints.put(ctx, :>:(exp2))
+            blocks.get(ctx).append(Constrain(x,:>=:(exp2)))
+          case _ => println("Unknown relop "+ctx.rel_op.getText);
         }
 
       case Address(x) =>

@@ -147,6 +147,8 @@ public class SwitchInstance implements ISwitchInstance {
                 }
                 j++;
                 P4Action theActionTemplate = sw.getActionRegistrar().getAction(actionName);
+                if (theActionTemplate == null)
+                    throw new IllegalArgumentException("No such action " + actionName + " declared for switch");
                 for (int k = 0; k < theActionTemplate.getParameterList().size(); k++, j++) {
                     if (IPAddressUtil.isIPv4LiteralAddress(split[j].trim())) {
                         flowInstance.addActionParams(RepresentationConversion.ipToNumber(split[j].trim()));
@@ -170,6 +172,8 @@ public class SwitchInstance implements ISwitchInstance {
                 } else {
                     List<TableMatch> matches = sw.getTableMatches(tableName);
                     int r = 0;
+                    if (matches == null)
+                        throw new IllegalArgumentException("No such table found " + tableName);
                     for (TableMatch tm : matches) {
                         if (tm.getMatchKind() == MatchKind.Lpm) {
                             String matchParm = flowInstance.getMatchParams().get(r).toString();

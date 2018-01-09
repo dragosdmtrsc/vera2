@@ -83,10 +83,36 @@ header_type udp_t {
     }
 }
 header udp_t udp;
+header_type paxos_meta_t {
+    fields {
+        acptid : 16;
+    }
+}
+metadata paxos_meta_t paxos_meta;
+header_type paxos_t {
+    fields {
+        msgtype : 16;
+        inst : 32;
+        rnd : 16;
+        vrnd : 16;
+        acptid : 16;
+        paxoslen : 32;
+        paxosval : 256;
+    }
+}
+header paxos_t paxos;
+header_type ingress_metadata_t {
+    fields {
+        round : 16;
+        set_drop : 1;
+        count : 8;
+        acceptors : 8;
+    }
+}
+metadata ingress_metadata_t local_metadata;
 field_list udp_checksum_list {
     ipv4.srcAddr;
     ipv4.dstAddr;
-    8'0;
     ipv4.protocol;
     udp.length_;
     udp.srcPort;
@@ -138,42 +164,21 @@ parser parse_udp {
         default: ingress;
     }
 }
-header_type paxos_t {
-    fields {
-        msgtype : 16;
-        inst : 32;
-        rnd : 16;
-        vrnd : 16;
-        acptid : 16;
-        paxoslen : 32;
-        paxosval : 256;
-    }
-}
-header paxos_t paxos;
 parser parse_paxos {
     extract(paxos);
     return ingress;
 }
-header_type ingress_metadata_t {
-    fields {
-        round : 16;
-        set_drop : 1;
-        count : 8;
-        acceptors : 8;
-    }
-}
-metadata ingress_metadata_t local_metadata;
 register rounds_register {
     width : 16;
-    instance_count : 65536;
+    instance_count : 4;
 }
 register values_register {
     width : 256;
-    instance_count : 65536;
+    instance_count : 4;
 }
 register history2B {
     width : 8;
-    instance_count : 65536;
+    instance_count : 4;
 }
 action _nop() {
 }
@@ -185,20 +190,22 @@ action read_round() {
     modify_field(local_metadata.set_drop, 1);
     register_read(local_metadata.acceptors, history2B, paxos.inst);
 }
-table round_tbl {
-    actions { read_round; }
-    size : 1;
-}
 action handle_2b() {
     register_write(rounds_register, paxos.inst, paxos.rnd);
     register_write(values_register, paxos.inst, paxos.paxosval);
-    modify_field(local_metadata.acceptors, local_metadata.acceptors | (1 << paxos.acptid));
+    shift_left(paxos_meta.acptid, 1, paxos.acptid);
+    bit_or(local_metadata.acceptors, local_metadata.acceptors, paxos_meta.acptid);
     register_write(history2B, paxos.inst, local_metadata.acceptors);
 }
 action handle_new_value() {
     register_write(rounds_register, paxos.inst, paxos.rnd);
     register_write(values_register, paxos.inst, paxos.paxosval);
-    register_write(history2B, paxos.inst, 1 << paxos.acptid);
+    shift_left(paxos_meta.acptid, 1, paxos.acptid);
+    register_write(history2B, paxos.inst, paxos_meta.acptid);
+}
+table round_tbl {
+    actions { read_round; }
+    size : 1;
 }
 table learner_tbl {
     reads { paxos.msgtype : exact; }
