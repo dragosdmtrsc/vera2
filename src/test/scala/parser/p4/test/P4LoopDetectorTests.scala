@@ -44,28 +44,4 @@ class P4LoopDetectorTests extends FunSuite {
     printResults(dir, 0, clickExecutionContext.stuckStates,  clickExecutionContext.failedStates, "nasty")
   }
 
-  private def printResults(dir: String, port: Int, ok: List[State], failed: List[State], okBase: String): Unit = {
-    val psok = new BufferedOutputStream(new FileOutputStream(s"$dir/ok-port$port-$okBase.json"))
-    JsonUtil.toJson(ok, psok)
-    psok.close()
-    val relevant = failed
-    val psko = new BufferedOutputStream(new FileOutputStream(s"$dir/fail-port$port-$okBase.json"))
-    JsonUtil.toJson(relevant, psko)
-    psko.close()
-
-    import org.change.v2.analysis.memory.jsonformatters.StateToJson._
-    import spray.json._
-    val psokpretty = new PrintStream(s"$dir/ok-port$port-pretty-$okBase.json")
-    psokpretty.println(ok.toJson(JsonWriter.func2Writer[List[State]](u => {
-      JsArray(u.map(_.toJson).toVector)
-    })).prettyPrint)
-    psokpretty.close()
-
-    val pskopretty = new PrintStream(s"$dir/fail-port$port-pretty-$okBase.json")
-    pskopretty.println(relevant.toJson(JsonWriter.func2Writer[List[State]](u => {
-      JsArray(u.map(_.toJson).toVector)
-    })).prettyPrint)
-    pskopretty.close()
-  }
-
 }

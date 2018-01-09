@@ -34,7 +34,13 @@ class ActionInstance(p4Action: P4Action,
 
   override def toString: String = s"${switchInstance.getName}.action.$table.$flowNumber"
 
-
+  private def handleValidDestination(dst : String, continueWith : Instruction) = {
+    val hdr = dst.split("\\.")(0)
+    If (Constrain(hdr + ".IsValid", :==:(ConstantValue(1))),
+      continueWith,
+      Fail(s"Attempt to write to $dst, which is part of an invalid header")
+    )
+  }
 
   private def handleReadonlyDestination(dst : String, continueWith : Instruction) = {
     if (ActionInstance.readOnlyFields contains dst)
@@ -79,19 +85,19 @@ class ActionInstance(p4Action: P4Action,
     val argDest = argList.head.asInstanceOf[Symbol].id
     val argSource = argList(1)
     val dstField = argDest
-    handleReadonlyDestination(dstField, Assign(dstField, argSource))
+    handleReadonlyDestination(dstField, handleValidDestination(dstField, Assign(dstField, argSource)))
   }
 
   def handleAddToField(addToField: AddToField) : Instruction = {
     val argDest = argList.head.asInstanceOf[Symbol].id
     val argSource = argList(1)
-    handleReadonlyDestination(argDest, Assign(argDest, :+:(:@(argDest), argSource)))
+    handleReadonlyDestination(argDest, handleValidDestination(argDest, Assign(argDest, :+:(:@(argDest), argSource))))
   }
 
   def handleSubtractFromField(addToField: SubtractFromField) : Instruction = {
     val argDest = argList.head.asInstanceOf[Symbol].id
     val argSource = argList(1)
-    handleReadonlyDestination(argDest, Assign(argDest, :-:(:@(argDest), argSource)))
+    handleReadonlyDestination(argDest, handleValidDestination(argDest, Assign(argDest, :-:(:@(argDest), argSource))))
   }
 
   def setOriginal() : Instruction = {
@@ -119,7 +125,7 @@ class ActionInstance(p4Action: P4Action,
 //                )
                 NoOp
               } else {
-                If (Constrain(s"${x.getName}.${y.getName}.IsValid", :==:(ConstantValue(1))),
+                If (Constrain(s"${x.getName}.IsValid", :==:(ConstantValue(1))),
                   InstructionBlock(
                     Allocate(x.getName + "." + y.getName, y.getLength),
                     Assign(x.getName + "." + y.getName, :@("Original." + x.getName + "." + y.getName))
@@ -259,7 +265,7 @@ class ActionInstance(p4Action: P4Action,
       } else {
         s"${switchInstance.getName}.reg[${regSpec.getStaticTable}].${argSource1.id}[$intVal]"
       }
-      handleReadonlyDestination(argDest.id, Assign(argDest.id, :@(name)))
+      handleReadonlyDestination(argDest.id, handleValidDestination(argDest.id, Assign(argDest.id, :@(name))))
     }
 
     if (argList.length > 2) {
@@ -601,7 +607,7 @@ class ActionInstance(p4Action: P4Action,
     } else {
       throw new UnsupportedOperationException("AND, OR, XOR supported")
     }
-    handleReadonlyDestination(dstField, Assign(dstField,fexp))
+    handleReadonlyDestination(dstField, handleValidDestination(dstField, Assign(dstField,fexp)))
   }
 
   def handleTruncate(): Instruction = {
@@ -613,7 +619,7 @@ class ActionInstance(p4Action: P4Action,
 
   def handleShiftLeft(): Instruction = {
     val destination = argList.head.asInstanceOf[Symbol]
-    handleReadonlyDestination(destination.id,  Assign(destination.id, :<<:(argList(1), argList(2))))
+    handleReadonlyDestination(destination.id, handleValidDestination(destination.id, Assign(destination.id, :<<:(argList(1), argList(2)))))
   }
 
   def handlePrimitiveAction(primitiveAction : P4Action) : Instruction = {

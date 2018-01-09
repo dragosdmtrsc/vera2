@@ -22,16 +22,17 @@ class ControlFlowInterpreter[T<:ISwitchInstance](val switchInstance: T,
                                                  val additionalInitCode : (T, Int) => Instruction,
                                                  val tableFactory : (T, String, String) => Instruction,
                                                  val initFactory : (T) => Instruction) {
-  def this(switchInstance: T, switch: Switch) = this(
+  def this(switchInstance: T, switch: Switch,
+           optAdditionalInitCode : Option[(T, Int) => Instruction] = None,
+           optTableFactory : Option[(T, String, String) => Instruction] = None,
+           optInitFactory : Option[(T) => Instruction] = None) = this(
     switchInstance, switch,
-    InitCodeFactory.get(switchInstance.getClass.asInstanceOf[Class[T]]),
-    FullTableFactory.get(switchInstance.getClass.asInstanceOf[Class[T]]),
-    GlobalInitFactory.get(switchInstance.getClass.asInstanceOf[Class[T]])
+    optAdditionalInitCode.getOrElse(InitCodeFactory.get(switchInstance.getClass.asInstanceOf[Class[T]])),
+    optTableFactory.getOrElse(FullTableFactory.get(switchInstance.getClass.asInstanceOf[Class[T]])),
+    optInitFactory.getOrElse(GlobalInitFactory.get(switchInstance.getClass.asInstanceOf[Class[T]]))
   )
-  def setAdditionalInitCode(nadditionalInitCode : (T, Int) => Instruction) = new ControlFlowInterpreter[T](switchInstance,
-    switch, nadditionalInitCode, tableFactory, initFactory)
-  def setTableFactory(ntableFactory : (T, String, String) => Instruction) = new ControlFlowInterpreter[T](switchInstance,
-    switch, additionalInitCode, ntableFactory, initFactory)
+  def this(switchInstance: T, switch: Switch) = this(switchInstance, switch, None, None, None)
+
 
   private val initializeCode = new InitializeCode(switchInstance, switch, additionalInitCode, initFactory)
   private lazy val expd = new StateExpander(switch, "start").doDFS(DFSState(0))
@@ -184,13 +185,25 @@ object ControlFlowInterpreter {
     new FullTable(tabName, switchInstance.asInstanceOf[SwitchInstance], id).fullAction()
   })
 
-  def apply(switchInstance: SwitchInstance): ControlFlowInterpreter[SwitchInstance] = new ControlFlowInterpreter(switchInstance,
-    switchInstance.getSwitchSpec)
+  def apply(switchInstance: SwitchInstance,
+            optAdditionalInitCode : Option[(SwitchInstance, Int) => Instruction],
+            optTableFactory : Option[(SwitchInstance, String, String) => Instruction],
+            optInitFactory : Option[(SwitchInstance) => Instruction]): ControlFlowInterpreter[SwitchInstance] =
+    new ControlFlowInterpreter(switchInstance,
+      switchInstance.getSwitchSpec,
+      optAdditionalInitCode,
+      optTableFactory,
+      optInitFactory)
 
-  def apply(p4File: String, dataplane: String, ifaces: Map[Int, String], name : String = ""): ControlFlowInterpreter[SwitchInstance] =
+  def apply(p4File: String, dataplane: String, ifaces: Map[Int, String], name : String = "",
+            optAdditionalInitCode : Option[(SwitchInstance, Int) => Instruction] = None,
+            optTableFactory : Option[(SwitchInstance, String, String) => Instruction] = None,
+            optInitFactory : Option[(SwitchInstance) => Instruction] = None): ControlFlowInterpreter[SwitchInstance] =
     ControlFlowInterpreter(SwitchInstance.fromP4AndDataplane(p4File, dataplane, name, ifaces.foldLeft(new util.HashMap[Integer, String]())((acc, x) => {
       acc.put(x._1, x._2)
       acc
-    })))
+    })), optAdditionalInitCode,
+      optTableFactory,
+      optInitFactory)
 
 }
