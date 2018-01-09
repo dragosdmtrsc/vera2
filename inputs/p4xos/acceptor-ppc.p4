@@ -82,6 +82,25 @@ header igmp_t igmp;
 parser start {
     return parse_ethernet;
 }
+header_type paxos_t {
+    fields {
+        msgtype : 16;
+        inst : 32;
+        rnd : 16;
+        vrnd : 16;
+        acptid : 16;
+        paxoslen : 32;
+        paxosval : 256;
+    }
+}
+header paxos_t paxos;
+header_type ingress_metadata_t {
+    fields {
+        round : 16;
+        set_drop : 1;
+    }
+}
+metadata ingress_metadata_t local_metadata;
 parser parse_ethernet {
     extract(ethernet);
     return select(latest.etherType) {
@@ -114,29 +133,10 @@ parser parse_udp {
         default: ingress;
     }
 }
-header_type paxos_t {
-    fields {
-        msgtype : 16;
-        inst : 32;
-        rnd : 16;
-        vrnd : 16;
-        acptid : 16;
-        paxoslen : 32;
-        paxosval : 256;
-    }
-}
-header paxos_t paxos;
 parser parse_paxos {
     extract(paxos);
     return ingress;
 }
-header_type ingress_metadata_t {
-    fields {
-        round : 16;
-        set_drop : 1;
-    }
-}
-metadata ingress_metadata_t local_metadata;
 register datapath_id {
     width: 16;
     static : acceptor_tbl;
@@ -163,10 +163,6 @@ action read_round() {
     register_read(local_metadata.round, rounds_register, paxos.inst);
     modify_field(local_metadata.set_drop, 1);
 }
-table round_tbl {
-    actions { read_round; }
-    size : 1;
-}
 action handle_1a(learner_port) {
     modify_field(paxos.msgtype, 1);
     register_read(paxos.vrnd, vrounds_register, paxos.inst);
@@ -184,6 +180,10 @@ action handle_2a(learner_port) {
     register_read(paxos.acptid, datapath_id, 0);
     modify_field(udp.dstPort, learner_port);
     modify_field(udp.checksum, 0);
+}
+table round_tbl {
+    actions { read_round; }
+    size : 1;
 }
 table acceptor_tbl {
     reads { paxos.msgtype : exact; }
