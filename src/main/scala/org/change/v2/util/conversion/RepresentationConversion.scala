@@ -41,6 +41,8 @@ object RepresentationConversion {
     ipAndMaskToInterval(ipToNumber(ip), mask)
   }
 
+  def isIp(ip : String): Boolean = "[0-9][0-9]?[0-9]?(\\.[0-9][0-9]?[0-9]?){3}".r.findFirstMatchIn(ip).nonEmpty
+
   def ipAndMaskToInterval(ip: String, mask: String): (Long, Long) = {
     ipAndMaskToInterval(ipToNumber(ip), Integer.parseInt(mask))
   }

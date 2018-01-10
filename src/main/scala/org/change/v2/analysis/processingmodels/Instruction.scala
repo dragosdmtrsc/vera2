@@ -21,5 +21,15 @@ abstract class Instruction(id: String = "", rewriteMappings: Map[String, String]
   def apply(s: State, verbose: Boolean = false): (List[State], List[State])
 
   def getIdHash = id.hashCode
+
+  def isTool = false
+}
+
+
+object Instruction {
+  implicit def apply(fun : Function1[State, (List[State], List[State])]) = new Instruction() {
+    override def isTool: Boolean = true
+    override def apply(s: State, verbose: Boolean): (List[State], List[State]) = fun(s)
+  }
 }
 

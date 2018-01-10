@@ -82,6 +82,7 @@ class OVSExecutor(solver: Solver) extends DecoratedInstructionExecutor(solver) {
       case destroy : DestroyPacket => destroy(s, verbose = true)
       case AssignNamedSymbolWithLength(id, exp, width) => AssignNamedSymbolWithLength(id, exp, width)(s, v)
       case Call(i) => executeForward(Forward(i), s, v)
+      case _ if instruction.isTool => instruction(s, v)
       case _ => throw new UnsupportedOperationException("Cannot handle this kind of instruction. Make it Translatable " + instruction)
     }
   }
@@ -99,7 +100,6 @@ class OVSExecutor(solver: Solver) extends DecoratedInstructionExecutor(solver) {
             })
             case None => Fail(s"No object found for $int")(s, v)
           }
-
           case Right(err) => Fail(err)(s, v)
         }
         case Some(c) => s.memory.eval(int) match {

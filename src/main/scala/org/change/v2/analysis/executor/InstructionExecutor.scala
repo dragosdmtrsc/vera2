@@ -20,6 +20,7 @@ abstract class Executor[T] extends IExecutor[T] {
       !instruction.isInstanceOf[If] &&
       !instruction.isInstanceOf[Fork] &&
       !instruction.isInstanceOf[InstructionBlock] &&
+      !instruction.isTool &&
       !instruction.isInstanceOf[Translatable])
       state.addInstructionToHistory(instruction)
     else
@@ -450,6 +451,8 @@ abstract class AbstractInstructionExecutor extends InstructionExecutor {
       case None => execute(Fail(TagExp.brokenTagExpErrorMessage), s, v)
     }
   }
+
+
 
 
   override def executeDeallocateRaw(instruction: DeallocateRaw,

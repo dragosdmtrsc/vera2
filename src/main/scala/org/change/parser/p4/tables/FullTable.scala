@@ -12,7 +12,7 @@ import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.analysis.processingmodels.instructions._
 import org.change.v2.p4.model.table.{MatchKind, TableMatch}
 import org.change.v2.p4.model.{Switch, SwitchInstance}
-import org.change.v2.util.conversion.RepresentationConversion.{ipAndMaskToInterval, ipToNumber, macToNumber}
+import org.change.v2.util.conversion.RepresentationConversion.{ipAndMaskToInterval, ipToNumber, macToNumber, isIp}
 
 import scala.collection.JavaConversions._
 import scala.collection.mutable
@@ -41,7 +41,11 @@ class TableRangeMatcher(tableMatch : TableMatch) extends Constrainable {
     if (tableMatch.getMatchKind == MatchKind.Lpm) {
       val spl = arg.split("/")
       val mask = java.lang.Integer.decode(spl(1))
-      val range = ipAndMaskToInterval(spl(0), spl(1))
+      val range = if (isIp(spl(0)))
+        ipAndMaskToInterval(spl(0), mask)
+      else {
+        ipAndMaskToInterval(java.lang.Long.decode(spl(0)).longValue(), mask)
+      }
       val (newForest, newNode) = Node.add(forest, Range(range._1, range._2))
       this.forest = newForest
       rrng.put(prio, newNode)
@@ -165,7 +169,9 @@ class TableTernaryMatcher(tableMatch: TableMatch, useBv : Boolean = true) extend
   val flowToValMask : mutable.Map[Int, (Long, Long)] = mutable.Map[Int, (Long, Long)]()
 
   override def constraint(switchInstance: SwitchInstance, which: Int): Instruction = {
-    val (mask, value) = flowToValMask(which)
+    val pair = flowToValMask(which)
+    val mask = pair._2
+    val value = pair._1
     val (hdr, fld) = P4Utils.fieldDef(tableMatch.getKey)
     val width = switchInstance.getSwitchSpec.getInstance(hdr).getLayout.getFields.find(x => x.getName == fld).get.getLength
     val actualMask = extractMask(mask, width)

@@ -21,8 +21,8 @@ case class :<<:(left: FloatingExpression, right: FloatingExpression) extends Flo
     * @return
     */
   override def instantiate(s: State): Either[Expression, String] = {
-    (left instantiate s) match {
-      case Left(e1) => (right instantiate s) match {
+    left instantiate s match {
+      case Left(e1) => right instantiate s match {
         case Left(e2) => Left(LShift(Value(e1), Value(e2)))
         case cause2@Right(_) => cause2
       }

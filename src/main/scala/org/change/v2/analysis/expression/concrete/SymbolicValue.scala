@@ -11,6 +11,11 @@ import z3.scala.{Z3AST, Z3Solver}
 case class SymbolicValue(name: String = "") extends Expression with FloatingExpression {
   def ast = Z3Util.z3Context.mkConst(s"sym${id.toString}", Z3Util.defaultSort)
 
+  override def equals(o: scala.Any): Boolean = o match {
+    case sym : SymbolicValue => sym.id == id
+    case _ => false
+  }
+
   override def toZ3(solver: Option[Z3Solver] = None): (Z3AST, Option[Z3Solver]) = (ast, solver)
 
   /**

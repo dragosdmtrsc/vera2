@@ -1,0 +1,13 @@
+table_set_default send_frame _drop
+table_set_default forward _drop
+table_set_default ipv4_lpm _drop
+table_set_default directtoprio directpriohigh
+table_set_default readbuffersense readbuffer
+table_set_default setprio setpriolow
+table_set_default dec_counter cont
+table_add send_frame rewrite_mac 2 => 11:22:33:44:55:66
+table_add forward set_dmac_read_reg 10.0.0.1 => 11:22:33:44:55:67
+table_add ipv4_lpm set_nhop 0.0.0.0/0 => 10.0.0.1 2
+table_add setprio setpriolow 0,1 =>
+table_add setprio setpriohigh 1,2 =>
+table_add dec_counter decreasereg 0,2 =>

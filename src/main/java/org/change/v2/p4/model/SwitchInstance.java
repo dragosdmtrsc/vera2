@@ -147,6 +147,8 @@ public class SwitchInstance implements ISwitchInstance {
                 }
                 j++;
                 P4Action theActionTemplate = sw.getActionRegistrar().getAction(actionName);
+                if (theActionTemplate == null)
+                    throw new IllegalArgumentException("No such action " + actionName + " declared for switch");
                 for (int k = 0; k < theActionTemplate.getParameterList().size(); k++, j++) {
                     if (IPAddressUtil.isIPv4LiteralAddress(split[j].trim())) {
                         flowInstance.addActionParams(RepresentationConversion.ipToNumber(split[j].trim()));
@@ -156,8 +158,9 @@ public class SwitchInstance implements ISwitchInstance {
                             flowInstance.addActionParams(RepresentationConversion.macToNumber(split[j].trim().toUpperCase()));
                         } else {
                             try {
-                                flowInstance.addActionParams(Long.parseLong(split[j].trim()));
+                                flowInstance.addActionParams(Long.decode(split[j].trim()));
                             } catch (NumberFormatException nfe) {
+                                System.err.println("Match param failed at " + k + " line " + crt + " " + nfe.getMessage());
                                 flowInstance.addActionParams(split[j].trim());
                             }
                         }
@@ -170,6 +173,8 @@ public class SwitchInstance implements ISwitchInstance {
                 } else {
                     List<TableMatch> matches = sw.getTableMatches(tableName);
                     int r = 0;
+                    if (matches == null)
+                        throw new IllegalArgumentException("No such table found " + tableName);
                     for (TableMatch tm : matches) {
                         if (tm.getMatchKind() == MatchKind.Lpm) {
                             String matchParm = flowInstance.getMatchParams().get(r).toString();
@@ -177,11 +182,11 @@ public class SwitchInstance implements ISwitchInstance {
                                 try
                                 {
                                     int mask = Integer.decode(matchParm.split("/")[1]);
-                                    flowInstance.setPriority(mask);
+                                    flowInstance.setPriority(-mask);
                                     break;
                                 }
                                 catch (NumberFormatException nfe) {
-
+                                    System.err.println("Mask decode failed " + nfe.getMessage());
                                 }
                             }
                             r++;

@@ -55,9 +55,6 @@ class HeaderDefinitionParsingTest extends FunSuite {
     val res = P4ParserRunner.parse(p4)
 
     assert(res.declaredHeaders.size == 2)
-    assert(res.headerInstances.size == 2)
-    assert(res.headerInstances("inner_vlan_tag").layout.headerName == "vlan_t")
-    assert(res.headerInstances("local_metadata").asInstanceOf[MetadataInstance].values("bad_packet") == 1)
   }
 
   test("actions can be parsed - registrar is not empty") {
@@ -289,13 +286,6 @@ class HeaderDefinitionParsingTest extends FunSuite {
     val p4 = s"$dir/simple_nat-ppc.p4"
     val dataplane = s"$dir/commands.txt"
     val res = ControlFlowInterpreter(p4, dataplane, Map[Int, String](1 -> "veth0", 2 -> "veth1", 11 -> "cpu"), "router")
-
-//    val fin = "inputs/simple-nat/graph.dot"
-//    val ps = new PrintStream(fin)
-//    ps.println(res.toDot())
-//    ps.close()
-//    import sys.process._
-//    s"dot -Tpng $fin -O" !
     val ib = InstructionBlock(
       res.allParserStatesInstruction(),
       res.initializeGlobally(),
