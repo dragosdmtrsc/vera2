@@ -522,6 +522,26 @@ public interface P4GrammarListener extends ParseTreeListener {
 	 */
 	void exitSet_statement(P4GrammarParser.Set_statementContext ctx);
 	/**
+	 * Enter a parse tree produced by {@link P4GrammarParser#simple_metadata_expr}.
+	 * @param ctx the parse tree
+	 */
+	void enterSimple_metadata_expr(P4GrammarParser.Simple_metadata_exprContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link P4GrammarParser#simple_metadata_expr}.
+	 * @param ctx the parse tree
+	 */
+	void exitSimple_metadata_expr(P4GrammarParser.Simple_metadata_exprContext ctx);
+	/**
+	 * Enter a parse tree produced by {@link P4GrammarParser#compound}.
+	 * @param ctx the parse tree
+	 */
+	void enterCompound(P4GrammarParser.CompoundContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link P4GrammarParser#compound}.
+	 * @param ctx the parse tree
+	 */
+	void exitCompound(P4GrammarParser.CompoundContext ctx);
+	/**
 	 * Enter a parse tree produced by {@link P4GrammarParser#metadata_expr}.
 	 * @param ctx the parse tree
 	 */

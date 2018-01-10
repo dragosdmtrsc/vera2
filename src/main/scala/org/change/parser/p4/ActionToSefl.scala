@@ -36,7 +36,11 @@ class ActionInstance(p4Action: P4Action,
 
   private def handleValidDestination(dst : String, continueWith : Instruction) = {
     val hdr = dst.split("\\.")(0)
-    if (switch.getInstance(hdr).isMetadata)
+    val cd = if (hdr.contains("["))
+      hdr.split("\\[")(0)
+    else
+      hdr
+    if (switch.getInstance(cd).isMetadata)
       continueWith
     else
       If (Constrain(hdr + ".IsValid", :==:(ConstantValue(1))),
@@ -68,6 +72,8 @@ class ActionInstance(p4Action: P4Action,
           } else if ((formal.getType & P4ActionParameterType.HDR.x) != 0) {
             :@(y.getValue)
           } else if ((formal.getType & P4ActionParameterType.R_REF.x) != 0) {
+            :@(y.getValue)
+          } else if ((formal.getType & P4ActionParameterType.ARR.x) != 0) {
             :@(y.getValue)
           } else {
             argList(argNameToIndex(y.getValue))
@@ -395,7 +401,7 @@ class ActionInstance(p4Action: P4Action,
       val index = dst.indexOf('[')
       val hname = dst.substring(0, index)
       val nrString = dst.substring(index + 1, dst.indexOf("]"))
-      (hname + nrString, hname, Integer.decode(nrString).intValue())
+      (hname, hname, Integer.decode(nrString).intValue())
     } else {
       (dst, dst, 0)
     }
@@ -408,7 +414,7 @@ class ActionInstance(p4Action: P4Action,
     val (regNameDst, _, _) = getNameAndIndex(dst)
     val (regNameSrc, _, _) = getNameAndIndex(src)
 
-    val instanceDst = switch.getInstance(dst)
+    val instanceDst = switch.getInstance(regNameDst)
     val instrList = InstructionBlock(instanceDst.getLayout.getFields.flatMap(x => {
         val fldName = x.getName
         List[Instruction](
@@ -429,7 +435,7 @@ class ActionInstance(p4Action: P4Action,
   def handleRemoveHeader() : Instruction = {
     val headerInstance = argList.head.asInstanceOf[Symbol].id
     val (regName, hname, index) = getNameAndIndex(headerInstance)
-    val instance = switch.getInstance(headerInstance)
+    val instance = switch.getInstance(regName)
     If (Constrain(regName + ".IsValid", :==:(ConstantValue(1))),
       InstructionBlock(
 //        Assign(regName + ".IsValid", ConstantValue(0)),

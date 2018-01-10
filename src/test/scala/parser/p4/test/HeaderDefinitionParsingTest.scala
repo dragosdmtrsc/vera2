@@ -55,9 +55,6 @@ class HeaderDefinitionParsingTest extends FunSuite {
     val res = P4ParserRunner.parse(p4)
 
     assert(res.declaredHeaders.size == 2)
-    assert(res.headerInstances.size == 2)
-    assert(res.headerInstances("inner_vlan_tag").layout.headerName == "vlan_t")
-    assert(res.headerInstances("local_metadata").asInstanceOf[MetadataInstance].values("bad_packet") == 1)
   }
 
   test("actions can be parsed - registrar is not empty") {

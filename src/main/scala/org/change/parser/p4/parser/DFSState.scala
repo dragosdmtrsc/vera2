@@ -11,7 +11,7 @@ import org.change.v2.analysis.expression.concrete.nonprimitive.{:&&:, :@, Addres
 import org.change.v2.analysis.memory.Tag
 import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.analysis.processingmodels.instructions.{Allocate, Constrain, _}
-import org.change.v2.p4.model.Switch
+import org.change.v2.p4.model.{ArrayInstance, Switch}
 import org.change.v2.p4.model.parser._
 import org.change.v2.p4.model.parser.Statement
 
@@ -28,17 +28,17 @@ case class DFSState(crt : Int,
 
   def getReturnStatement : ReturnStatement = history.head.asInstanceOf[ReturnStatement]
 
-  def addInstr(statement: Statement) = DFSState(crt = crt,
+  def addInstr(statement: Statement) = copy(crt = crt,
     depth = depth,
     history = statement :: history)
-  def increment(by : Int) = DFSState(crt = crt + by,
+  def increment(by : Int) = copy(crt = crt + by,
     depth = depth,
     history = history)
 
-  def incrementDepth() = DFSState(crt = crt, history = history, depth = depth + 1)
+  def incrementDepth() = copy(crt = crt, history = history, depth = depth + 1)
 
   def incrementHeaderCount(hInstance : String): DFSState = {
-    val pair = (hInstance -> (currentDepth.getOrElse(hInstance, -1) + 1))
+    val pair = hInstance -> (currentDepth.getOrElse(hInstance, 0) + 1)
     this.copy(currentDepth = currentDepth + pair)
   }
   def setLatest(latest : String): DFSState = copy(latest = latest)
@@ -116,47 +116,61 @@ class StateExpander (switch: Switch, startAt : String){
     val instrs = state.getStatements.take(state.getStatements.size() - 1)
     val returnStatement = state.getStatements.last
     val nfs = instrs.foldLeft(
-      dFSState
+      (dFSState, false)
     )((acc, x) => {
-      val newdfs = acc.addInstr(x)
-      x match {
-        case v : SetStatement => newdfs
-        case v : ExtractStatement =>
-          val ref = v.getExpression.asInstanceOf[StringRef].getRef
-          val reg = switch.getInstance(ref).getLayout.getLength
-          val sth = v.setLocation(acc.crt, reg)
-          acc.addInstr(sth).increment(reg).incrementHeaderCount(v.getExpression.asInstanceOf[StringRef].getRef).
-            setLatest(v.getExpression.asInstanceOf[StringRef].getRef)
-        case _ => newdfs
+      if (!acc._2) {
+        val newdfs = acc._1.addInstr(x)
+        x match {
+          case v : SetStatement => (newdfs, false)
+          case v : ExtractStatement =>
+            val ref = v.getExpression.asInstanceOf[StringRef].getRef
+            val sinstance = switch.getInstance(ref)
+            val reg = sinstance.getLayout.getLength
+            val pleaseStop = sinstance match {
+              case instance: ArrayInstance => acc._1.currentDepth.getOrElse(ref, 0) >= instance.getLength
+              case _ => false
+            }
+            val sth = v.setLocation(acc._1.crt, reg)
+            (acc._1.addInstr(sth).increment(reg).incrementHeaderCount(ref).
+              setLatest(v.getExpression.asInstanceOf[StringRef].getRef), pleaseStop)
+          case _ => (newdfs, acc._2)
+        }
+      } else {
+        acc
       }
+
     })
-    returnStatement match {
-      case rs: ReturnStatement => List[DFSState](nfs.addInstr(rs))
-      case rss: ReturnSelectStatement =>
-        // non-default cases first
-        val cases = rss.getCaseEntryList.filter(x => {
-          !x.getValues.isEmpty
-        }).map(x => {
-          val ces = x.getValues.foldLeft(x.getExpressions.foldLeft(new CaseEntry())((acc, y) => {
-            acc.addExpression(y match {
-              case v : DataRef => new DataRef(nfs.crt + v.getStart, nfs.crt + v.getEnd)
-              case v : LatestRef => new StringRef(nfs.latest + "." + v.getFieldName)
-              case _ => y
+    if (nfs._2) {
+      Nil
+    } else {
+      returnStatement match {
+        case rs: ReturnStatement => List[DFSState](nfs._1.addInstr(rs))
+        case rss: ReturnSelectStatement =>
+          // non-default cases first
+          val cases = rss.getCaseEntryList.filter(x => {
+            !x.getValues.isEmpty
+          }).map(x => {
+            val ces = x.getValues.foldLeft(x.getExpressions.foldLeft(new CaseEntry())((acc, y) => {
+              acc.addExpression(y match {
+                case v : DataRef => new DataRef(nfs._1.crt + v.getStart, nfs._1.crt + v.getEnd)
+                case v : LatestRef => new StringRef(nfs._1.latest + "." + v.getFieldName)
+                case _ => y
+              })
+            }))((acc, y) => {
+              acc.addValue(y)
             })
-          }))((acc, y) => {
-            acc.addValue(y)
+            (nfs._1.addInstr(ces).addInstr(x.getReturnStatement), ces)
+          }).toList
+          //default case now => always add constrain not
+          val defaultCase = rss.getCaseEntryList.filter(x => {
+            x.getValues.isEmpty
+          }).map(x => {
+            nfs._1.addInstr(cases.unzip._2.foldLeft(new CaseNotEntry())((acc, r) => {
+              acc.addCaseEntry(r)
+            })).addInstr(x.getReturnStatement)
           })
-          (nfs.addInstr(ces).addInstr(x.getReturnStatement), ces)
-        }).toList
-        //default case now => always add constrain not
-        val defaultCase = rss.getCaseEntryList.filter(x => {
-          x.getValues.isEmpty
-        }).map(x => {
-          nfs.addInstr(cases.unzip._2.foldLeft(new CaseNotEntry())((acc, r) => {
-            acc.addCaseEntry(r)
-          })).addInstr(x.getReturnStatement)
-        })
-        cases.unzip._1 ++ defaultCase
+          cases.unzip._1 ++ defaultCase
+      }
     }
   }
 }

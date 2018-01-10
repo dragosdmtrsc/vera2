@@ -140,7 +140,9 @@ header_extract_ref returns [org.change.parser.p4.HeaderInstance headerInstance] 
 header_extract_index    : const_value | 'next' ;
 set_statement returns [org.change.v2.p4.model.parser.SetStatement statement]  :
     'set_metadata' '(' field_ref',' metadata_expr ')' ';' ;
-metadata_expr   :   field_value | field_or_data_ref ;
+simple_metadata_expr : field_value | field_or_data_ref;
+compound : simple_metadata_expr '-' compound | simple_metadata_expr '+' compound | simple_metadata_expr;
+metadata_expr   :   compound ;
 
 return_statement  returns [org.change.v2.p4.model.parser.Statement statement]  :
     return_value_type | 'return select' '(' select_exp ')' '{' case_entry+ '}'  ;

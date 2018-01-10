@@ -4,13 +4,14 @@ import java.io.{BufferedOutputStream, FileOutputStream, PrintStream}
 
 import org.change.parser.p4.ControlFlowInterpreter
 import org.change.parser.p4.factories.{InstanceBasedInitFactory, SymbolicRegistersInitFactory}
+import org.change.parser.p4.tables.SymbolicSwitchInstance
 import org.change.utils.prettifier.JsonUtil
 import org.change.v2.analysis.executor.CodeAwareInstructionExecutor
 import org.change.v2.analysis.executor.solvers.Z3BVSolver
 import org.change.v2.analysis.expression.concrete.ConstantValue
 import org.change.v2.analysis.memory.{State, Tag}
 import org.change.v2.analysis.processingmodels.instructions._
-import org.change.v2.p4.model.SwitchInstance
+import org.change.v2.p4.model.{Switch, SwitchInstance}
 import org.scalatest.FunSuite
 import org.change.v2.analysis.memory.TagExp.IntImprovements
 
@@ -291,4 +292,5 @@ class P4Bugs extends FunSuite {
     }
     assert(thrown.getMessage.toLowerCase().contains("no such action") || thrown.getMessage.toLowerCase().contains("no such table"))
   }
+
 }

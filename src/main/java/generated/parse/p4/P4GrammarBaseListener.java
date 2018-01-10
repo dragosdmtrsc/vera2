@@ -616,6 +616,30 @@ public class P4GrammarBaseListener implements P4GrammarListener {
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
+	@Override public void enterSimple_metadata_expr(P4GrammarParser.Simple_metadata_exprContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitSimple_metadata_expr(P4GrammarParser.Simple_metadata_exprContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void enterCompound(P4GrammarParser.CompoundContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitCompound(P4GrammarParser.CompoundContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
 	@Override public void enterMetadata_expr(P4GrammarParser.Metadata_exprContext ctx) { }
 	/**
 	 * {@inheritDoc}

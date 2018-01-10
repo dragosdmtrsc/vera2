@@ -101,7 +101,6 @@ class P4GrammarListener extends P4GrammarBaseListener {
   // Exit Section 2.1
 
   // Section 2.2
-  val headerInstances: MutableMap[String, HeaderInstance] = MutableMap()
 
   override def exitScalarInstance(ctx: P4GrammarParser.ScalarInstanceContext): Unit =
     ctx.instance = ctx.scalar_instance().instance
@@ -115,7 +114,6 @@ class P4GrammarListener extends P4GrammarBaseListener {
     ctx.instance = new ScalarHeader(instanceName, declaredHeaders(headerType))
     ctx.hdrInstance = new org.change.v2.p4.model.HeaderInstance(headers(headerType), instanceName)
     instances.put(instanceName, ctx.hdrInstance)
-    headerInstances.put(instanceName, ctx.instance)
   }
 
   val headers = new util.HashMap[String, Header]()
@@ -129,7 +127,6 @@ class P4GrammarListener extends P4GrammarBaseListener {
     instances.put(instanceName, ctx.arrInstance)
     for (i <- 0 until index) {
       ctx.instance = new ArrayHeader(instanceName, i, declaredHeaders(headerType))
-      headerInstances.put(instanceName + i, ctx.instance)
     }
   }
 
@@ -149,7 +146,6 @@ class P4GrammarListener extends P4GrammarBaseListener {
       Map.empty
     val metadataInstance = new MetadataInstance(instanceName, declaredHeaders(headerType), initializer)
     ctx.instance = metadataInstance
-    headerInstances.put(instanceName, metadataInstance)
     instances.put(instanceName,
       initializer.foldLeft(new org.change.v2.p4.model.HeaderInstance(headers(headerType), instanceName).setMetadata(true))((acc, x) => {
         acc.addInitializer(x._1, x._2.toLong)
@@ -160,15 +156,6 @@ class P4GrammarListener extends P4GrammarBaseListener {
 
   // Section 4
   override def exitHeader_extract_ref(ctx: P4GrammarParser.Header_extract_refContext): Unit = {
-    ctx.headerInstance = headerInstances(
-      ctx.instance_name().getText + {
-        if (ctx.header_extract_index() != null)
-          if (ctx.header_extract_index().getText != "next")
-            ctx.header_extract_index().getText
-          else "" //TODO: Support next
-        else ""
-      }
-    )
   }
 
   val declaredFunctions: MutableMap[String, ParserFunctionDeclaration] = MutableMap()
@@ -210,15 +197,9 @@ class P4GrammarListener extends P4GrammarBaseListener {
       else
         ctx.instance_name().getText
 
-    ctx.tagReference = headerInstances(ctx.headerInstanceId).getTagExp
   }
 
   override def exitField_ref(ctx: P4GrammarParser.Field_refContext): Unit = {
-    ctx.reference = ctx.header_ref().tagReference +
-      (if (headerInstances.contains(ctx.header_ref().headerInstanceId))
-        headerInstances(ctx.header_ref().headerInstanceId).layout.indexOf(ctx.field_name().getText)
-      else
-        0)
     if (complexAction != null && actionFieldRef) {
       actionFieldRef = false
     }
@@ -324,8 +305,6 @@ class P4GrammarListener extends P4GrammarBaseListener {
       acc.addField(new Field().setLength(x._2._2).setName(x._2._1))
     }))
     // one day, initialize the standard metadata as per spec
-    val metadataInstance = new MetadataInstance("standard_metadata", declaredHeaders("standard_metadata_t"), Map[String, Int]())
-    headerInstances.put("standard_metadata", metadataInstance)
     val metadataInstancej = new org.change.v2.p4.model.HeaderInstance(headers("standard_metadata_t"), "standard_metadata").setMetadata(true)
     instances.put("standard_metadata", metadataInstancej)
   }

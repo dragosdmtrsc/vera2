@@ -100,7 +100,6 @@ class OVSExecutor(solver: Solver) extends DecoratedInstructionExecutor(solver) {
             })
             case None => Fail(s"No object found for $int")(s, v)
           }
-
           case Right(err) => Fail(err)(s, v)
         }
         case Some(c) => s.memory.eval(int) match {
