@@ -169,7 +169,9 @@ class TableTernaryMatcher(tableMatch: TableMatch, useBv : Boolean = true) extend
   val flowToValMask : mutable.Map[Int, (Long, Long)] = mutable.Map[Int, (Long, Long)]()
 
   override def constraint(switchInstance: SwitchInstance, which: Int): Instruction = {
-    val (mask, value) = flowToValMask(which)
+    val pair = flowToValMask(which)
+    val mask = pair._2
+    val value = pair._1
     val (hdr, fld) = P4Utils.fieldDef(tableMatch.getKey)
     val width = switchInstance.getSwitchSpec.getInstance(hdr).getLayout.getFields.find(x => x.getName == fld).get.getLength
     val actualMask = extractMask(mask, width)

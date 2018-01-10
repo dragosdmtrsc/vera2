@@ -182,7 +182,7 @@ public class SwitchInstance implements ISwitchInstance {
                                 try
                                 {
                                     int mask = Integer.decode(matchParm.split("/")[1]);
-                                    flowInstance.setPriority(mask);
+                                    flowInstance.setPriority(-mask);
                                     break;
                                 }
                                 catch (NumberFormatException nfe) {

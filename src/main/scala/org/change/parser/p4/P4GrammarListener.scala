@@ -518,8 +518,10 @@ class P4GrammarListener extends P4GrammarBaseListener {
 
   override def exitControl_function_declaration(ctx:Control_function_declarationContext){
     ports += (ctx.control_fn_name.getText -> blocks.get(ctx.control_block))
-
-    this.instructions.put(s"control.${ctx.controlFunctionName}", Forward(s"control.${ctx.controlFunctionName}" + "[0]"))
+    if (ctx.control_block() == null || ctx.control_block().instructions == null || ctx.control_block().instructions.isEmpty)
+      this.instructions.put(s"control.${ctx.controlFunctionName}", Forward(s"control.${ctx.controlFunctionName}.out"))
+    else
+      this.instructions.put(s"control.${ctx.controlFunctionName}", Forward(s"control.${ctx.controlFunctionName}" + "[0]"))
 
     println("\n\n------------------------------\nGenerated SEFL CODE for function "+ ctx.control_fn_name.getText +"\n------------------------------\n")
     for ((x,y) <- ports){

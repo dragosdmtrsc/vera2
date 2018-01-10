@@ -1,11 +1,15 @@
 package parser.p4
 
 import java.io.{BufferedOutputStream, FileOutputStream, PrintStream}
+import java.util.UUID
 
+import org.change.parser.p4.ControlFlowInterpreter
 import org.change.utils.prettifier.JsonUtil
 import org.change.v2.analysis.executor.CodeAwareInstructionExecutor
+import org.change.v2.analysis.executor.solvers.Z3BVSolver
 import org.change.v2.analysis.memory.State
-import org.change.v2.analysis.processingmodels.instructions.InstructionBlock
+import org.change.v2.analysis.processingmodels.Instruction
+import org.change.v2.analysis.processingmodels.instructions.{Forward, InstructionBlock}
 
 package object test {
  def executeAndPrintStats(ib: InstructionBlock, initial: List[State], codeAwareInstructionExecutor : CodeAwareInstructionExecutor): (List[State], List[State]) = {
@@ -17,6 +21,39 @@ package object test {
     println(s"Failed # ${failed.size}, Ok # ${ok.size}")
     println(s"Time is ${System.currentTimeMillis() - init}ms")
     (ok, failed)
+  }
+
+  def createReverse(withName : String): Map[String, Instruction] = {
+    val dir = "inputs/reverse-p4/"
+    val p4 = s"$dir/reverse.p4"
+    val dataplane = s"$dir/commands-rev.txt"
+    val res = ControlFlowInterpreter(p4, dataplane, Map[Int, String](1 -> "veth0", 2 -> "veth1", 11 -> "cpu"), withName)
+    CodeAwareInstructionExecutor.flattenProgram(res.instructions(), res.links())
+  }
+
+
+  def anonymizeAndForward(port : String): Instruction = {
+    InstructionBlock(
+      Instruction(anonymize),
+      Forward(port)
+    )
+  }
+
+  def anonymize(state: State): (List[State], List[State]) = {
+    (state.copy(memory = state.memory.copy(symbols = state.memory.symbols.map(r => s"${r._1}_anon${UUID.randomUUID().toString}" -> r._2))) :: Nil,
+      Nil : List[State])
+  }
+
+  def postParserInject(parserout : Instruction, program : Map[String, Instruction], name : String = "router"): Map[String, Instruction] = {
+    val newparserout = InstructionBlock(
+      parserout,
+      Forward(s"$name.control.ingress.new")
+    )
+    val oldone = program(s"$name.control.ingress")
+    (program + (s"$name.control.ingress" -> newparserout)) + (s"$name.control.ingress.new" -> oldone)
+  }
+  def postParserInjectCaie(parserout : Instruction, program : Map[String, Instruction], name : String = "router"): CodeAwareInstructionExecutor = {
+    CodeAwareInstructionExecutor(postParserInject(parserout, program, name), Map.empty, new Z3BVSolver)
   }
 
   def printResults(dir: String, port: Int, ok: List[State], failed: List[State], okBase: String): Unit = {

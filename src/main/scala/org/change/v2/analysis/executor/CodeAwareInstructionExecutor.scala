@@ -331,9 +331,12 @@ object RewriteLogic {
 }
 
 object CodeAwareInstructionExecutor {
+
+  def flattenProgram(program: Map[String, Instruction], links : Map[String, String]): Map[String, Instruction] =
+    program ++ links.map(x => x._1 -> Forward(x._2))
   def apply(program: Map[String, Instruction],
             solver: Solver): CodeAwareInstructionExecutor = new CodeAwareInstructionExecutor(RewriteLogic(program), solver)
   def apply(program: Map[String, Instruction], links : Map[String, String],
             solver: Solver): CodeAwareInstructionExecutor =
-    new CodeAwareInstructionExecutor(RewriteLogic(program ++ links.map( x => x._1 -> Forward(x._2))), solver)
+    new CodeAwareInstructionExecutor(RewriteLogic(flattenProgram(program, links)), solver)
 }
