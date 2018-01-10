@@ -52,8 +52,7 @@ class InitializeCode[T<:ISwitchInstance](switchInstance : T,
         case ai: ArrayInstance =>
           val len = ai.getLength
           (0 to len).map(z => {
-            val baseLine = x.getName + z
-            Assign(x.getName + z + ".IsValid", ConstantValue(0))
+            Assign(x.getName + "[" + z + "].IsValid", ConstantValue(0))
           })
         case _ =>
           Assign(x.getName + ".IsValid", ConstantValue(0)) :: Nil

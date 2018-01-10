@@ -987,10 +987,38 @@ class P4GrammarListener extends P4GrammarBaseListener {
 
   override def exitSet_statement(ctx: Set_statementContext): Unit = {
     val dst = ctx.field_ref().getText
-    val src = ctx.metadata_expr().getText
+    val src = ctx.metadata_expr().expression
     ctx.statement = new SetStatement(ParserInterpreter.parseExpression(dst),
-      ParserInterpreter.parseExpression(src))
+      src)
   }
+
+  override def exitMetadata_expr(ctx: Metadata_exprContext): Unit = {
+    ctx.expression = ctx.compound().expression
+    super.exitMetadata_expr(ctx)
+  }
+
+  override def exitCompound(ctx: CompoundContext): Unit = {
+    ctx.expression = if (ctx.minus_metadata_expr() != null)
+      ctx.minus_metadata_expr().expression
+    else if (ctx.plus_metadata_expr() != null)
+      ctx.plus_metadata_expr().expression
+    else if (ctx.simple_metadata_expr() != null)
+      ctx.simple_metadata_expr().expression
+    else
+      throw new IllegalStateException("Got compound metadata expression " + ctx.getText)
+  }
+
+  override def exitPlus_metadata_expr(ctx: Plus_metadata_exprContext): Unit = {
+    ctx.expression = new CompoundExpression(true, ctx.simple_metadata_expr().expression, ctx.compound().expression)
+  }
+
+  override def exitMinus_metadata_expr(ctx: Minus_metadata_exprContext): Unit = {
+    ctx.expression = new CompoundExpression(false, ctx.simple_metadata_expr().expression, ctx.compound().expression)
+  }
+  override def exitSimple_metadata_expr(ctx: Simple_metadata_exprContext): Unit = {
+    ctx.expression = ParserInterpreter.parseExpression(ctx.getText)
+  }
+
 
   override def exitReturn_value_type(ctx: Return_value_typeContext): Unit = {
     if (ctx.parser_exception_name() != null) {

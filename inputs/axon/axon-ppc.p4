@@ -20,8 +20,8 @@ header_type my_metadata_t {
     }
 }
 header axon_head_t axon_head;
-header axon_hop_t axon_fwdHop[64];
-header axon_hop_t axon_revHop[64];
+header axon_hop_t axon_fwdHop[2];
+header axon_hop_t axon_revHop[2];
 metadata my_metadata_t my_metadata;
 parser start {
     return select(current(0, 64)) {
