@@ -316,9 +316,10 @@ class P4GrammarListener extends P4GrammarBaseListener {
       256 -> ("egress_instance", 64),
       320 -> ("instance_type", 64),
       384 -> ("parser_status", 64),
-      448 -> ("parser_error_location", 64)
+      448 -> ("parser_error_location", 64),
+      512 -> ("egress_priority", 64)
     )
-    declaredHeaders.put("standard_metadata_t", new HeaderDeclaration("standard_metadata_t", hOffs, 512))
+    declaredHeaders.put("standard_metadata_t", HeaderDeclaration("standard_metadata_t", hOffs, 512))
     headers.put("standard_metadata_t", hOffs.foldLeft(new Header().setName("standard_metadata_t").setLength(512))((acc, x) => {
       acc.addField(new Field().setLength(x._2._2).setName(x._2._1))
     }))
@@ -845,7 +846,7 @@ class P4GrammarListener extends P4GrammarBaseListener {
 
 
   override def exitField_name(ctx:Field_nameContext) {
-    println("Matched field name "+ctx.getText)
+//    println("Matched field name "+ctx.getText)
   }
 
   //exp : exp bin_op exp # compound_exp
@@ -903,7 +904,6 @@ class P4GrammarListener extends P4GrammarBaseListener {
       case "and" =>
         blocks.get(ctx).appendAll(blocks.get(ctx.bool_expr(0)))
         blocks.get(ctx).appendAll(blocks.get(ctx.bool_expr(1)))
-
       case "or" =>
         blocks.get(ctx).append(
           Fork(
@@ -940,11 +940,17 @@ class P4GrammarListener extends P4GrammarBaseListener {
           case "<" =>
             constraints.put(ctx, :<:(exp2))
             blocks.get(ctx).append(Constrain(x,:<:(exp2)))
+          case "<=" =>
+            constraints.put(ctx, :<:(exp2))
+            blocks.get(ctx).append(Constrain(x,:<=:(exp2)))
 
           case ">" =>
             constraints.put(ctx, :>:(exp2))
             blocks.get(ctx).append(Constrain(x,:>:(exp2)))
-          case _ => println("Unknown relop "+ctx.rel_op);
+          case ">=" =>
+            constraints.put(ctx, :>:(exp2))
+            blocks.get(ctx).append(Constrain(x,:>=:(exp2)))
+          case _ => println("Unknown relop "+ctx.rel_op.getText);
         }
 
       case Address(x) =>

@@ -15,6 +15,15 @@ import org.change.v2.p4.model.InstanceType._
 
 import scala.collection.JavaConversions._
 
+object ActionInstance {
+  private val readOnlyFields = Set[String](
+    "standard_metadata.egress_port",
+    "standard_metadata.ingress_port",
+    "standard_metadata.instance_type",
+    "standard_metadata.egress_instance"
+  )
+}
+
 class ActionInstance(p4Action: P4Action,
                      argList : List[FloatingExpression],
                      switchInstance: ISwitchInstance,
@@ -25,6 +34,23 @@ class ActionInstance(p4Action: P4Action,
 
   override def toString: String = s"${switchInstance.getName}.action.$table.$flowNumber"
 
+  private def handleValidDestination(dst : String, continueWith : Instruction) = {
+    val hdr = dst.split("\\.")(0)
+    if (switch.getInstance(hdr).isMetadata)
+      continueWith
+    else
+      If (Constrain(hdr + ".IsValid", :==:(ConstantValue(1))),
+        continueWith,
+        Fail(s"Attempt to write to $dst, which is part of an invalid header")
+      )
+  }
+
+  private def handleReadonlyDestination(dst : String, continueWith : Instruction) = {
+    if (ActionInstance.readOnlyFields contains dst)
+      Fail(s"Attempt to write to $dst, a read-only field")
+    else
+      continueWith
+  }
 
   def handleComplexAction(complexAction: P4ComplexAction) : Instruction = {
     val arity = complexAction.getParameterList.size()
@@ -62,19 +88,19 @@ class ActionInstance(p4Action: P4Action,
     val argDest = argList.head.asInstanceOf[Symbol].id
     val argSource = argList(1)
     val dstField = argDest
-    Assign(dstField, argSource)
+    handleReadonlyDestination(dstField, handleValidDestination(dstField, Assign(dstField, argSource)))
   }
 
   def handleAddToField(addToField: AddToField) : Instruction = {
     val argDest = argList.head.asInstanceOf[Symbol].id
     val argSource = argList(1)
-    Assign(argDest, :+:(:@(argDest), argSource))
+    handleReadonlyDestination(argDest, handleValidDestination(argDest, Assign(argDest, :+:(:@(argDest), argSource))))
   }
 
   def handleSubtractFromField(addToField: SubtractFromField) : Instruction = {
     val argDest = argList.head.asInstanceOf[Symbol].id
     val argSource = argList(1)
-    Assign(argDest, :-:(:@(argDest), argSource))
+    handleReadonlyDestination(argDest, handleValidDestination(argDest, Assign(argDest, :-:(:@(argDest), argSource))))
   }
 
   def setOriginal() : Instruction = {
@@ -102,7 +128,7 @@ class ActionInstance(p4Action: P4Action,
 //                )
                 NoOp
               } else {
-                If (Constrain(s"${x.getName}.${y.getName}.IsValid", :==:(ConstantValue(1))),
+                If (Constrain(s"${x.getName}.IsValid", :==:(ConstantValue(1))),
                   InstructionBlock(
                     Allocate(x.getName + "." + y.getName, y.getLength),
                     Assign(x.getName + "." + y.getName, :@("Original." + x.getName + "." + y.getName))
@@ -235,30 +261,34 @@ class ActionInstance(p4Action: P4Action,
   def handleRegisterRead(regRead : RegisterRead) : Instruction = {
     val argDest = argList.head.asInstanceOf[Symbol]
     val argSource1 = argList(1).asInstanceOf[Symbol]
-
+    val regSpec = switch.getRegisterSpecificationMap.get(argSource1.id)
     def readRegister(intVal: Long) = {
-      val name = if (!switch.getRegisterSpecificationMap.get(argSource1.id).isStatic) {
+      val name = if (!regSpec.isStatic) {
         s"${switchInstance.getName}.reg.${argSource1.id}[$intVal]"
       } else {
-        s"${switchInstance.getName}.reg[$table].${argSource1.id}[$intVal]"
+        s"${switchInstance.getName}.reg[${regSpec.getStaticTable}].${argSource1.id}[$intVal]"
       }
-      Assign(argDest.id, :@(name))
+      handleReadonlyDestination(argDest.id, handleValidDestination(argDest.id, Assign(argDest.id, :@(name))))
     }
 
     if (argList.length > 2) {
-      val argSource2 = argList(2)
-      // this is a global register
-      argSource2 match {
-        case ConstantValue(c, _, _) => readRegister(c)
-        case _ => (0 until switch.getRegisterSpecificationMap.get(argSource1).getCount).foldRight(NoOp : Instruction)((x, acc) => {
-          val tmp = s"tmp${UUID.randomUUID()}"
-          InstructionBlock(
-            Assign(tmp, argSource2),
-            If (Constrain(tmp, :==:(ConstantValue(x))),
-              readRegister(x),
-              acc)
-          )
-        })
+      if (regSpec.isStatic && regSpec.getStaticTable != this.table) {
+        Fail(s"register_read encountered in $table, but $argSource1 is a static register belonging to ${regSpec.getStaticTable}")
+      } else {
+        val argSource2 = argList(2)
+        // this is a global register
+        argSource2 match {
+          case ConstantValue(c, _, _) => readRegister(c)
+          case _ => (0 until regSpec.getCount).foldRight(Fail(s"register index for ${argSource1.id} out of bounds") : Instruction)((x, acc) => {
+            val tmp = s"tmp${UUID.randomUUID()}"
+            InstructionBlock(
+              Assign(tmp, argSource2),
+              If (Constrain(tmp, :==:(ConstantValue(x))),
+                readRegister(x),
+                acc)
+            )
+          })
+        }
       }
     } else {
       // this is a direct register => will be referenced by flow number -> don't forget to allocate when adding a new flow
@@ -266,33 +296,53 @@ class ActionInstance(p4Action: P4Action,
     }
   }
 
-  def handleRegisterWrite(regRead : RegisterWrite) : Instruction = {
+  private def regWriteParse(registerWrite: RegisterWrite) = {
     val argDest = argList.head.asInstanceOf[Symbol].id
-    val argSource1 = argList(1).asInstanceOf[Symbol].id
+    val index = if (argList.length > 2)
+      argList(1)
+    else
+      throw new UnsupportedOperationException("TODO: Direct registers not yet implemented ")
+    val source = if (argList.length > 2)
+      argList(2)
+    else
+      argList(1)
+    (argDest, index, source)
+  }
 
+  def handleRegisterWrite(regRead : RegisterWrite) : Instruction = {
+    val (argDest, index, argSource1) = regWriteParse(regRead)
+
+    val regSpec = switch.getRegisterSpecificationMap.get(argDest)
     def assignReg(intVal: Long) : Instruction = {
-      val name = "reg." + argSource1 + "." + intVal
-      Assign(name, :@(argDest))
+      val name = if (!regSpec.isStatic) {
+        s"${switchInstance.getName}.reg.$argDest[$intVal]"
+      } else {
+        s"${switchInstance.getName}.reg[${regSpec.getStaticTable}].$argDest[$intVal]"
+      }
+      Assign(name, argSource1)
     }
-
-    if (argList.length > 2) {
-      val argSource2 = argList(2)
+    if (regSpec.isStatic &&
+      regSpec.getStaticTable != this.table
+    ) {
+      Fail(s"register_write encountered in $table, but $argDest is a static register belonging to ${regSpec.getStaticTable}")
+    } else {
       // this is a global register
-      argSource2 match {
-        case ConstantValue(c, _, _) => assignReg(c)
-        case _ => (0 until switch.getRegisterSpecificationMap.get(argSource1).getCount).foldRight(NoOp : Instruction)((x, acc) => {
+      index match {
+        case ConstantValue(c, _, _) =>
+          if (c >= 0 && c < regSpec.getCount)
+            assignReg(c)
+          else
+            Fail(s"register index $c for $argDest out of bounds")
+        case _ => (0 until regSpec.getCount).foldRight(Fail(s"register index for $argDest out of bounds") : Instruction)((x, acc) => {
           val tmp = s"tmp${UUID.randomUUID()}"
           InstructionBlock(
-            Assign(tmp, argSource2),
+            Assign(tmp, index),
             If (Constrain(tmp, :==:(ConstantValue(x))),
               assignReg(x),
               acc)
           )
         })
       }
-    } else {
-      // this is a direct register => will be referenced by flow number -> don't forget to allocate when adding a new flow
-      throw new UnsupportedOperationException("TODO: Direct registers not yet implemented ")
     }
   }
 
@@ -560,7 +610,19 @@ class ActionInstance(p4Action: P4Action,
     } else {
       throw new UnsupportedOperationException("AND, OR, XOR supported")
     }
-    Assign(dstField,fexp)
+    handleReadonlyDestination(dstField, handleValidDestination(dstField, Assign(dstField,fexp)))
+  }
+
+  def handleTruncate(): Instruction = {
+    InstructionBlock(
+      Assign("Truncate", ConstantValue(1)),
+      Assign("TruncateSize", ConstantValue(argList.head.asInstanceOf[ConstantValue].value * 8))
+    )
+  }
+
+  def handleShiftLeft(): Instruction = {
+    val destination = argList.head.asInstanceOf[Symbol]
+    handleReadonlyDestination(destination.id, handleValidDestination(destination.id, Assign(destination.id, :<<:(argList(1), argList(2)))))
   }
 
   def handlePrimitiveAction(primitiveAction : P4Action) : Instruction = {
@@ -588,6 +650,9 @@ class ActionInstance(p4Action: P4Action,
       case P4ActionType.BitAnd => handleBitAndOrXor(isAnd = true, isOr = false, isXor = false)
       case P4ActionType.BitOr => handleBitAndOrXor(isAnd = false, isOr = true, isXor = false)
       case P4ActionType.BitXor => handleBitAndOrXor(isAnd = false, isOr = false, isXor = true)
+      case P4ActionType.ShiftLeft => handleShiftLeft() 
+//        handleBitAndOrXor(isAnd = false, isOr = false, isXor = true)
+      case P4ActionType.Truncate => handleTruncate()
       case _ => throw new UnsupportedOperationException(s"Primitive action of type ${primitiveAction.getActionType} not yet supported")
     }
   }
