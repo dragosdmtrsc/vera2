@@ -482,15 +482,18 @@ class ActionInstance(p4Action: P4Action,
     )
   }
 
-  def handleAddHeader(addHeader: AddHeader) : Instruction = {
+  def handleAddHeader(shouldCheck : Boolean = true) : Instruction = {
     val headerInstance = argList.head.asInstanceOf[Symbol].id
     val (regName, hname, index) = getNameAndIndex(headerInstance)
-    val instance = switch.getInstance(headerInstance)
-    If (Constrain(regName + ".IsValid", :==:(ConstantValue(1))),
-      Fail("Attempt to add_header whilst header instance is already valid"),
+    val instance = switch.getInstance(regName)
+    If (Constrain(headerInstance + ".IsValid", :==:(ConstantValue(1))),
+      if (shouldCheck)
+        Fail("Attempt to add_header whilst header instance is already valid")
+      else
+        NoOp,
       InstructionBlock(
         Assign(regName + ".IsValid", ConstantValue(1)),
-        if (regName != hname) {
+        if (index >= 0) {
           // if we are at a header array
           val instance = switch.getInstance(hname).asInstanceOf[ArrayInstance]
           val moveUpInstruction = (instance.getLength - 1).to(index, -1).map(x => {
@@ -538,7 +541,7 @@ class ActionInstance(p4Action: P4Action,
     val arrName = argList.head.asInstanceOf[Symbol].id
     val hdrArray = switch.getInstance(arrName).asInstanceOf[ArrayInstance]
     argList(1) match {
-      case ConstantValue(c, _, _) => popBy(c.toInt, hdrArray, arrName)
+      case ConstantValue(c, _, _) => pushBy(c.toInt, hdrArray, arrName)
       case _ => (0 until hdrArray.getLength).foldRight(NoOp : Instruction)((x, acc) => {
         val tmp = s"tmp${UUID.randomUUID()}"
         InstructionBlock(
@@ -560,7 +563,7 @@ class ActionInstance(p4Action: P4Action,
 
     val createNews = (0 until count).map(x => {
       new ActionInstance(switch.getActionRegistrar.getAction("add_header"),
-        List[FloatingExpression](:@(s"$arrName[$x]")), switchInstance, switch, table, flowNumber, dropMessage).sefl()
+        List[FloatingExpression](:@(s"$arrName[$x]")), switchInstance, switch, table, flowNumber, dropMessage).handleAddHeader(false)
     }).toList
     InstructionBlock(
       pushDown ++ createNews
@@ -588,7 +591,12 @@ class ActionInstance(p4Action: P4Action,
   private def popBy(count: Int, hdrArray: ArrayInstance, arrName : String): Instruction = {
     val pushUp = (count until hdrArray.getLength).map(x => {
       new ActionInstance(switch.getActionRegistrar.getAction("copy_header"),
-        List[FloatingExpression](:@(s"$arrName[${x - count}]"), :@(s"$arrName[$x]")), switchInstance, switch, table, flowNumber, dropMessage).sefl()
+        List[FloatingExpression](:@(s"$arrName[${x - count}]"), :@(s"$arrName[$x]")),
+        switchInstance,
+        switch,
+        table,
+        flowNumber,
+        dropMessage).handleCopyHeader()
     })
 
     val deleteNews = (0 until count).map(x => {
@@ -600,9 +608,18 @@ class ActionInstance(p4Action: P4Action,
         flowNumber,
         dropMessage).handleRemoveHeader(shouldCheck = false)
     })
-    InstructionBlock(
-      (pushUp ++ deleteNews).toList
-    )
+
+    if (pushUp.isEmpty)
+      Fail(s"Attempt to pop $count which is more than the length of ${hdrArray.getName}, that is ${hdrArray.getLength}")
+    else
+      (0 until count).foldRight(InstructionBlock(
+        (pushUp ++ deleteNews).toList
+      ) : Instruction)((x, acc) => {
+        If (Constrain(s"$arrName[$x].IsValid", :==:(ConstantValue(1))),
+          acc,
+          Fail(s"Attempt to pop the array ${hdrArray.getName} with $x elements by $count")
+        )
+      })
   }
 
   def handleBitAndOrXor(isAnd : Boolean, isOr : Boolean, isXor : Boolean): Instruction = {
@@ -653,7 +670,7 @@ class ActionInstance(p4Action: P4Action,
       case P4ActionType.CloneIngressPktToEgress => handleCloneFromIngressToEgress(primitiveAction.asInstanceOf[CloneIngressPktToEgress])
       case P4ActionType.Resubmit => handleResubmit(primitiveAction.asInstanceOf[Resubmit])
       case P4ActionType.Recirculate => handleRecirculate(primitiveAction.asInstanceOf[Recirculate])
-      case P4ActionType.AddHeader => handleAddHeader(primitiveAction.asInstanceOf[AddHeader])
+      case P4ActionType.AddHeader => handleAddHeader()
       case P4ActionType.CopyHeader => handleCopyHeader()
       case P4ActionType.RemoveHeader => handleRemoveHeader()
       case P4ActionType.Pop => handlePop()

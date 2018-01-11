@@ -73,6 +73,7 @@ package object test {
     })).prettyPrint)
     psokpretty.close()
 
+
     val pskopretty = new PrintStream(s"$dir/fail-port$port-pretty-$okBase.json")
     pskopretty.println(relevant.toJson(JsonWriter.func2Writer[List[State]](u => {
       JsArray(u.map(_.toJson).toVector)
