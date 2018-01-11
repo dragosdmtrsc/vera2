@@ -128,10 +128,6 @@ class ActionInstance(p4Action: P4Action,
           x.getLayout.getFields.map(y => {
             if (!butFor.contains(x.getName + "." + y.getName)) {
               if (x.isMetadata) {
-//                InstructionBlock(
-//                  Allocate(x.getName + "." + y.getName, y.getLength),
-//                  Assign(x.getName + "." + y.getName, :@("Original." + x.getName + "." + y.getName))
-//                )
                 NoOp
               } else {
                 If (Constrain(s"${x.getName}.IsValid", :==:(ConstantValue(1))),
@@ -411,8 +407,8 @@ class ActionInstance(p4Action: P4Action,
     val dst = argList.head.asInstanceOf[Symbol].id
     val src = argList(1).asInstanceOf[Symbol].id
 
-    val (regNameDst, _, _) = getNameAndIndex(dst)
-    val (regNameSrc, _, _) = getNameAndIndex(src)
+    val (regNameDst, idxDst, _) = getNameAndIndex(dst)
+    val (regNameSrc, idxSrc, _) = getNameAndIndex(src)
 
     val instanceDst = switch.getInstance(regNameDst)
     val instrList = InstructionBlock(instanceDst.getLayout.getFields.flatMap(x => {
@@ -423,16 +419,16 @@ class ActionInstance(p4Action: P4Action,
         )
       }).toList
     )
-    If (Constrain(regNameSrc + ".IsValid", :==:(ConstantValue(1))),
+    If (Constrain(src + ".IsValid", :==:(ConstantValue(1))),
       InstructionBlock(
-        Assign(regNameDst + ".IsValid", ConstantValue(1)),
+        Assign(dst + ".IsValid", ConstantValue(1)),
         instrList
       ),
-      Assign(regNameDst + ".IsValid", ConstantValue(0))
+      Assign(dst + ".IsValid", ConstantValue(0))
     )
   }
 
-  def handleRemoveHeader() : Instruction = {
+  def handleRemoveHeader(shouldCheck : Boolean = true) : Instruction = {
     val headerInstance = argList.head.asInstanceOf[Symbol].id
     val (regName, hname, index) = getNameAndIndex(headerInstance)
     val instance = switch.getInstance(regName)
@@ -479,7 +475,10 @@ class ActionInstance(p4Action: P4Action,
           }).toList
         )
       ),
-      Fail("Attempt to remove_header whilst header instance still not valid")
+      if (shouldCheck)
+        Fail("Attempt to remove_header whilst header instance still not valid")
+      else
+        NoOp
     )
   }
 
@@ -594,7 +593,12 @@ class ActionInstance(p4Action: P4Action,
 
     val deleteNews = (0 until count).map(x => {
       new ActionInstance(switch.getActionRegistrar.getAction("remove_header"),
-        List[FloatingExpression](:@(s"$arrName[${hdrArray.getLength - x}]")), switchInstance, switch, table, flowNumber, dropMessage).sefl()
+        List[FloatingExpression](:@(s"$arrName[${hdrArray.getLength - 1 - x}]")),
+        switchInstance,
+        switch,
+        table,
+        flowNumber,
+        dropMessage).handleRemoveHeader(shouldCheck = false)
     })
     InstructionBlock(
       (pushUp ++ deleteNews).toList
