@@ -2,7 +2,7 @@ package org.change.v2.analysis.executor.loopdetection.translator.caching
 
 import org.change.v2.analysis.constraint._
 import org.change.v2.analysis.expression.abst.Expression
-import org.change.v2.analysis.expression.concrete.{ConstantValue, SymbolicValue}
+import org.change.v2.analysis.expression.concrete.{ConstantStringValue, ConstantValue, SymbolicValue}
 import org.change.v2.analysis.expression.concrete.nonprimitive._
 import org.change.v2.analysis.memory.{MemoryObject, MemorySpace, Value}
 import z3.scala.{Z3AST, Z3Config, Z3Context, Z3Solver}
@@ -80,7 +80,10 @@ object CachingBVTranslator {
         val astE = z3Context.mkNumeral(v.toString, z3Context.mkBVSort(size))
         val newCache = astCache + (e.id -> astE)
         ((z3Context, z3Solver, newCache), astE)
-
+      case ConstantStringValue(v) =>
+        val astE = z3Context.mkNumeral(v.hashCode.toString, z3Context.mkBVSort(size))
+        val newCache = astCache + (e.id -> astE)
+        ((z3Context, z3Solver, newCache), astE)
       case SymbolicValue(_) =>
         val astE = z3Context.mkConst(e.id.toString, z3Context.mkBVSort(size))
         val newCache = astCache + (e.id -> astE)
