@@ -696,7 +696,10 @@ class ActionInstance(p4Action: P4Action,
   }
   def normalize(p4ActionCall: P4ActionCall) : P4ActionCall = {
     p4ActionCall.parameterInstances().foldLeft(new P4ActionCall(
-      normalize(p4ActionCall.getP4Action)
+      if (p4ActionCall.getP4Action == null)
+        throw new Exception(s"p4 action doesn't exist for $table and $flowNumber and ${this.p4Action.getActionName}")
+      else
+        normalize(p4ActionCall.getP4Action)
     ))((acc, x) => {
       acc.addParameter(x)
     })

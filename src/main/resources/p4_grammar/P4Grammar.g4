@@ -22,9 +22,9 @@ p4_declaration  :   header_type_declaration
                 |   control_function_declaration
                 ;
 
-const_value     returns [Integer constValue]:
+const_value     returns [Long constValue]:
     ('+'|'-')? width_spec? unsigned_value ;
-unsigned_value  returns [Integer unsignedValue]:
+unsigned_value  returns [Long unsignedValue]:
     Binary_value            #BinaryUValue
     | Decimal_value         #DecimalUValue
     | Hexadecimal_value     #HexadecimalUValue
@@ -45,7 +45,7 @@ fragment Decimal_digit   :   Binary_digit | '2' | '3' | '4' | '5' | '6' | '7' | 
 fragment Hexadecimal_digit   : Decimal_digit | 'a' | 'A' | 'b' | 'B' | 'c' | 'C' | 'd' | 'D' | 'e' | 'E' | 'f' | 'F' ;
 
 width_spec  :   Decimal_value '\'' ;
-field_value returns [Integer fieldValue] : const_value ;
+field_value returns [Long fieldValue] : const_value ;
 
 // Section 2.1
 header_type_declaration returns [org.change.parser.p4.HeaderDeclaration headerDeclaration, org.change.v2.p4.model.Header header]:
@@ -194,7 +194,7 @@ meter_declaration : 'meter' meter_name '{'
     'type' ':' meter_type ';'
     ( 'result' ':' field_ref ';' )?
     ( direct_or_static ';' )?
-    (' instance_count' ':' const_expr ';' )?
+    ('instance_count' ':' const_expr ';' )?
     '}'
     ;
 
@@ -260,7 +260,7 @@ field_match returns [org.change.v2.p4.model.table.TableMatch tableMatch, String 
 field_or_masked_ref : header_ref | field_ref | field_ref 'mask' const_value ;
 field_match_type returns [org.change.v2.p4.model.table.MatchKind matchKind]: 'exact' | 'ternary' | 'lpm' | 'range' | 'valid' ;
 table_actions : action_specification | action_profile_specification ;
-action_profile_specification : 'action_profile' ':' action_profile_name ;
+action_profile_specification : 'action_profile' ':' action_profile_name ';' ;
 control_function_declaration returns [String controlFunctionName] : 'control' control_fn_name control_block ;
 control_fn_name : NAME;
 control_block returns [String parent,

@@ -17,12 +17,12 @@ object P4Helpers {
   }
   def dumpCommands(switch: Switch, file : PrintStream): Unit = {
     for (t <- switch.getDeclaredTables)
-      file.print(s"table_dump $t")
+      file.println(s"table_dump $t")
   }
 
   def main(args: Array[String]): Unit = {
-    val dir = "inputs/simple-nat-testing/"
-    val p4 = s"$dir/simple_nat-ppc.p4"
+    val dir = "inputs/big-switch/"
+    val p4 = s"$dir/switch-ppc.p4"
     P4Helpers.dumpCommands(Switch.fromFile(p4))
   }
 

@@ -34,7 +34,13 @@ class BufferMechanism(switchInstance: ISwitchInstance) {
   })
 
   def symnetCode() : Instruction = InstructionBlock(
-      If(Constrain("standard_metadata.instance_type", :==:(ConstantValue(InstanceType.PKT_INSTANCE_TYPE_NORMAL.value))),
+      If(Constrain("standard_metadata.instance_type", :|:(
+        :|:(
+          :==:(ConstantValue(InstanceType.PKT_INSTANCE_TYPE_NORMAL.value)),
+          :==:(ConstantValue(InstanceType.PKT_INSTANCE_TYPE_RESUBMIT.value))
+        ),
+        :==:(ConstantValue(InstanceType.PKT_INSTANCE_TYPE_RESUBMIT.value)))
+      ),
         normalCase(),
         cloneCase()
       ),

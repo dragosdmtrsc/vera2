@@ -271,7 +271,7 @@ abstract class AbstractInstructionExecutor extends InstructionExecutor {
             val (sa, fa) = execute(InstructionBlock(ConstrainNamedSymbol(what, withWhat, Some(c)), thenWhat), s, v)
             val (sb, fb) = execute(InstructionBlock(ConstrainNamedSymbol(what, :~:(withWhat), Some(NOT(c))), elseWhat), s, v)
             (sa ++ sb, fa ++ fb)
-          case Left(c) => this.execute(Fail(s"Symbol $what is not assigned"), s, v)
+          case Left(c) => this.execute(Fail(s"Symbol $what does not exist"), s, v)
           case Right(msg) => this.execute(Fail(msg), s, v)
         }
       case ConstrainRaw(what, withWhat, _) => what(s) match {
@@ -280,7 +280,7 @@ abstract class AbstractInstructionExecutor extends InstructionExecutor {
             val (sa, fa) = execute(InstructionBlock(ConstrainRaw(what, withWhat, Some(c)), thenWhat), s, v)
             val (sb, fb) = execute(InstructionBlock(ConstrainRaw(what, :~:(withWhat), Some(NOT(c))), elseWhat), s, v)
             (sa ++ sb, fa ++ fb)
-          case Left(c) => this.execute(Fail(s"Header $what is not assigned"), s, v)
+          case Left(c) => this.execute(Fail(s"Cannot read header $what"), s, v)
           case Right(msg) => this.execute(Fail(msg), s, v)
         }
         case None => execute(elseWhat, s, v)
@@ -293,7 +293,6 @@ abstract class AbstractInstructionExecutor extends InstructionExecutor {
       }), s, v)
       case _ => stateToError(s, "Bad test instruction")
     }
-
   }
 
   override def executeForward(instruction: Forward, s: State, v: Boolean = false):

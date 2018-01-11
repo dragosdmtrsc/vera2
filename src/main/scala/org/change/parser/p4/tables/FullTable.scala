@@ -173,7 +173,8 @@ class TableTernaryMatcher(tableMatch: TableMatch, useBv : Boolean = true) extend
     val mask = pair._2
     val value = pair._1
     val (hdr, fld) = P4Utils.fieldDef(tableMatch.getKey)
-    val width = switchInstance.getSwitchSpec.getInstance(hdr).getLayout.getFields.find(x => x.getName == fld).get.getLength
+    val width = switchInstance.getSwitchSpec.getInstance(hdr).getLayout.getFields.find(x => x.getName == fld).
+      get.getLength
     val actualMask = extractMask(mask, width)
     if (!useBv) {
       val badBasis = actualMask.zipWithIndex.filter(x => x._1 == 0)

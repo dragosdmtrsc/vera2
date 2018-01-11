@@ -23,7 +23,7 @@ class InitializeCode[T<:ISwitchInstance](switchInstance : T,
     GlobalInitFactory.get(switchInstance.getClass.asInstanceOf[Class[T]]))
 
   def initializeMetadata(butFor : List[String] = Nil) : Instruction = {
-    InstructionBlock(swSpec.getInstances.filter(_.isMetadata).flatMap(x => {
+    InstructionBlock(Assign("Truncate", ConstantValue(0)) :: swSpec.getInstances.filter(_.isMetadata).flatMap(x => {
       if (!butFor.contains(x.getName)) {
         x.getLayout.getFields.map(f => {
           if (!butFor.contains(x.getName + "." + f.getName)) {
@@ -41,7 +41,7 @@ class InitializeCode[T<:ISwitchInstance](switchInstance : T,
       } else {
         List[Instruction](NoOp)
       }
-    })
+    }).toList
     )
   }
 

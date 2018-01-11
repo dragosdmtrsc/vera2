@@ -6,6 +6,7 @@ import java.util.{Collections, UUID}
 import generated.parse.p4.P4GrammarParser._
 import generated.parse.p4.{P4GrammarBaseListener, P4GrammarParser}
 import org.antlr.v4.runtime.tree.ParseTreeProperty
+import org.change.parser.p4.tables.P4Utils
 import org.change.v2.abstractnet.generic._
 import org.change.v2.analysis.expression.abst.FloatingExpression
 import org.change.v2.analysis.expression.concrete.ConstantValue
@@ -73,24 +74,24 @@ class P4GrammarListener extends P4GrammarBaseListener {
         None
 
     val fields = ctx.header_dec_body().field_dec().toList.map { h =>
-      val width: Option[Int] = Option(h.bit_width().const_value()).map(_.constValue)
+      val width: Option[Long] = Option(h.bit_width().const_value()).map(_.constValue)
       val name: String = h.field_name().getText
       (name, width)
     }
 
     val fieldsWithSizes = {
-      val total = fields.foldLeft(0)(_ + _._2.getOrElse(0))
+      val total = fields.foldLeft(0l)(_ + _._2.getOrElse(0l))
       // If not defined, then it is computed.
       if (headerSize.isEmpty) headerSize = Some(total)
       // By this point there should be a value for the size of the header.
       fields.map(field => (field._1, field._2.getOrElse(headerSize.get - total)))
     }
 
-    ctx.headerDeclaration = HeaderDeclaration(
-      declaredHeaderName,
-      fieldsWithSizes.scanLeft(0)(_ + _._2).zip(fieldsWithSizes).toMap,
-      headerSize.get
-    )
+//    ctx.headerDeclaration = HeaderDeclaration(
+//      declaredHeaderName,
+//      fieldsWithSizes.scanLeft(0)(_ + _._2).zip(fieldsWithSizes).toMap,
+//      headerSize.get
+//    )
     ctx.header = new Header().setName(declaredHeaderName).setMaxLength(ctx.header_dec_body().maxLength)
     for (f <- ctx.header_dec_body().fields) {
       ctx.header = ctx.header.addField(f)
@@ -123,9 +124,9 @@ class P4GrammarListener extends P4GrammarBaseListener {
     val instanceName = ctx.instance_name().getText
     val index = ctx.const_value().constValue
     val headerType = ctx.header_type_name().getText
-    ctx.arrInstance = new ArrayInstance(headers(headerType), instanceName, index)
+    ctx.arrInstance = new ArrayInstance(headers(headerType), instanceName, index.intValue())
     instances.put(instanceName, ctx.arrInstance)
-    for (i <- 0 until index) {
+    for (i <- 0 until index.intValue()) {
       ctx.instance = new ArrayHeader(instanceName, i, declaredHeaders(headerType))
     }
   }
@@ -133,7 +134,7 @@ class P4GrammarListener extends P4GrammarBaseListener {
   override def exitMetadata_initializer(ctx: P4GrammarParser.Metadata_initializerContext): Unit = {
     import scala.collection.JavaConverters._
     ctx.inits = (ctx.field_name().asScala zip ctx.field_value().asScala).map( nv => {
-      nv._1.getText -> nv._2.fieldValue
+      nv._1.getText -> new Integer(nv._2.fieldValue.intValue())
     }).toMap
   }
 
@@ -300,7 +301,7 @@ class P4GrammarListener extends P4GrammarBaseListener {
       448 -> ("parser_error_location", 64),
       512 -> ("egress_priority", 64)
     )
-    declaredHeaders.put("standard_metadata_t", HeaderDeclaration("standard_metadata_t", hOffs, 512))
+//    declaredHeaders.put("standard_metadata_t", HeaderDeclaration("standard_metadata_t", hOffs, 512))
     headers.put("standard_metadata_t", hOffs.foldLeft(new Header().setName("standard_metadata_t").setLength(512))((acc, x) => {
       acc.addField(new Field().setLength(x._2._2).setName(x._2._1))
     }))
@@ -339,7 +340,7 @@ class P4GrammarListener extends P4GrammarBaseListener {
   }
 
   override def exitWidth_declaration(ctx: Width_declarationContext): Unit = {
-    ctx.width = ctx.const_value().constValue
+    ctx.width = ctx.const_value().constValue.intValue()
   }
 
   val registerMap = new util.HashMap[String, RegisterSpecification]()
@@ -367,7 +368,7 @@ class P4GrammarListener extends P4GrammarBaseListener {
           null
         }
       ).setName(ctx.register_name().NAME().getText).setWidth(ctx.width_declaration().width).
-      setCount(if (ctx.const_value() != null) ctx.const_value().constValue else 1  )
+      setCount(if (ctx.const_value() != null) ctx.const_value().constValue.intValue() else 1  )
     registerMap.put(ctx.spec.getName, ctx.spec)
   }
 
@@ -387,7 +388,7 @@ class P4GrammarListener extends P4GrammarBaseListener {
 
   override def exitHeader_dec_body(ctx: Header_dec_bodyContext): Unit = {
     if (ctx.const_value() != null) {
-      ctx.maxLength = ctx.const_value().constValue
+      ctx.maxLength = ctx.const_value().constValue.intValue()
     } else {
       ctx.maxLength = -1
     }
@@ -396,14 +397,14 @@ class P4GrammarListener extends P4GrammarBaseListener {
       ctx.fields.add(f.field)
     }
     if (ctx.length_exp() != null && ctx.length_exp().const_value() != null)
-      ctx.length = ctx.length_exp().const_value().constValue
+      ctx.length = ctx.length_exp().const_value().constValue.intValue()
     else ctx.length = -1
   }
 
   override def exitField_dec(ctx: Field_decContext): Unit = {
     ctx.field = new Field().setLength(
       if (ctx.bit_width().const_value() != null)
-        ctx.bit_width().const_value().constValue
+        ctx.bit_width().const_value().constValue.intValue()
       else
         -1).setName(ctx.field_name().NAME().getText)
     if (ctx.field_mod() != null && ctx.field_mod().getText.contains("saturating"))
@@ -465,7 +466,6 @@ class P4GrammarListener extends P4GrammarBaseListener {
     ctx.tableMatch = new TableMatch(ctx.tableName,
       ctx.field_or_masked_ref().getText,
       ctx.field_match_type().matchKind)
-
   }
 
 
@@ -850,7 +850,7 @@ class P4GrammarListener extends P4GrammarBaseListener {
   }
 
   override def exitValue_exp(ctx:Value_expContext){
-    expressions.put(ctx,ConstantValue(ctx.getText.toInt))
+    expressions.put(ctx,ConstantValue(P4Utils.toNumber(ctx.getText)))
   }
 
   override def exitPar_exp(ctx:Par_expContext){

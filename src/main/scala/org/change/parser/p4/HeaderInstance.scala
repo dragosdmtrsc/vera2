@@ -12,7 +12,7 @@ sealed trait HeaderInstance extends P4Instance {
     * @param fieldName
     * @return
     */
-  def getTagOfField(fieldName: String): TagExp = getTagExp + layout.offsetOf(fieldName)
+  def getTagOfField(fieldName: String): TagExp = getTagExp + layout.offsetOf(fieldName).intValue()
 }
 
 class ScalarHeader(val id: String,
@@ -24,7 +24,7 @@ class ScalarHeader(val id: String,
 class ArrayHeader(val arrayName: String,
                   val index: Int,
                   val layout: HeaderDeclaration) extends HeaderInstance {
-  override def getTagExp(): TagExp = Tag(arrayName) + index * layout.length
+  override def getTagExp(): TagExp = Tag(arrayName) + (index * layout.length).toInt
 }
 
 class MetadataInstance(override val id: String,
