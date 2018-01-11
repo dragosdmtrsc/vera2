@@ -27,7 +27,7 @@ class SwitchTests extends FunSuite {
     val res = ControlFlowInterpreter(p4, dataplane, Map[Int, String](
       0 -> "veth0", 1 -> "veth2", 2 -> "veth4", 3 -> "veth6", 4 -> "veth8", 5 -> "veth10", 6 -> "veth12", 7 -> "veth14", 8 -> "veth16", 64 -> "veth250"
     ), "switch")
-    val port = 1
+    val port = 0
     val ib = InstructionBlock(
       Forward(s"switch.input.$port")
     )

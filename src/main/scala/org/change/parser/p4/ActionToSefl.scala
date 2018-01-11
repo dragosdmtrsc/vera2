@@ -687,6 +687,7 @@ class ActionInstance(p4Action: P4Action,
 
 
   def normalize(p4Action : P4Action): P4Action = {
+    assert(p4Action != null, this.table + "@" + this.flowNumber)
     val actual = if (p4Action.getActionType == P4ActionType.UNKNOWN) {
       switch.getActionRegistrar.getAction(p4Action.getActionName)
     } else {
