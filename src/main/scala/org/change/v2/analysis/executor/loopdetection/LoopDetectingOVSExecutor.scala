@@ -30,7 +30,7 @@ class LoopDetectingOVSExecutor(
     var toExecuteNext = () => super.executeForward(instruction, s, v)
 
     if (s.history.nonEmpty) {
-      val port = s.location
+      val port = instruction.place
 
       if (checkedPorts contains port)
         if (stateHistory(port).isEmpty)
