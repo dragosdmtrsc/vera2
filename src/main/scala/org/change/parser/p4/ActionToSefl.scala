@@ -128,10 +128,6 @@ class ActionInstance(p4Action: P4Action,
           x.getLayout.getFields.map(y => {
             if (!butFor.contains(x.getName + "." + y.getName)) {
               if (x.isMetadata) {
-//                InstructionBlock(
-//                  Allocate(x.getName + "." + y.getName, y.getLength),
-//                  Assign(x.getName + "." + y.getName, :@("Original." + x.getName + "." + y.getName))
-//                )
                 NoOp
               } else {
                 If (Constrain(s"${x.getName}.IsValid", :==:(ConstantValue(1))),
@@ -363,7 +359,7 @@ class ActionInstance(p4Action: P4Action,
         NoOp
       else {
         InstructionBlock(hInstance.getLayout.getFields.map(x => {
-            Assign(hname + newIndex + "." + x.getName, :@(hname + index + "." + x.getName))
+            Assign(hname + "[" + newIndex + "]" + "." + x.getName, :@(hname + index + "." + x.getName))
           })
         )
       }
@@ -373,12 +369,12 @@ class ActionInstance(p4Action: P4Action,
   def allocateHeader(hname : String, index : Int = 0): Instruction = switch.getInstance(hname) match {
     case hInstance : ArrayInstance =>
       if (index >= hInstance.getLength)
-        NoOp
+        Fail(s"Array $hname index $index out of bounds")
       else {
         InstructionBlock(hInstance.getLayout.getFields.flatMap(x => {
           List[Instruction](
-            Allocate(hname + index + "." + x.getName, x.getLength),
-            Assign(hname + index + "." + x.getName, ConstantValue(0))
+            Allocate(hname + "[" + index + "]" + "." + x.getName, x.getLength),
+            Assign(hname + "[" + index + "]" + "." + x.getName, ConstantValue(0))
           )
         }).toList
         )
@@ -403,7 +399,7 @@ class ActionInstance(p4Action: P4Action,
       val nrString = dst.substring(index + 1, dst.indexOf("]"))
       (hname, hname, Integer.decode(nrString).intValue())
     } else {
-      (dst, dst, 0)
+      (dst, dst, -3)
     }
   }
 
@@ -411,8 +407,8 @@ class ActionInstance(p4Action: P4Action,
     val dst = argList.head.asInstanceOf[Symbol].id
     val src = argList(1).asInstanceOf[Symbol].id
 
-    val (regNameDst, _, _) = getNameAndIndex(dst)
-    val (regNameSrc, _, _) = getNameAndIndex(src)
+    val (regNameDst, idxDst, _) = getNameAndIndex(dst)
+    val (regNameSrc, idxSrc, _) = getNameAndIndex(src)
 
     val instanceDst = switch.getInstance(regNameDst)
     val instrList = InstructionBlock(instanceDst.getLayout.getFields.flatMap(x => {
@@ -423,41 +419,42 @@ class ActionInstance(p4Action: P4Action,
         )
       }).toList
     )
-    If (Constrain(regNameSrc + ".IsValid", :==:(ConstantValue(1))),
+    If (Constrain(src + ".IsValid", :==:(ConstantValue(1))),
       InstructionBlock(
-        Assign(regNameDst + ".IsValid", ConstantValue(1)),
+        Assign(dst + ".IsValid", ConstantValue(1)),
         instrList
       ),
-      Assign(regNameDst + ".IsValid", ConstantValue(0))
+      Assign(dst + ".IsValid", ConstantValue(0))
     )
   }
 
-  def handleRemoveHeader() : Instruction = {
+  def handleRemoveHeader(shouldCheck : Boolean = true) : Instruction = {
     val headerInstance = argList.head.asInstanceOf[Symbol].id
     val (regName, hname, index) = getNameAndIndex(headerInstance)
     val instance = switch.getInstance(regName)
-    If (Constrain(regName + ".IsValid", :==:(ConstantValue(1))),
+    val fhname = if (index >= 0) hname + "[" + index + "]" else hname
+    If (Constrain(fhname + ".IsValid", :==:(ConstantValue(1))),
       InstructionBlock(
 //        Assign(regName + ".IsValid", ConstantValue(0)),
-        if (regName != hname) {
+        if (index >= 0) {
           // if we are at a header array
           val instance = switch.getInstance(hname).asInstanceOf[ArrayInstance]
           val moveUpInstruction = (index + 1 until instance.getLength).map( x => {
             val newIndex = x - 1
-            If (Constrain(hname + x + ".IsValid", :==:(ConstantValue(1))),
+            If (Constrain(hname + "[" + x  + "]" + ".IsValid", :==:(ConstantValue(1))),
               if (newIndex < 0 || newIndex >= instance.getLength) {
                 NoOp
               } else {
-                If (Constrain(hname + newIndex + ".IsValid", :==:(ConstantValue(1))),
+                If (Constrain(hname + "[" + newIndex + "]" + ".IsValid", :==:(ConstantValue(1))),
                   moveHeader(hname, x, newIndex),
                   InstructionBlock(
-                    Assign(hname + newIndex + ".IsValid", ConstantValue(1)),
+                    Assign(hname + "[" + newIndex + "]" + ".IsValid", ConstantValue(1)),
                     allocateHeader(hname, newIndex),
                     moveHeader(hname, x, newIndex)
                   )
                 )
               },
-              Assign(hname + newIndex + ".IsValid", ConstantValue(0))
+              Assign(hname + "[" + newIndex + "]" + ".IsValid", ConstantValue(0))
             )
           }
           ).toList
@@ -471,14 +468,17 @@ class ActionInstance(p4Action: P4Action,
         InstructionBlock(
           instance.getLayout.getFields.map( x => {
             InstructionBlock(
-              Allocate(instance.getName + "." + x, x.getLength),
-              Assign(instance.getName + "." + x, ConstantValue(0))
+              Allocate(instance.getName + (if (index >= 0) "[" + index + "]" else "") + "." + x, x.getLength),
+              Assign(instance.getName + (if (index >= 0) "[" + index + "]" else "") + "." + x, ConstantValue(0))
             )
             NoOp
           }).toList
         )
       ),
-      Fail("Attempt to remove_header whilst header instance still not valid")
+      if (shouldCheck)
+        Fail("Attempt to remove_header whilst header instance still not valid")
+      else
+        NoOp
     )
   }
 
@@ -593,7 +593,12 @@ class ActionInstance(p4Action: P4Action,
 
     val deleteNews = (0 until count).map(x => {
       new ActionInstance(switch.getActionRegistrar.getAction("remove_header"),
-        List[FloatingExpression](:@(s"$arrName[${hdrArray.getLength - x}]")), switchInstance, switch, table, flowNumber, dropMessage).sefl()
+        List[FloatingExpression](:@(s"$arrName[${hdrArray.getLength - 1 - x}]")),
+        switchInstance,
+        switch,
+        table,
+        flowNumber,
+        dropMessage).handleRemoveHeader(shouldCheck = false)
     })
     InstructionBlock(
       (pushUp ++ deleteNews).toList

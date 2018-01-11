@@ -34,7 +34,6 @@ class InitializeCode[T<:ISwitchInstance](switchInstance : T,
               else
                 Assign(x.getName + "." + f.getName, ConstantValue(0))
             )
-
           } else {
             NoOp
           }
@@ -51,9 +50,8 @@ class InitializeCode[T<:ISwitchInstance](switchInstance : T,
       swSpec.getInstances.filter(!_.isMetadata).flatMap(x => x match {
         case ai: ArrayInstance =>
           val len = ai.getLength
-          (0 to len).map(z => {
-            val baseLine = x.getName + z
-            Assign(x.getName + z + ".IsValid", ConstantValue(0))
+          (0 until len).map(z => {
+            Assign(x.getName + "[" + z + "].IsValid", ConstantValue(0))
           })
         case _ =>
           Assign(x.getName + ".IsValid", ConstantValue(0)) :: Nil

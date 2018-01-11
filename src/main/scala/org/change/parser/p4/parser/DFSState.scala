@@ -6,8 +6,9 @@ import java.util.UUID
 import com.fasterxml.jackson.annotation.ObjectIdGenerators.UUIDGenerator
 import org.change.parser.p4.parser.StateExpander.deparserConstraints
 import org.change.utils.prettifier.JsonUtil
+import org.change.v2.analysis.expression.abst.FloatingExpression
 import org.change.v2.analysis.expression.concrete.{ConstantValue, SymbolicValue}
-import org.change.v2.analysis.expression.concrete.nonprimitive.{:&&:, :@, Address}
+import org.change.v2.analysis.expression.concrete.nonprimitive._
 import org.change.v2.analysis.memory.Tag
 import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.analysis.processingmodels.instructions.{Allocate, Constrain, _}
@@ -121,7 +122,12 @@ class StateExpander (switch: Switch, startAt : String){
       if (!acc._2) {
         val newdfs = acc._1.addInstr(x)
         x match {
-          case v : SetStatement => (newdfs, false)
+          case v : SetStatement =>
+            val sref = v.getRight match {
+              case lref : LatestRef => new StringRef(newdfs.latest + "." + lref.getFieldName)
+              case _ => v.getRight
+            }
+            (acc._1.addInstr(new SetStatement(v.getLeft, sref)), false)
           case v : ExtractStatement =>
             val ref = v.getExpression.asInstanceOf[StringRef].getRef
             val sinstance = switch.getInstance(ref)
@@ -131,6 +137,12 @@ class StateExpander (switch: Switch, startAt : String){
               case _ => false
             }
             val sth = v.setLocation(acc._1.crt, reg)
+            sinstance match {
+              case aInstance : ArrayInstance =>
+                if (v.getExpression.asInstanceOf[StringRef].getArrayIndex == -1)
+                  v.getExpression.asInstanceOf[StringRef].setArrayIndex(acc._1.currentDepth.getOrElse(ref, 0))
+              case _ => ;
+            }
             (acc._1.addInstr(sth).increment(reg).incrementHeaderCount(ref).
               setLatest(v.getExpression.asInstanceOf[StringRef].getRef), pleaseStop)
           case _ => (newdfs, acc._2)
@@ -358,10 +370,15 @@ object StateExpander {
       InstructionBlock(
         x.history.tail.filter(!_.isInstanceOf[ReturnStatement]).reverse.map {
           case v: ExtractStatement =>
-            val sref = v.getExpression.asInstanceOf[StringRef].getRef
+            val maybeIndex = v.getExpression.asInstanceOf[StringRef].getArrayIndex
+            val oldSref = v.getExpression.asInstanceOf[StringRef].getRef
+            val sref = oldSref + (if (maybeIndex >= 0)
+              "[" + maybeIndex + "]"
+            else "")
+
             InstructionBlock(
               Assign(sref + ".IsValid", ConstantValue(1)) ::
-                sw.getInstance(sref).getLayout.getFields.foldLeft((Nil: List[Instruction], 0))((acc, r) => {
+                sw.getInstance(oldSref).getLayout.getFields.foldLeft((Nil: List[Instruction], 0))((acc, r) => {
                   (acc._1 ++ List[Instruction](
                     Allocate(sref + s".${r.getName}", r.getLength),
                     Assign(sref + s".${r.getName}", :@(Tag("START") + v.getCrt + acc._2)),
@@ -371,9 +388,16 @@ object StateExpander {
                 })._1
             )
           case v: SetStatement =>
+            def translateCref(expression: Expression) : FloatingExpression = expression match {
+              case ct : ConstantExpression => ConstantValue(ct.getValue)
+              case ce : CompoundExpression if ce.isPlus => :+:(translateCref(ce.getLeft), translateCref(ce.getRight))
+              case ce : CompoundExpression if !ce.isPlus => :-:(translateCref(ce.getLeft), translateCref(ce.getRight))
+              case expr : StringRef => :@(expr.getRef)
+              case  _ => throw new NotImplementedError(expression.toString)
+            }
             val dstref = v.getLeft.asInstanceOf[StringRef].getRef
-            val srcref = v.getRight.asInstanceOf[StringRef].getRef
-            Assign(dstref, :@(srcref))
+            val srcref = translateCref(v.getRight)
+            Assign(dstref, srcref)
           case v: CaseNotEntry =>
             val cases = v.getCaseEntryList.map(translateCaseEntry(_, sw))
             InstructionBlock(
