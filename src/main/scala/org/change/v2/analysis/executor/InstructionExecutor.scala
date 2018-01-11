@@ -3,6 +3,7 @@ package org.change.v2.analysis.executor
 import org.change.v2.analysis.constraint._
 import org.change.v2.analysis.executor.solvers.{Solver, Z3SolverEnhanced}
 import org.change.v2.analysis.expression.abst.{Expression, FloatingExpression}
+import org.change.v2.analysis.expression.concrete.ConstantStringValue
 import org.change.v2.analysis.memory.{Intable, MemorySpace, State, TagExp}
 import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.analysis.processingmodels.instructions._
@@ -296,7 +297,10 @@ abstract class AbstractInstructionExecutor extends InstructionExecutor {
   override def executeForward(instruction: Forward, s: State, v: Boolean = false):
   (List[State], List[State]) = {
     val Forward(place) = instruction
-    (List(s.forwardTo(place)), Nil)
+    val (asgOk, asgFail) = this.execute(Assign("CurrentPort", ConstantStringValue(place)), s, v)
+    if (asgOk.isEmpty || asgFail.nonEmpty)
+      throw new IllegalStateException("Something terribly wrong happened when assigning to port")
+    (List(asgOk.head.forwardTo(place)), Nil)
   }
 
   override def executeFork(instruction: Fork, s: State, v: Boolean = false):
