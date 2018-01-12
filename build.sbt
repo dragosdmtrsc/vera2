@@ -31,8 +31,12 @@ unmanagedResourceDirectories in Compile += baseDirectory.value / "lib"
 
 includeFilter in(Compile, unmanagedResourceDirectories) := ".dll,.so"
 
-
-test in assembly := {}
+fork in test := true
+fork in Test := true
+javaOptions in Test += "-Xss128M"
+javaOptions in Test += "-Xmx4G"
+javaOptions in run += "-Xss128M"
+//test in assembly := {}
 
 lazy val p4control = taskKey[Unit]("P4 control function to SEFL")
 
