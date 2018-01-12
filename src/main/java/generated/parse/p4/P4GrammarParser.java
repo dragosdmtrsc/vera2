@@ -6988,6 +6988,8 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Bool_exprContext extends ParserRuleContext {
+		public org.change.v2.analysis.processingmodels.Instruction instruction;
+		public org.change.v2.analysis.processingmodels.Instruction alsoAdd;
 		public Bool_exprContext(ParserRuleContext parent, int invokingState) {
 			super(parent, invokingState);
 		}
@@ -6996,6 +6998,8 @@ public class P4GrammarParser extends Parser {
 		public Bool_exprContext() { }
 		public void copyFrom(Bool_exprContext ctx) {
 			super.copyFrom(ctx);
+			this.instruction = ctx.instruction;
+			this.alsoAdd = ctx.alsoAdd;
 		}
 	}
 	public static class Valid_bool_exprContext extends Bool_exprContext {
@@ -7221,6 +7225,7 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class ExpContext extends ParserRuleContext {
+		public org.change.v2.analysis.expression.abst.FloatingExpression expr;
 		public ExpContext(ParserRuleContext parent, int invokingState) {
 			super(parent, invokingState);
 		}
@@ -7229,6 +7234,7 @@ public class P4GrammarParser extends Parser {
 		public ExpContext() { }
 		public void copyFrom(ExpContext ctx) {
 			super.copyFrom(ctx);
+			this.expr = ctx.expr;
 		}
 	}
 	public static class Compound_expContext extends ExpContext {

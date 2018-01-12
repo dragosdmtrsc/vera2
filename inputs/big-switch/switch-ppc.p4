@@ -800,7 +800,7 @@ parser parse_int_header {
         default: parse_all_int_meta_value_heders;
     }
 }
-header int_value_t int_val[24];
+header int_value_t int_val[2];
 parser parse_int_val {
     extract(int_val[next]);
     return select(latest.bos) {

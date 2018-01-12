@@ -4,7 +4,7 @@ import java.util
 
 import org.change.parser.p4.buffer.{BufferMechanism, OutputMechanism}
 import org.change.parser.p4.factories.{FullTableFactory, GlobalInitFactory, InitCodeFactory, InstanceBasedInitFactory}
-import org.change.parser.p4.parser.{DFSState, StateExpander}
+import org.change.parser.p4.parser.{DFSState, ParserGenerator, StateExpander, SwitchBasedParserGenerator}
 import org.change.parser.p4.tables.FullTable
 import org.change.v2.analysis.executor.InstructionExecutor
 import org.change.v2.analysis.memory.State
@@ -21,24 +21,27 @@ class ControlFlowInterpreter[T<:ISwitchInstance](val switchInstance: T,
                                                  val switch: Switch,
                                                  val additionalInitCode : (T, Int) => Instruction,
                                                  val tableFactory : (T, String, String) => Instruction,
-                                                 val initFactory : (T) => Instruction) {
+                                                 val initFactory : (T) => Instruction,
+                                                 val parserGenerator: ParserGenerator) {
   def this(switchInstance: T, switch: Switch,
            optAdditionalInitCode : Option[(T, Int) => Instruction] = None,
            optTableFactory : Option[(T, String, String) => Instruction] = None,
-           optInitFactory : Option[(T) => Instruction] = None) = this(
+           optInitFactory : Option[(T) => Instruction] = None,
+           optParserGenerator : Option[ParserGenerator]) = this(
     switchInstance, switch,
     optAdditionalInitCode.getOrElse(InitCodeFactory.get(switchInstance.getClass.asInstanceOf[Class[T]])),
     optTableFactory.getOrElse(FullTableFactory.get(switchInstance.getClass.asInstanceOf[Class[T]])),
-    optInitFactory.getOrElse(GlobalInitFactory.get(switchInstance.getClass.asInstanceOf[Class[T]]))
+    optInitFactory.getOrElse(GlobalInitFactory.get(switchInstance.getClass.asInstanceOf[Class[T]])),
+    optParserGenerator.getOrElse(new SwitchBasedParserGenerator(switch, switchInstance))
   )
-  def this(switchInstance: T, switch: Switch) = this(switchInstance, switch, None, None, None)
+  def this(switchInstance: T, switch: Switch) = this(switchInstance, switch, None, None, None, None)
 
 
   private val initializeCode = new InitializeCode(switchInstance, switch, additionalInitCode, initFactory)
-  private lazy val expd = new StateExpander(switch, "start").doDFS(DFSState(0))
 
   private val controlFlowInstructions = switch.getControlFlowInstructions.toMap
   private val controlFlowLinks = switch.getControlFlowLinks.toMap
+  private val controlExactMatcher = "control\\.(.*?)\\.out\\.(.*)".r
 
   private val tableExactMatcher = "table\\.(.*?)\\.out\\.(.*)".r
   val plugTables: Map[String, Instruction] = controlFlowLinks.
@@ -62,12 +65,11 @@ class ControlFlowInterpreter[T<:ISwitchInstance](val switchInstance: T,
   private val egressOutLink = Map[String, String](s"${switchInstance.getName}.control.egress.out" -> s"${switchInstance.getName}.deparser.in")
 
   // plug in the deparser
-  private val deparserPlug = Map[String, Instruction](s"${switchInstance.getName}.deparser.in" ->
-    StateExpander.deparserCode(expd, switch))
+  private val deparserPlug = Map[String, Instruction](s"${switchInstance.getName}.deparser.in" -> parserGenerator.deparserCode())
   // link deparser -> <sw>.output.in
   private val deparserOutLink = Map[String, String](s"${switchInstance.getName}.deparser.out" -> s"${switchInstance.getName}.output.in")
   //plug in the parser
-  def parserCode(): Fork = StateExpander.parseStateMachine(expd, switch)
+  def parserCode(): Instruction = parserGenerator.parserCode()
   private val parserPlug = Map[String, Instruction](s"${switchInstance.getName}.parser" -> parserCode())
   // plug in the switch instances
   private val ifacePlug = switchInstance.getIfaceSpec.keys.flatMap(x => {
@@ -81,11 +83,9 @@ class ControlFlowInterpreter[T<:ISwitchInstance](val switchInstance: T,
   // plug control.ingress.out -> <sw>.buffer
   private val ingressOutLink = Map[String, String](s"${switchInstance.getName}.control.ingress.out" -> s"${switchInstance.getName}.buffer.in")
   import org.change.v2.util.Rewriter._
-  private def parserDict() : Map[String, Instruction] = StateExpander.stateMachineToDict(expd, switch)
-  private def generatorDict()  = StateExpander.generateAllPossiblePacketsAsDict(expd, switch)
   private val (instructionsCached, linksCached) =
     (controlFlowInstructions ++ parserPlug ++ outputPlug ++ deparserPlug ++ ifacePlug ++ plugTables ++ bufferPlug ++
-      parserDict() ++ generatorDict() ++ StateExpander.deparserStateMachineToDict(expd, switch),
+      parserGenerator.extraCode(),
     controlFlowLinks ++ deparserOutLink ++ inputOutLink ++ ingressOutLink ++ bufferOutLink ++ egressOutLink).transform()(s => {
     if (s.startsWith(s"${switchInstance.getName}."))
       s
@@ -104,18 +104,9 @@ class ControlFlowInterpreter[T<:ISwitchInstance](val switchInstance: T,
   def initialize(port : Int): Instruction = initializeCode.switchInitializePacketEnter(port)
   def initializeGlobally(): Instruction = initializeCode.switchInitializeGlobally()
 
-  def allParserStatesInstruction(): InstructionBlock =
-    StateExpander.generateAllPossiblePackets(expd, switch, switchInstance.getName)
+  def allParserStatesInstruction(): Instruction = parserGenerator.generatorCode()
 
-  def allParserStatesInline() : Instruction = {
-    import org.change.v2.analysis.memory.TagExp.IntImprovements
-    InstructionBlock(
-      CreateTag("START", 0),
-      Fork(
-        expd.map(x => instructionsCached(switchInstance.getName + ".generator." + x.seflPortName))
-      )
-    )
-  }
+  def allParserStatesInline() : Instruction = parserGenerator.inlineGeneratorCode()
 
 }
 
@@ -188,22 +179,26 @@ object ControlFlowInterpreter {
   def apply(switchInstance: SwitchInstance,
             optAdditionalInitCode : Option[(SwitchInstance, Int) => Instruction],
             optTableFactory : Option[(SwitchInstance, String, String) => Instruction],
-            optInitFactory : Option[(SwitchInstance) => Instruction]): ControlFlowInterpreter[SwitchInstance] =
+            optInitFactory : Option[(SwitchInstance) => Instruction],
+            optGenerator : Option[ParserGenerator]): ControlFlowInterpreter[SwitchInstance] =
     new ControlFlowInterpreter(switchInstance,
       switchInstance.getSwitchSpec,
       optAdditionalInitCode,
       optTableFactory,
-      optInitFactory)
+      optInitFactory,
+      optGenerator)
 
   def apply(p4File: String, dataplane: String, ifaces: Map[Int, String], name : String = "",
             optAdditionalInitCode : Option[(SwitchInstance, Int) => Instruction] = None,
             optTableFactory : Option[(SwitchInstance, String, String) => Instruction] = None,
-            optInitFactory : Option[(SwitchInstance) => Instruction] = None): ControlFlowInterpreter[SwitchInstance] =
+            optInitFactory : Option[(SwitchInstance) => Instruction] = None,
+            optGenerator : Option[ParserGenerator] = None): ControlFlowInterpreter[SwitchInstance] =
     ControlFlowInterpreter(SwitchInstance.fromP4AndDataplane(p4File, dataplane, name, ifaces.foldLeft(new util.HashMap[Integer, String]())((acc, x) => {
       acc.put(x._1, x._2)
       acc
     })), optAdditionalInitCode,
       optTableFactory,
-      optInitFactory)
+      optInitFactory,
+      optGenerator)
 
 }

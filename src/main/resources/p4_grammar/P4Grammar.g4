@@ -292,7 +292,8 @@ if_else_statement returns [String parent,
 else_block returns [String parent,
      org.change.v2.analysis.processingmodels.Instruction instruction]: 'else' control_block | 'else' if_else_statement ;
 
-bool_expr : 'valid' '(' header_ref ')' # valid_bool_expr
+bool_expr returns [org.change.v2.analysis.processingmodels.Instruction instruction,
+    org.change.v2.analysis.processingmodels.Instruction alsoAdd] : 'valid' '(' header_ref ')' # valid_bool_expr
           | bool_expr bool_op bool_expr # compound_bool_expr
           | 'not' bool_expr # negated_bool_expr
           | '(' bool_expr ')' # par_bool_expr
@@ -300,7 +301,7 @@ bool_expr : 'valid' '(' header_ref ')' # valid_bool_expr
           | 'true' # const_bool
           | 'false' # const_bool;
 
-exp : exp bin_op exp # compound_exp
+exp returns [org.change.v2.analysis.expression.abst.FloatingExpression expr]: exp bin_op exp # compound_exp
       | un_op exp # unary_exp
       | field_ref # field_red_exp
       | value # value_exp
