@@ -18,7 +18,7 @@ header_type intrinsic_metadata_t {
 
 header_type mymeta_t {
     fields {
-        f1 : 8;
+        f1 : 64;
     }
 }
 

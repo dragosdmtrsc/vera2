@@ -67,6 +67,7 @@ object BVLoopDetector {
     for {
       symbolName <- which
       memoryObject = s.symbols(symbolName)
+      if symbolName.equals("mymeta.f1")
     } if (memoryObject.value.nonEmpty) {
       val value = memoryObject.value.get
       val expressionId = value.e.id

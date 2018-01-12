@@ -65,7 +65,7 @@ class P4LoopDetectorTests extends FunSuite {
 
     // val res = new ControlFlowInterpreter(switchInstance, switchInstance.switch)
 
-    val bvExec = new BVLoopDetectingExecutor(Set("router.parser"), res.instructions())
+    val bvExec = new BVLoopDetectingExecutor(Set("router.control.ingress"), res.instructions())
 
     var clickExecutionContext = P4ExecutionContext(
       res.instructions(), res.links(), bvExec.execute(ib, State.clean, true)._1, bvExec
