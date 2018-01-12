@@ -213,7 +213,7 @@ object ControlFlowInterpreter {
 
     val initializerCode = { symbolicSwitchInstance: SymbolicSwitchInstance =>
       InstructionBlock(
-        symbolicSwitchInstance.symbolicTableParams.map(AssignNamedSymbol(_, SymbolicValue()))
+        symbolicSwitchInstance.symbolicTableParams.toList.map(AssignNamedSymbol(_, SymbolicValue()))
       )
     }
 
