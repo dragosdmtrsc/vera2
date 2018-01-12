@@ -37,7 +37,7 @@ class LoopDetectingOVSExecutor(
           stateHistory(port).add(s)
         else {
           import scala.collection.JavaConverters._
-          if (stateHistory(port).asScala.exists(BVLoopDetector.loop(s, _)))
+          if (stateHistory(port).asScala.exists(older => older.history.length < s.history.length && BVLoopDetector.loop(s, older)))
           // Stop, loop detected
             toExecuteNext = () => super.executeFail(Fail("Loop detected"), s, v)
           else {
