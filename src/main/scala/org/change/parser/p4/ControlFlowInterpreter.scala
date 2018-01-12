@@ -5,8 +5,9 @@ import java.util
 import org.change.parser.p4.buffer.{BufferMechanism, OutputMechanism}
 import org.change.parser.p4.factories.{FullTableFactory, GlobalInitFactory, InitCodeFactory, InstanceBasedInitFactory}
 import org.change.parser.p4.parser.{DFSState, StateExpander}
-import org.change.parser.p4.tables.FullTable
+import org.change.parser.p4.tables.{FullTable, SymbolicSwitchInstance}
 import org.change.v2.analysis.executor.InstructionExecutor
+import org.change.v2.analysis.expression.concrete.SymbolicValue
 import org.change.v2.analysis.memory.State
 import org.change.v2.analysis.processingmodels._
 import org.change.v2.analysis.processingmodels.instructions._
@@ -206,4 +207,20 @@ object ControlFlowInterpreter {
       optTableFactory,
       optInitFactory)
 
+  def buildSymbolicInterpreter(
+                                symSwitch: SymbolicSwitchInstance,
+                                switch: Switch): ControlFlowInterpreter[SymbolicSwitchInstance] = {
+
+    val initializerCode = { symbolicSwitchInstance: SymbolicSwitchInstance =>
+      InstructionBlock(
+        symbolicSwitchInstance.symbolicTableParams.map(AssignNamedSymbol(_, SymbolicValue()))
+      )
+    }
+
+    new ControlFlowInterpreter[SymbolicSwitchInstance](
+      symSwitch,
+      switch,
+      optInitFactory = Some(initializerCode)
+    )
+  }
 }
