@@ -5427,6 +5427,7 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Action_profile_declarationContext extends ParserRuleContext {
+		public org.change.v2.p4.model.actions.P4ActionProfile actionProfile;
 		public Action_profile_nameContext action_profile_name() {
 			return getRuleContext(Action_profile_nameContext.class,0);
 		}
@@ -5664,6 +5665,7 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Action_specificationContext extends ParserRuleContext {
+		public java.util.List<String> actions;
 		public List<Action_nameContext> action_name() {
 			return getRuleContexts(Action_nameContext.class);
 		}
@@ -5996,6 +5998,8 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Field_or_masked_refContext extends ParserRuleContext {
+		public Long mask;
+		public String field;
 		public Header_refContext header_ref() {
 			return getRuleContext(Header_refContext.class,0);
 		}
@@ -6988,6 +6992,8 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Bool_exprContext extends ParserRuleContext {
+		public org.change.v2.analysis.processingmodels.Instruction instruction;
+		public org.change.v2.analysis.processingmodels.Instruction alsoAdd;
 		public Bool_exprContext(ParserRuleContext parent, int invokingState) {
 			super(parent, invokingState);
 		}
@@ -6996,6 +7002,8 @@ public class P4GrammarParser extends Parser {
 		public Bool_exprContext() { }
 		public void copyFrom(Bool_exprContext ctx) {
 			super.copyFrom(ctx);
+			this.instruction = ctx.instruction;
+			this.alsoAdd = ctx.alsoAdd;
 		}
 	}
 	public static class Valid_bool_exprContext extends Bool_exprContext {
@@ -7221,6 +7229,7 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class ExpContext extends ParserRuleContext {
+		public org.change.v2.analysis.expression.abst.FloatingExpression expr;
 		public ExpContext(ParserRuleContext parent, int invokingState) {
 			super(parent, invokingState);
 		}
@@ -7229,6 +7238,7 @@ public class P4GrammarParser extends Parser {
 		public ExpContext() { }
 		public void copyFrom(ExpContext ctx) {
 			super.copyFrom(ctx);
+			this.expr = ctx.expr;
 		}
 	}
 	public static class Compound_expContext extends ExpContext {

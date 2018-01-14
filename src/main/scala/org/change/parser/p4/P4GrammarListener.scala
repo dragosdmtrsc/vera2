@@ -10,7 +10,7 @@ import org.change.parser.p4.tables.P4Utils
 import org.change.v2.abstractnet.generic._
 import org.change.v2.analysis.expression.abst.FloatingExpression
 import org.change.v2.analysis.expression.concrete.ConstantValue
-import org.change.v2.analysis.expression.concrete.nonprimitive.{:@, Address, Symbol}
+import org.change.v2.analysis.expression.concrete.nonprimitive._
 import org.change.v2.analysis.memory.{Tag, TagExp}
 import org.change.v2.analysis.memory.TagExp._
 import org.change.v2.analysis.processingmodels.Instruction
@@ -119,6 +119,7 @@ class P4GrammarListener extends P4GrammarBaseListener {
 
   val headers = new util.HashMap[String, Header]()
   val instances = new util.HashMap[String, org.change.v2.p4.model.HeaderInstance]()
+  val actionProfiles = new util.HashMap[String, P4ActionProfile]()
 
   override def exitArray_instance(ctx: P4GrammarParser.Array_instanceContext): Unit = {
     val instanceName = ctx.instance_name().getText
@@ -445,6 +446,11 @@ class P4GrammarListener extends P4GrammarBaseListener {
       for (an <- ctx.table_actions().action_specification().action_name()) {
         tableAllowedActions.get(ctx.table_name().getText).add(an.getText)
       }
+    } else if (ctx.table_actions().action_profile_specification() != null &&
+      ctx.table_actions().action_profile_specification().action_profile_name().NAME().getText != null) {
+      tableAllowedActions.get(tableName).add(
+        ctx.table_actions().action_profile_specification().action_profile_name().NAME().getText
+      )
     }
 
   }
@@ -462,10 +468,22 @@ class P4GrammarListener extends P4GrammarBaseListener {
   }
 
 
+  override def exitField_or_masked_ref(ctx: Field_or_masked_refContext): Unit = {
+    if (ctx.const_value() != null)
+      ctx.mask =ctx.const_value().constValue
+    else
+      ctx.mask = -1l
+    if (ctx.field_ref() != null)
+      ctx.field = ctx.field_ref().getText
+    else
+      ctx.field = ctx.header_ref().getText
+  }
+
   override def exitField_match(ctx : Field_matchContext) : Unit = {
     ctx.tableMatch = new TableMatch(ctx.tableName,
-      ctx.field_or_masked_ref().getText,
-      ctx.field_match_type().matchKind)
+      ctx.field_or_masked_ref().field,
+      ctx.field_match_type().matchKind,
+      ctx.field_or_masked_ref().mask)
   }
 
 
@@ -502,16 +520,16 @@ class P4GrammarListener extends P4GrammarBaseListener {
     else
       this.instructions.put(s"control.${ctx.controlFunctionName}", Forward(s"control.${ctx.controlFunctionName}" + "[0]"))
 
-    println("\n\n------------------------------\nGenerated SEFL CODE for function "+ ctx.control_fn_name.getText +"\n------------------------------\n")
-    for ((x,y) <- ports){
-      println(x+":")
-      for ( z <- y)
-        println("\t"+z)
-    }
-
-    if(currentInstructions.length!=0){
-      System.out.println("Not expecting instructions at exit of ctrl function!\n"+currentInstructions)
-    }
+//    println("\n\n------------------------------\nGenerated SEFL CODE for function "+ ctx.control_fn_name.getText +"\n------------------------------\n")
+//    for ((x,y) <- ports){
+//      println(x+":")
+//      for ( z <- y)
+//        println("\t"+z)
+//    }
+//
+//    if(currentInstructions.nonEmpty){
+//      System.out.println("Not expecting instructions at exit of ctrl function!\n"+currentInstructions)
+//    }
   }
 
   override def enterControl_block(ctx:Control_blockContext) {
@@ -526,15 +544,14 @@ class P4GrammarListener extends P4GrammarBaseListener {
     }
   }
 
-  val instructions = mutable.Map[String, Instruction]()
-  val links = mutable.Map[String, String]()
+  val instructions: MutableMap[String, Instruction] = mutable.Map[String, Instruction]()
+  val links: MutableMap[String, String] = mutable.Map[String, String]()
   override def exitControl_block(ctx:Control_blockContext){
-    blocksLast.put(ctx,currentInstructions.head)
-    currentInstructions.remove(0)
     var  i = 0
     for (cs <- ctx.control_statement()) {
       ctx.instructions.add(cs.instruction)
       // the parent should add the mappings to get them straight
+      assert(cs.instruction != null, s"In control block ${cs.getText} got null instruction")
       this.instructions.put(s"${ctx.parent}[$i]", cs.instruction)
       if (i + 1 < ctx.control_statement().size()) {
         this.links.put(s"${ctx.parent}[$i].out", s"${ctx.parent}[${i + 1}]")
@@ -559,8 +576,8 @@ class P4GrammarListener extends P4GrammarBaseListener {
     if (ctx.control_fn_name!=null){
       val cfName = ctx.control_fn_name.getText
       val execId = UUID.randomUUID().toString
-      ctx.instruction = Forward(s"$cfName.$execId")
-      this.links.put(s"control.$cfName.out.$execId", ctx.parent + ".out")
+      ctx.instruction = Forward(s"control.$cfName")
+      this.links.put(s"control.$cfName.out", ctx.parent + ".out")
       currentInstructions.head.append(ctx.instruction)
     } else if (ctx.apply_table_call() != null) {
       ctx.instruction = ctx.apply_table_call().instruction
@@ -580,20 +597,6 @@ class P4GrammarListener extends P4GrammarBaseListener {
 
     ctx.instruction = Forward(s"table.${ctx.table_name().getText}.in.$execId")
     this.links.put(s"table.${ctx.table_name().getText}.out.$execId", ctx.parent + ".out")
-
-    currentInstructions.head.append(Forward(portName))
-
-    //here we should call Radu's action parsing code instead
-    currentInstructions.remove(0)
-    currentInstructions.prepend(new ListBuffer[Instruction])
-    ports += (portName -> currentInstructions.head)
-    currentInstructions.head.append(Forward(portName+"_output"))
-
-    currentInstructions.remove(0)
-    currentInstructions.prepend(new ListBuffer[Instruction])
-    ports += (portName+"_output" -> currentInstructions.head)
-
-    currentTableInvocation+=1
   }
 
   /*
@@ -605,21 +608,9 @@ class P4GrammarListener extends P4GrammarBaseListener {
    hit_miss_case : hit_or_miss control_block ;
    hit_or_miss : 'hit' | 'miss' ;
   */
-
   override def enterApply_and_select_block(ctx:Apply_and_select_blockContext){
     val portName = s"table.${ctx.table_name().getText}.in.${UUID.randomUUID().toString}"
     ctx.case_list().parent = ctx.parent
-
-    currentInstructions.head.append(Forward(portName))
-    currentTableName.prepend(portName)
-
-    currentInstructions.remove(0)
-
-    currentInstructions.prepend(new ListBuffer[Instruction])
-    ports += (portName -> currentInstructions.head)
-    currentInstructions.head.append(Forward(currentTableName.head+"_output"))
-
-    currentTableInvocation+=1
     //here we should call Radu's action parsing code instead
     //currentInstructions.head.append(Forward(ctx.table_name.getText()+"_output"));
   }
@@ -627,33 +618,36 @@ class P4GrammarListener extends P4GrammarBaseListener {
 
   override def exitApply_and_select_block(ctx:Apply_and_select_blockContext){
     println("Apply and select bmatched " + ctx.table_name.getText)
-
     //adding fork if there are multiple forward instructions
     // TODO: Wire it up
     val execId = UUID.randomUUID().toString
     this.instructions.put(ctx.parent, Forward(s"table.${ctx.table_name().getText}.in.$execId"))
     this.links.put(s"table.${ctx.table_name().getText}.out.$execId", s"${ctx.parent}.select")
     this.instructions.put(s"${ctx.parent}.select",
-      ctx.case_list().instructions.map(_.asInstanceOf[If]).foldRight(NoOp : Instruction)((x, acc) => {
+      ctx.case_list().instructions.map(_.asInstanceOf[If]).
+        foldRight(Forward(s"${ctx.parent}.out") : Instruction)((x, acc) => {
         If (x.testInstr, x.thenWhat, acc)
       })
     )
     this.links.put(s"${ctx.parent}[${ctx.case_list().instructions.size() - 1}].out", s"${ctx.parent}.out")
-    val z = ports(currentTableName.head).reverse.takeWhile(
-      _ match {
-        case x:Forward => true
-        case _ => false
-      })
+    ctx.instruction = Forward(s"table.${ctx.table_name().getText}.in.$execId")
+  }
 
-    if (z.length>1){
-      ports(currentTableName.head).trimEnd(z.length)
-      ports(currentTableName.head).append(Fork(z))
-    }
+  override def exitAction_profile_declaration(ctx: Action_profile_declarationContext): Unit = {
+    ctx.actionProfile = new P4ActionProfile(ctx.action_profile_name().NAME().getText)
+    ctx.actionProfile.getActions.addAll(ctx.action_specification().actions)
+    if (ctx.selector_name() != null)
+      ctx.actionProfile.setDynamicActionSelector(ctx.selector_name().NAME().getText)
+    if (ctx.const_value() != null)
+      ctx.actionProfile.setSize(ctx.const_value().constValue.intValue())
+    this.actionProfiles.put(ctx.actionProfile.getName, ctx.actionProfile)
+  }
 
-    currentInstructions.remove(0)
-    currentInstructions.prepend(new ListBuffer[Instruction])
-    ports += (currentTableName.head+"_output" -> currentInstructions.head)
-    currentTableName.remove(0)
+  override def exitAction_specification(ctx: Action_specificationContext): Unit = {
+    ctx.actions = new util.ArrayList[String]()
+    if (ctx.action_name() != null)
+      for (ac <- ctx.action_name())
+        ctx.actions.add(ac.NAME().getText)
   }
 
   override def enterCase_list_action(ctx: Case_list_actionContext): Unit = {
@@ -666,10 +660,8 @@ class P4GrammarListener extends P4GrammarBaseListener {
   }
 
   override def exitCase_list_action(ctx: Case_list_actionContext): Unit = {
-    var i = 0
     for (ac <- ctx.action_case()) {
       ctx.instructions.add(ac.instruction)
-      i = i + 1
     }
   }
 
@@ -721,24 +713,9 @@ class P4GrammarListener extends P4GrammarBaseListener {
   }
 
   override def exitAction_case(ctx:Action_caseContext){
-    val portName = currentTableName.head + "_" + ctx.action_or_default().getText
     ctx.instruction = If (Constrain(ctx.action_or_default().getText + ".Fired", :==:(ConstantValue(1))),
       Forward(ctx.parent + "[0]")
     )
-    //currentInstructions.head.append(Forward(portName));
-    ports(currentTableName.head).append(Forward(portName))
-    //currentInstructions.prepend(new ListBuffer[Instruction])
-
-    ctx.action_or_default.getText match {
-      case "default" =>
-        ports += (portName -> blocks.get(ctx.control_block))
-      case _ =>
-        //lookup action name in the table, if found add the following
-        ports += (portName  -> blocks.get(ctx.control_block))
-    }
-
-    //currentInstructions.head.append(Forward(currentTableName.head+"_output"))
-    blocksLast.get(ctx.control_block).append(Forward(currentTableName.head+"_output"))
   }
 
 
@@ -760,46 +737,30 @@ class P4GrammarListener extends P4GrammarBaseListener {
     //bool_expr should be a constrain instruction we can use in the IF.
     val labelName = "if_"+currentTableInvocation
     currentTableInvocation += 1
-
-    ctx.instruction = If (
-      InstructionBlock(
-        blocks.get(ctx.bool_expr)
-      ),
+    assert(ctx.bool_expr.instruction != null, s"in if else ${ctx.bool_expr().getText}")
+//    ctx.instruction = If (
+//      InstructionBlock(
+//        blocks.get(ctx.bool_expr)
+//      ),
+//      Forward(ctx.parent + "[if][0]"),
+//      if (ctx.else_block() != null)
+//        Forward(s"${ctx.parent}[else][0]")
+//      else
+//        Forward(s"${ctx.parent}.out")
+//    )
+    ctx.instruction = InstructionBlock(
+      ctx.bool_expr().alsoAdd,
+      If (
+      ctx.bool_expr().instruction,
       Forward(ctx.parent + "[if][0]"),
       if (ctx.else_block() != null)
         Forward(s"${ctx.parent}[else][0]")
       else
         Forward(s"${ctx.parent}.out")
-    )
-
+    ))
     this.links.put(ctx.parent + "[if].out", s"${ctx.parent}.out")
     if (ctx.else_block() != null)
       this.links.put(ctx.parent + "[else].out", s"${ctx.parent}.out")
-
-//    val constr = blocks.get(ctx.bool_expr).head
-//    blocks.get(ctx.bool_expr).remove(0)
-//
-//    val negated = for (x <- blocks.get(ctx.bool_expr)) yield {
-//      x match {
-//        case ConstrainNamedSymbol(a,c,d) => ConstrainNamedSymbol(a, :~:(c),d)
-//        case ConstrainRaw(a,c,d) => ConstrainRaw(a, :~:(c),d)
-//      }
-//    }
-//
-//    currentInstructions.head.append(
-//      If (constr,
-//        InstructionBlock(blocks.get(ctx.bool_expr) ++ blocks.get(ctx.control_block)),
-//        if (ctx.else_block==null) NoOp
-//        else InstructionBlock(negated ++ blocks.get(ctx.else_block))
-//      ))
-//
-//    blocksLast.get(ctx.control_block).append(Forward(labelName))
-//    if (ctx.else_block!=null)
-//      blocksLast.get(ctx.else_block.control_block).append(Forward(labelName))
-//
-//    currentInstructions.remove(0)
-//    currentInstructions.prepend(new ListBuffer[Instruction])
-//    ports += (labelName -> currentInstructions.head)
   }
 
   override def enterElse_block(ctx: Else_blockContext): Unit = {
@@ -836,25 +797,35 @@ class P4GrammarListener extends P4GrammarBaseListener {
   //      | value # value_exp
   //      | '(' exp ')' # par_exp ;
 
-  override def exitCompound_exp(ctx:Compound_expContext){
-    println("FIXME Compound exp "+ctx.getText)
+  override def exitCompound_exp(ctx:Compound_expContext): Unit ={
+    ctx.expr = ctx.bin_op().getText match  {
+      case "+" => :+:(ctx.exp(0).expr, ctx.exp(1).expr)
+      case "-" => :-:(ctx.exp(0).expr, ctx.exp(1).expr)
+      case "&" => :&&:(ctx.exp(0).expr, ctx.exp(1).expr)
+    }
   }
 
-  override def exitUnary_exp(ctx:Unary_expContext){
-    println("FIXME Unary exp "+ctx.getText)
+  override def exitUnary_exp(ctx:Unary_expContext): Unit ={
+    ctx.expr = ctx.un_op().getText match {
+      case "-" => :-:(ConstantValue(0), ctx.exp().expr)
+      case "~" => :!:(ctx.exp().expr)
+    }
   }
 
   override def exitField_red_exp(ctx:Field_red_expContext){
     //need to convert the field reference to a number; the current code will issue metadata accesses
     expressions.put(ctx,:@(ctx.getText))
+    ctx.expr = :@(ctx.getText)
   }
 
   override def exitValue_exp(ctx:Value_expContext){
+    ctx.expr = ConstantValue(P4Utils.toNumber(ctx.getText))
     expressions.put(ctx,ConstantValue(P4Utils.toNumber(ctx.getText)))
   }
 
   override def exitPar_exp(ctx:Par_expContext){
     println("Matched par expression "+ctx.getText)
+    ctx.expr = ctx.exp().expr
     expressions.put(ctx,expressions.get(ctx.exp))
   }
 
@@ -872,20 +843,22 @@ class P4GrammarListener extends P4GrammarBaseListener {
 
     //the header parsing code should create the metadata named as the header (including [index]!?))
     blocks.get(ctx).append(Constrain(ctx.header_ref.getText + ".IsValid",:==:(ConstantValue(1))))
+    ctx.alsoAdd = NoOp
+    ctx.instruction = Constrain(ctx.header_ref.getText + ".IsValid",:==:(ConstantValue(1)))
   }
 
   override def exitCompound_bool_expr(ctx:Compound_bool_exprContext){
-    println("Matched compound bool expr. FIXME ")
-
     // bool_op can be "and" or "or"
     blocks.put(ctx,new ListBuffer[Instruction])
-
-
     ctx.bool_op.getText match {
       case "and" =>
+        ctx.instruction = InstructionBlock(ctx.bool_expr(0).instruction, ctx.bool_expr(1).instruction)
+        ctx.alsoAdd = InstructionBlock(ctx.bool_expr(0).alsoAdd, ctx.bool_expr(1).alsoAdd)
         blocks.get(ctx).appendAll(blocks.get(ctx.bool_expr(0)))
         blocks.get(ctx).appendAll(blocks.get(ctx.bool_expr(1)))
       case "or" =>
+        ctx.instruction = Fork(ctx.bool_expr(0).instruction, ctx.bool_expr(1).instruction)
+        ctx.alsoAdd = InstructionBlock(ctx.bool_expr(0).alsoAdd, ctx.bool_expr(1).alsoAdd)
         blocks.get(ctx).append(
           Fork(
             List[Instruction](InstructionBlock(blocks.get(ctx.bool_expr(0))),InstructionBlock(blocks.get(ctx.bool_expr(1)))
@@ -896,80 +869,115 @@ class P4GrammarListener extends P4GrammarBaseListener {
   }
 
   override def exitPar_bool_expr(ctx:Par_bool_exprContext){
-    blocks.put(ctx,blocks.get(ctx.bool_expr))
+    constraints.put(ctx, constraints.get(ctx.bool_expr()))
+    blocks.put(ctx, blocks.get(ctx.bool_expr))
+    ctx.alsoAdd = ctx.bool_expr().alsoAdd
+    ctx.instruction = ctx.bool_expr().instruction
   }
 
   override def exitRelop_bool_expr(ctx:Relop_bool_exprContext){
-    println("Matched relop bool expr " + expressions.get(ctx.exp(0))+ s"${ctx.rel_op.getText}" + expressions.get(ctx.exp(1)))
+    val tmp = UUID.randomUUID().toString
+    ctx.alsoAdd = NoOp
+    val exp1 = ctx.exp.head.expr
+    val exp2 = ctx.exp(1).expr
 
-    val exp1 = expressions.get(ctx.exp(0))
-    val exp2 = expressions.get(ctx.exp(1))
-
-    blocks.put(ctx,new ListBuffer[Instruction])
+    blocks.put(ctx,new ListBuffer[Instruction]())
 
     exp1 match {
       case Symbol(x) =>
         ctx.rel_op.getText match {
           case "==" =>
+            ctx.instruction = Constrain(x,:==:(exp2))
             constraints.put(ctx, :==:(exp2))
             blocks.get(ctx).append(Constrain(x,:==:(exp2)))
-
           case "!=" =>
+            ctx.instruction = Constrain(x,:~:(:==:(exp2)))
             constraints.put(ctx, :~:(:==:(exp2)))
             blocks.get(ctx).append(Constrain(x,:~:(:==:(exp2))))
-
           case "<" =>
             constraints.put(ctx, :<:(exp2))
             blocks.get(ctx).append(Constrain(x,:<:(exp2)))
+            ctx.instruction = Constrain(x,:<:(exp2))
           case "<=" =>
             constraints.put(ctx, :<:(exp2))
             blocks.get(ctx).append(Constrain(x,:<=:(exp2)))
-
+            ctx.instruction = Constrain(x,:<=:(exp2))
           case ">" =>
             constraints.put(ctx, :>:(exp2))
             blocks.get(ctx).append(Constrain(x,:>:(exp2)))
+            ctx.instruction = Constrain(x,:>:(exp2))
           case ">=" =>
             constraints.put(ctx, :>:(exp2))
             blocks.get(ctx).append(Constrain(x,:>=:(exp2)))
+            ctx.instruction = Constrain(x,:>=:(exp2))
           case _ => println("Unknown relop "+ctx.rel_op.getText);
         }
 
       case Address(x) =>
         ctx.rel_op.getText match {
           case "==" =>
+            ctx.instruction = Constrain(x,:==:(exp2))
             constraints.put(ctx, :==:(exp2))
             blocks.get(ctx).append(Constrain(x,:==:(exp2)))
-
-          case "!=" => println ("!= relop")
+          case "!=" =>
+            ctx.instruction = Constrain(x,:~:(:==:(exp2)))
             constraints.put(ctx, :~:(:==:(exp2)))
             blocks.get(ctx).append(Constrain(x,:~:(:==:(exp2))))
-
-          case "<" => println ("< relop")
+          case "<" =>
             constraints.put(ctx, :<:(exp2))
             blocks.get(ctx).append(Constrain(x,:<:(exp2)))
-
-          case ">" => println ("> relop")
+            ctx.instruction = Constrain(x,:<:(exp2))
+          case "<=" =>
+            constraints.put(ctx, :<:(exp2))
+            blocks.get(ctx).append(Constrain(x,:<=:(exp2)))
+            ctx.instruction = Constrain(x,:<=:(exp2))
+          case ">" =>
             constraints.put(ctx, :>:(exp2))
             blocks.get(ctx).append(Constrain(x,:>:(exp2)))
-
-          case _ => println("Unknown relop "+ctx.rel_op);
+            ctx.instruction = Constrain(x,:>:(exp2))
+          case ">=" =>
+            constraints.put(ctx, :>:(exp2))
+            blocks.get(ctx).append(Constrain(x,:>=:(exp2)))
+            ctx.instruction = Constrain(x,:>=:(exp2))
+          case _ => println("Unknown relop "+ctx.rel_op.getText);
         }
-
-      case _ => println ("FIXME RELOP_EXPR")
+      case _ =>
+        assert(exp1 != null, s"Cannot translate ${ctx.exp(0).getText}")
+        ctx.alsoAdd = Assign(s"tmp-$tmp", exp1)
+        ctx.instruction = Constrain(s"tmp-$tmp", ctx.rel_op.getText match {
+          case "==" => :==:(exp2)
+          case "!=" => :~:(:==:(exp2))
+          case "<" => :<:(exp2)
+          case "<=" => :<=:(exp2)
+          case ">" => :>:(exp2)
+          case ">=" => :>=:(exp2)
+          case _ => throw new Exception("Unknown relop "+ctx.rel_op.getText);
+        })
     }
     //exp1 must be either metadata or field ref
     //exp2 can be either constant, etc.
   }
+  private def not(instruction : Instruction): Instruction = instruction match {
+    case cns : ConstrainNamedSymbol => cns.not()
+    case cr : ConstrainRaw => cr.not()
+    case InstructionBlock(instrs) => Fork(instrs.map(not))
+    case Fork(instrs) => InstructionBlock(instrs.map(not))
+    case _ => ???
+  }
 
   override def exitNegated_bool_expr(ctx:Negated_bool_exprContext){
     val exp = constraints.get(ctx.bool_expr)
+    println(s"Exit negated bool expr of $exp")
     constraints.put(ctx, :~:(exp))
+    ctx.alsoAdd = ctx.bool_expr().alsoAdd
+    ctx.instruction = not(ctx.bool_expr().instruction)
   }
 
   override def exitConst_bool(ctx:Const_boolContext){
     println("Matched const bool expr.")
-
-    values.put(ctx, (if (ctx.getText.equalsIgnoreCase("true")) 1 else 0))
+    ctx.alsoAdd = Assign("__CONSTANT_1__", ConstantValue(1))
+    ctx.instruction = Constrain("__CONSTANT_1__", :==:(ConstantValue(if (ctx.getText.equalsIgnoreCase("true")) 1 else 0)))
+    values.put(ctx, if (ctx.getText.equalsIgnoreCase("true")) 1 else 0)
   }
 
 

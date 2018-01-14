@@ -16,14 +16,16 @@ object P4Helpers {
     dumpCommands(switch, System.out)
   }
   def dumpCommands(switch: Switch, file : PrintStream): Unit = {
+    for (p <- switch.getActionProfiles)
+      file.println(s"act_prof_dump $p")
     for (t <- switch.getDeclaredTables)
       file.println(s"table_dump $t")
   }
 
   def main(args: Array[String]): Unit = {
     val dir = "inputs/big-switch/"
-    val p4 = s"$dir/switch-ppc.p4"
-    P4Helpers.dumpCommands(Switch.fromFile(p4))
+    val p4 = s"$dir/switch-ppc-orig.p4"
+    P4Helpers.dumpCommands(Switch.fromFile(p4), new PrintStream(s"$dir/dump-tables.txt"))
   }
 
 }

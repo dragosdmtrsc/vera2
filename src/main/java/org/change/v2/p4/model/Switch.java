@@ -1,5 +1,6 @@
 package org.change.v2.p4.model;
 
+import org.change.v2.p4.model.actions.P4ActionProfile;
 import scala.collection.JavaConversions;
 import generated.parse.p4.P4GrammarLexer;
 import generated.parse.p4.P4GrammarParser;
@@ -18,6 +19,7 @@ import scala.collection.JavaConversions;
 
 import java.io.IOException;
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Created by dragos on 31.08.2017. Represents a switch specification,
@@ -36,6 +38,38 @@ public class Switch {
     private Map<String, String> controlFlowLinks = null;
     private Map<String, Instruction> controlFlowInstructions = null;
 
+    private Map<String, P4ActionProfile> actionProfiles = new HashMap<>();
+
+    public P4ActionProfile getProfile(String name) {
+        if (actionProfiles.containsKey(name))
+            return actionProfiles.get(name);
+        return null;
+    }
+
+    public Collection<String> getActionProfiles() {
+        return this.actionProfiles.keySet();
+    }
+
+    public P4ActionProfile getProfileByTable(String table) {
+        List<String> tableProfile = this.getAllowedActions(table);
+        if (tableProfile != null && !tableProfile.isEmpty() && tableProfile.size() == 1) {
+            return this.getProfile(tableProfile.get(0));
+        } else {
+            return null;
+        }
+    }
+    public List<P4Action> getActionsPerProfile(String name) {
+        P4ActionProfile profile = getProfile(name);
+        return getActionsPerProfile(profile);
+    }
+
+    public List<P4Action> getActionsPerProfile(P4ActionProfile profile) {
+        if (profile != null)
+            return profile.getActions().stream().map(r -> this.getActionRegistrar().getAction(r)).
+                    collect(Collectors.toList());
+        else
+            return null;
+    }
 
     private Map<String, List<TableMatch>> matches = new HashMap<String, List<TableMatch>>();
 
@@ -73,7 +107,13 @@ public class Switch {
     public int getSize(String value) {
         String[] split = value.split("\\.");
         String hName = split[0];
+        if (hName.contains("[")) {
+            hName = hName.split("\\[")[0];
+        }
         HeaderInstance instance = this.getInstance(hName);
+        if (instance == null) {
+            throw new IllegalArgumentException("Can't find header " + hName);
+        }
         return instance.getLayout().getField(split[1]).getLength();
     }
 
@@ -169,6 +209,7 @@ public class Switch {
         sw.setControlFlowInstructions(JavaConversions.mapAsJavaMap(listener.instructions()));
         sw.setControlFlowLinks(JavaConversions.mapAsJavaMap(listener.links()));
         sw.instances = new HashMap<>(listener.instances());
+        sw.actionProfiles = new HashMap<>(listener.actionProfiles());
         return sw;
     }
 

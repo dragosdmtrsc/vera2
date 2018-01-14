@@ -18,7 +18,8 @@ import scala.collection.immutable.Stack
 class BufferMechanism(switchInstance: ISwitchInstance) {
 
   def cloneCase() = InstructionBlock(
-    switchInstance.getCloneSpec2EgressSpec.foldRight(Fail("No clone mapping found. Resolve to drop") : Instruction)((x, acc) => {
+    switchInstance.getCloneSpec2EgressSpec.
+      foldRight(Fail("No clone mapping found. Resolve to drop") : Instruction)((x, acc) => {
       If (Constrain(s"${switchInstance.getName}.CloneCookie", :==:(ConstantValue(x._1.longValue()))),
         Assign("standard_metadata.egress_port", ConstantValue(x._2.longValue())),
         acc
@@ -26,7 +27,12 @@ class BufferMechanism(switchInstance: ISwitchInstance) {
     })
   )
 
-  def normalCase(): Instruction = switchInstance.getIfaceSpec.keySet().foldRight(Fail("Egress spec not set. Resolve to drop") : Instruction)((x, acc) => {
+  def normalCase(): Instruction = switchInstance.getIfaceSpec.keySet().
+    foldRight(
+      If (Constrain("standard_metadata.egress_spec", :==:(ConstantValue(511l))),
+        Fail("Egress spec set to 511 <=> dropping packet post ingress"),
+        Fail("Egress spec not set. Resolve to drop")
+      ) : Instruction)((x, acc) => {
     If (Constrain("standard_metadata.egress_spec", :==:(ConstantValue(x.longValue()))),
       Assign("standard_metadata.egress_port", ConstantValue(x.longValue())),
       acc

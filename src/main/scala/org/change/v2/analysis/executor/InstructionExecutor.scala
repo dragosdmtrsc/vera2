@@ -377,6 +377,7 @@ abstract class AbstractInstructionExecutor extends InstructionExecutor {
                                         s: State, v: Boolean = false):
   (List[State], List[State]) = {
     val AssignNamedSymbol(id, exp, t) = instruction
+    assert(exp != null, s"Something terribly wrong for instruction $instruction")
     instantiate(s, exp) match {
       case Left(e) => optionToStatePair(s, s"Error during assignment of $id")(s => {
         s.memory.Assign(id, e, t)

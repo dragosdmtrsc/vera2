@@ -110,7 +110,7 @@ abstract class FullTableGeneric[T<:ISwitchInstance](tableName : String,
       })
     }),
     If (Constrain("IsClone", :==:(ConstantValue(0))),
-      Forward(s"table.$tableName.out" + (if (id.length != 0) s".$id" else ""))
+      Forward(s"${switchInstance.getName}.table.$tableName.out" + (if (id.length != 0) s".$id" else ""))
     )
   )
 }
@@ -141,7 +141,9 @@ class FullTableWithInstances[T<:ISwitchInstance](tableName : String,
       )
       case TernaryMatch(va, mask) =>
         val uuid = UUID.randomUUID().toString
-        val size = switch.getSize(k.getKey)
+        val size = switch.getSize(
+            k.getKey
+        )
         val varName = s"tmp$uuid"
         InstructionBlock(
           Allocate(varName, size),

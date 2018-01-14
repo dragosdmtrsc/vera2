@@ -15,6 +15,7 @@ import org.change.v2.util.conversion.RepresentationConversion
 import org.scalatest.FunSuite
 
 class P4Nat extends FunSuite {
+
   test("INTEGRATION - simple-nat test no entries") {
     val dir = "inputs/simple-nat-testing/"
     val p4 = s"$dir/simple_nat-ppc.p4"

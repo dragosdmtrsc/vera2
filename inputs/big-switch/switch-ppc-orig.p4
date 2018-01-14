@@ -527,15 +527,7 @@ parser parse_ethernet {
         0 mask 0xfe00: parse_llc_header;
         0 mask 0xfa00: parse_llc_header;
         0x9000 : parse_fabric_header;
-        0x8100 : parse_vlan;
-        0x9100 : parse_qinq;
-        0x8847 : parse_mpls;
-        0x0800 : parse_ipv4;
-        0x86dd : parse_ipv6;
-        0x0806 : parse_arp_rarp;
-        0x88cc : parse_set_prio_high;
-        0x8809 : parse_set_prio_high;
-        default: ingress;
+        0x8100 : parse_vlan; 0x9100 : parse_qinq; 0x8847 : parse_mpls; 0x0800 : parse_ipv4; 0x86dd : parse_ipv6; 0x0806 : parse_arp_rarp; 0x88cc : parse_set_prio_high; 0x8809 : parse_set_prio_high; default: ingress;
     }
 }
 header llc_header_t llc_header;
@@ -551,15 +543,7 @@ header snap_header_t snap_header;
 parser parse_snap_header {
     extract(snap_header);
     return select(latest.type_) {
-        0x8100 : parse_vlan;
-        0x9100 : parse_qinq;
-        0x8847 : parse_mpls;
-        0x0800 : parse_ipv4;
-        0x86dd : parse_ipv6;
-        0x0806 : parse_arp_rarp;
-        0x88cc : parse_set_prio_high;
-        0x8809 : parse_set_prio_high;
-        default: ingress;
+        0x8100 : parse_vlan; 0x9100 : parse_qinq; 0x8847 : parse_mpls; 0x0800 : parse_ipv4; 0x86dd : parse_ipv6; 0x0806 : parse_arp_rarp; 0x88cc : parse_set_prio_high; 0x8809 : parse_set_prio_high; default: ingress;
     }
 }
 header roce_header_t roce;
@@ -576,13 +560,7 @@ header vlan_tag_t vlan_tag_[2];
 parser parse_vlan {
     extract(vlan_tag_[0]);
     return select(latest.etherType) {
-        0x8847 : parse_mpls;
-        0x0800 : parse_ipv4;
-        0x86dd : parse_ipv6;
-        0x0806 : parse_arp_rarp;
-        0x88cc : parse_set_prio_high;
-        0x8809 : parse_set_prio_high;
-        default: ingress;
+        0x8847 : parse_mpls; 0x0800 : parse_ipv4; 0x86dd : parse_ipv6; 0x0806 : parse_arp_rarp; 0x88cc : parse_set_prio_high; 0x8809 : parse_set_prio_high; default: ingress;
     }
 }
 parser parse_qinq {
@@ -595,13 +573,7 @@ parser parse_qinq {
 parser parse_qinq_vlan {
     extract(vlan_tag_[1]);
     return select(latest.etherType) {
-        0x8847 : parse_mpls;
-        0x0800 : parse_ipv4;
-        0x86dd : parse_ipv6;
-        0x0806 : parse_arp_rarp;
-        0x88cc : parse_set_prio_high;
-        0x8809 : parse_set_prio_high;
-        default: ingress;
+        0x8847 : parse_mpls; 0x0800 : parse_ipv4; 0x86dd : parse_ipv6; 0x0806 : parse_arp_rarp; 0x88cc : parse_set_prio_high; 0x8809 : parse_set_prio_high; default: ingress;
     }
 }
 header mpls_t mpls[3];
@@ -800,7 +772,7 @@ parser parse_int_header {
         default: parse_all_int_meta_value_heders;
     }
 }
-header int_value_t int_val[2];
+header int_value_t int_val[24];
 parser parse_int_val {
     extract(int_val[next]);
     return select(latest.bos) {
@@ -1354,6 +1326,13 @@ action set_bd_properties(bd, vrf, stp_group, learning_enabled,
 action port_vlan_mapping_miss() {
     modify_field(l2_metadata.port_vlan_mapping_miss, 1);
 }
+action_profile bd_action_profile {
+    actions {
+        set_bd_properties;
+        port_vlan_mapping_miss;
+    }
+    size : 1024;
+}
 table port_vlan_mapping {
     reads {
         ingress_metadata.ifindex : exact;
@@ -1362,7 +1341,7 @@ table port_vlan_mapping {
         vlan_tag_[1] : valid;
         vlan_tag_[1].vid : exact;
     }
-    actions { set_bd_properties; port_vlan_mapping_miss; }
+    action_profile: bd_action_profile;
     size : 4096;
 }
 control process_port_vlan_mapping {
@@ -1396,7 +1375,6 @@ field_list_calculation lag_hash {
 }
 action_selector lag_selector {
     selection_key : lag_hash;
-
 }
 action set_lag_remote_port(device, port) {
     modify_field(fabric_metadata.dst_device, device);
@@ -1407,11 +1385,20 @@ action set_lag_port(port) {
 }
 action set_lag_miss() {
 }
+action_profile lag_action_profile {
+    actions {
+        set_lag_miss;
+        set_lag_port;
+        set_lag_remote_port;
+    }
+    size : 1024;
+    dynamic_action_selection : lag_selector;
+}
 table lag_group {
     reads {
         ingress_metadata.egress_ifindex : exact;
     }
-    actions { set_lag_miss; set_lag_port; set_lag_remote_port; }
+    action_profile: lag_action_profile;
     size : 1024;
 }
 control process_lag {
@@ -1591,7 +1578,6 @@ field_list mac_learn_digest {
     ingress_metadata.ifindex;
 }
 action generate_learn_notify() {
-    generate_digest(1024, mac_learn_digest);
 }
 table learn_notify {
     reads {
@@ -1910,7 +1896,7 @@ table validate_outer_ipv4_packet {
     reads {
         ipv4.version : ternary;
         ipv4.ttl : ternary;
-        ipv4.srcAddr : ternary;
+        ipv4.srcAddr mask 0xFF000000 : ternary;
     }
     actions {
         set_valid_outer_ipv4_packet;
@@ -3605,7 +3591,6 @@ control process_ingress_acl_stats {
 }
 meter copp {
     type: bytes;
-    result: intrinsic_metadata.packet_color;
     static: system_acl;
     instance_count: 128;
 }
@@ -4574,13 +4559,21 @@ field_list_calculation ecmp_hash {
 }
 action_selector ecmp_selector {
     selection_key : ecmp_hash;
-
+}
+action_profile ecmp_action_profile {
+    actions {
+        nop;
+        set_ecmp_nexthop_details;
+        set_ecmp_nexthop_details_for_post_routed_flood;
+    }
+    size : 1024;
+    dynamic_action_selection : ecmp_selector;
 }
 table ecmp_group {
     reads {
         l3_metadata.nexthop_index : exact;
     }
-    actions { nop; set_ecmp_nexthop_details; set_ecmp_nexthop_details_for_post_routed_flood; }
+    action_profile: ecmp_action_profile;
     size : 1024;
 }
 action set_nexthop_details_for_post_routed_flood(bd, uuc_mc_index) {
@@ -4745,7 +4738,6 @@ table storm_control_stats {
 }
 meter storm_control_meter {
     type : bytes;
-    result : meter_metadata.packet_color;
     static : storm_control;
     instance_count : 1024;
 }
@@ -4961,11 +4953,20 @@ field_list_calculation fabric_lag_hash {
 action_selector fabric_lag_selector {
     selection_key : fabric_lag_hash;
 }
+action_profile fabric_lag_action_profile {
+    actions {
+        nop;
+        set_fabric_lag_port;
+        set_fabric_multicast;
+    }
+    size : 1024;
+    dynamic_action_selection : fabric_lag_selector;
+}
 table fabric_lag {
     reads {
         fabric_metadata.dst_device : exact;
     }
-    actions { nop; set_fabric_lag_port; set_fabric_multicast; }
+    action_profile: fabric_lag_action_profile;
 }
 control process_fabric_lag {
     apply(fabric_lag);
@@ -5784,7 +5785,6 @@ table meter_action {
 }
 meter meter_index {
     type : bytes;
-    result : meter_metadata.packet_color;
     direct : meter_index;
 }
 table meter_index {

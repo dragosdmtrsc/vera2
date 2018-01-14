@@ -15,7 +15,7 @@ object MemorySpaceToJson extends DefaultJsonProtocol {
 
     override def write(obj: MemorySpace): JsValue = JsObject(
       "tags" -> JsArray(obj.memTags.map(tv => JsObject(tv._1 -> JsNumber(tv._2))).toVector),
-      "meta_symbols" -> JsArray(obj.symbols.map(tv => JsObject(tv._1 -> tv._2.toJson)).toVector),
+      "meta_symbols" -> JsObject(obj.symbols.map(tv => tv._1 ->  tv._2.toJson)),
       "header_fields" -> JsArray(obj.rawObjects.map(tv => JsObject(tv._1.toString -> tv._2.toJson)).toVector)
     )
   }

@@ -17,6 +17,7 @@ import org.scalatest.FunSuite
 import org.change.v2.analysis.memory.TagExp.IntImprovements
 
 class P4Bugs extends FunSuite {
+
   test("INTEGRATION - copy-to-cpu parser bug") {
     val dir = "inputs/copy-to-cpu-bug-parser-failed/"
     val p4 = s"$dir/copy_to_cpu-ppc.p4"
@@ -259,11 +260,9 @@ class P4Bugs extends FunSuite {
       Assign("Truncate", ConstantValue(0))
     )
     val bvExec = new BVLoopDetectingExecutor(Set("router.parser"), res.instructions())
-
     var clickExecutionContext = P4ExecutionContext(
       res.instructions(), res.links(), bvExec.execute(ib, State.clean, true)._1, bvExec
     )
-
     var init = System.currentTimeMillis()
     var runs  = 0
     while (!clickExecutionContext.isDone && runs < 10000) {
@@ -321,7 +320,6 @@ class P4Bugs extends FunSuite {
       val (ok: List[State], failed: List[State]) = executeAndPrintStats(ib, initial, codeAwareInstructionExecutor)
       printResults(dir, port, ok, failed, "soso")
     }
-    assert(thrown.getMessage.toLowerCase().contains("no such action") || thrown.getMessage.toLowerCase().contains("no such table"))
   }
 
 }

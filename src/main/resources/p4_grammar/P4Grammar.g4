@@ -227,10 +227,11 @@ param_list : param_name (',' param_name)* ;
 action_statement : action_name '(' ( arg (',' arg)* )? ')' ';' ;
 arg : param_name | field_value | field_ref | header_ref ;
 
-action_profile_declaration : 'action_profile' action_profile_name '{'
-    action_specification
-    ( 'size' ':' const_value ';' )?
-    ( 'dynamic_action_selection' ':' selector_name ';' )?
+action_profile_declaration returns [org.change.v2.p4.model.actions.P4ActionProfile actionProfile]:
+    'action_profile' action_profile_name '{'
+        action_specification
+        ( 'size' ':' const_value ';' )?
+        ( 'dynamic_action_selection' ':' selector_name ';' )?
     '}'
     ;
 
@@ -239,7 +240,7 @@ param_name  : NAME ;
 selector_name   : NAME ;
 action_profile_name : NAME ;
 
-action_specification : 'actions' '{' ( action_name ';' )+ '}' ;
+action_specification returns [java.util.List<String> actions]: 'actions' '{' ( action_name ';' )+ '}' ;
 
 action_selector_declaration : 'action_selector' selector_name '{'
     'selection_key' ':' field_list_calculation_name ';'
@@ -257,7 +258,7 @@ table_declaration : 'table' table_name '{'
     ;
 
 field_match returns [org.change.v2.p4.model.table.TableMatch tableMatch, String tableName]: field_or_masked_ref ':' field_match_type ';' ;
-field_or_masked_ref : header_ref | field_ref | field_ref 'mask' const_value ;
+field_or_masked_ref returns [Long mask, String field]: header_ref | field_ref | field_ref 'mask' const_value ;
 field_match_type returns [org.change.v2.p4.model.table.MatchKind matchKind]: 'exact' | 'ternary' | 'lpm' | 'range' | 'valid' ;
 table_actions : action_specification | action_profile_specification ;
 action_profile_specification : 'action_profile' ':' action_profile_name ';' ;
@@ -292,7 +293,8 @@ if_else_statement returns [String parent,
 else_block returns [String parent,
      org.change.v2.analysis.processingmodels.Instruction instruction]: 'else' control_block | 'else' if_else_statement ;
 
-bool_expr : 'valid' '(' header_ref ')' # valid_bool_expr
+bool_expr returns [org.change.v2.analysis.processingmodels.Instruction instruction,
+    org.change.v2.analysis.processingmodels.Instruction alsoAdd] : 'valid' '(' header_ref ')' # valid_bool_expr
           | bool_expr bool_op bool_expr # compound_bool_expr
           | 'not' bool_expr # negated_bool_expr
           | '(' bool_expr ')' # par_bool_expr
@@ -300,7 +302,7 @@ bool_expr : 'valid' '(' header_ref ')' # valid_bool_expr
           | 'true' # const_bool
           | 'false' # const_bool;
 
-exp : exp bin_op exp # compound_exp
+exp returns [org.change.v2.analysis.expression.abst.FloatingExpression expr]: exp bin_op exp # compound_exp
       | un_op exp # unary_exp
       | field_ref # field_red_exp
       | value # value_exp
