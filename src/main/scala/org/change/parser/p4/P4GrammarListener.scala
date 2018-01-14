@@ -10,7 +10,7 @@ import org.change.parser.p4.tables.P4Utils
 import org.change.v2.abstractnet.generic._
 import org.change.v2.analysis.expression.abst.FloatingExpression
 import org.change.v2.analysis.expression.concrete.ConstantValue
-import org.change.v2.analysis.expression.concrete.nonprimitive.{:@, Address, Symbol}
+import org.change.v2.analysis.expression.concrete.nonprimitive._
 import org.change.v2.analysis.memory.{Tag, TagExp}
 import org.change.v2.analysis.memory.TagExp._
 import org.change.v2.analysis.processingmodels.Instruction
@@ -119,6 +119,7 @@ class P4GrammarListener extends P4GrammarBaseListener {
 
   val headers = new util.HashMap[String, Header]()
   val instances = new util.HashMap[String, org.change.v2.p4.model.HeaderInstance]()
+  val actionProfiles = new util.HashMap[String, P4ActionProfile]()
 
   override def exitArray_instance(ctx: P4GrammarParser.Array_instanceContext): Unit = {
     val instanceName = ctx.instance_name().getText
@@ -445,6 +446,11 @@ class P4GrammarListener extends P4GrammarBaseListener {
       for (an <- ctx.table_actions().action_specification().action_name()) {
         tableAllowedActions.get(ctx.table_name().getText).add(an.getText)
       }
+    } else if (ctx.table_actions().action_profile_specification() != null &&
+      ctx.table_actions().action_profile_specification().action_profile_name().NAME().getText != null) {
+      tableAllowedActions.get(tableName).add(
+        ctx.table_actions().action_profile_specification().action_profile_name().NAME().getText
+      )
     }
 
   }
@@ -462,10 +468,22 @@ class P4GrammarListener extends P4GrammarBaseListener {
   }
 
 
+  override def exitField_or_masked_ref(ctx: Field_or_masked_refContext): Unit = {
+    if (ctx.const_value() != null)
+      ctx.mask =ctx.const_value().constValue
+    else
+      ctx.mask = -1l
+    if (ctx.field_ref() != null)
+      ctx.field = ctx.field_ref().getText
+    else
+      ctx.field = ctx.header_ref().getText
+  }
+
   override def exitField_match(ctx : Field_matchContext) : Unit = {
     ctx.tableMatch = new TableMatch(ctx.tableName,
-      ctx.field_or_masked_ref().getText,
-      ctx.field_match_type().matchKind)
+      ctx.field_or_masked_ref().field,
+      ctx.field_match_type().matchKind,
+      ctx.field_or_masked_ref().mask)
   }
 
 
@@ -579,20 +597,6 @@ class P4GrammarListener extends P4GrammarBaseListener {
 
     ctx.instruction = Forward(s"table.${ctx.table_name().getText}.in.$execId")
     this.links.put(s"table.${ctx.table_name().getText}.out.$execId", ctx.parent + ".out")
-
-    currentInstructions.head.append(Forward(portName))
-
-    //here we should call Radu's action parsing code instead
-    currentInstructions.remove(0)
-    currentInstructions.prepend(new ListBuffer[Instruction])
-    ports += (portName -> currentInstructions.head)
-    currentInstructions.head.append(Forward(portName+"_output"))
-
-    currentInstructions.remove(0)
-    currentInstructions.prepend(new ListBuffer[Instruction])
-    ports += (portName+"_output" -> currentInstructions.head)
-
-    currentTableInvocation+=1
   }
 
   /*
@@ -604,21 +608,9 @@ class P4GrammarListener extends P4GrammarBaseListener {
    hit_miss_case : hit_or_miss control_block ;
    hit_or_miss : 'hit' | 'miss' ;
   */
-
   override def enterApply_and_select_block(ctx:Apply_and_select_blockContext){
     val portName = s"table.${ctx.table_name().getText}.in.${UUID.randomUUID().toString}"
     ctx.case_list().parent = ctx.parent
-
-    currentInstructions.head.append(Forward(portName))
-    currentTableName.prepend(portName)
-
-    currentInstructions.remove(0)
-
-    currentInstructions.prepend(new ListBuffer[Instruction])
-    ports += (portName -> currentInstructions.head)
-    currentInstructions.head.append(Forward(currentTableName.head+"_output"))
-
-    currentTableInvocation+=1
     //here we should call Radu's action parsing code instead
     //currentInstructions.head.append(Forward(ctx.table_name.getText()+"_output"));
   }
@@ -626,19 +618,36 @@ class P4GrammarListener extends P4GrammarBaseListener {
 
   override def exitApply_and_select_block(ctx:Apply_and_select_blockContext){
     println("Apply and select bmatched " + ctx.table_name.getText)
-
     //adding fork if there are multiple forward instructions
     // TODO: Wire it up
     val execId = UUID.randomUUID().toString
     this.instructions.put(ctx.parent, Forward(s"table.${ctx.table_name().getText}.in.$execId"))
     this.links.put(s"table.${ctx.table_name().getText}.out.$execId", s"${ctx.parent}.select")
     this.instructions.put(s"${ctx.parent}.select",
-      ctx.case_list().instructions.map(_.asInstanceOf[If]).foldRight(NoOp : Instruction)((x, acc) => {
+      ctx.case_list().instructions.map(_.asInstanceOf[If]).
+        foldRight(Forward(s"${ctx.parent}.out") : Instruction)((x, acc) => {
         If (x.testInstr, x.thenWhat, acc)
       })
     )
     this.links.put(s"${ctx.parent}[${ctx.case_list().instructions.size() - 1}].out", s"${ctx.parent}.out")
     ctx.instruction = Forward(s"table.${ctx.table_name().getText}.in.$execId")
+  }
+
+  override def exitAction_profile_declaration(ctx: Action_profile_declarationContext): Unit = {
+    ctx.actionProfile = new P4ActionProfile(ctx.action_profile_name().NAME().getText)
+    ctx.actionProfile.getActions.addAll(ctx.action_specification().actions)
+    if (ctx.selector_name() != null)
+      ctx.actionProfile.setDynamicActionSelector(ctx.selector_name().NAME().getText)
+    if (ctx.const_value() != null)
+      ctx.actionProfile.setSize(ctx.const_value().constValue.intValue())
+    this.actionProfiles.put(ctx.actionProfile.getName, ctx.actionProfile)
+  }
+
+  override def exitAction_specification(ctx: Action_specificationContext): Unit = {
+    ctx.actions = new util.ArrayList[String]()
+    if (ctx.action_name() != null)
+      for (ac <- ctx.action_name())
+        ctx.actions.add(ac.NAME().getText)
   }
 
   override def enterCase_list_action(ctx: Case_list_actionContext): Unit = {
@@ -651,10 +660,8 @@ class P4GrammarListener extends P4GrammarBaseListener {
   }
 
   override def exitCase_list_action(ctx: Case_list_actionContext): Unit = {
-    var i = 0
     for (ac <- ctx.action_case()) {
       ctx.instructions.add(ac.instruction)
-      i = i + 1
     }
   }
 
@@ -706,21 +713,9 @@ class P4GrammarListener extends P4GrammarBaseListener {
   }
 
   override def exitAction_case(ctx:Action_caseContext){
-    val portName = currentTableName.head + "_" + ctx.action_or_default().getText
     ctx.instruction = If (Constrain(ctx.action_or_default().getText + ".Fired", :==:(ConstantValue(1))),
       Forward(ctx.parent + "[0]")
     )
-    //currentInstructions.head.append(Forward(portName));
-    ports(currentTableName.head).append(Forward(portName))
-    //currentInstructions.prepend(new ListBuffer[Instruction])
-
-    ctx.action_or_default.getText match {
-      case "default" =>
-        ports += (portName -> blocks.get(ctx.control_block))
-      case _ =>
-        //lookup action name in the table, if found add the following
-        ports += (portName  -> blocks.get(ctx.control_block))
-    }
   }
 
 
@@ -802,25 +797,35 @@ class P4GrammarListener extends P4GrammarBaseListener {
   //      | value # value_exp
   //      | '(' exp ')' # par_exp ;
 
-  override def exitCompound_exp(ctx:Compound_expContext){
-    println("FIXME Compound exp "+ctx.getText)
+  override def exitCompound_exp(ctx:Compound_expContext): Unit ={
+    ctx.expr = ctx.bin_op().getText match  {
+      case "+" => :+:(ctx.exp(0).expr, ctx.exp(1).expr)
+      case "-" => :-:(ctx.exp(0).expr, ctx.exp(1).expr)
+      case "&" => :&&:(ctx.exp(0).expr, ctx.exp(1).expr)
+    }
   }
 
-  override def exitUnary_exp(ctx:Unary_expContext){
-    println("FIXME Unary exp "+ctx.getText)
+  override def exitUnary_exp(ctx:Unary_expContext): Unit ={
+    ctx.expr = ctx.un_op().getText match {
+      case "-" => :-:(ConstantValue(0), ctx.exp().expr)
+      case "~" => :!:(ctx.exp().expr)
+    }
   }
 
   override def exitField_red_exp(ctx:Field_red_expContext){
     //need to convert the field reference to a number; the current code will issue metadata accesses
     expressions.put(ctx,:@(ctx.getText))
+    ctx.expr = :@(ctx.getText)
   }
 
   override def exitValue_exp(ctx:Value_expContext){
+    ctx.expr = ConstantValue(P4Utils.toNumber(ctx.getText))
     expressions.put(ctx,ConstantValue(P4Utils.toNumber(ctx.getText)))
   }
 
   override def exitPar_exp(ctx:Par_expContext){
     println("Matched par expression "+ctx.getText)
+    ctx.expr = ctx.exp().expr
     expressions.put(ctx,expressions.get(ctx.exp))
   }
 
@@ -936,7 +941,9 @@ class P4GrammarListener extends P4GrammarBaseListener {
             ctx.instruction = Constrain(x,:>=:(exp2))
           case _ => println("Unknown relop "+ctx.rel_op.getText);
         }
-      case _ => ctx.alsoAdd = Assign(s"tmp-$tmp", exp2)
+      case _ =>
+        assert(exp1 != null, s"Cannot translate ${ctx.exp(0).getText}")
+        ctx.alsoAdd = Assign(s"tmp-$tmp", exp1)
         ctx.instruction = Constrain(s"tmp-$tmp", ctx.rel_op.getText match {
           case "==" => :==:(exp2)
           case "!=" => :~:(:==:(exp2))

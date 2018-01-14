@@ -5427,6 +5427,7 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Action_profile_declarationContext extends ParserRuleContext {
+		public org.change.v2.p4.model.actions.P4ActionProfile actionProfile;
 		public Action_profile_nameContext action_profile_name() {
 			return getRuleContext(Action_profile_nameContext.class,0);
 		}
@@ -5664,6 +5665,7 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Action_specificationContext extends ParserRuleContext {
+		public java.util.List<String> actions;
 		public List<Action_nameContext> action_name() {
 			return getRuleContexts(Action_nameContext.class);
 		}
@@ -5996,6 +5998,8 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Field_or_masked_refContext extends ParserRuleContext {
+		public Long mask;
+		public String field;
 		public Header_refContext header_ref() {
 			return getRuleContext(Header_refContext.class,0);
 		}

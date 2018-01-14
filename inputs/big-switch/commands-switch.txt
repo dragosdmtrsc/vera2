@@ -1,5 +1,7 @@
-table_set_default ipv6_dest_vtep nop 
-table_set_default compute_other_hashes computed_two_hashes 
+table_set_default port_vlan_mapping port_vlan_mapping_miss
+table_set_default fabric_lag nop
+table_set_default ipv6_dest_vtep nop
+table_set_default compute_other_hashes computed_two_hashes
 table_set_default tunnel_lookup_miss non_ip_lkp 
 table_set_default ingress_bd_stats update_ingress_bd_stats 
 table_add tunnel_decap_process_outer decap_vxlan_inner_ipv4 0x01 1 0 => 

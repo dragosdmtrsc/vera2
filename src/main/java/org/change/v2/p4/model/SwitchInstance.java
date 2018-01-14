@@ -2,6 +2,7 @@ package org.change.v2.p4.model;
 
 import org.change.v2.p4.model.actions.P4Action;
 import org.change.v2.p4.model.actions.P4ActionCall;
+import org.change.v2.p4.model.actions.P4ActionProfile;
 import org.change.v2.p4.model.actions.P4ParameterInstance;
 import org.change.v2.p4.model.table.MatchKind;
 import org.change.v2.p4.model.table.TableMatch;
@@ -11,6 +12,7 @@ import sun.net.util.IPAddressUtil;
 
 import java.io.*;
 import java.util.*;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
@@ -22,6 +24,9 @@ public class SwitchInstance implements ISwitchInstance {
 
     private Map<String, List<FlowInstance>> flowInstanceMap = new HashMap<String, List<FlowInstance>>();
     private Map<String, P4ActionCall> defaultActionMap = new HashMap<String, P4ActionCall>();
+
+    private Map<Map.Entry<String, Integer>, String> actionProfileActions = new HashMap<>();
+    private Map<Map.Entry<String, Integer>, List<Object>> actionProfileParams = new HashMap<>();
 
     @Override
     public Map<Integer, Integer> getCloneSpec2EgressSpec() {
@@ -147,25 +152,31 @@ public class SwitchInstance implements ISwitchInstance {
                 }
                 j++;
                 P4Action theActionTemplate = sw.getActionRegistrar().getAction(actionName);
-                if (theActionTemplate == null)
-                    throw new IllegalArgumentException("No such action " + actionName + " declared for switch");
-                for (int k = 0; k < theActionTemplate.getParameterList().size(); k++, j++) {
-                    if (IPAddressUtil.isIPv4LiteralAddress(split[j].trim())) {
-                        flowInstance.addActionParams(RepresentationConversion.ipToNumber(split[j].trim()));
+                if (theActionTemplate == null) {
+                    Pattern pattern = Pattern.compile("member\\(([0-9]+)\\)");
+                    Matcher matcher = pattern.matcher(actionName);
+                    if (matcher.matches()) {
+                        int member = Integer.decode(matcher.group(1));
+                        P4ActionProfile prof = sw.getProfileByTable(tableName);
+                        if (prof == null)
+                            throw new IllegalArgumentException("No action profile declared for table " + tableName);
+                        Map.Entry<String, Integer> theEntry =
+                                new AbstractMap.SimpleEntry<String, Integer>(prof.getName(), member);
+                        String actName = switchInstance.actionProfileActions.get(theEntry);
+                        List<Object> actParams = switchInstance.actionProfileParams.get(theEntry);
+                        for (Object parm : actParams)
+                            flowInstance.setFireAction(actName).addActionParams(parm);
+                        continue;
                     } else {
-                        Pattern p = Pattern.compile("([0-9A-F]{2}[:-]){5}([0-9A-F]{2})");
-                        if (p.matcher(split[j].trim().toUpperCase()).matches()) {
-                            flowInstance.addActionParams(RepresentationConversion.macToNumber(split[j].trim().toUpperCase()));
-                        } else {
-                            try {
-                                flowInstance.addActionParams(Long.decode(split[j].trim()));
-                            } catch (NumberFormatException nfe) {
-                                System.err.println("Match param failed at " + k + " line " + crt + " " + nfe.getMessage());
-                                flowInstance.addActionParams(split[j].trim());
-                            }
-                        }
+                        Pattern grpPattern = Pattern.compile("group\\(([0-9]+)\\)");
+                        Matcher grpMatcher = grpPattern.matcher(actionName);
+                        if (grpMatcher.matches())
+                            throw new UnsupportedOperationException("Groups not yet implemented");
+                        else
+                            throw new IllegalArgumentException("No such action " + actionName + " declared for switch");
                     }
                 }
+                j = parseActionArgs(crt, split, flowInstance, j, theActionTemplate);
                 if (j < split.length) {
                     // last arg is always the priority
                     int prio = Integer.decode(split[j]);
@@ -203,21 +214,42 @@ public class SwitchInstance implements ISwitchInstance {
                 String[] split = crt.split(" ");
                 String tableName = split[1];
                 String actionName = split[2];
-                P4ActionCall theCall = new P4ActionCall(switchInstance.getSwitchSpec().getActionRegistrar().getAction(actionName));
-                for (; j < split.length; j++) {
-                    if (IPAddressUtil.isIPv4LiteralAddress(split[j].trim())) {
-                        theCall.addParameter(new P4ParameterInstance().setValue(RepresentationConversion.ipToNumber(split[j].trim()) + ""));
-                    } else {
-                        Pattern p = Pattern.compile("([0-9A-F]{2}[:-]){5}([0-9A-F]{2})");
-                        if (p.matcher(split[j].trim().toUpperCase()).matches()) {
-                            theCall.addParameter(new P4ParameterInstance().setValue(RepresentationConversion.macToNumber(split[j].trim()) + ""));
-                        } else {
-                            try {
-                                theCall.addParameter(new P4ParameterInstance().setValue(Long.decode(split[j].trim()) + ""));
-                            } catch (NumberFormatException nfe) {
-                                theCall.addParameter(new P4ParameterInstance().setValue(split[j].trim()));
-                            }
+                P4ActionCall theCall = null;
+                if ("EMPTY".equals(actionName))
+                    continue;
+                if (!sw.getAllowedActions(tableName).contains(actionName)) {
+                    Pattern pattern = Pattern.compile("member\\(([0-9]+)\\)");
+                    Matcher matcher = pattern.matcher(actionName);
+                    if (matcher.matches()) {
+                        int member = Integer.decode(matcher.group(1));
+                        P4ActionProfile prof = sw.getProfileByTable(tableName);
+                        if (prof == null)
+                            throw new IllegalArgumentException("No action profile declared for table " + tableName);
+                        Map.Entry<String, Integer> theEntry =
+                                new AbstractMap.SimpleEntry<String, Integer>(prof.getName(), member);
+                        String actName = switchInstance.actionProfileActions.get(theEntry);
+                        List<Object> actParams = switchInstance.actionProfileParams.get(theEntry);
+                        P4Action action = switchInstance.getSwitchSpec().getActionRegistrar().getAction(actName);
+                        theCall = new P4ActionCall(action);
+                        int r = 0;
+                        for (Object parm : actParams) {
+                            addParameter(parm.toString(), theCall).setParameter(action.getParameterList().get(r++));
                         }
+                        continue;
+                    } else {
+                        Pattern grpPattern = Pattern.compile("group\\(([0-9]+)\\)");
+                        Matcher grpMatcher = grpPattern.matcher(actionName);
+                        if (grpMatcher.matches())
+                            throw new UnsupportedOperationException("Groups not yet implemented");
+                        else
+                            throw new IllegalArgumentException(tableName + " does not allow action " + actionName);
+                    }
+                } else {
+                    P4Action action = switchInstance.getSwitchSpec().getActionRegistrar().getAction(actionName);
+                    theCall = new P4ActionCall(action);
+                    int r = 0;
+                    for (; j < split.length; j++) {
+                        addParameter(split[j], theCall).setParameter(action.getParameterList().get(r++));
                     }
                 }
                 switchInstance.setDefaultAction(tableName, theCall);
@@ -226,6 +258,18 @@ public class SwitchInstance implements ISwitchInstance {
                 String clone = split[1];
                 String egress = split[2];
                 switchInstance.cloneSpec2EgressSpec.put(Integer.decode(clone), Integer.decode(egress));
+            } else if (crt.startsWith("act_prof_create_member")) {
+                String[] split = crt.split(" ");
+                String actProf = split[1];
+                int nr = Integer.decode(split[2]);
+                String actName = split[3];
+                P4Action theActionTemplate = sw.getActionRegistrar().getAction(actName);
+                List<Object> params = parseActionArgsToList(crt, split, 5, theActionTemplate);
+                Map.Entry<String, Integer> tuple = new AbstractMap.SimpleEntry<String, Integer>(actProf, nr);
+                switchInstance.actionProfileActions.put(tuple, actName);
+                switchInstance.actionProfileParams.put(tuple, params);
+            } else if (crt.startsWith("act_prof_create_group")) {
+                throw new UnsupportedOperationException("Groups not yet implemented");
             }
         }
         br.close();
@@ -233,6 +277,61 @@ public class SwitchInstance implements ISwitchInstance {
             Collections.sort(switchInstance.flowInstanceIterator(table), (flowInstance, t1) -> flowInstance.getPriority() - t1.getPriority());
         }
         return switchInstance;
+    }
+
+    private static P4ParameterInstance addParameter(String s, P4ActionCall theCall) {
+        P4ParameterInstance p4ParameterInstance = new P4ParameterInstance();
+        if (IPAddressUtil.isIPv4LiteralAddress(s.trim()))
+            theCall.addParameter(p4ParameterInstance.setValue(RepresentationConversion.ipToNumber(s.trim()) + ""));
+        else {
+            Pattern p = Pattern.compile("([0-9A-F]{2}[:-]){5}([0-9A-F]{2})");
+            if (p.matcher(s.trim().toUpperCase()).matches()) {
+                theCall.addParameter(p4ParameterInstance.setValue(RepresentationConversion.macToNumber(s.trim()) + ""));
+            } else {
+                try {
+                    theCall.addParameter(p4ParameterInstance.setValue(Long.decode(s.trim()) + ""));
+                } catch (NumberFormatException nfe) {
+                    theCall.addParameter(p4ParameterInstance.setValue(s.trim()));
+                }
+            }
+        }
+        return p4ParameterInstance;
+    }
+
+    private static List<Object> parseActionArgsToList(String crt, String []split,
+                                                      int j,
+                                                      P4Action theActionTemplate) {
+        assert (theActionTemplate != null);
+        if (theActionTemplate.getParameterList() == null)
+            throw new IllegalArgumentException(theActionTemplate.getActionName() + " is wrong ");
+        List<Object> args = new ArrayList<>();
+        for (int k = 0; k < theActionTemplate.getParameterList().size(); k++, j++) {
+            String s = split[j];
+            if (IPAddressUtil.isIPv4LiteralAddress(s.trim())) {
+                args.add(RepresentationConversion.ipToNumber(s.trim()));
+            } else {
+                Pattern p = Pattern.compile("([0-9A-F]{2}[:-]){5}([0-9A-F]{2})");
+                if (p.matcher(s.trim().toUpperCase()).matches()) {
+                    args.add(RepresentationConversion.macToNumber(s.trim().toUpperCase()));
+                } else {
+                    try {
+                        args.add(Long.decode(s.trim()));
+                    } catch (NumberFormatException nfe) {
+                        System.err.println("Match param failed at " + k + " line " + crt + " " + nfe.getMessage());
+                        args.add(s.trim());
+                    }
+                }
+            }
+        }
+        return args;
+    }
+
+    private static int parseActionArgs(String crt, String []s, FlowInstance flowInstance, int j, P4Action theActionTemplate) {
+        List<Object> params = parseActionArgsToList(crt, s, j, theActionTemplate);
+        for (Object param : params) {
+            flowInstance.addActionParams(param);
+        }
+        return j + params.size();
     }
 
 

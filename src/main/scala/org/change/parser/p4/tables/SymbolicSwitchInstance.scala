@@ -5,12 +5,13 @@ import java.util.regex.Pattern
 
 import org.change.parser.p4.factories.FullTableFactory
 import org.change.v2.analysis.expression.abst.{Expression, FloatingExpression}
-import org.change.v2.analysis.expression.concrete.{ConstantValue, SymbolicValue}
+import org.change.v2.analysis.expression.concrete.{ConstantBValue, ConstantValue, SymbolicValue}
 import org.change.v2.p4.model.actions.P4ActionCall
 import org.change.v2.p4.model.table.{MatchKind, TableMatch}
 import org.change.v2.p4.model.{ISwitchInstance, Switch, SwitchInstance}
 import org.change.v2.util.conversion.RepresentationConversion
 import sun.net.util.IPAddressUtil
+
 import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
 
@@ -59,8 +60,11 @@ object SymbolicSwitchInstance {
       val p: Pattern = Pattern.compile("([0-9A-F]{2}[:-]){5}([0-9A-F]{2})")
       if (p.matcher(value.toUpperCase).matches)
         ConstantValue(RepresentationConversion.macToNumber(value.toUpperCase()))
-      else
-        ConstantValue(value.toLong)
+      else {
+        if (value.startsWith("0x"))
+          ConstantBValue(s"#x${value.substring(2)}", size = value.substring(2).length / 2 * 8)
+        else ConstantValue(value.toLong)
+      }
     }
   }
   private def matchKindAndParamsToDef(matchKind: TableMatch, value : String): ParmInstance =  matchKind.getMatchKind match {

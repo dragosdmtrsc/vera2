@@ -12,7 +12,8 @@ import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.analysis.processingmodels.instructions._
 import org.change.v2.p4.model.table.{MatchKind, TableMatch}
 import org.change.v2.p4.model.{Switch, SwitchInstance}
-import org.change.v2.util.conversion.RepresentationConversion.{ipAndMaskToInterval, ipToNumber, macToNumber, isIp}
+import org.change.v2.util.conversion.RepresentationConversion.{ipAndMaskToInterval, ipToNumber, isIp, macToNumber}
+import z3.scala.Z3Context
 
 import scala.collection.JavaConversions._
 import scala.collection.mutable
@@ -173,8 +174,19 @@ class TableTernaryMatcher(tableMatch: TableMatch, useBv : Boolean = true) extend
     val mask = pair._2
     val value = pair._1
     val (hdr, fld) = P4Utils.fieldDef(tableMatch.getKey)
-    val width = switchInstance.getSwitchSpec.getInstance(hdr).getLayout.getFields.find(x => x.getName == fld).
-      get.getLength
+
+    val actualHeader = switchInstance.getSwitchSpec.getInstance(
+      if (!hdr.contains("["))
+        hdr
+      else
+        hdr.split("[")(0)
+    )
+    if (actualHeader == null)
+      throw new IllegalStateException(s"$hdr not found")
+    val wOption = actualHeader.getLayout.getFields.find(x => x.getName == fld)
+    if (wOption.isEmpty)
+      System.err.println(s"What a crock of shit $fld")
+    val width = wOption.get.getLength
     val actualMask = extractMask(mask, width)
     if (!useBv) {
       val badBasis = actualMask.zipWithIndex.filter(x => x._1 == 0)

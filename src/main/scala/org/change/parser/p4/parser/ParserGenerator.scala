@@ -26,14 +26,17 @@ class SwitchBasedParserGenerator(switch : Switch,
 
   override lazy val deparserCode : Instruction = StateExpander.deparserCode(expd, switch, codeFilter)
 
-  override lazy val extraCode : Map[String, Instruction] = StateExpander.deparserStateMachineToDict(expd, switch, codeFilter) ++
-      StateExpander.stateMachineToDict(expd, switch, codeFilter) ++ StateExpander.generateAllPossiblePacketsAsDict(expd, switch, codeFilter)
+  override lazy val extraCode : Map[String, Instruction] =
+      StateExpander.deparserStateMachineToDict(expd, switch, codeFilter) ++
+      StateExpander.stateMachineToDict(expd, switch, codeFilter) ++
+      StateExpander.generateAllPossiblePacketsAsDict(expd, switch, codeFilter)
 
   override def inlineGeneratorCode() =
     InstructionBlock(
       CreateTag("START", 0),
       Fork(
-        expd.filter(s => codeFilter.getOrElse((_ : String) => true)(s.seflPortName)).map(x => extraCode(switchInstance.getName + ".generator." + x.seflPortName))
+        expd.filter(s => codeFilter.getOrElse((_ : String) => true)(s.seflPortName)).
+          map(x => extraCode("generator." + x.seflPortName))
       )
     )
 }

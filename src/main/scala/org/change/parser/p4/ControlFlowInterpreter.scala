@@ -11,8 +11,10 @@ import org.change.v2.analysis.memory.State
 import org.change.v2.analysis.processingmodels._
 import org.change.v2.analysis.processingmodels.instructions._
 import org.change.v2.p4.model.{ISwitchInstance, Switch, SwitchInstance}
+import org.change.v2.util.Rewriter
 
 import scala.collection.JavaConversions._
+import org.change.v2.util.Rewriter._
 
 /**
   * Created by dragos on 07.09.2017.
@@ -27,7 +29,7 @@ class ControlFlowInterpreter[T<:ISwitchInstance](val switchInstance: T,
            optAdditionalInitCode : Option[(T, Int) => Instruction] = None,
            optTableFactory : Option[(T, String, String) => Instruction] = None,
            optInitFactory : Option[(T) => Instruction] = None,
-           optParserGenerator : Option[ParserGenerator]) = this(
+           optParserGenerator : Option[ParserGenerator] = None) = this(
     switchInstance, switch,
     optAdditionalInitCode.getOrElse(InitCodeFactory.get(switchInstance.getClass.asInstanceOf[Class[T]])),
     optTableFactory.getOrElse(FullTableFactory.get(switchInstance.getClass.asInstanceOf[Class[T]])),
@@ -35,12 +37,17 @@ class ControlFlowInterpreter[T<:ISwitchInstance](val switchInstance: T,
     optParserGenerator.getOrElse(new SwitchBasedParserGenerator(switch, switchInstance))
   )
   def this(switchInstance: T, switch: Switch) = this(switchInstance, switch, None, None, None, None)
-
+  private def renamer(s : String) = if (s.startsWith(s"${switchInstance.getName}."))
+    s
+  else {
+    s"${switchInstance.getName}.$s"
+  }
 
   private val initializeCode = new InitializeCode(switchInstance, switch, additionalInitCode, initFactory)
 
-  private val controlFlowInstructions = switch.getControlFlowInstructions.toMap
-  private val controlFlowLinks = switch.getControlFlowLinks.toMap
+  private val controlFlowInstructions =
+    Rewriter.rewrite(switch.getControlFlowInstructions.toMap).transform()(renamer)._1
+  private val controlFlowLinks = Rewriter.linkRewriter(switch.getControlFlowLinks.toMap).transform()(renamer)._2
   private val controlExactMatcher = "control\\.(.*?)\\.out\\.(.*)".r
 
   private val tableExactMatcher = "table\\.(.*?)\\.out\\.(.*)".r
@@ -49,12 +56,14 @@ class ControlFlowInterpreter[T<:ISwitchInstance](val switchInstance: T,
       tableExactMatcher.findFirstMatchIn(r._1).map(x => {
         val tabName = x.group(1)
         val id = x.group(2)
-        s"${switchInstance.getName}.table.$tabName.in.$id" -> tableFactory(switchInstance, tabName, id)
+        s"${switchInstance.getName}.table.$tabName.in.$id" -> {
+          tableFactory(switchInstance, tabName, id)
+        }
       })
     })
-
+  println("tables parsed OK")
   // plug in the buffer mechanism
-  private lazy val bufferMechanism = new BufferMechanism(switchInstance)
+  private val bufferMechanism = new BufferMechanism(switchInstance)
   private val bufferPlug = Map[String, Instruction](s"${switchInstance.getName}.buffer.in" -> bufferMechanism.symnetCode())
   private val bufferOutLink = Map[String, String](bufferMechanism.outName() -> "control.egress")
 
@@ -65,12 +74,15 @@ class ControlFlowInterpreter[T<:ISwitchInstance](val switchInstance: T,
   private val egressOutLink = Map[String, String](s"${switchInstance.getName}.control.egress.out" -> s"${switchInstance.getName}.deparser.in")
 
   // plug in the deparser
-  private val deparserPlug = Map[String, Instruction](s"${switchInstance.getName}.deparser.in" -> parserGenerator.deparserCode())
+  private val deparserPlug = rewrite(
+    Map[String, Instruction](s"${switchInstance.getName}.deparser.in" -> parserGenerator.deparserCode())
+  ).transform()(renamer)._1
   // link deparser -> <sw>.output.in
   private val deparserOutLink = Map[String, String](s"${switchInstance.getName}.deparser.out" -> s"${switchInstance.getName}.output.in")
   //plug in the parser
   def parserCode(): Instruction = parserGenerator.parserCode()
-  private val parserPlug = Map[String, Instruction](s"${switchInstance.getName}.parser" -> parserCode())
+  private val parserPlug =  Rewriter.
+    rewrite(Map[String, Instruction](s"${switchInstance.getName}.parser" -> parserCode())).transform()(renamer)._1
   // plug in the switch instances
   private val ifacePlug = switchInstance.getIfaceSpec.keys.flatMap(x => {
     Map[String, Instruction](s"${switchInstance.getName}.input.$x" -> initialize(x))
@@ -80,18 +92,13 @@ class ControlFlowInterpreter[T<:ISwitchInstance](val switchInstance: T,
     Map[String, String](s"${switchInstance.getName}.input.$x.out" -> s"${switchInstance.getName}.parser")
   })
 
+
   // plug control.ingress.out -> <sw>.buffer
   private val ingressOutLink = Map[String, String](s"${switchInstance.getName}.control.ingress.out" -> s"${switchInstance.getName}.buffer.in")
-  import org.change.v2.util.Rewriter._
   private val (instructionsCached, linksCached) =
     (controlFlowInstructions ++ parserPlug ++ outputPlug ++ deparserPlug ++ ifacePlug ++ plugTables ++ bufferPlug ++
-      parserGenerator.extraCode(),
-    controlFlowLinks ++ deparserOutLink ++ inputOutLink ++ ingressOutLink ++ bufferOutLink ++ egressOutLink).transform()(s => {
-    if (s.startsWith(s"${switchInstance.getName}."))
-      s
-    else
-      s"${switchInstance.getName}.$s"
-  })
+      Rewriter.rewrite(parserGenerator.extraCode()).transform()(renamer)._1,
+    controlFlowLinks ++ deparserOutLink ++ inputOutLink ++ ingressOutLink ++ bufferOutLink ++ egressOutLink)
 
   def instructions() : Map[String, Instruction] = instructionsCached
   def links() : Map[String, String] = linksCached
