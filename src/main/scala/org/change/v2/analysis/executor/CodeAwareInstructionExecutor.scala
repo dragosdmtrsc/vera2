@@ -35,6 +35,14 @@ class CodeAwareInstructionExecutorWithListeners(caie : CodeAwareInstructionExecu
     (o, Nil)
   }
 
+  override def executeExoticInstruction(instruction: Instruction, s: State, v: Boolean): (List[State], List[State]) = instruction match {
+    case ExistsNamedSymbol(_) => (super.executeExoticInstruction(instruction, s, v)._1, Nil)
+    case ExistsRaw(_) => (super.executeExoticInstruction(instruction, s, v)._1, Nil)
+    case NotExistsNamedSymbol(_) => (super.executeExoticInstruction(instruction, s, v)._1, Nil)
+    case NotExistsRaw(_) => (super.executeExoticInstruction(instruction, s, v)._1, Nil)
+    case _ => super.executeExoticInstruction(instruction, s, v)
+  }
+
   override def executeForward(instruction: Forward, s: State, v: Boolean): (List[State], List[State]) = {
     if (!program.contains(instruction.place)) {
       successStateConsumers.foreach(c =>

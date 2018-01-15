@@ -64,6 +64,9 @@ class P4Nat extends FunSuite {
     val ib = InstructionBlock(
       Forward(s"router.input.$port")
     )
+
+    println(res.instructions()("router.deparser.in"))
+
     val codeAwareInstructionExecutor = CodeAwareInstructionExecutor(res.instructions(), res.links(), solver = new Z3BVSolver)
     val parserout = codeAwareInstructionExecutor.program("router.control.ingress")
     val newparserout = InstructionBlock(

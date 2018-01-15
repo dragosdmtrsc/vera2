@@ -65,7 +65,7 @@ class ControlFlowInterpreter[T<:ISwitchInstance](val switchInstance: T,
   // plug in the buffer mechanism
   private val bufferMechanism = new BufferMechanism(switchInstance)
   private val bufferPlug = Map[String, Instruction](s"${switchInstance.getName}.buffer.in" -> bufferMechanism.symnetCode())
-  private val bufferOutLink = Map[String, String](bufferMechanism.outName() -> "control.egress")
+  private val bufferOutLink = Map[String, String](bufferMechanism.outName() -> s"${switchInstance.getName}.control.egress")
 
   // plug in the output mechanism
   private lazy val outputMechanism = new OutputMechanism(switchInstance)
@@ -74,15 +74,13 @@ class ControlFlowInterpreter[T<:ISwitchInstance](val switchInstance: T,
   private val egressOutLink = Map[String, String](s"${switchInstance.getName}.control.egress.out" -> s"${switchInstance.getName}.deparser.in")
 
   // plug in the deparser
-  private val deparserPlug = rewrite(
+  private val deparserPlug =
     Map[String, Instruction](s"${switchInstance.getName}.deparser.in" -> parserGenerator.deparserCode())
-  ).transform()(renamer)._1
   // link deparser -> <sw>.output.in
   private val deparserOutLink = Map[String, String](s"${switchInstance.getName}.deparser.out" -> s"${switchInstance.getName}.output.in")
   //plug in the parser
   def parserCode(): Instruction = parserGenerator.parserCode()
-  private val parserPlug =  Rewriter.
-    rewrite(Map[String, Instruction](s"${switchInstance.getName}.parser" -> parserCode())).transform()(renamer)._1
+  private val parserPlug =  Map[String, Instruction](s"${switchInstance.getName}.parser" -> parserCode())
   // plug in the switch instances
   private val ifacePlug = switchInstance.getIfaceSpec.keys.flatMap(x => {
     Map[String, Instruction](s"${switchInstance.getName}.input.$x" -> initialize(x))
@@ -97,7 +95,7 @@ class ControlFlowInterpreter[T<:ISwitchInstance](val switchInstance: T,
   private val ingressOutLink = Map[String, String](s"${switchInstance.getName}.control.ingress.out" -> s"${switchInstance.getName}.buffer.in")
   private val (instructionsCached, linksCached) =
     (controlFlowInstructions ++ parserPlug ++ outputPlug ++ deparserPlug ++ ifacePlug ++ plugTables ++ bufferPlug ++
-      Rewriter.rewrite(parserGenerator.extraCode()).transform()(renamer)._1,
+      parserGenerator.extraCode(),
     controlFlowLinks ++ deparserOutLink ++ inputOutLink ++ ingressOutLink ++ bufferOutLink ++ egressOutLink)
 
   def instructions() : Map[String, Instruction] = instructionsCached

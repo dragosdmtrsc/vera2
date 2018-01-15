@@ -7,7 +7,7 @@ import com.fasterxml.jackson.annotation.ObjectIdGenerators.UUIDGenerator
 import org.change.parser.p4.parser.StateExpander.deparserConstraints
 import org.change.utils.prettifier.JsonUtil
 import org.change.v2.analysis.expression.abst.FloatingExpression
-import org.change.v2.analysis.expression.concrete.{ConstantValue, SymbolicValue}
+import org.change.v2.analysis.expression.concrete.{ConstantBValue, ConstantStringValue, ConstantValue, SymbolicValue}
 import org.change.v2.analysis.expression.concrete.nonprimitive._
 import org.change.v2.analysis.memory.Tag
 import org.change.v2.analysis.processingmodels.Instruction
@@ -129,7 +129,8 @@ class StateExpander (switch: Switch, startAt : String){
             }
             (acc._1.addInstr(new SetStatement(v.getLeft, sref)), false)
           case v : ExtractStatement =>
-            val ref = v.getExpression.asInstanceOf[StringRef].getRef
+            val sref = v.getExpression.asInstanceOf[StringRef]
+            val ref = sref.getRef
             val sinstance = switch.getInstance(ref)
             val reg = sinstance.getLayout.getLength
             val pleaseStop = sinstance match {
@@ -139,8 +140,8 @@ class StateExpander (switch: Switch, startAt : String){
             val sth = v.setLocation(acc._1.crt, reg)
             sinstance match {
               case aInstance : ArrayInstance =>
-                if (v.getExpression.asInstanceOf[StringRef].getArrayIndex == -1)
-                  v.getExpression.asInstanceOf[StringRef].setArrayIndex(acc._1.currentDepth.getOrElse(ref, 0))
+                if (sref.getArrayIndex == -1)
+                  sref.setArrayIndex(acc._1.currentDepth.getOrElse(ref, 0))
               case _ => ;
             }
             (acc._1.addInstr(sth).increment(reg).incrementHeaderCount(ref).
@@ -165,7 +166,15 @@ class StateExpander (switch: Switch, startAt : String){
             val ces = x.getValues.foldLeft(x.getExpressions.foldLeft(new CaseEntry())((acc, y) => {
               acc.addExpression(y match {
                 case v : DataRef => new DataRef(nfs._1.crt + v.getStart, nfs._1.crt + v.getEnd)
-                case v : LatestRef => new StringRef(nfs._1.latest + "." + v.getFieldName)
+                case v : LatestRef =>
+                  val sinstance = switch.getInstance(nfs._1.latest)
+                  if (sinstance == null)
+                    throw new IllegalStateException(s"can't find latest header ${nfs._1.latest}")
+                  val name = sinstance match {
+                    case ai : ArrayInstance => nfs._1.latest + "[" + nfs._1.currentDepth.get(nfs._1.latest).map(_ - 1).getOrElse(0) + "]"
+                    case _ => nfs._1.latest
+                  }
+                  new StringRef(name + "." + v.getFieldName)
                 case _ => y
               })
             }))((acc, y) => {
@@ -212,9 +221,9 @@ object StateExpander {
 
 
   def generateAllPossiblePacketsAsDict(expd: List[DFSState], sw: Switch,
-                                       wayFilter: Option[Function1[String, Boolean]] = None) : Map[String, Instruction] = {
+                                       wayFilter: Option[Function1[String, Boolean]] = None, name : String = "") : Map[String, Instruction] = {
     expd.filter(s => wayFilter.getOrElse((r : String) => true)(s.seflPortName)).map(x => {
-      "generator." + x.seflPortName ->
+      name + "generator." + x.seflPortName ->
       InstructionBlock(x.history.filter(x => x.isInstanceOf[ExtractStatement]).reverse.flatMap(r => {
         val extractStatement = r.asInstanceOf[ExtractStatement]
         val sref = extractStatement.getExpression.asInstanceOf[StringRef].getRef
@@ -261,38 +270,80 @@ object StateExpander {
     case _ => Nil
   }
 
-  def deparserCode(expd : List[DFSState], sw : Switch,
-                   wayFilter: Option[Function1[String, Boolean]] = None) : Instruction = {
-//    Fork(expd.map(x => Forward("deparser." + x.seflPortName)))
-    expd.filter(s => wayFilter.getOrElse((_ : String) => true)(s.seflPortName)).foldRight(Fail("Deparser error: No match") : Instruction)((r, acc) => {
-      InstructionBlock(
-        deparserAssignments(r, sw),
-        deparserConstraints(r, sw)(Forward("deparser." + r.seflPortName), acc)
-      )
-    })
+  def getSymbols(floatingExpression: FloatingExpression) : List[String] = floatingExpression match {
+    case :<<:(left, right) => getSymbols(left) ++ getSymbols(right)
+    case :!:(left) => getSymbols(left)
+    case Symbol(id) => id :: Nil
+    case :||:(left, right) => getSymbols(left) ++ getSymbols(right)
+    case :^:(left, right) => getSymbols(left) ++ getSymbols(right)
+    case :&&:(left, right) => getSymbols(left) ++ getSymbols(right)
+    case :+:(left, right) => getSymbols(left) ++ getSymbols(right)
+    case :-:(left, right) => getSymbols(left) ++ getSymbols(right)
+    case _ => Nil
   }
 
+  def ensureExists(instruction: Instruction) : Instruction = instruction match {
+    case InstructionBlock(instructions) => InstructionBlock(instructions.map(ensureExists))
+    case AssignNamedSymbol(_, what, _) => InstructionBlock(getSymbols(what).map(Exists(_)))
+    case _ => NoOp
+  }
+
+  def ensureNotExists(instruction: Instruction) : Instruction = instruction match {
+    case InstructionBlock(instructions) => Fork(instructions.map(ensureNotExists))
+    case AssignNamedSymbol(_, what, _) => Fork(getSymbols(what).map(NotExists(_)))
+    case _ => NoOp
+  }
+
+  def deparserCode(expd : List[DFSState], sw : Switch,
+                   wayFilter: Option[Function1[String, Boolean]] = None, name : String = "") : Instruction = {
+//    Fork(expd.map(x => Forward("deparser." + x.seflPortName)))
+    expd.filter(s => wayFilter.getOrElse((_ : String) => true)(s.seflPortName)).foldRight(Fail("Deparser error: No match") : Instruction)((r, acc) => {
+      val insts = extractDeparserInstructions(r, sw)
+      val assigns = InstructionBlock(insts.flatMap(getAssgns))
+      val exists = ensureExists(assigns)
+      val nexist = ensureNotExists(assigns) match {
+        case Fork(it) if it.isEmpty => NoOp
+        case v => v
+      }
+      if (nexist == NoOp) {
+        InstructionBlock(
+          assigns,
+          If (InstructionBlock(insts.flatMap(getConstraints)), Forward(name + "deparser." + r.seflPortName), acc)
+        )
+      } else {
+        Fork(InstructionBlock(
+          exists,
+          assigns,
+          If (InstructionBlock(insts.flatMap(getConstraints)), Forward(name + "deparser." + r.seflPortName), acc)
+        ), InstructionBlock(
+          nexist,
+          acc
+        ))
+      }
+    })
+  }
+  def getAssgns(instruction: Instruction) : List[Instruction] = instruction match {
+    case v : AssignNamedSymbol => instruction :: Nil
+    case v : AllocateSymbol => instruction :: Nil
+    case v : AllocateRaw => instruction :: Nil
+    case v : AssignRaw => instruction :: Nil
+    case InstructionBlock(instructions) => instructions.flatMap(getAssgns).toList
+    case _ => Nil
+  }
+
+  def getConstraints(instruction: Instruction) : List[Instruction] = instruction match {
+    case v : ConstrainNamedSymbol => instruction :: Nil
+    case v : ConstrainRaw => instruction :: Nil
+    case InstructionBlock(instructions) => instructions.flatMap(getConstraints).toList
+    case _ => Nil
+  }
   private def deparserAssignments(x : DFSState, sw : Switch) : Instruction = {
     val insts = extractDeparserInstructions(x,sw)
-    def getAssgns(instruction: Instruction) : List[Instruction] = instruction match {
-      case v : AssignNamedSymbol => instruction :: Nil
-      case v : AllocateSymbol => instruction :: Nil
-      case v : AllocateRaw => instruction :: Nil
-      case v : AssignRaw => instruction :: Nil
-      case InstructionBlock(instructions) => instructions.flatMap(getAssgns).toList
-      case _ => Nil
-    }
     InstructionBlock(insts.flatMap(getAssgns))
   }
 
   private def deparserConstraints(x : DFSState, sw : Switch) : Function2[Instruction, Instruction, Instruction] = {
     val insts = extractDeparserInstructions(x,sw)
-    def getConstraints(instruction: Instruction) : List[Instruction] = instruction match {
-      case v : ConstrainNamedSymbol => instruction :: Nil
-      case v : ConstrainRaw => instruction :: Nil
-      case InstructionBlock(instructions) => instructions.flatMap(getConstraints).toList
-      case _ => Nil
-    }
     (thn, els) => If (InstructionBlock(insts.flatMap(getConstraints)), thn, els)
   }
 
@@ -300,7 +351,10 @@ object StateExpander {
     x.history.tail.filter(!_.isInstanceOf[ReturnStatement]).reverse.map {
       case v: ExtractStatement =>
         val sref = v.getExpression.asInstanceOf[StringRef].getRef
-        Constrain(sref + ".IsValid", :==:(ConstantValue(1)))
+        sw.getInstance(sref) match {
+          case ai : ArrayInstance => Constrain(sref + s"[${v.getExpression.asInstanceOf[StringRef].getArrayIndex}]" + ".IsValid", :==:(ConstantValue(1)))
+          case _ => Constrain(sref + ".IsValid", :==:(ConstantValue(1)))
+        }
       case v: CaseNotEntry if v.getCaseEntryList.forall(ce => ce.getExpressions.exists(_.isInstanceOf[StringRef])) =>
         val cases = v.getCaseEntryList.map(translateCaseEntry(_, sw))
         InstructionBlock(
@@ -313,29 +367,37 @@ object StateExpander {
   }
 
   def deparserStateMachineToDict(expd : List[DFSState], sw : Switch,
-                                 wayFilter: Option[Function1[String, Boolean]] = None) : Map[String, Instruction] = {
+                                 wayFilter: Option[Function1[String, Boolean]] = None, name : String = "") : Map[String, Instruction] = {
     expd.filter(s => wayFilter.getOrElse((_ : String) => true)(s.seflPortName)).map(x => {
-      "deparser." + x.seflPortName ->
-        deparserStateToInstruction(x, sw)
+      name + "deparser." + x.seflPortName ->
+        deparserStateToInstruction(x, sw, name = name)
     }).toMap
   }
 
-  private def deparserStateToInstruction(x: DFSState, sw : Switch, watchForOthers : Boolean = true) = {
+  private def deparserStateToInstruction(x: DFSState, sw : Switch, watchForOthers : Boolean = true, name : String = "") = {
     val mustBeValid = x.history.tail.reverse.collect({
       case v : ExtractStatement => v.getExpression.asInstanceOf[StringRef].getRef
     }).toSet
 
     val watchForOtherHeaders = if (watchForOthers)
       InstructionBlock(sw.getInstances.filter(i => !i.isMetadata).map(instance => {
-        if (!mustBeValid.contains(instance.getName))
-          If (Constrain(instance.getName + ".IsValid", :==:(ConstantValue(1))),
-            Fail(s"Deparser error: Supplementary valid header ${instance.getName} encountered")
-          )
+        if (!mustBeValid.contains(instance.getName)) {
+          instance match {
+            case ai : ArrayInstance => (0 until ai.getLength).foldRight(NoOp : Instruction)((x, acc) => {
+              If(Constrain(instance.getName + s"[$x]" + ".IsValid", :==:(ConstantValue(1))),
+                Fail(s"Deparser error: Supplementary valid header ${instance.getName} encountered"),
+                acc
+              )
+            })
+            case _ => If(Constrain(instance.getName + ".IsValid", :==:(ConstantValue(1))),
+              Fail(s"Deparser error: Supplementary valid header ${instance.getName} encountered")
+            )
+          }
+        }
         else
           NoOp
       }).toList)
     else NoOp
-
     InstructionBlock(
       (watchForOtherHeaders :: (DestroyPacket() ::
         x.history.tail.filter(!_.isInstanceOf[ReturnStatement]).reverse.map {
@@ -361,7 +423,7 @@ object StateExpander {
           case _ => NoOp
         })) :+ (x.history.head match {
         case v: ReturnStatement => if (!v.isError)
-          Forward(s"deparser.out")
+          Forward(name + s"deparser.out")
         else Fail(s"Parser failure because ${v.getMessage}")
         case _ => throw new UnsupportedOperationException(s"History head must be ReturnStatement, but ${x.history.head} found")
       })
@@ -369,9 +431,9 @@ object StateExpander {
   }
 
   def stateMachineToDict(expd : List[DFSState], sw : Switch,
-                         wayFilter: Option[Function1[String, Boolean]] = None): Map[String, Instruction] = {
+                         wayFilter: Option[Function1[String, Boolean]] = None, name : String = ""): Map[String, Instruction] = {
     expd.filter(s => wayFilter.getOrElse((_ : String) => true)(s.seflPortName)).map(x => {
-      "parser." + x.seflPortName ->
+      name + "parser." + x.seflPortName ->
       InstructionBlock(
         x.history.tail.filter(!_.isInstanceOf[ReturnStatement]).reverse.map {
           case v: ExtractStatement =>
@@ -414,7 +476,7 @@ object StateExpander {
           case v: CaseEntry => translateCaseEntry(v, sw)
         } :+ (x.history.head match {
           case v : ReturnStatement  => if (!v.isError)
-            Forward(s"control.${v.getWhere}")
+            Forward(name + s"control.${v.getWhere}")
           else Fail(s"Parser failure because ${v.getMessage}")
           case _ => throw new UnsupportedOperationException(s"History head must be ReturnStatement, but ${x.history.head} found")
         })
@@ -423,8 +485,8 @@ object StateExpander {
   }
 
   def parseStateMachine(expd: List[DFSState], sw : Switch,
-                        wayFilter: Option[Function1[String, Boolean]] = None): Fork =
-    Fork(expd.filter(s => wayFilter.getOrElse((_ : String) => true)(s.seflPortName)).map(x => Forward("parser." + x.seflPortName)))
+                        wayFilter: Option[Function1[String, Boolean]] = None,  name : String = ""): Fork =
+    Fork(expd.filter(s => wayFilter.getOrElse((_ : String) => true)(s.seflPortName)).map(x => Forward(name + "parser." + x.seflPortName)))
 
   def translateCaseEntry(v: CaseEntry,
                          sw : Switch, ignoreDataRefs : Boolean = false): InstructionBlock = {

@@ -229,14 +229,19 @@ public class SwitchInstance implements ISwitchInstance {
                         Map.Entry<String, Integer> theEntry =
                                 new AbstractMap.SimpleEntry<String, Integer>(prof.getName(), member);
                         String actName = switchInstance.actionProfileActions.get(theEntry);
-                        List<Object> actParams = switchInstance.actionProfileParams.get(theEntry);
-                        P4Action action = switchInstance.getSwitchSpec().getActionRegistrar().getAction(actName);
-                        theCall = new P4ActionCall(action);
-                        int r = 0;
-                        for (Object parm : actParams) {
-                            addParameter(parm.toString(), theCall).setParameter(action.getParameterList().get(r++));
+                        if (actName != null) {
+                            List<Object> actParams = switchInstance.actionProfileParams.get(theEntry);
+                            P4Action action = switchInstance.getSwitchSpec().getActionRegistrar().getAction(actName);
+                            theCall = new P4ActionCall(action);
+                            int r = 0;
+                            if (actParams != null) {
+                                for (Object parm : actParams)
+                                    addParameter(parm.toString(), theCall).setParameter(action.getParameterList().get(r++));
+                                switchInstance.setDefaultAction(tableName, theCall);
+                            }
                         }
-                        switchInstance.setDefaultAction(tableName, theCall);
+
+
                         continue;
                     } else {
                         Pattern grpPattern = Pattern.compile("group\\(([0-9]+)\\)");
@@ -275,9 +280,8 @@ public class SwitchInstance implements ISwitchInstance {
             }
         }
         br.close();
-        for (String table : switchInstance.getDeclaredTables()) {
-            Collections.sort(switchInstance.flowInstanceIterator(table), Comparator.comparingInt(FlowInstance::getPriority).reversed());
-        }
+        for (String table : switchInstance.getDeclaredTables())
+            Collections.sort(switchInstance.flowInstanceIterator(table), Comparator.comparingInt(FlowInstance::getPriority));
         return switchInstance;
     }
 

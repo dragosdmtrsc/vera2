@@ -158,7 +158,7 @@ class FullTableWithInstances[T<:ISwitchInstance](tableName : String,
         val (hdr, fieldName) = fieldDef(k.getKey)
 
         val varName = s"tmp$uuid"
-        if (switch.getInstance(hdr) != null && !switch.getInstance(hdr).isMetadata) {
+        if (!switch.getInstance(hdr).isMetadata) {
           InstructionBlock(
             Allocate(varName, size),
             Assign(varName, :&&:(:@(k.getKey), mask)),
@@ -179,6 +179,7 @@ class FullTableWithInstances[T<:ISwitchInstance](tableName : String,
       case Equal(va) =>
         val (hdr, fieldName) = fieldDef(k.getKey)
         if (switch.getInstance(hdr) != null && !switch.getInstance(hdr).isMetadata) {
+
           InstructionBlock(
             Constrain(hdr + ".IsValid", :==:(ConstantValue(1))),
             Constrain(k.getKey, :==:(va))

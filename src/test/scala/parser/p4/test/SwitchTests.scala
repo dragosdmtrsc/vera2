@@ -115,6 +115,70 @@ class SwitchTests extends FunSuite {
     })).compactPrint)
   }
 
+  test("SWITCH - L2Test run") {
+    import org.change.v2.analysis.executor.StateConsumer
+    val dir = "inputs/big-switch"
+    val p4 = s"$dir/switch-ppc-orig.p4"
+    val dataplane = s"$dir/pd-L2Test.txt"
+
+
+    val ifaces = Map[Int, String](
+      0 -> "veth0", 1 -> "veth2",
+      2 -> "veth4", 3 -> "veth6",
+      4 -> "veth8", 5 -> "veth10",
+      6 -> "veth12", 7 -> "veth14",
+      8 -> "veth16", 64 -> "veth250"
+    )
+    val sw = Switch.fromFile(p4)
+    val switchInstance = SymbolicSwitchInstance.fromFileWithSyms("switch",
+      ifaces,
+      Map.empty,
+      sw,
+      dataplane)
+    val port = 1
+
+    //-i 0@veth0 -i 1@veth2 -i 2@veth4 -i 3@veth6 -i 4@veth8 -i 5@veth10 -i 6@veth12 -i 7@veth14 -i 8@veth16 -i 64@veth250
+    val res = new ControlFlowInterpreter(switchInstance, switch = sw,
+      optParserGenerator = Some(
+        new SwitchBasedParserGenerator(switch = sw,
+          switchInstance = switchInstance, codeFilter = Some((x : String) => {
+            x.contains("parse_ethernet") &&
+              x.contains("parse_ipv4") &&
+              x.contains("parse_tcp")
+          }))
+      )
+    )
+
+    val deparser = res.instructions()("switch.deparser.in")
+    val ib = Forward(s"switch.input.$port")
+    val (failIndex, successIndex, printer) = createConsumer(dir)
+
+    val codeAwareInstructionExecutor = new CodeAwareInstructionExecutorWithListeners(
+      CodeAwareInstructionExecutor(res.instructions(), res.links(), solver = new Z3BVSolver),
+      successStateConsumers = printer :: Nil,
+      failedStateConsumers = printer :: Nil
+    )
+    val (initial, _) = codeAwareInstructionExecutor.
+      execute(InstructionBlock(
+        CreateTag("START", 0),
+        Call("switch.generator.parse_ethernet.parse_ipv4.parse_tcp")
+      ), State.clean, verbose = true)
+
+
+    println(s"initial states gathered ${initial.size}")
+    val (ok: List[State], failed: List[State]) = executeAndPrintStats(ib, initial, postParserInjectCaie(InstructionBlock(
+      Constrain("ipv4.ttl", :==:(ConstantValue(0)))
+    ), codeAwareInstructionExecutor.program, name = "switch"))
+    printResults(dir, port, ok, failed.filter(r => {
+      !(r.errorCause.exists(k => k.startsWith("Cannot resolve reference to")) &&
+        r.history.head.contains("switch.parser."))
+    }), "soso")
+    successIndex.close()
+    failIndex.close()
+    if (ok.nonEmpty)
+      println(ok)
+  }
+
   test("SWITCH - tcp run") {
     import org.change.v2.analysis.executor.StateConsumer
     val dir = "inputs/big-switch"
@@ -138,9 +202,7 @@ class SwitchTests extends FunSuite {
     assert(switchInstance.tableDefinitions("system_acl").flowInstances.nonEmpty)
     println(switchInstance.tableDefinitions.get("system_acl"))
     val port = 0
-    val ib = InstructionBlock(
-      Forward(s"switch.input.$port")
-    )
+
     //-i 0@veth0 -i 1@veth2 -i 2@veth4 -i 3@veth6 -i 4@veth8 -i 5@veth10 -i 6@veth12 -i 7@veth14 -i 8@veth16 -i 64@veth250
     val res = new ControlFlowInterpreter(switchInstance, switch = sw,
       optParserGenerator = Some(
@@ -152,6 +214,7 @@ class SwitchTests extends FunSuite {
           }))
       )
     )
+    val ib = res.startWherever()
     val (failIndex, successIndex, printer) = createConsumer(dir)
 
     val codeAwareInstructionExecutor = new CodeAwareInstructionExecutorWithListeners(
@@ -162,7 +225,7 @@ class SwitchTests extends FunSuite {
     val (initial, _) = codeAwareInstructionExecutor.
       execute(InstructionBlock(
         CreateTag("START", 0),
-        Call("switch.generator.parse_ethernet.parse_ipv4.parse_tcp")
+        Call("switch.generator.parse_ethernet.parse_vlan.parse_ipv4.parse_tcp")
       ), State.clean, verbose = true)
     println(s"initial states gathered ${initial.size}")
     val (ok: List[State], failed: List[State]) = executeAndPrintStats(ib, initial, codeAwareInstructionExecutor)
@@ -175,6 +238,5 @@ class SwitchTests extends FunSuite {
     if (ok.nonEmpty)
       println(ok)
   }
-
 
 }

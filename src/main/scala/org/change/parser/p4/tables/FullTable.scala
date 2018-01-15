@@ -375,7 +375,7 @@ class FullTable(tableName : String, switchInstance: SwitchInstance, id : String 
         })
       }),
       If (Constrain("IsClone", :==:(ConstantValue(0))),
-        Forward(s"table.$tableName.out" + (if (id.length != 0) s".$id" else ""))
+        Forward(s"${switchInstance.getName}.table.$tableName.out" + (if (id.length != 0) s".$id" else ""))
       )
     )
 

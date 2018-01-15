@@ -107,9 +107,7 @@ public class Switch {
     public int getSize(String value) {
         String[] split = value.split("\\.");
         String hName = split[0];
-        if (hName.contains("[")) {
-            hName = hName.split("\\[")[0];
-        }
+
         HeaderInstance instance = this.getInstance(hName);
         if (instance == null) {
             throw new IllegalArgumentException("Can't find header " + hName);
@@ -173,6 +171,9 @@ public class Switch {
     }
 
     public HeaderInstance getInstance(String o) {
+        if (o.contains("[")) {
+            o = o.split("\\[")[0];
+        }
         return instances.getOrDefault(o, null);
     }
 
