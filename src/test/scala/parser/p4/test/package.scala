@@ -14,6 +14,7 @@ import org.change.v2.analysis.processingmodels.instructions.{Forward, Instructio
 package object test {
  def executeAndPrintStats(ib: Instruction, initial: List[State], codeAwareInstructionExecutor : CodeAwareInstructionExecutor): (List[State], List[State]) = {
     val init = System.currentTimeMillis()
+    println("Ok now " + codeAwareInstructionExecutor.program.size)
     val (ok, failed) = initial.foldLeft((Nil, Nil): (List[State], List[State]))((acc, init) => {
       val (o, f) = codeAwareInstructionExecutor.execute(ib, init, true)
       (acc._1 ++ o, acc._2 ++ f)
@@ -100,7 +101,8 @@ package object test {
         successIndex.println(s"""<li><a href=\"file://$file/outputs/success-$tmp.json\">${s.history.head}</a></li>""")
         successIndex.flush()
       } else {
-        if (s.location.startsWith("switch.parser") && s.errorCause.get.startsWith("Cannot resolve")) {
+        if (s.location.startsWith("switch.parser") && (s.errorCause.get.startsWith("Cannot resolve") ||
+          s.errorCause.get.startsWith("Wrong choice"))) {
           // nothing here
         } else {
           val ps = new PrintStream(s"$dir/outputs/fail-$tmp.json")

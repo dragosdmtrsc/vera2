@@ -9,7 +9,7 @@ import org.change.v2.abstractnet.mat.tree.Node
 import org.change.v2.abstractnet.mat.tree.Node.Forest
 import org.change.v2.analysis.expression.abst.FloatingExpression
 import org.change.v2.analysis.expression.concrete.nonprimitive._
-import org.change.v2.analysis.expression.concrete.{ConstantValue, SymbolicValue}
+import org.change.v2.analysis.expression.concrete.{ConstantBValue, ConstantValue, SymbolicValue}
 import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.analysis.processingmodels.instructions._
 import org.change.v2.p4.model.table.{MatchKind, TableMatch}
@@ -159,18 +159,26 @@ class FullTableWithInstances[T<:ISwitchInstance](tableName : String,
 
         val varName = s"tmp$uuid"
         if (!switch.getInstance(hdr).isMetadata) {
-          InstructionBlock(
-            Allocate(varName, size),
-            Assign(varName, :&&:(:@(k.getKey), mask)),
-            Constrain(hdr + ".IsValid", :==:(ConstantValue(1))),
-            Constrain(varName, :==:(va))
-          )
+          mask match {
+            case ConstantValue(0, _, _) => InstructionBlock()
+            case ConstantBValue(v, _) if BigInt(v.substring(2), 16) == 0 => InstructionBlock()
+            case _ => InstructionBlock(
+              Allocate(varName, size),
+              Assign(varName, :&&:(:@(k.getKey), mask)),
+              Constrain(hdr + ".IsValid", :==:(ConstantValue(1))),
+              Constrain(varName, :==:(va))
+            )
+          }
         } else {
-          InstructionBlock(
-            Allocate(varName, size),
-            Assign(varName, :&&:(:@(k.getKey), mask)),
-            Constrain(varName, :==:(va))
-          )
+          mask match {
+            case ConstantValue(0, _, _) => InstructionBlock()
+            case ConstantBValue(v, _) if BigInt(v.substring(2), 16) == 0 => InstructionBlock()
+            case _ => InstructionBlock(
+              Allocate(varName, size),
+              Assign(varName, :&&:(:@(k.getKey), mask)),
+              Constrain(varName, :==:(va))
+            )
+          }
         }
 
       case ValidMatch(v) => InstructionBlock(
