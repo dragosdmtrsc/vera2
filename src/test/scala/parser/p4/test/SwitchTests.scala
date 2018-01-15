@@ -83,7 +83,7 @@ class SwitchTests extends FunSuite {
       Map.empty,
       sw,
       dataplane)
-    val port = 1
+    val port = 0
     val ib = InstructionBlock(
       Forward(s"switch.input.$port")
     )
@@ -152,34 +152,7 @@ class SwitchTests extends FunSuite {
           }))
       )
     )
-
-
-    val failIndex = new PrintStream(s"$dir/index-fail.html")
-    val successIndex = new PrintStream(s"$dir/index-success.html")
-    successIndex.println("<ul>")
-    failIndex.println("<ul>")
-    val file = new File(dir).getAbsolutePath
-
-    val printer = (s : State) => {
-      val tmp = UUID.randomUUID().toString
-      if (s.errorCause.isEmpty) {
-        val ps = new PrintStream(s"$dir/outputs/success-$tmp.json")
-        ps.println(s)
-        ps.close()
-        successIndex.println(s"""<li><a href=\"file://$file/outputs/success-$tmp.json\">${s.history.head}</a></li>""")
-        successIndex.flush()
-      } else {
-        if (s.location.startsWith("switch.parser") && s.errorCause.get.startsWith("Cannot resolve")) {
-          // nothing here
-        } else {
-          val ps = new PrintStream(s"$dir/outputs/fail-$tmp.json")
-          ps.println(s)
-          ps.close()
-          failIndex.println(s"""<li><a href=\"file://$file/outputs/fail-$tmp.json\">${s.errorCause.get} - ${s.history.head}</a></li>""")
-          failIndex.flush()
-        }
-      }
-    }
+    val (failIndex, successIndex, printer) = createConsumer(dir)
 
     val codeAwareInstructionExecutor = new CodeAwareInstructionExecutorWithListeners(
       CodeAwareInstructionExecutor(res.instructions(), res.links(), solver = new Z3BVSolver),
@@ -199,6 +172,9 @@ class SwitchTests extends FunSuite {
     }), "soso")
     successIndex.close()
     failIndex.close()
+    if (ok.nonEmpty)
+      println(ok)
   }
+
 
 }

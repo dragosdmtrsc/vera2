@@ -626,9 +626,16 @@ class P4GrammarListener extends P4GrammarBaseListener {
     val execId = UUID.randomUUID().toString
     this.instructions.put(ctx.parent, Forward(s"table.${ctx.table_name().getText}.in.$execId"))
     this.links.put(s"table.${ctx.table_name().getText}.out.$execId", s"${ctx.parent}.select")
+
+    val defaultEntry = ctx.case_list().instructions.collect({
+      case v @ If(ConstrainNamedSymbol(what, _, _), b, _) if what == "default.Fired" => b
+    }).headOption.getOrElse(Forward(s"${ctx.parent}.out"))
+
     this.instructions.put(s"${ctx.parent}.select",
-      ctx.case_list().instructions.map(_.asInstanceOf[If]).
-        foldRight(Forward(s"${ctx.parent}.out") : Instruction)((x, acc) => {
+      ctx.case_list().instructions.map(_.asInstanceOf[If]).filter(r => r match {
+        case If(ConstrainNamedSymbol(what, _, _), _, _) => what != "default.Fired"
+        case _ => true
+      }).foldRight(defaultEntry)((x, acc) => {
         If (x.testInstr, x.thenWhat, acc)
       })
     )

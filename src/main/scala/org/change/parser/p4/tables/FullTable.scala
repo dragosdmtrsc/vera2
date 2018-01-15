@@ -184,8 +184,6 @@ class TableTernaryMatcher(tableMatch: TableMatch, useBv : Boolean = true) extend
     if (actualHeader == null)
       throw new IllegalStateException(s"$hdr not found")
     val wOption = actualHeader.getLayout.getFields.find(x => x.getName == fld)
-    if (wOption.isEmpty)
-      System.err.println(s"What a crock of shit $fld")
     val width = wOption.get.getLength
     val actualMask = extractMask(mask, width)
     if (!useBv) {

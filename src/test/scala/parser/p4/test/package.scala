@@ -1,6 +1,6 @@
 package parser.p4
 
-import java.io.{BufferedOutputStream, FileOutputStream, PrintStream}
+import java.io.{BufferedOutputStream, File, FileOutputStream, PrintStream}
 import java.util.UUID
 
 import org.change.parser.p4.ControlFlowInterpreter
@@ -79,6 +79,39 @@ package object test {
       JsArray(u.map(_.toJson).toVector)
     })).prettyPrint)
     pskopretty.close()
+  }
+
+
+  def createConsumer(dir: String): (PrintStream, PrintStream, State => Unit) = {
+    val failIndex = new PrintStream(s"$dir/index-fail.html")
+    val successIndex = new PrintStream(s"$dir/index-success.html")
+    successIndex.println("<ul>")
+    failIndex.println("<ul>")
+    val file = new File(dir).getAbsolutePath
+    val outDir = new File(dir + "/outputs")
+    if (!outDir.exists())
+      outDir.mkdir()
+    val printer = (s: State) => {
+      val tmp = UUID.randomUUID().toString
+      if (s.errorCause.isEmpty) {
+        val ps = new PrintStream(s"$dir/outputs/success-$tmp.json")
+        ps.println(s)
+        ps.close()
+        successIndex.println(s"""<li><a href=\"file://$file/outputs/success-$tmp.json\">${s.history.head}</a></li>""")
+        successIndex.flush()
+      } else {
+        if (s.location.startsWith("switch.parser") && s.errorCause.get.startsWith("Cannot resolve")) {
+          // nothing here
+        } else {
+          val ps = new PrintStream(s"$dir/outputs/fail-$tmp.json")
+          ps.println(s)
+          ps.close()
+          failIndex.println(s"""<li><a href=\"file://$file/outputs/fail-$tmp.json\">${s.errorCause.get} - ${s.history.head}</a></li>""")
+          failIndex.flush()
+        }
+      }
+    }
+    (failIndex, successIndex, printer)
   }
 
 }
