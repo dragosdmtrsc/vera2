@@ -1401,7 +1401,7 @@ table_set_default int_meta_header_update int_update_total_hop_cnt
 table_set_default outer_ipv6_multicast_star_g nop 
 table_set_default ecmp_group EMPTY 
 table_add port_vlan_mapping member(0) 0x0041 1 0x0001 0 0x0000 => 
-table_set_default port_vlan_mapping member(1) 
+table_set_default port_vlan_mapping member(1)
 table_set_default ipsg EMPTY 
 table_set_default ipv4_urpf on_miss 
 table_set_default spanning_tree EMPTY 

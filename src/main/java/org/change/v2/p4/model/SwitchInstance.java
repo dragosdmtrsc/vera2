@@ -166,6 +166,7 @@ public class SwitchInstance implements ISwitchInstance {
                         List<Object> actParams = switchInstance.actionProfileParams.get(theEntry);
                         for (Object parm : actParams)
                             flowInstance.setFireAction(actName).addActionParams(parm);
+                        switchInstance.add(flowInstance);
                         continue;
                     } else {
                         Pattern grpPattern = Pattern.compile("group\\(([0-9]+)\\)");
@@ -235,6 +236,7 @@ public class SwitchInstance implements ISwitchInstance {
                         for (Object parm : actParams) {
                             addParameter(parm.toString(), theCall).setParameter(action.getParameterList().get(r++));
                         }
+                        switchInstance.setDefaultAction(tableName, theCall);
                         continue;
                     } else {
                         Pattern grpPattern = Pattern.compile("group\\(([0-9]+)\\)");
@@ -274,7 +276,7 @@ public class SwitchInstance implements ISwitchInstance {
         }
         br.close();
         for (String table : switchInstance.getDeclaredTables()) {
-            Collections.sort(switchInstance.flowInstanceIterator(table), (flowInstance, t1) -> flowInstance.getPriority() - t1.getPriority());
+            Collections.sort(switchInstance.flowInstanceIterator(table), Comparator.comparingInt(FlowInstance::getPriority).reversed());
         }
         return switchInstance;
     }

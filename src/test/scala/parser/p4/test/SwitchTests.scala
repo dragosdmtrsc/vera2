@@ -1,14 +1,15 @@
 package parser.p4.test
 
-import java.io.PrintStream
+import java.io.{File, PrintStream}
 import java.util
+import java.util.UUID
 import javax.json.JsonValue
 
 import org.change.parser.p4.ControlFlowInterpreter
 import org.change.parser.p4.factories.SymbolicRegistersInitFactory
 import org.change.parser.p4.parser.{ParserGenerator, SwitchBasedParserGenerator}
 import org.change.parser.p4.tables.SymbolicSwitchInstance
-import org.change.v2.analysis.executor.CodeAwareInstructionExecutor
+import org.change.v2.analysis.executor.{CodeAwareInstructionExecutor, CodeAwareInstructionExecutorWithListeners}
 import org.change.v2.analysis.executor.solvers.Z3BVSolver
 import org.change.v2.analysis.expression.concrete.ConstantValue
 import org.change.v2.analysis.memory.State
@@ -115,9 +116,11 @@ class SwitchTests extends FunSuite {
   }
 
   test("SWITCH - tcp run") {
+    import org.change.v2.analysis.executor.StateConsumer
     val dir = "inputs/big-switch"
     val p4 = s"$dir/switch-ppc-orig.p4"
     val dataplane = s"$dir/table_dump_full.txt"
+
 
     val ifaces = Map[Int, String](
       0 -> "veth0", 1 -> "veth2",
@@ -132,7 +135,9 @@ class SwitchTests extends FunSuite {
       Map.empty,
       sw,
       dataplane)
-    val port = 1
+    assert(switchInstance.tableDefinitions("system_acl").flowInstances.nonEmpty)
+    println(switchInstance.tableDefinitions.get("system_acl"))
+    val port = 0
     val ib = InstructionBlock(
       Forward(s"switch.input.$port")
     )
@@ -147,17 +152,53 @@ class SwitchTests extends FunSuite {
           }))
       )
     )
-    val codeAwareInstructionExecutor = CodeAwareInstructionExecutor(res.instructions(), res.links(), solver = new Z3BVSolver)
+
+
+    val failIndex = new PrintStream(s"$dir/index-fail.html")
+    val successIndex = new PrintStream(s"$dir/index-success.html")
+    successIndex.println("<ul>")
+    failIndex.println("<ul>")
+    val file = new File(dir).getAbsolutePath
+
+    val printer = (s : State) => {
+      val tmp = UUID.randomUUID().toString
+      if (s.errorCause.isEmpty) {
+        val ps = new PrintStream(s"$dir/outputs/success-$tmp.json")
+        ps.println(s)
+        ps.close()
+        successIndex.println(s"""<li><a href=\"file://$file/outputs/success-$tmp.json\">${s.history.head}</a></li>""")
+        successIndex.flush()
+      } else {
+        if (s.location.startsWith("switch.parser") && s.errorCause.get.startsWith("Cannot resolve")) {
+          // nothing here
+        } else {
+          val ps = new PrintStream(s"$dir/outputs/fail-$tmp.json")
+          ps.println(s)
+          ps.close()
+          failIndex.println(s"""<li><a href=\"file://$file/outputs/fail-$tmp.json\">${s.errorCause.get} - ${s.history.head}</a></li>""")
+          failIndex.flush()
+        }
+      }
+    }
+
+    val codeAwareInstructionExecutor = new CodeAwareInstructionExecutorWithListeners(
+      CodeAwareInstructionExecutor(res.instructions(), res.links(), solver = new Z3BVSolver),
+      successStateConsumers = printer :: Nil,
+      failedStateConsumers = printer :: Nil
+    )
     val (initial, _) = codeAwareInstructionExecutor.
       execute(InstructionBlock(
         CreateTag("START", 0),
         Call("switch.generator.parse_ethernet.parse_ipv4.parse_tcp")
       ), State.clean, verbose = true)
+    println(s"initial states gathered ${initial.size}")
     val (ok: List[State], failed: List[State]) = executeAndPrintStats(ib, initial, codeAwareInstructionExecutor)
     printResults(dir, port, ok, failed.filter(r => {
       !(r.errorCause.exists(k => k.startsWith("Cannot resolve reference to")) &&
       r.history.head.contains("switch.parser."))
     }), "soso")
+    successIndex.close()
+    failIndex.close()
   }
 
 }

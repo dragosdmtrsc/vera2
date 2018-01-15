@@ -548,18 +548,21 @@ class P4GrammarListener extends P4GrammarBaseListener {
   val links: MutableMap[String, String] = mutable.Map[String, String]()
   override def exitControl_block(ctx:Control_blockContext){
     var  i = 0
-    for (cs <- ctx.control_statement()) {
-      ctx.instructions.add(cs.instruction)
-      // the parent should add the mappings to get them straight
-      assert(cs.instruction != null, s"In control block ${cs.getText} got null instruction")
-      this.instructions.put(s"${ctx.parent}[$i]", cs.instruction)
-      if (i + 1 < ctx.control_statement().size()) {
-        this.links.put(s"${ctx.parent}[$i].out", s"${ctx.parent}[${i + 1}]")
-      } else {
-        this.links.put(s"${ctx.parent}[$i].out", s"${ctx.parent}.out")
+    if (ctx.control_statement() != null && ctx.control_statement().size() > 0)
+      for (cs <- ctx.control_statement()) {
+        ctx.instructions.add(cs.instruction)
+        // the parent should add the mappings to get them straight
+        assert(cs.instruction != null, s"In control block ${cs.getText} got null instruction")
+        this.instructions.put(s"${ctx.parent}[$i]", cs.instruction)
+        if (i + 1 < ctx.control_statement().size()) {
+          this.links.put(s"${ctx.parent}[$i].out", s"${ctx.parent}[${i + 1}]")
+        } else {
+          this.links.put(s"${ctx.parent}[$i].out", s"${ctx.parent}.out")
+        }
+        i = i + 1
       }
-      i = i + 1
-    }
+    else
+      this.links.put(s"${ctx.parent}[0]", s"${ctx.parent}.out")
   }
 
   override def enterControl_statement(ctx: Control_statementContext): Unit = {
@@ -629,7 +632,12 @@ class P4GrammarListener extends P4GrammarBaseListener {
         If (x.testInstr, x.thenWhat, acc)
       })
     )
-    this.links.put(s"${ctx.parent}[${ctx.case_list().instructions.size() - 1}].out", s"${ctx.parent}.out")
+    var j = 0
+    for (i <- ctx.case_list().instructions) {
+      this.links.put(s"${ctx.parent}[$j].out", s"${ctx.parent}.out")
+      j = j + 1
+    }
+
     ctx.instruction = Forward(s"table.${ctx.table_name().getText}.in.$execId")
   }
 
