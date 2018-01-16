@@ -4,12 +4,16 @@ import java.io.{BufferedOutputStream, File, FileOutputStream, PrintStream}
 import java.util.UUID
 
 import org.change.parser.p4.ControlFlowInterpreter
+import org.change.parser.p4.parser.ParserGenerator
+import org.change.parser.p4.tables.SymbolicSwitchInstance
 import org.change.utils.prettifier.JsonUtil
-import org.change.v2.analysis.executor.CodeAwareInstructionExecutor
+import org.change.v2.analysis.executor.{CodeAwareInstructionExecutor, CodeAwareInstructionExecutorWithListeners}
 import org.change.v2.analysis.executor.solvers.Z3BVSolver
 import org.change.v2.analysis.memory.State
 import org.change.v2.analysis.processingmodels.Instruction
-import org.change.v2.analysis.processingmodels.instructions.{Forward, InstructionBlock}
+import org.change.v2.analysis.processingmodels.instructions.{Call, CreateTag, Forward, InstructionBlock}
+import org.change.v2.p4.model.{ISwitchInstance, Switch}
+import org.change.v2.analysis.memory.TagExp.IntImprovements
 
 package object test {
  def executeAndPrintStats(ib: Instruction, initial: List[State], codeAwareInstructionExecutor : CodeAwareInstructionExecutor): (List[State], List[State]) = {
@@ -114,6 +118,59 @@ package object test {
       }
     }
     (failIndex, successIndex, printer)
+  }
+
+  def setupAndRun(dir: String, p4: String, dataplane: String,
+              postParserInjection: Instruction,
+              ifaces: Map[Int, String],
+              outputDir: String,
+              packetLayout : String,
+              port: Int, genFactory: (Switch, ISwitchInstance) => ParserGenerator): Unit = {
+    val sw = Switch.fromFile(p4)
+    val switchInstance = SymbolicSwitchInstance.fromFileWithSyms("switch",
+      ifaces,
+      Map.empty,
+      sw,
+      dataplane)
+
+
+    val parserGenerator: ParserGenerator = genFactory(sw, switchInstance)
+    //-i 0@veth0 -i 1@veth2 -i 2@veth4 -i 3@veth6 -i 4@veth8 -i 5@veth10 -i 6@veth12 -i 7@veth14 -i 8@veth16 -i 64@veth250
+    val res = new ControlFlowInterpreter(switchInstance, switch = sw,
+      optParserGenerator = Some(
+        parserGenerator
+      )
+    )
+    val ib = Forward(s"${switchInstance.getName}.input.$port")
+    val (failIndex, successIndex, printer) = createConsumer(outputDir)
+
+    val codeAwareInstructionExecutor = new CodeAwareInstructionExecutorWithListeners(
+      postParserInjectCaie(
+        postParserInjection,
+        CodeAwareInstructionExecutor(res.instructions(), res.links(), solver = new Z3BVSolver).program,
+        switchInstance.getName
+      ),
+      successStateConsumers = printer :: Nil,
+      failedStateConsumers = printer :: Nil
+    )
+    val (initial, _) = codeAwareInstructionExecutor.
+      execute(InstructionBlock(
+        CreateTag("START", 0),
+        Call(switchInstance.getName + ".generator." + packetLayout)
+      ), State.clean, verbose = true)
+
+    println(s"initial states gathered ${initial.size}")
+    val (ok: List[State], failed: List[State]) = executeAndPrintStats(
+      ib,
+      initial,
+      codeAwareInstructionExecutor
+    )
+    printResults(dir, port, ok, failed.filter(r => {
+      !(r.errorCause.exists(k => k.startsWith("Cannot resolve reference to")) &&
+        r.history.head.contains("switch.parser."))
+    }), "soso")
+    successIndex.close()
+    failIndex.close()
   }
 
 }

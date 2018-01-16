@@ -4,15 +4,16 @@ import java.io.PrintStream
 import java.util
 
 import org.change.parser.p4.ControlFlowInterpreter
-import org.change.parser.p4.parser.{SkipParserAndDeparser, SwitchBasedParserGenerator, TrivialDeparserGenerator}
+import org.change.parser.p4.parser.{ParserGenerator, SkipParserAndDeparser, SwitchBasedParserGenerator, TrivialDeparserGenerator}
 import org.change.parser.p4.tables.SymbolicSwitchInstance
 import org.change.v2.analysis.executor.solvers.Z3BVSolver
 import org.change.v2.analysis.executor.{CodeAwareInstructionExecutor, CodeAwareInstructionExecutorWithListeners}
 import org.change.v2.analysis.expression.concrete.ConstantValue
 import org.change.v2.analysis.memory.State
 import org.change.v2.analysis.memory.TagExp.IntImprovements
+import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.analysis.processingmodels.instructions._
-import org.change.v2.p4.model.{Switch, SwitchInstance}
+import org.change.v2.p4.model.{ISwitchInstance, Switch, SwitchInstance}
 import org.scalatest.FunSuite
 
 class SwitchTests extends FunSuite {
@@ -371,7 +372,91 @@ class SwitchTests extends FunSuite {
     val dir = "inputs/big-switch"
     val p4 = s"$dir/switch-ppc-orig.p4"
     val dataplane = s"$dir/pd-L3Ipv4Test.txt"
+    val port = 1
+    setupAndRunSwitchWithSimpleParser(dir, p4, dataplane, port, ethernetIp4TcpPacket,
+      "parse_ethernet.parse_ipv4.parse_tcp")
+  }
 
+  test("SWITCH - L2VxlanTunnelTest with trivial deparser & deterministic parser encap") {
+    val dir = "inputs/big-switch"
+    val p4 = s"$dir/switch-ppc-orig.p4"
+    val dataplane = s"$dir/pd-L2VxlanTunnelTest.txt"
+    val port = 1
+    setupAndRunSwitchWithSimpleParser(dir, p4, dataplane, port,
+      (x) => x == "parse_ethernet.parse_ipv4.parse_tcp",
+      "parse_ethernet.parse_ipv4.parse_tcp")
+  }
+
+  test("SWITCH - L2VxlanTunnelTest with trivial deparser & deterministic parser decap") {
+    val dir = "inputs/big-switch"
+    val p4 = s"$dir/switch-ppc-orig.p4"
+    val dataplane = s"$dir/pd-L2VxlanTunnelTest.txt"
+    val port = 2
+    setupAndRunSwitchWithSimpleParser(dir, p4, dataplane, port, ethernetIp4UdpVxlanIpTcp,
+      "parse_ethernet.parse_ipv4.parse_udp.parse_vxlan.parse_inner_ethernet.parse_inner_ipv4.parse_inner_tcp")
+  }
+
+  test("SWITCH - L3VxlanTunnelTest with trivial deparser & deterministic parser decap") {
+    val dir = "inputs/big-switch"
+    val p4 = s"$dir/switch-ppc-orig.p4"
+    val dataplane = s"$dir/pd-L3VxlanTunnelTest.txt"
+    val port = 1
+    setupAndRunSwitchWithSimpleParser(dir, p4, dataplane, port, ethernetIp4UdpVxlanIpTcp,
+      "parse_ethernet.parse_ipv4.parse_udp.parse_vxlan.parse_inner_ethernet.parse_inner_ipv4.parse_inner_tcp")
+  }
+
+  test("SWITCH - L3VxlanTunnelTest with trivial deparser & deterministic parser encap") {
+    val dir = "inputs/big-switch"
+    val p4 = s"$dir/switch-ppc-orig.p4"
+    val dataplane = s"$dir/pd-L3VxlanTunnelTest.txt"
+    val port = 2
+    setupAndRunSwitchWithSimpleParser(dir, p4, dataplane, port, (x) => x == "parse_ethernet.parse_ipv4.parse_tcp",
+      "parse_ethernet.parse_ipv4.parse_tcp")
+  }
+
+  test("SWITCH - L2QinQTest with trivial deparser & deterministic parser encap") {
+    val dir = "inputs/big-switch"
+    val p4 = s"$dir/switch-ppc-orig.p4"
+    val dataplane = s"$dir/pd-L2QinQTest.txt"
+    val port = 2
+    setupAndRunSwitchWithSimpleParser(dir, p4, dataplane, port, (x) => x == "parse_ethernet.parse_ipv4.parse_tcp",
+      "parse_ethernet.parse_ipv4.parse_tcp")
+  }
+
+  test("SWITCH - L2QinQTest with trivial deparser & deterministic parser decap") {
+    val dir = "inputs/big-switch"
+    val p4 = s"$dir/switch-ppc-orig.p4"
+    val dataplane = s"$dir/pd-L2QinQTest.txt"
+    val port = 1
+    setupAndRunSwitchWithSimpleParser(dir, p4, dataplane, port, (x) => x == "parse_ethernet.parse_qinq.parse_qinq_vlan.parse_ipv4.parse_tcp",
+      "parse_ethernet.parse_qinq.parse_qinq_vlan.parse_ipv4.parse_tcp")
+  }
+
+  def ethernetIp4UdpVxlanIpTcp(x : String) : Boolean =
+    x == "parse_ethernet.parse_ipv4.parse_udp.parse_vxlan.parse_inner_ethernet.parse_inner_ipv4.parse_inner_tcp"
+
+  def ethernetIp4TcpPacket(x : String): Boolean =  x.contains("parse_ethernet") &&
+    x.contains("parse_ipv4") &&
+    x.contains("parse_tcp")
+
+
+  def setupAndRunSwitchWithSimpleParser(dir : String, p4 : String, dataplane : String,
+                                  port : Int,
+                                  stringFilter : (String) => Boolean,
+                                  layout : String,
+                                  postParser : Instruction = NoOp) = {
+    this.setupAndRunSwitchWithParser(dir, p4, dataplane, port, postParser, layout, (sw, switchInstance) => new SkipParserAndDeparser(switch = sw,
+      switchInstance = switchInstance,
+      codeFilter = Some(stringFilter)
+    ))
+  }
+
+
+  def setupAndRunSwitchWithParser(dir : String, p4 : String, dataplane : String,
+                                  port : Int,
+                                  postParser : Instruction = NoOp,
+                                  packetLayout : String,
+                                  factory : Function2[Switch, ISwitchInstance, ParserGenerator]) = {
     val ifaces = Map[Int, String](
       0 -> "veth0", 1 -> "veth2",
       2 -> "veth4", 3 -> "veth6",
@@ -379,59 +464,8 @@ class SwitchTests extends FunSuite {
       6 -> "veth12", 7 -> "veth14",
       8 -> "veth16", 64 -> "veth250"
     )
-    val sw = Switch.fromFile(p4)
-    val switchInstance = SymbolicSwitchInstance.fromFileWithSyms("switch",
-      ifaces,
-      Map.empty,
-      sw,
-      dataplane)
-    val port = 1
-
-    //-i 0@veth0 -i 1@veth2 -i 2@veth4 -i 3@veth6 -i 4@veth8 -i 5@veth10 -i 6@veth12 -i 7@veth14 -i 8@veth16 -i 64@veth250
-    val res = new ControlFlowInterpreter(switchInstance, switch = sw,
-      optParserGenerator = Some(
-        new SkipParserAndDeparser(switch = sw,
-          switchInstance = switchInstance,
-          codeFilter = Some((x : String) => {
-            x.contains("parse_ethernet") &&
-              x.contains("parse_ipv4") &&
-              x.contains("parse_tcp")
-          })
-        )
-      )
-    )
-    val ib = Forward(s"switch.input.$port")
-    val (failIndex, successIndex, printer) = createConsumer(dir)
-
-    val codeAwareInstructionExecutor = new CodeAwareInstructionExecutorWithListeners(
-      postParserInjectCaie(
-        NoOp,
-        CodeAwareInstructionExecutor(res.instructions(), res.links(), solver = new Z3BVSolver).program,
-        "switch"
-      ),
-      successStateConsumers = printer :: Nil,
-      failedStateConsumers = printer :: Nil
-    )
-    val (initial, _) = codeAwareInstructionExecutor.
-      execute(InstructionBlock(
-        CreateTag("START", 0),
-        Call("switch.generator.parse_ethernet.parse_ipv4.parse_tcp")
-      ), State.clean, verbose = true)
-
-    println(s"initial states gathered ${initial.size}")
-    val (ok: List[State], failed: List[State]) = executeAndPrintStats(
-      ib,
-      initial,
-      codeAwareInstructionExecutor
-    )
-    printResults(dir, port, ok, failed.filter(r => {
-      !(r.errorCause.exists(k => k.startsWith("Cannot resolve reference to")) &&
-        r.history.head.contains("switch.parser."))
-    }), "soso")
-    successIndex.close()
-    failIndex.close()
-    if (ok.nonEmpty)
-      println(ok)
+    setupAndRun(dir, p4, dataplane, postParser, ifaces, dir, packetLayout, port, factory)
   }
+
 
 }

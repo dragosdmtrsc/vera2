@@ -2,8 +2,7 @@ act_prof_create_member bd_action_profile 0 set_bd_properties => 0x0a 0x01 0x00 0
 act_prof_create_member bd_action_profile 1 set_bd_properties => 0x0a 0x01 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00
 act_prof_create_member lag_action_profile 0 set_lag_port => 0x01
 act_prof_create_member lag_action_profile 1 set_lag_port => 0x02
-act_prof_create_member lag_action_profile 292 set_lag_miss =>
-act_prof_create_member fabric_lag_action_profile 0 nop =>
+act_prof_create_member fabric_lag_action_profile 0 nop => 
 table_set_default ipv6_dest_vtep nop 
 table_set_default compute_other_hashes computed_two_hashes 
 table_set_default tunnel_lookup_miss non_ip_lkp 

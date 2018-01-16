@@ -187,7 +187,6 @@ class FullTableWithInstances[T<:ISwitchInstance](tableName : String,
       case Equal(va) =>
         val (hdr, fieldName) = fieldDef(k.getKey)
         if (switch.getInstance(hdr) != null && !switch.getInstance(hdr).isMetadata) {
-
           InstructionBlock(
             Constrain(hdr + ".IsValid", :==:(ConstantValue(1))),
             Constrain(k.getKey, :==:(va))
