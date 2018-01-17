@@ -25,7 +25,7 @@ libraryDependencies ++= {
 
 exportJars := true
 
-//unmanagedJars in Compile += file("lib/scalaz3_2.11-2.1.jar")
+unmanagedJars in Compile += file("lib/scalaz3_2.11-2.1.jar")
 
 unmanagedResourceDirectories in Compile += baseDirectory.value / "lib"
 
@@ -119,4 +119,4 @@ fullRunTask(p4, Compile, "org.change.v2.verification.P4Tester")
  fullRunTask(printer, Compile, "org.change.v2.verification.Printer")
 
 
- seq(Revolver.settings: _*)
+// seq(Revolver.settings: _*)

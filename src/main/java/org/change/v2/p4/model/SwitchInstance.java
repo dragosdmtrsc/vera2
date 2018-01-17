@@ -240,8 +240,6 @@ public class SwitchInstance implements ISwitchInstance {
                                 switchInstance.setDefaultAction(tableName, theCall);
                             }
                         }
-
-
                         continue;
                     } else {
                         Pattern grpPattern = Pattern.compile("group\\(([0-9]+)\\)");

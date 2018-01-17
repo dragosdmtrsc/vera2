@@ -27,7 +27,8 @@ class SwitchBasedParserGenerator(switch : Switch,
 
   override lazy val deparserCode : Instruction = StateExpander.deparserCode(expd, switch, codeFilter, name = switchInstance.getName + ".")
 
-  protected lazy val extraCodeInternal: Map[String, Instruction] = StateExpander.deparserStateMachineToDict(expd, switch, codeFilter, name = switchInstance.getName + ".") ++
+  protected lazy val extraCodeInternal: Map[String, Instruction] =
+    StateExpander.deparserStateMachineToDict(expd, switch, codeFilter, name = switchInstance.getName + ".") ++
     StateExpander.stateMachineToDict(expd, switch, codeFilter, name = switchInstance.getName + ".") ++
     StateExpander.generateAllPossiblePacketsAsDict(expd, switch, codeFilter, name = switchInstance.getName + ".")
 

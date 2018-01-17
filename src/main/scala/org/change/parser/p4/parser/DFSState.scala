@@ -246,7 +246,7 @@ object StateExpander {
     InstructionBlock(
       CreateTag("START", 0),
       Fork(
-        expd.filter(s => wayFilter.getOrElse((r : String) => true)(s.seflPortName)).map(x => Call(name + ".generator." + x.seflPortName))
+        expd.filter(s => wayFilter.getOrElse((r : String) => true)(s.seflPortName)).map(x => Call(name + "generator." + x.seflPortName))
       )
     )
   }
