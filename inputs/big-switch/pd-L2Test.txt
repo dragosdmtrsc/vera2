@@ -1,0 +1,161 @@
+act_prof_create_member bd_action_profile 0 set_bd_properties => 0x0a 0x01 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00
+act_prof_create_member bd_action_profile 1 set_bd_properties => 0x0a 0x01 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00
+act_prof_create_member lag_action_profile 0 set_lag_port => 0x01
+act_prof_create_member lag_action_profile 1 set_lag_port => 0x02
+act_prof_create_member fabric_lag_action_profile 0 nop => 
+table_set_default ipv6_dest_vtep nop 
+table_set_default compute_other_hashes computed_two_hashes 
+table_set_default tunnel_lookup_miss non_ip_lkp 
+table_set_default ingress_bd_stats update_ingress_bd_stats 
+table_set_default tunnel_decap_process_outer EMPTY 
+table_set_default ipv6_multicast_route on_miss 
+table_set_default egress_nat nop 
+table_set_default rid nop 
+table_set_default egress_qos_map nop 
+table_add vlan_decap remove_vlan_single_tagged 1 0 => 
+table_add vlan_decap remove_vlan_double_tagged 1 1 => 
+table_set_default vlan_decap nop 
+table_set_default ingress_qos_map_pcp nop 
+table_set_default tunnel_encap_process_outer nop 
+table_set_default ipv4_racl nop 
+table_add outer_rmac outer_rmac_hit 0x0002 0x003333333333 => 
+table_set_default outer_rmac on_miss 
+table_set_default learn_notify nop 
+table_set_default egress_vlan_xlate set_egress_packet_vlan_untagged 
+table_set_default validate_outer_ethernet set_valid_outer_unicast_packet_untagged 
+table_set_default ipv4_urpf_lpm urpf_miss 
+table_set_default sflow_ing_take_sample nop 
+table_set_default ingress_l4_dst_port nop 
+table_set_default fabric_ingress_src_lkp EMPTY 
+table_set_default fabric_ingress_dst_lkp EMPTY 
+table_set_default system_acl nop 
+table_set_default rewrite set_l2_rewrite 
+table_set_default ipv6_fib on_miss 
+table_set_default tunnel_smac_rewrite nop 
+table_set_default ingress_l4_src_port nop 
+table_add ingress_port_mapping set_ifindex 0x0001 => 0x01 0x00
+table_add ingress_port_mapping set_ifindex 0x0002 => 0x02 0x00
+table_set_default ingress_port_mapping EMPTY 
+table_set_default ipv4_src_vtep on_miss 
+table_add lag_group member(0) 0x0001 => 
+table_add lag_group member(1) 0x0002 => 
+table_set_default lag_group member(292) 
+table_set_default mirror nop 
+table_add dmac dmac_hit 0x000a 0x001111111111 => 0x01
+table_add dmac dmac_hit 0x000a 0x002222222222 => 0x02
+table_set_default dmac dmac_miss 
+table_set_default int_inst_0811 nop 
+table_set_default ipv6_multicast_bridge on_miss 
+table_set_default nat_twice on_miss 
+table_set_default egress_system_acl nop 
+table_set_default meter_index nop 
+table_set_default tunnel_encap_process_inner EMPTY 
+table_set_default egress_ipv6_acl nop 
+table_set_default fabric_lag member(0) 
+table_set_default egress_filter_drop set_egress_filter_drop 
+table_set_default tunnel_dst_rewrite nop 
+table_set_default ipv6_multicast_bridge_star_g nop 
+table_set_default mpls EMPTY 
+table_add l3_rewrite ipv4_unicast_rewrite 1 0 0 0x00000000&&&0x00000000 0x00000000000000000000000000000000&&&0x00000000000000000000000000000000 => 100
+table_add l3_rewrite ipv6_unicast_rewrite 0 1 0 0x00000000&&&0x00000000 0x00000000000000000000000000000000&&&0x00000000000000000000000000000000 => 200
+table_set_default l3_rewrite nop 
+table_set_default validate_outer_ipv4_packet set_valid_outer_ipv4_packet 
+table_set_default int_terminate int_no_sink 
+table_set_default acl_stats acl_stats_update 
+table_set_default validate_mpls_packet EMPTY 
+table_set_default drop_stats drop_stats_update 
+table_set_default int_inst_0407 EMPTY 
+table_set_default ipv4_multicast_route on_miss 
+table_set_default egress_l4_dst_port nop 
+table_set_default ipv6_src_vtep on_miss 
+table_set_default nexthop nop 
+table_add ingress_port_properties set_ingress_port_properties 0x0001 => 0x01 0x00 0x00 0x00 0x00 0x00 0x00
+table_add ingress_port_properties set_ingress_port_properties 0x0002 => 0x02 0x00 0x00 0x00 0x00 0x00 0x00
+table_set_default ingress_port_properties EMPTY 
+table_set_default compute_non_ip_hashes compute_lkp_non_ip_hash 
+table_set_default int_inst_1215 nop 
+table_set_default int_insert int_reset 
+table_set_default traffic_class nop 
+table_set_default ipv4_fib_lpm on_miss 
+table_set_default ipv6_racl nop 
+table_set_default storm_control_stats nop 
+table_set_default int_inst_0003 EMPTY 
+table_set_default int_meta_header_update int_update_total_hop_cnt 
+table_set_default outer_ipv6_multicast_star_g nop 
+table_set_default ecmp_group EMPTY 
+table_add port_vlan_mapping member(0) 0x0001 0 0x0000 0 0x0000 => 
+table_add port_vlan_mapping member(1) 0x0002 0 0x0000 0 0x0000 => 
+table_set_default port_vlan_mapping member(1) 
+table_set_default ipsg EMPTY 
+table_set_default ipv4_urpf on_miss 
+table_set_default spanning_tree EMPTY 
+table_set_default compute_ipv6_hashes compute_lkp_ipv6_hash 
+table_set_default compute_ipv4_hashes compute_lkp_ipv4_hash 
+table_set_default ingress_qos_map_dscp nop 
+table_add egress_port_mapping egress_port_type_normal 0x0001 => 0x01 0x00 0x00
+table_add egress_port_mapping egress_port_type_normal 0x0002 => 0x02 0x00 0x00
+table_set_default egress_port_mapping egress_port_type_normal 0x00 0x00 0x00
+table_set_default tunnel_dmac_rewrite nop 
+table_set_default ipv6_multicast_route_star_g multicast_route_star_g_miss 
+table_set_default egress_l4port_fields nop 
+table_set_default ipv6_acl nop 
+table_set_default storm_control nop 
+table_set_default tunnel_src_rewrite nop 
+table_set_default nat_dst on_miss 
+table_set_default meter_action meter_permit 
+table_add rmac rmac_hit 0x0001 0x003333333333 => 
+table_set_default rmac rmac_miss 
+table_set_default outer_ipv6_multicast on_miss 
+table_set_default egress_ip_acl nop 
+table_set_default mtu mtu_miss 
+table_set_default tunnel_rewrite nop 
+table_set_default urpf_bd urpf_bd_miss 
+table_set_default validate_packet nop 
+table_set_default mac_acl nop 
+table_set_default egress_vni nop 
+table_add adjust_lkp_fields ipv4_lkp 1 0 => 
+table_add adjust_lkp_fields ipv6_lkp 0 1 => 
+table_set_default adjust_lkp_fields non_ip_lkp 
+table_set_default rewrite_multicast nop 
+table_set_default int_bos nop 
+table_set_default nat_src on_miss 
+table_set_default native_packet_over_fabric EMPTY 
+table_set_default egress_bd_stats nop 
+table_set_default tunnel_decap_process_inner EMPTY 
+table_add smac smac_hit 0x000a 0x001111111111 => 0x01
+table_add smac smac_hit 0x000a 0x002222222222 => 0x02
+table_set_default smac smac_miss 
+table_set_default ipv6_urpf_lpm urpf_miss 
+table_set_default ipv4_dest_vtep nop 
+table_set_default ipsg_permit_special EMPTY 
+table_set_default sflow_ingress nop 
+table_add bd_flood set_bd_flood_mc_index 0x000a 0x01 => 0x00
+table_set_default bd_flood nop 
+table_set_default outer_ipv4_multicast_star_g nop 
+table_set_default egress_bd_map nop 
+table_set_default replica_type nop 
+table_set_default switch_config_params set_config_parameters 0x00
+table_set_default egress_mac_acl nop 
+table_set_default nat_flow nop 
+table_set_default ipv4_multicast_bridge on_miss 
+table_set_default egress_filter egress_filter_check 
+table_set_default validate_outer_ipv6_packet set_valid_outer_ipv6_packet 
+table_set_default ipv4_fib on_miss 
+table_set_default ipv6_urpf on_miss 
+table_set_default outer_ipv4_multicast on_miss 
+table_add smac_rewrite rewrite_smac 0x0001 => 0x3333333333
+table_set_default smac_rewrite EMPTY 
+table_set_default tunnel_mtu tunnel_mtu_miss 
+table_set_default int_source int_set_no_src 
+table_set_default int_sink_update_outer nop 
+table_set_default egress_l4_src_port nop 
+table_set_default ipv4_multicast_bridge_star_g nop 
+table_add fwd_result set_fib_redirect_action 0x00&&&0x00 0x00&&&0x00 0x00&&&0x00 0x00&&&0x00 0x01&&&0x01 0x00&&&0x00 0x00&&&0x00 0x00&&&0x00 0x00&&&0x00 0x00&&&0x00 0x00&&&0x00 0x00&&&0x00 0x0000&&&0x0000 0x00&&&0x00 => 1000
+table_add fwd_result set_l2_redirect_action 0x01&&&0x01 0x00&&&0x00 0x00&&&0x00 0x00&&&0x00 0x00&&&0x00 0x00&&&0x00 0x00&&&0x00 0x00&&&0x00 0x00&&&0x00 0x00&&&0x00 0x00&&&0x00 0x00&&&0x00 0x0000&&&0x0000 0x00&&&0x00 => 1000
+table_set_default fwd_result nop 
+table_set_default ipv6_fib_lpm on_miss 
+table_set_default ip_acl nop 
+table_set_default ipv4_multicast_route_star_g multicast_route_star_g_miss 
+table_set_default int_outer_encap nop 
+table_set_default tunnel tunnel_lookup_miss 
+

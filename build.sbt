@@ -25,14 +25,18 @@ libraryDependencies ++= {
 
 exportJars := true
 
-//unmanagedJars in Compile += file("lib/scalaz3_2.11-2.1.jar")
+unmanagedJars in Compile += file("lib/scalaz3_2.11-2.1.jar")
 
 unmanagedResourceDirectories in Compile += baseDirectory.value / "lib"
 
 includeFilter in(Compile, unmanagedResourceDirectories) := ".dll,.so"
 
-
-test in assembly := {}
+fork in test := true
+fork in Test := true
+javaOptions in Test += "-Xss128M"
+javaOptions in Test += "-Xmx4G"
+javaOptions in run += "-Xss128M"
+//test in assembly := {}
 
 lazy val p4control = taskKey[Unit]("P4 control function to SEFL")
 
@@ -115,4 +119,4 @@ fullRunTask(p4, Compile, "org.change.v2.verification.P4Tester")
  fullRunTask(printer, Compile, "org.change.v2.verification.Printer")
 
 
- seq(Revolver.settings: _*)
+// seq(Revolver.settings: _*)

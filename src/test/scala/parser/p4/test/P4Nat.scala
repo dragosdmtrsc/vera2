@@ -15,6 +15,7 @@ import org.change.v2.util.conversion.RepresentationConversion
 import org.scalatest.FunSuite
 
 class P4Nat extends FunSuite {
+
   test("INTEGRATION - simple-nat test no entries") {
     val dir = "inputs/simple-nat-testing/"
     val p4 = s"$dir/simple_nat-ppc.p4"
@@ -63,6 +64,9 @@ class P4Nat extends FunSuite {
     val ib = InstructionBlock(
       Forward(s"router.input.$port")
     )
+
+    println(res.instructions()("router.deparser.in"))
+
     val codeAwareInstructionExecutor = CodeAwareInstructionExecutor(res.instructions(), res.links(), solver = new Z3BVSolver)
     val parserout = codeAwareInstructionExecutor.program("router.control.ingress")
     val newparserout = InstructionBlock(
