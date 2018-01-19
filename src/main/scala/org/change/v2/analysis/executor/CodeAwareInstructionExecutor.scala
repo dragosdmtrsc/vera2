@@ -81,7 +81,8 @@ class CodeAwareInstructionExecutor(val program : Map[String, Instruction],
   override def executeInstructionBlock(instruction: InstructionBlock, s: State, v: Boolean): (List[State], List[State]) =
     instruction.instructions.toList match {
       case Forward(place) :: tail => this.executeInternal(Forward(place), s, v)
-      case InstructionBlock(is) :: tail => this.executeInternal(InstructionBlock(is.toList ++ tail), s, v)
+      case InstructionBlock(is) :: tail =>
+        this.executeInternal(InstructionBlock(is ++ tail), s, v)
       case SuperFork(forkBlocks) :: tail =>
         this.executeInternal(SuperFork(forkBlocks.map(f => InstructionBlock(f :: tail))), s, v)
       case If (a, b, c) :: tail => this.execute(If(a, InstructionBlock(b :: tail), InstructionBlock(c :: tail)), s, v)

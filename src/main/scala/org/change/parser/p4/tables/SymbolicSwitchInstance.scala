@@ -4,8 +4,9 @@ import java.util
 import java.util.regex.Pattern
 
 import org.change.parser.p4.factories.FullTableFactory
-import org.change.v2.analysis.expression.abst.{Expression, FloatingExpression}
-import org.change.v2.analysis.expression.concrete.{ConstantBValue, ConstantValue, SymbolicValue}
+import org.change.v2.analysis.expression.abst.FloatingExpression
+import org.change.v2.analysis.expression.concrete.nonprimitive.:@
+import org.change.v2.analysis.expression.concrete.{ConstantBValue, ConstantValue}
 import org.change.v2.p4.model.actions.P4ActionCall
 import org.change.v2.p4.model.table.{MatchKind, TableMatch}
 import org.change.v2.p4.model.{ISwitchInstance, Switch, SwitchInstance}
@@ -19,15 +20,8 @@ case class SymbolicSwitchInstance(name : String,
                              ifaces : Map[Int, String],
                              cloneSpec : Map[Int, Int],
                              switch: Switch,
-                             tableDefinitions : Map[String, P4TableDefinition]) extends ISwitchInstance {
-  def this(name : String,
-           ifaces : Map[Int, String],
-           cloneSpec : Map[Int, Int],
-           switch: Switch) = {
-    this(name, ifaces, cloneSpec, switch, switch.getDeclaredTables.map(r => {
-      r -> P4TableDefinition()
-    }).toMap)
-  }
+                             tableDefinitions : Map[String, P4TableDefinition],
+                             symbolicTableParams: Set[String]) extends ISwitchInstance {
   override lazy val getCloneSpec2EgressSpec: util.Map[Integer, Integer] = cloneSpec.map(r => {
     new Integer(r._1) -> new Integer(r._2)
   }).asJava
@@ -51,9 +45,12 @@ object SymbolicSwitchInstance {
   })
 
 
-  private def fromString(value : String):  FloatingExpression = {
-    if (value.equalsIgnoreCase("x"))
-      SymbolicValue()
+  private def parseMatchParam(value : String, symbolName: String):  FloatingExpression = {
+    if (value.equalsIgnoreCase("x")) {
+      // If a symbolic param is used, a non empty symbol name must be provided
+      assert(symbolName != "")
+      :@(symbolName)
+    }
     else if (IPAddressUtil.isIPv4LiteralAddress(value))
       ConstantValue(RepresentationConversion.ipToNumber(value))
     else {
@@ -67,27 +64,43 @@ object SymbolicSwitchInstance {
       }
     }
   }
-  private def matchKindAndParamsToDef(matchKind: TableMatch, value : String): ParmInstance =  matchKind.getMatchKind match {
-    case MatchKind.Exact => Equal(fromString(value))
+  private def matchKindAndParamsToDef(
+                                       matchKind: TableMatch,
+                                       value : String,
+                                       symbolName: String): (ParmInstance, Set[String]) = matchKind.getMatchKind match {
+    case MatchKind.Exact => Equal(parseMatchParam(value, symbolName)) ->
+      mapValuesToIntroducedSymbolNames(Seq(value),Seq(symbolName))
     case MatchKind.Ternary => val values = value.split("&&&")
-      TernaryMatch(fromString(values.head), fromString(values(1)))
+      val leftSymbolName = symbolName + ".l"
+      val rightSymbolName = symbolName + ".r"
+      TernaryMatch(parseMatchParam(values.head, leftSymbolName), parseMatchParam(values(1), rightSymbolName)) ->
+        mapValuesToIntroducedSymbolNames(values, Seq(leftSymbolName, rightSymbolName))
     case MatchKind.Lpm => val values = value.split("/")
-      LPMMatch(fromString(values.head), fromString(values(1)))
+      val leftSymbolName = symbolName + ".l"
+      val rightSymbolName = symbolName + ".r"
+      LPMMatch(parseMatchParam(values.head, leftSymbolName), parseMatchParam(values(1), rightSymbolName)) ->
+        mapValuesToIntroducedSymbolNames(values, Seq(leftSymbolName, rightSymbolName))
     case MatchKind.Range => val values = value.split(",")
-      RangeMatch(fromString(values.head), fromString(values(1)))
-    case MatchKind.Valid => ValidMatch(fromString(value))
+      val leftSymbolName = symbolName + ".l"
+      val rightSymbolName = symbolName + ".r"
+      RangeMatch(parseMatchParam(values.head, leftSymbolName), parseMatchParam(values(1), rightSymbolName)) ->
+        mapValuesToIntroducedSymbolNames(values, Seq(leftSymbolName, rightSymbolName))
+    case MatchKind.Valid => ValidMatch(parseMatchParam(value, symbolName)) ->
+      mapValuesToIntroducedSymbolNames(Seq(value),Seq(symbolName))
   }
+
+  def mapValuesToIntroducedSymbolNames(values: Iterable[String], symbols: Iterable[String]): Set[String] =
+    (values zip symbols).filter(_._1.toLowerCase.contains("x")).map(_._2).toSet
 
   private  def fromActionCall(p4ActionCall: P4ActionCall): ActionDefinition = {
     import scala.collection.JavaConversions._
     if (p4ActionCall != null)
       ActionDefinition(p4ActionCall.getP4Action.getActionName, p4ActionCall.parameterInstances().map(r => {
-        r.getParameter.getParamName -> fromString(r.getValue)
+        r.getParameter.getParamName -> parseMatchParam(r.getValue, "")
       }).toMap)
     else
       DropAction
   }
-
 
   def fromFileWithSyms(name: String,
                        ifaces: Map[Int, String],
@@ -96,28 +109,41 @@ object SymbolicSwitchInstance {
     val switchInstance = SwitchInstance.populateSwitchInstance(file, switch,
       new SwitchInstance(name, switch, ifaces.map(r => Integer.valueOf(r._1) -> r._2).asJava))
     import scala.collection.JavaConversions._
-    val tables = switch.getDeclaredTables.map(r => {
-      r -> P4TableDefinition(switchInstance.flowInstanceIterator(r).map(u => {
-        val actionName = u.getFireAction
+
+    import scala.collection.mutable.{Set => MSet}
+    val introducedSymbolicTableParams = MSet[String]()
+
+    val tables = switch.getDeclaredTables.map(tableName => {
+      tableName -> P4TableDefinition(switchInstance.flowInstanceIterator(tableName).zipWithIndex.map(entryIndexPair => {
+        val (tableEntry, perTableIndex) = entryIndexPair
+        val actionName = tableEntry.getFireAction
         val actionDef = switch.getActionRegistrar.getAction(actionName)
-        val actionParams = u.getActionParams.zip(actionDef.getParameterList.map(u => u.getParamName)).map(r => r._2 -> (r._1 match {
-          case s: String if s.equalsIgnoreCase("x") => SymbolicValue(): FloatingExpression
+        val actionParams = tableEntry.getActionParams.zip(actionDef.getParameterList.map(_.getParamName)).map(r => r._2 -> (r._1 match {
+          // Add a symbolic entry
+          case s: String if s.equalsIgnoreCase("x") =>
+            val symbolName = s"actionParam.$tableName.$perTableIndex.$actionName.${r._2}"
+            introducedSymbolicTableParams.add(symbolName)
+            :@(symbolName) : FloatingExpression
           case lg: java.lang.Long => ConstantValue(lg): FloatingExpression
           case in: java.lang.Integer => ConstantValue(in.intValue()): FloatingExpression
           case _ => ???
         })).toMap
-        P4FlowInstance(switch.getTableMatches(r).zip(u.getMatchParams).map(ma => {
-          ma._1.getKey -> matchKindAndParamsToDef(ma._1, ma._2.toString)
-        }).toMap, ActionDefinition(action = actionName, actionParams = actionParams))
-      }).toList, fromActionCall(switchInstance.getDefaultAction(r)))
-    }).toMap
-    SymbolicSwitchInstance(name, ifaces, cloneSpec, switch, tables)
-  }
 
-  def apply(name: String,
-            ifaces: Map[Int, String],
-            cloneSpec: Map[Int, Int],
-            switch: Switch): SymbolicSwitchInstance =
-    new SymbolicSwitchInstance(name, ifaces, cloneSpec, switch)
+        P4FlowInstance(
+          switch.getTableMatches(tableName)
+            .zip(tableEntry.getMatchParams)
+            .map(ma => {
+              ma._1.getKey -> {
+                val matchSymbolPrefix = s"matchParam.$tableName.$perTableIndex.${ma._1.getKey}"
+                val (constructedMatch, introducedSymbols) = matchKindAndParamsToDef(ma._1, ma._2.toString, matchSymbolPrefix)
+                introducedSymbolicTableParams.addAll(introducedSymbols)
+                constructedMatch
+              }
+            }).toMap, ActionDefinition(action = actionName, actionParams = actionParams))
+      }).toList, fromActionCall(switchInstance.getDefaultAction(tableName)))
+    }).toMap
+
+    SymbolicSwitchInstance(name, ifaces, cloneSpec, switch, tables, introducedSymbolicTableParams.toSet)
+  }
 
 }

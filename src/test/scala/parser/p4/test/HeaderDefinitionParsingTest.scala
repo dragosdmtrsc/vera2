@@ -488,6 +488,7 @@ class HeaderDefinitionParsingTest extends FunSuite {
     val dataplane = s"$dir/commands-sym.txt"
     val switchInstance = SymbolicSwitchInstance.fromFileWithSyms("router", Map[Int, String](1 -> "veth0", 2 -> "veth1", 11 -> "cpu"),
       Map[Int, Int](250 -> 11), Switch.fromFile(p4), dataplane)
+
     val res = new ControlFlowInterpreter(switchInstance, switchInstance.switch)
     val ib = InstructionBlock(
       res.allParserStatesInstruction(),
@@ -497,6 +498,56 @@ class HeaderDefinitionParsingTest extends FunSuite {
     var init = System.currentTimeMillis()
     val (ok, failed) = codeAwareInstructionExecutor.execute(ib, State.clean, verbose = true)
     println(s"Failed # ${failed.size}, Ok # ${ok.size}")
+    println(s"Time is ${System.currentTimeMillis() - init}ms")
+
+    val psok = new BufferedOutputStream(new FileOutputStream(s"$dir/click-exec-ok-port0-sym.json"))
+    JsonUtil.toJson(ok, psok)
+    psok.close()
+
+    val relevant = failed.filter(x => {
+      !x.history.head.startsWith("router.parser")
+    })
+
+    val psko = new BufferedOutputStream(new FileOutputStream(s"$dir/click-exec-fail-port0-sym.json"))
+    JsonUtil.toJson(relevant, psko)
+    psko.close()
+
+    val psCode = new BufferedOutputStream(new FileOutputStream(s"$dir/click-code-sym.json"))
+    JsonUtil.toJson(res.instructions() ++ res.links().map(r => r._1 -> Forward(r._2)), psCode)
+    psCode.close()
+
+    val psokpretty = new PrintStream(s"$dir/click-exec-ok-port0-pretty-sym.json")
+    psokpretty.println(ok)
+    psokpretty.close()
+
+    val pskopretty = new PrintStream(s"$dir/click-exec-fail-port0-pretty-sym.json")
+    pskopretty.println(relevant)
+    pskopretty.close()
+  }
+
+  test("INTEGRATION - SymbolicTableInstance with named stars run #1") {
+    val dir = "inputs/simple-nat"
+    val p4 = s"$dir/simple_nat-ppc.p4"
+    val dataplane = s"$dir/commands-sym.txt"
+    val switchInstance = SymbolicSwitchInstance.fromFileWithSyms("router", Map[Int, String](1 -> "veth0", 2 -> "veth1", 11 -> "cpu"),
+      Map[Int, Int](250 -> 11), Switch.fromFile(p4), dataplane)
+
+    val res = ControlFlowInterpreter.buildSymbolicInterpreter(switchInstance, switchInstance.switch)
+    val ib = InstructionBlock(
+      res.allParserStatesInstruction(),
+      res.initFactory(switchInstance),
+      Forward("router.input.1")
+    )
+
+    val  codeAwareInstructionExecutor = CodeAwareInstructionExecutor(res.instructions(), res.links(), solver = new Z3BVSolver)
+    var init = System.currentTimeMillis()
+    val (ok, failed) = codeAwareInstructionExecutor.execute(ib, State.clean, verbose = true)
+    println(s"Failed # ${failed.size}, Ok # ${ok.size}")
+
+    for {
+      fs <- failed
+    } println(fs.errorCause)
+
     println(s"Time is ${System.currentTimeMillis() - init}ms")
 
     val psok = new BufferedOutputStream(new FileOutputStream(s"$dir/click-exec-ok-port0-sym.json"))
