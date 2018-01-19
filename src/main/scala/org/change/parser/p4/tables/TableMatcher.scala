@@ -136,7 +136,7 @@ class FullTableWithInstances[T<:ISwitchInstance](tableName : String,
         if (switch.getInstance(hdr) != null && !switch.getInstance(hdr).isMetadata) {
           InstructionBlock(
             Allocate(varName, size),
-            Assign(varName, :&&:(va, :<<:(ConstantValue(1 << size - 1), :-:(ConstantValue(size), prefix)))),
+            Assign(varName, :&&:(va, :<<:(:-:(:<<:(ConstantValue(1), prefix), ConstantValue(1)), :-:(ConstantValue(size), prefix)))),
             Constrain(hdr + ".IsValid", :==:(ConstantValue(1))),
             Constrain(varName, :==:(:@(k.getKey)))
           )

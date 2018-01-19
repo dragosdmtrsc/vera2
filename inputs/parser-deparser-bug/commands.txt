@@ -1,7 +1,7 @@
 table_set_default send_frame _drop
 table_set_default forward _drop
 table_set_default ipv4_lpm _drop
-table_set_default mplb_port _drop
+table_set_default mplb_port _nop
 table_set_default mplb _drop
 table_add send_frame rewrite_mac 2 => 11:22:33:44:55:66
 table_add forward set_dmac 10.0.0.1 => 11:22:33:44:55:67
