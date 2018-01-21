@@ -21,6 +21,7 @@ libraryDependencies ++= {
     "org.apache.commons" % "commons-lang3" % "3.5",
     "com.fasterxml.jackson.core" % "jackson-databind" % "2.8.3",
     "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.8.3",
+    "com.fasterxml.jackson.dataformat" % "jackson-dataformat-yaml" % "2.8.3",
     "com.regblanc" %% "scala-smtlib" % "0.2",
     "junit" % "junit" % "4.12",
     "com.storm-enroute" %% "scalameter" % "0.8.2"

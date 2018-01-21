@@ -13,6 +13,7 @@ import org.change.v2.analysis.processingmodels.instructions._
 import org.change.v2.p4.model.SwitchInstance
 import org.change.v2.util.conversion.RepresentationConversion
 import org.scalatest.FunSuite
+import org.change.parser.p4.anonymizeAndForward
 
 class P4Nat extends FunSuite {
 
