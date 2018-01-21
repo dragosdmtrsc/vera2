@@ -1,8 +1,10 @@
 package bench
 
+import java.io.File
+
 import org.change.v2.abstractnet.mat.tree.Node
 import org.change.v2.abstractnet.mat.condition.{Range => CRange}
-import org.change.v2.abstractnet.optimizedrouter.ParseForwardingTable
+import org.change.v2.abstractnet.optimized.router.OptimizedRouter
 import org.scalameter.api._
 import org.scalameter.picklers.noPickler._
 
@@ -13,7 +15,7 @@ object MATBench extends Bench.LocalTime {
   val masks = for {
     file <- files
     completePath = path + file
-    masks = ParseForwardingTable.getRoutingEntries(completePath)
+    masks = OptimizedRouter.getRoutingEntries(new File(completePath))
     sortedMasks = masks.map(_._1).map(interval => CRange(interval._1, interval._2)).sortBy(- _.generality)
   } yield sortedMasks
 
