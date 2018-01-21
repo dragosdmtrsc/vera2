@@ -97,7 +97,7 @@ table nat {
     size : 128;
 }
 control ingress {
-    if (valid(ipv4) && valid(tcp)) {
+    if (valid(ipv4) and valid(tcp)) {
         apply(nat);
     }
 }
