@@ -1,9 +1,10 @@
 package org.change.v2.verification
 
 import org.change.v2.analysis.executor.AbstractInstructionExecutor
+import org.change.v2.analysis.expression.concrete.ConstantStringValue
 import org.change.v2.analysis.processingmodels.LocationId
 import org.change.v2.analysis.memory.State
-import org.change.v2.analysis.processingmodels.instructions.{Forward, NoOp}
+import org.change.v2.analysis.processingmodels.instructions._
 import org.change.v2.verification.Policy.{LocMode, OverallMode, Topology}
 import org.change.v2.analysis.processingmodels._
 
@@ -55,8 +56,8 @@ case class MapState (topology:Topology,
 
   override def execute(p:Instruction, logger : PolicyLogger) : (PolicyState,PolicyLogger) = {
     //Policy.verbose_print("Executed "+p+"\n************\n",OverallMode);
-    //println("Executed "+p+"\n************\n")
-    //logger.addInstruction(p)
+    //println("Executed "+p+"\n************\n");
+    logger.addInstruction(p)
 
     //inPort has been already logged
     //this function will traverse an arbitrary number of links
@@ -69,52 +70,46 @@ case class MapState (topology:Topology,
           logger.addInPort(links(inPort))
           logLinks(links(inPort),logger)
         }
-        else throw new Exception("Logger: cannot find a next hop for port "+inPort)
+        else {
+          logger.addInPort("Stuck");logger
+        } //throw new Exception("Logger: cannot find a next hop for port "+inPort)
       }
 
     }
 
     p match {
       case Forward(loc) => //semantics for Forward
-        logger.addInstruction(Forward(loc))
+        //logger.addInstruction(Forward(loc))
         logger.addOutPort(loc)
-/*
-        if (links.contains(loc))
-          logger.addInPort(links(loc))
-        else
-          logger.addInPort(loc)
 
-        (this,logger)
-*/      // skip and log all link paths
+        //must execute the Forward instruction
+        (exe.execute(Assign("CurrentPort",ConstantStringValue(loc)),state,true) match {
+          case (sp :: _, _) => println("Executing Fwd("+loc+")"); new MapState(topology,links,sp,exe)
+          case _ => throw new Exception ("Executing Forward("+loc+") failed")
+        }
 
-        (this,logLinks(loc,logger))
+
+        ,logLinks(loc,logger))
 
       case _ => // standard symbolic execution
-        logger.addInstruction(p);
+        //logger.addInstruction(p);
         (exe.execute(p,state,true) match {
           //case (Nil,sp :: _) => if (stuck(sp)) {UnsatisfState} else {FailedState}
-          case (Nil, Nil) => println("Unsatif state at "+p + " port "+logger.currentPort); logger.unsatifState(p); UnsatisfState
-          case (Nil, sp :: _) => println("Failed State at "+p + " port "+logger.currentPort); logger.failedState(p); FailedState
+          case (Nil, Nil) => /*println("Unsatif state at "+p + " port "+logger.currentPort);*/ logger.unsatifState(p); FailedState//UnsatisfState
+          case (Nil, sp :: _) => /*println("Failed State at "+p + " port "+logger.currentPort);*/ logger.failedState(sp,p); UnsatisfState//FailedState
           case (sp :: _,_) => new MapState(topology,links,sp,exe)
         }, logger)
-
-        /*
-        (p.apply(state,true) match {
-          //case (Nil,sp :: _) => if (stuck(sp)) {UnsatisfState} else {FailedState}
-          case (Nil, Nil) => println("Unsatif state at "+p + " port "+logger.currentPort); logger.unsatifState(p); UnsatisfState
-          case (Nil, sp :: _) => println("Failed State at "+p + " port "+logger.currentPort); logger.failedState(p); FailedState
-          case (sp :: _,_) => new MapState(location,topology,links,sp)
-        }, logger)
-        */
-
     }
   }
 
   override def execute (p:Instruction) : PolicyState  = {
+
+    // hack for Exists
+
     exe.execute(p,state,true) match {
-      case (Nil,Nil) => UnsatisfState
-      case (Nil, sp :: _) => FailedState
-      case (sp :: _,_) => new NoMapState(sp)
+      case (Nil,Nil) => FailedState//UnsatisfState
+      case (Nil, sp :: _) => println("Unsatisf state ",sp.errorCause); UnsatisfState //FailedState
+      case (sp :: _,_) => new NoMapState(sp) //at least one successful state
     }
   }
 
@@ -141,7 +136,7 @@ case class MapState (topology:Topology,
     else
       if (links.contains(l))
           instructionAt(links(l))
-      else throw new Exception ("The network does not have a link from "+l)
+      else InstructionBlock(Fail("No new location"))  // execution stops here.  //throw new Exception ("The network does not have a link from "+l)
   }
 
   //override def nextHop(l : LocationId) : LocationId = links(l)
