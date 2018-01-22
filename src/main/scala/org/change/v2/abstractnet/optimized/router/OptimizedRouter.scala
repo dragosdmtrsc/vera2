@@ -66,6 +66,8 @@ object OptimizedRouter {
       tokens = line.split("\\s+")
       if tokens.length >= 3
       if tokens(0) != ""
+      hopType = tokens(1)
+      if hopType != "receive" && hopType != "connected"
       matchPattern = tokens(0)
       forwardingPort = tokens(2)
     } yield (
@@ -121,7 +123,7 @@ object OptimizedRouter {
           val ((l,u), port) = i
           (port, AND(List(GTE_E(ConstantValue(l)), LTE_E(ConstantValue(u))) ++
             {
-              val conflicts = table.takeWhile(i =>  u-l > i._1._2 - i._1._1)filter( other => {
+              val conflicts = table.takeWhile(i =>  u-l > i._1._2 - i._1._1) filter (other => {
                 val ((otherL, otherU), otherPort) = other
                 port != otherPort &&
                   l <= otherL &&
@@ -129,9 +131,9 @@ object OptimizedRouter {
               })
 
               if (conflicts.nonEmpty)
-                Seq(NOT(OR((conflicts.map( conflictual => {
+                Seq(NOT(OR(conflicts.map( conflictual => {
                   AND(List(GTE_E(ConstantValue(conflictual._1._1)), LTE_E(ConstantValue(conflictual._1._2))))
-                }).toList))))
+                }).toList)))
               else Nil
             }))
         }).groupBy(_._1).map( kv =>

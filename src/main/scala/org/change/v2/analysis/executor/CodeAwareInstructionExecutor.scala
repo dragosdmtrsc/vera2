@@ -2,7 +2,7 @@ package org.change.v2.analysis.executor
 
 import java.util.UUID
 
-import org.change.v2.analysis.executor.solvers.Solver
+import org.change.v2.analysis.executor.solvers.{Solver, Z3Solver}
 import org.change.v2.analysis.expression.abst.FloatingExpression
 import org.change.v2.analysis.expression.concrete.nonprimitive._
 import org.change.v2.analysis.expression.concrete.{ConstantStringValue, ConstantValue, SymbolicValue}
@@ -378,6 +378,7 @@ object RewriteLogic {
 }
 
 object CodeAwareInstructionExecutor {
+  val NULL_PORT = ""
 
   def flattenProgram(program: Map[String, Instruction], links : Map[String, String]): Map[String, Instruction] =
     program ++ links.map(x => x._1 -> Forward(x._2))
@@ -386,4 +387,6 @@ object CodeAwareInstructionExecutor {
   def apply(program: Map[String, Instruction], links : Map[String, String],
             solver: Solver): CodeAwareInstructionExecutor =
     new CodeAwareInstructionExecutor(RewriteLogic(flattenProgram(program, links)), solver)
+  def singleInstructionExecutor(instruction: Instruction): CodeAwareInstructionExecutor =
+    new CodeAwareInstructionExecutor(Map(NULL_PORT -> instruction), new Z3Solver())
 }
