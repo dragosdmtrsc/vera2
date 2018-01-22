@@ -10,10 +10,12 @@ import org.change.v2.analysis.expression.concrete.nonprimitive.:@
 import org.change.v2.analysis.memory.State
 import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.analysis.processingmodels.instructions._
-import org.change.v2.p4.model.SwitchInstance
+import org.change.v2.p4.model.{Switch, SwitchInstance}
 import org.change.v2.util.conversion.RepresentationConversion
 import org.scalatest.FunSuite
 import org.change.parser.p4.anonymizeAndForward
+import org.change.parser.p4.tables.SymbolicSwitchInstance
+import org.change.v2.verification.{MapState, PolicyLogger}
 
 class P4Nat extends FunSuite {
 
@@ -183,6 +185,53 @@ class P4Nat extends FunSuite {
     val fullInstrs = (reverseBlock ++ newinstrs) + ("router.output.2" -> anonymizeAndForward("reverse.input.1")) +
       ("reverse.output.1" -> anonymizeAndForward("router.input.2"))
     (ib, initial, fullInstrs)
+  }
+
+  test("nat with stars") {
+      val dir = "inputs/simple-nat-testing"
+      val p4 = s"$dir/simple_nat-ppc.p4"
+      val dataplane = s"$dir/commandsx.txt"
+      val switchInstance = SymbolicSwitchInstance.fromFileWithSyms("router", Map[Int, String](1 -> "veth0", 2 -> "veth1", 11 -> "cpu"),
+        Map[Int, Int](250 -> 11), Switch.fromFile(p4), dataplane)
+
+      val res = ControlFlowInterpreter.buildSymbolicInterpreter(switchInstance, switchInstance.switch)
+      val ib = InstructionBlock(
+        res.allParserStatesInstruction(),
+        res.initFactory(switchInstance),
+        Forward("router.input.1")
+      )
+      val  codeAwareInstructionExecutor = CodeAwareInstructionExecutor(res.instructions(), res.links(), solver = new Z3BVSolver)
+      var init = System.currentTimeMillis()
+      val (ok, failed) = codeAwareInstructionExecutor.execute(ib, State.clean, verbose = true)
+      println(s"Failed # ${failed.size}, Ok # ${ok.size}")
+
+      println(s"Time is ${System.currentTimeMillis() - init}ms")
+      printResults(dir, 1, ok, failed, "x")
+  }
+
+  test("policy wrong") {
+    val dir = "inputs/simple-nat-testing/"
+    val p4 = s"$dir/simple_nat-ppc.p4"
+    val dataplane = s"$dir/commands.txt"
+    val switchInstance = SymbolicSwitchInstance.fromFileWithSyms("router", Map[Int, String](1 -> "veth0", 2 -> "veth1", 11 -> "cpu"),
+      Map[Int, Int](250 -> 11), Switch.fromFile(p4), dataplane)
+
+    val res = ControlFlowInterpreter.buildSymbolicInterpreter(switchInstance, switchInstance.switch)
+
+    val what = res.instructions().find((r) => r._1.startsWith("router.table.nat.in.")).get
+    println("Instruction " + what)
+
+    var ib = InstructionBlock(
+      res.allParserStatesInstruction(),
+      res.initFactory(switchInstance)
+    )
+    import org.change.v2.verification.Policy._
+    import org.change.v2.verification.Formula.Fail
+
+    check(EF(Fail), res.instructions()("router.input.1"), new MapState(res.instructions(), res.links(), State.clean,
+      CodeAwareInstructionExecutor(res.instructions(), res.links(), new Z3BVSolver)),
+      new PolicyLogger("router.input.1"))
+    var log_list = verifyP4(EF(Formula.Fail),"router.input.1",ib,res)
   }
 
   test("reverse run") {
