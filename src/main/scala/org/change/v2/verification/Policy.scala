@@ -3,10 +3,12 @@ package org.change.v2.verification
 import org.change.parser.p4.ControlFlowInterpreter
 import org.change.v2.analysis.constraint.NOT
 import org.change.v2.analysis.executor.solvers.{Z3BVSolver, Z3Solver}
-import org.change.v2.analysis.executor.{AbstractInstructionExecutor, OVSExecutor}
+import org.change.v2.analysis.executor.{AbstractInstructionExecutor, CodeAwareInstructionExecutor, OVSExecutor}
+import org.change.v2.analysis.expression.concrete.ConstantStringValue
 import org.change.v2.analysis.memory.State
 import org.change.v2.analysis.processingmodels._
-import org.change.v2.analysis.processingmodels.instructions.{:~:, AllocateRaw, AllocateSymbol, AssignRaw, ConstrainNamedSymbol, ConstrainRaw, CreateTag, DeallocateNamedSymbol, DeallocateRaw, DestroyTag, Fork, Forward, If, InstructionBlock, NoOp, Fail => SEFLFail}
+import org.change.v2.analysis.processingmodels.instructions.{:~:, AllocateRaw, AllocateSymbol, Assign, AssignRaw, ConstrainNamedSymbol, ConstrainRaw, CreateTag, DeallocateNamedSymbol, DeallocateRaw, DestroyTag, ExistsNamedSymbol, ExistsRaw, Fork, Forward, If, InstructionBlock, NoOp, NotExistsNamedSymbol, NotExistsRaw, Fail => SEFLFail}
+import org.change.v2.p4.model.ISwitchInstance
 import org.change.v2.verification.Formula._
 import org.change.v2.util._
 /**
@@ -26,8 +28,8 @@ object Policy {
   //def mode = OverallMode::LocMode::Nil
   //def mode = Nil
 
-  //def mode = CustomMode :: Nil
-  def mode = Nil
+  def mode = CustomMode :: Nil
+  //def mode = Nil
 
   def EF(f:Formula) = Exists(Future(f))
   def AF(f:Formula) = Forall(Future(f))
@@ -60,12 +62,11 @@ object Policy {
 
   }
   */
-  def state(t: Topology, links:Map[LocationId,LocationId],exe:AbstractInstructionExecutor) =
+  def state(code: Map[LocationId,Instruction], links:Map[LocationId,LocationId],exe:AbstractInstructionExecutor) =
   {
-
-    new MapState(t, links, State.allSymbolic, exe)
+    new MapState(code, links, State.allSymbolic, exe)
   }
-  def state(res : ControlFlowInterpreter, exe:AbstractInstructionExecutor) = {
+  def state[T <: ISwitchInstance](res : ControlFlowInterpreter[T], exe:AbstractInstructionExecutor) = {
 
     val ib = InstructionBlock(
       res.allParserStatesInstruction()
@@ -82,19 +83,22 @@ object Policy {
   def complement (i : Instruction) : Instruction = {
     i match {
       case InstructionBlock(l) => Fork(l.map(complement))
+      case Fork(l) => InstructionBlock(l.map(complement))
       case ConstrainNamedSymbol(v,dc,c) => ConstrainNamedSymbol(v,:~:(dc),c) // negation of constrain
       case ConstrainRaw(a,dc,c) => ConstrainRaw(a,:~:(dc),c) // as above
+      case ExistsRaw(x) => NotExistsRaw(x)
+      case ExistsNamedSymbol(x) => NotExistsNamedSymbol(x)
       case _ => i // the complement leaves an instruction unchanged, for all other cases (for now)
     }
   }
 
   def isSatisfied (state: PolicyState, i : Instruction) : Boolean = {
 
-    //
-    //println("Is satisfied "+i+" on state ")
-    //println(state.state.instructionHistory)
-    var comp = complement(i)
 
+    //println("Is satisfied "+i+" on state ?")
+    println(state.state.memory)
+    var comp = complement(i)
+    println("Complement "+comp)
 
     state.execute(comp) match {
       case FailedState => println("IS true"); true
@@ -136,7 +140,7 @@ object Policy {
       case ConstrainNamedSymbol(a,b,c) => a.toString+b.toString
       case AssignRaw(a,b,c) => a.toString+"="+b.toString
       //case If(test,th,el) => "if ("+test.toString+") then {"+show(th,indent+1)+"} else {"+show(el,indent+1)+"}"
-      case If(test,th,el) => "if ("+show(test,0)+") then {"+show(th,indent+1)+"} else {"+show(el,indent+1)+"}"
+      case If(test,th,el) => "if ("+show(test,0)+")"+newln+(tab*indent)+" then {"+show(th,indent+1)+"} "+newln+(tab*indent)+" else {"+show(el,indent+1)+"}"
       case Forward(p)=> "Forward("+p.toString+")"
       case SEFLFail(msg) => "Fail("+msg+")"
       case AllocateSymbol(s, sz) => "allocate("+s+")"
@@ -265,6 +269,7 @@ object Policy {
 def check (f : Formula, p: Instruction, s : PolicyState, logger : PolicyLogger) : (Formula,PolicyLogger) = {
 
   //verbose_print("Verifying " + f + "\n on program \n" + showp(p) + " port "+logger.currentPort,CustomMode);
+  //println(">>>>>>>>Verifying formula on program \n",show(p),"\n")
 
   if (s == UnsatisfState || s == FailedState)
     verbose_print("Failed branch (at port "+logger.currentPort+")"+" failed instruction ",LocMode);
@@ -273,8 +278,8 @@ def check (f : Formula, p: Instruction, s : PolicyState, logger : PolicyLogger) 
    (s,f,p) match {
       // failed state
      case (UnsatisfState,Forall(Globally(_)),_) | (FailedState,Forall(Globally(_)),_) |
-          (UnsatisfState,Exists(Globally(_)),_) | (FailedState,Exists(Globally(_)),_) => verbose_print ("FG(f) is true (failed state)\n",OverallMode); (make(f,Satisfied),logger)
-     case (UnsatisfState,_,_) | (FailedState,_,_)=> verbose_print ("f is false (failed state)\n",OverallMode);
+          (UnsatisfState,Exists(Globally(_)),_) | (FailedState,Exists(Globally(_)),_) => verbose_print ("XG(f) is true (failed state)\n",CustomMode); (make(f,Satisfied),logger)
+     case (UnsatisfState,_,_) | (FailedState,_,_)=> verbose_print ("f is false (failed state)\n",CustomMode);
        //verbose_print("Program:"+last_instruction+"\n",OverallMode);
        (make(f,Falsified),logger)
 
@@ -294,7 +299,7 @@ def check (f : Formula, p: Instruction, s : PolicyState, logger : PolicyLogger) 
 
 
      // this case should be reinspected (for F operator)
-     case (_,_,InstructionBlock(Nil)) => logger.pathEnded(); (clone(f),logger) //clone returns a new formula with "s" as the witness state
+     case (_,_,InstructionBlock(Nil)) => logger.InstructionBlockEnded(); (clone(f),logger) //clone returns a new formula with "s" as the witness state
 
      case (_,_,InstructionBlock(Fork(l) :: Nil)) => check(f,Fork(l),s,logger)
      case (_,_,InstructionBlock(Fork(l) :: rest)) // distribute Fork instructions
@@ -320,37 +325,48 @@ def check (f : Formula, p: Instruction, s : PolicyState, logger : PolicyLogger) 
 
 
      case (_,_,InstructionBlock(pr :: rest)) => //take an instruction
-       println("InstructionBlock !!");
+       //println("InstructionBlock !!");
      check_sequence(f,s,pr,(f,s,l) => {check(f,InstructionBlock(rest),s,l)},logger)
 
        case(_,_,InstructionBlock(x)) =>
         check(f,InstructionBlock(x.toList),s,logger)
 
      case (_,_,Fork(Fork(xs)::rest)) => check(f,Fork(xs ++ rest),s,logger)
-     case (_,_,Fork(lst)) => {println("FORK!!");
-       val (fp,log) = lst.foldLeft((f,{logger.initFork; logger}))(
-       (pair : (Formula,PolicyLogger),branch:Instruction) => {
-         println("Branch "+branch)
-         val (f, log) = pair
-         (f,f.status) match {
-           case (Exists(_),Satisfied) => verbose_print ("f is true (on a Fork branch)\n",OverallMode); (make (f, Satisfied),log)
-           case (Forall(_),Pending) | (Forall(_),Falsified) => verbose_print ("f is false (on a Fork branch)\n",OverallMode); (make(f,Falsified),log)
+     case (_,_,Fork(lst)) => {//println("FORK!!");
+       val (fp,log,status) = lst.foldLeft((f,{logger.initFork; logger},
+        //set the initial status in the accumulator
+         f match {
+          case(Exists(_)) => Pending;
+            case(Forall(_)) => Satisfied;
+        }
+       ))(
+       (triple : (Formula,PolicyLogger,Status),branch:Instruction) => {
+
+         //println("Branch "+branch)
+         val (f, log, status : Status) = triple
+         (f,status) match {
+           case (Exists(_),Satisfied) => verbose_print ("f is true (on a Fork branch)\n",CustomMode); (make (f, Satisfied),log,Satisfied)
+           case (Forall(_),Pending) | (Forall(_),Falsified) => verbose_print ("f is false (on a Fork branch)\n",CustomMode); (make(f,Falsified),log, Falsified)
            // if the truth-value cannot be established, then "s" (the state before executing the branch) is used to continue verification on another branch
            case (Exists(_),_) | (Forall(_),Satisfied) =>  //the formula must be made pending for the next branch verification
              {
                val (fp,lprime) = check(reeval(f),branch,s,log) //note that s is the same state built "at the Fork" and the status of the formula has been reset
                lprime.addPath
                // reporting
-               //verbose_print("Explored branch "+branch+" at "+lprime.currentPort,LocMode);
+               verbose_print("Explored branch "+branch+" at "+lprime.currentPort+" status "+fp.status,CustomMode);
                //lprime.getInstructionTrace
 
-               if (fp.status == Pending) (make(fp,Falsified),lprime) //if an explored branch is pending, falsify it
-               else (fp,lprime)
+               //if (fp.status == Pending) (make(fp,Falsified),lprime,Falsified) //if an explored branch is pending, falsify it
+              // else (fp,lprime,Pending)
+
+               (fp,lprime,fp.status) //: (Formula,PolicyLogger,Status)
+
              }
 
            case (_,_) => throw new Exception ("Cannot evaluate non-temporal formula on a Fork ")
          }
-       }
+
+       } //: (Formula,PolicyLogger,Status)
      ); log.endFork; (fp,log) }
 
 
@@ -378,9 +394,11 @@ def check (f : Formula, p: Instruction, s : PolicyState, logger : PolicyLogger) 
     if (!changesState(p)) { block(f,sp,lp); }
 
     else {
+      //println("We evaluate policy in state "+sp.state.memory)
+
       //println("In evaluation of check-sequence for " + p)
       // otherwise, we check the current state, and possibly continue execution
-      var (fval, lprime) = check_in_state(f, s, lp) //check(f,p,sp,lp) // verify the policy in this new state (
+      var (fval, lprime) = check_in_state(f, sp, lp) //check(f,p,sp,lp) // verify the policy in this new state (
       // if the current instruction does not change state, fval = f
 
       //println("Current status is:"+fval.status)
@@ -427,6 +445,7 @@ def check (f : Formula, p: Instruction, s : PolicyState, logger : PolicyLogger) 
     }
   }
   // "top-level" verification procedure for topologies
+  /*
   def verify (f: Formula, start:LocationId ,topology: Topology, links:Map[LocationId,LocationId]) : (Boolean,PolicyLogger) = {
 
     //
@@ -444,31 +463,58 @@ def check (f : Formula, p: Instruction, s : PolicyState, logger : PolicyLogger) 
       case Satisfied => verbose_print("Formula is true",OverallMode); true
       case Pending => verbose_print("There are still pending subformulae",OverallMode); false
     },logger)
-  }
+  }*/
 
-  def verify (f: Formula, start:LocationId, res : ControlFlowInterpreter) : PolicyLogger = {
+  def defaultExecutor = new OVSExecutor(new Z3BVSolver);
 
-    var exe:AbstractInstructionExecutor = new OVSExecutor(new Z3BVSolver);
-    var (fp,logger) = check(f,res.instructions()(start),state(res, exe), new PolicyLogger(start))
+  def verify (f: Formula, start:LocationId, code: Map[LocationId,Instruction], links: Map[LocationId,LocationId]) : PolicyLogger = {
 
-    logger
-  }
-
-  def verifyP4 (f: Formula, start: LocationId, res : ControlFlowInterpreter) : List[PolicyLogger] = {
-    var exe:AbstractInstructionExecutor = new OVSExecutor(new Z3BVSolver);
+    var exe:AbstractInstructionExecutor = defaultExecutor
 
     val ib = InstructionBlock(
-      res.allParserStatesInstruction()
       //      Constrain(Tag("START") + 0, :~:(:==:(ConstantValue(0)))),
+      Assign("CurrentPort",ConstantStringValue(start))
     )
     //build all possible start states
     var (l, _) = exe.execute(ib,State.clean,true);
+    var s = l(0)
+
+    var (fp,logger) = check(f,code(start),new MapState(code,links,s,exe), new PolicyLogger(start))
+    println("Formula is ",fp.status)
+    logger
+  }
+
+  def verifyP4[T<:ISwitchInstance] (f: Formula, start: LocationId, ib : Instruction, res : ControlFlowInterpreter[T]) : List[PolicyLogger] = {
+    var exe:AbstractInstructionExecutor = CodeAwareInstructionExecutor(res.instructions(),res.links(),new Z3BVSolver)
+
+    /*
+    val ib = InstructionBlock(
+      res.allParserStatesInline(),
+      //      Constrain(Tag("START") + 0, :~:(:==:(ConstantValue(0)))),
+      Assign("CurrentPort",ConstantStringValue(start))
+    )
+    */
+    //println("initial "+ib)
+    //build all possible start states
+    var (l, fa) = exe.execute(ib,State.clean,true);
+    //println(">>>>",l(0).instructionHistory)
+    //println("OK:",l)
+    //println("Fail:",fa)
+
+    var links = res.links() // - "router.buffer.out"
+
+
+    //l = l.head :: Nil
+    //l = l.tail
 
     // return a list of loggers
-    l.map ((s:State) => {
-      check(f,res.instructions()(start),new MapState(res.instructions(),res.links(),s,exe),new PolicyLogger(start))._2
-    })
 
+
+    l.map ((s:State) => {
+      var (x,y) = check(f,res.instructions()(start),new MapState(res.instructions(),links,s,exe),new PolicyLogger(start))
+      println("\n =================\n Formula is ",x.status)
+      y
+    })
 
   }
 

@@ -36,7 +36,7 @@ trait Formula {
 
 }
 
-trait Status
+trait Status extends Product with Serializable
 
 case object Pending extends Status {
   override def toString: String = "P"

@@ -3,24 +3,29 @@ package org.change.v2.verification
 import java.io.{BufferedOutputStream, File, FileOutputStream, PrintStream}
 
 import org.change.parser.clickfile.ClickToAbstractNetwork
+import org.change.parser.p4.tables.SymbolicSwitchInstance
 import org.change.parser.p4.{ControlFlowInterpreter, P4ExecutionContext}
 import org.change.utils.prettifier.JsonUtil
 import org.change.v2.abstractnet.optimized.macswitch.OptimizedSwitch
 import org.change.v2.abstractnet.optimized.router.OptimizedRouter
-import org.change.v2.analysis.executor.OVSExecutor
+import org.change.v2.analysis.executor.{AbstractInstructionExecutor, CodeAwareInstructionExecutor, OVSExecutor}
 import org.change.v2.analysis.executor.solvers.Z3BVSolver
-import org.change.v2.analysis.expression.concrete.ConstantValue
-import org.change.v2.analysis.memory.State
+import org.change.v2.analysis.expression.concrete.nonprimitive.:@
+import org.change.v2.analysis.expression.concrete.{ConstantStringValue, ConstantValue}
+import org.change.v2.analysis.memory.{State, Tag}
 import org.change.v2.analysis.processingmodels.{Instruction, LocationId}
 import org.change.v2.analysis.processingmodels.instructions._
 import org.change.v2.executor.clickabstractnetwork.AggregatedBuilder._
 import org.change.v2.executor.clickabstractnetwork.ClickExecutionContext
 import org.change.v2.executor.clickabstractnetwork.executionlogging.JsonLogger
+import org.change.v2.p4.model.{ISwitchInstance, Switch}
 import org.change.v2.util.conversion.RepresentationConversion
 import org.change.v2.util.canonicalnames._
 import org.change.v2.verification.Formula.Formula
 import org.change.v2.verification.Policy._
 import org.change.v2.verification.Tester._
+
+// import parser.p4.test.{executeAndPrintStats, printResults}
 
 //import org.change.v2.verification.Formula._
 
@@ -78,52 +83,297 @@ object Tester {
     InstructionBlock ((1 to 1000).toList.map((i : Int) => Constrain(IPSrc,:~:(:==:(ConstantValue(i))))))
   }
 
+  def verifyP4NAT[T<:ISwitchInstance] (param : String, f: Formula, start: LocationId, ib : Instruction, res : ControlFlowInterpreter[T]) : List[PolicyLogger] = {
+    param match {
+      // run verification on all non-cpu-encapsulated packets
+      case "default" =>
+        var exe:AbstractInstructionExecutor = CodeAwareInstructionExecutor(res.instructions(),res.links(),new Z3BVSolver)
 
-  def dragos = {
-    //val p4 = "inputs/simple-nat/simple_nat-ppc.p4"
-    //val dataplane = "inputs/simple-nat/commands.txt"
-    //val res = ControlFlowInterpreter(p4, dataplane, Map[Int, String](1 -> "veth0", 2 -> "veth1", 11 -> "cpu"), "router")
+        var (l, _) = exe.execute(ib,State.clean,true);
+        l = l.slice(3,6)
 
+        l.map ((s:State) => {
+          var (x,y) = check(f,res.instructions()(start),new MapState(res.instructions(),res.links(),s,exe),new PolicyLogger(start))
+          println("\n =================\n Formula is ",x.status)
+          y
+        })
 
-    val dir = "inputs/copy-to-cpu/"
+    }
+  }
+
+  def copytocpu_port_reached = {
+
+    val dir = "inputs/copy-to-cpu-star/"
     val p4 = s"$dir/copy_to_cpu-ppc.p4"
-    val dataplane = s"$dir/commands.txt"
-    val res = ControlFlowInterpreter(p4, dataplane, Map[Int, String](1 -> "veth0", 2 -> "veth1", 3 -> "cpu"), "router")
+    val dataplane = s"$dir/commands_star.txt"
+    val switchInstance = SymbolicSwitchInstance.fromFileWithSyms("router", Map[Int, String](1 -> "veth0", 2 -> "veth1", 3 -> "cpu"),
+      Map[Int, Int](250 -> 3), Switch.fromFile(p4), dataplane)
+    val res = new ControlFlowInterpreter(switchInstance, switchInstance.switch)
 
-
-    //    val fin = "inputs/simple-nat/graph.dot"
-    //    val ps = new PrintStream(fin)
-    //    ps.println(res.toDot())
-    //    ps.close()
-    //    import sys.process._
-    //    s"dot -Tpng $fin -O" !
     val ib = InstructionBlock(
       res.allParserStatesInstruction(),
       //      Constrain(Tag("START") + 0, :~:(:==:(ConstantValue(0)))),
+      Assign("CurrentPort",ConstantStringValue("router.input.1")),
       Forward("router.input.1")
     )
 
-    //println(res.instructions.keys)
-    //println(res.links)
+    //Printer.vizPrinter((res.instructions(),res.links),"p4copy_to_cpu_original.html");
 
-    //println()
+    var f : Formula = EF(Constrain("CurrentPort",:==:(ConstantStringValue("router.deparser.out"))))
 
-    //Printer.vizPrinter((res.instructions(),res.links),"p4cpu.html");
-
-
-
-    var log_list = verifyP4(EF(Formula.Fail),"router.input.1",res)
+    var log_list = verifyP4(f,"router.input.1",ib,res)
 
     var log = log_list(0);
-    Printer.vizPrinter((log.code,log.links),"p4cpu_0.html");
-
+    Printer.vizPrinter((log.code,log.links),"p4copy_to_cpu_0.html");
 
     /*
+
+    var i = 0
+    for (log <- log_list) {
+      Printer.vizPrinter((log.code,log.links),"p4copy_to_cpu_"+i+".html");
+      i += 1
+    }
+
+
+*/
+
+  }
+
+  def copytocpu_headerfield_unchanged = {
+    val dir = "inputs/copy-to-cpu-star/"
+    val p4 = s"$dir/copy_to_cpu-ppc.p4"
+    val dataplane = s"$dir/commands_star.txt"
+    val switchInstance = SymbolicSwitchInstance.fromFileWithSyms("router", Map[Int, String](1 -> "veth0", 2 -> "veth1", 3 -> "cpu"),
+      Map[Int, Int](250 -> 3), Switch.fromFile(p4), dataplane)
+    val res = new ControlFlowInterpreter(switchInstance, switchInstance.switch)
+
+    val etherDst = (Tag("START")+0)
+
+    val ib = InstructionBlock(
+      res.allParserStatesInstruction(),
+      //      Constrain(Tag("START") + 0, :~:(:==:(ConstantValue(0)))),
+      Assign("CurrentPort",ConstantStringValue("router.input.1")),
+      Allocate("StoredEtherDst",48),
+      Assign("StoredEtherDst",:@(etherDst)) //dest ether
+      //Forward("router.input.1")
+    )
+
+    //Printer.vizPrinter((res.instructions(),res.links),"p4copy_to_cpu_original.html");
+
+    // A => B
+    var f : Formula = AG(Fork(
+      Constrain("CurrentPort",:~:(:==:(ConstantStringValue("router.output.3")))),
+      ConstrainRaw(etherDst,:==:(:@("StoredEtherDst")))
+    ))
+
+    //EF(Constrain("CurrentPort",:==:(ConstantStringValue("router.deparser.out"))))
+
+    var log_list = verifyP4(f,"router.input.1",ib,res)
+
+    //var log = log_list(0);
+    //Printer.vizPrinter((log.code,log.links),"p4copy_to_cpu_0.html");
+
+    var i = 0
+    for (log <- log_list) {
+      Printer.vizPrinter((log.code,log.links),"p4copy_to_cpu_"+i+".html");
+      i += 1
+    }
+  }
+
+  def copytocpu_cpu_packets_dropped = {
+
+    val dir = "inputs/copy-to-cpu-star/"
+    val p4 = s"$dir/copy_to_cpu-ppc.p4"
+    val dataplane = s"$dir/commands_star.txt"
+    val switchInstance = SymbolicSwitchInstance.fromFileWithSyms("router", Map[Int, String](1 -> "veth0", 2 -> "veth1", 3 -> "cpu"),
+      Map[Int, Int](250 -> 3), Switch.fromFile(p4), dataplane)
+    val res = new ControlFlowInterpreter(switchInstance, switchInstance.switch)
+
+    val ib = InstructionBlock(
+      res.allParserStatesInstruction(),
+      //      Constrain(Tag("START") + 0, :~:(:==:(ConstantValue(0)))),
+      Assign("CurrentPort",ConstantStringValue("router.input.1"))
+      //Forward("router.input.1")
+    )
+
+    //Printer.vizPrinter((res.instructions(),res.links),"p4copy_to_cpu_original.html");
+
+    // A => B
+    var f : Formula = AG(Constrain("CurrentPort",:~:(:==:(ConstantStringValue("router.output.3")))))
+
+    //EF(Constrain("CurrentPort",:==:(ConstantStringValue("router.deparser.out"))))
+
+    var log_list = verifyP4(f,"router.input.1",ib,res)
+
+    //var log = log_list(1);
+    //Printer.vizPrinter((log.code,log.links),"p4copy_to_cpu_1.html");
+
+
+    var i = 0
+    for (log <- log_list) {
+      Printer.vizPrinter((log.code,log.links),"p4copy_to_cpu_"+i+".html");
+      i += 1
+    }
+
+  }
+
+  def copytocpu_cpu_encapsulation = {
+
+    val dir = "inputs/copy-to-cpu-star/"
+    val p4 = s"$dir/copy_to_cpu-ppc.p4"
+    val dataplane = s"$dir/commands_star.txt"
+    val switchInstance = SymbolicSwitchInstance.fromFileWithSyms("router", Map[Int, String](1 -> "veth0", 2 -> "veth1", 3 -> "cpu"),
+      Map[Int, Int](250 -> 3), Switch.fromFile(p4), dataplane)
+    val res = new ControlFlowInterpreter(switchInstance, switchInstance.switch)
+
+    val ib = InstructionBlock(
+      res.allParserStatesInstruction(),
+      //      Constrain(Tag("START") + 0, :~:(:==:(ConstantValue(0)))),
+      Assign("CurrentPort",ConstantStringValue("router.input.1"))
+      //Forward("router.input.1")
+    )
+
+    //Printer.vizPrinter((res.instructions(),res.links),"p4copy_to_cpu_original.html");
+
+    // A => B
+    var f : Formula = AG(Fork(
+      Constrain("CurrentPort",:~:(:==:(ConstantStringValue("router.output.3")))),
+      InstructionBlock(Exists(Tag("START")+0),Exists(Tag("START")+48),Exists(Tag("START")+56))
+      //Exists(Tag("START")+56)
+      //assert cpu encapsulation
+    ))
+
+    //EF(Constrain("CurrentPort",:==:(ConstantStringValue("router.deparser.out"))))
+
+    var log_list = verifyP4(f,"router.input.1",ib,res)
+
+    //var log = log_list(1);
+    //Printer.vizPrinter((log.code,log.links),"p4copy_to_cpu_1.html");
+
+
+    var i = 0
+    for (log <- log_list) {
+      Printer.vizPrinter((log.code,log.links),"p4copy_to_cpu_"+i+".html");
+      i += 1
+    }
+
+  }
+
+  def nat_test = {
+    val dir = "inputs/simple-nat-testing/"
+    val p4 = s"$dir/simple_nat-ppc.p4"
+    val dataplane = s"$dir/commands.txt"
+    val res = ControlFlowInterpreter(p4, dataplane, Map[Int, String](1 -> "veth0", 2 -> "veth1", 11 -> "cpu"), "router")
+    val port = 1
+
+    var ib = InstructionBlock(
+      res.allParserStatesInstruction(),
+      //      Constrain(Tag("START") + 0, :~:(:==:(ConstantValue(0)))),
+      Assign("CurrentPort",ConstantStringValue("router.input.1"))//,
+      //Forward("router.input.1")
+    )
+
+    var log_list = verifyP4(EF(Formula.Fail),"router.input.1",ib,res)
+
+    //var log = log_list(1);
+    //Printer.vizPrinter((res.instructions(),res.links),"p4nat_original.html");
+
     var i = 0
     for (log <- log_list) {
       Printer.vizPrinter((log.code,log.links),"p4nat_"+i+".html");
       i += 1
     }
+
+
+
+  }
+
+  /*
+  if no 'miss' rules are inserted, packets are dropped
+   */
+def nat_default_drop = {
+  val dir = "inputs/simple-nat-testing/"
+  val p4 = s"$dir/simple_nat-ppc.p4"
+  val dataplane = s"$dir/commands.txt"
+  val res = ControlFlowInterpreter(p4, dataplane, Map[Int, String](1 -> "veth0", 2 -> "veth1", 11 -> "cpu"), "router")
+  val port = 1
+
+  var ib = InstructionBlock(
+    res.allParserStatesInstruction(),
+    //      Constrain(Tag("START") + 0, :~:(:==:(ConstantValue(0)))),
+    Assign("CurrentPort",ConstantStringValue("router.input.1"))//,
+    //Forward("router.input.1")
+  )
+
+  var log_list = verifyP4NAT("default",EF(Formula.Fail),"router.input.1",ib,res)
+
+  //var log = log_list(1);
+  //Printer.vizPrinter((res.instructions(),res.links),"p4nat_original.html");
+
+  var i = 0
+  for (log <- log_list) {
+    Printer.vizPrinter((log.code,log.links),"t0_nat_default_drop_"+i+".html");
+    i += 1
+  }
+}
+
+def nat_star_to_cpu = {
+  val dir = "inputs/simple-nat-testing/"
+  val p4 = s"$dir/simple_nat-ppc.p4"
+  val dataplane = s"$dir/commands.txt"
+  val switchInstance = SymbolicSwitchInstance.fromFileWithSyms("router", Map[Int, String](1 -> "veth0", 2 -> "veth1", 11 -> "cpu"),
+    Map[Int, Int](250 -> 11), Switch.fromFile(p4), dataplane)
+
+  val res = ControlFlowInterpreter.buildSymbolicInterpreter(switchInstance, switchInstance.switch)
+
+  var ib = InstructionBlock(
+    res.allParserStatesInstruction(),
+    res.initFactory(switchInstance)
+  )
+
+  var log_list = verifyP4NAT("default",EF(Formula.Fail),"router.input.1",ib,res)
+
+  //var log = log_list(1);
+  //Printer.vizPrinter((res.instructions(),res.links),"p4nat_original.html");
+
+  var i = 0
+  for (log <- log_list) {
+    Printer.vizPrinter((log.code,log.links),"t0_nat_to_cpu_"+i+".html");
+    i += 1
+  }
+}
+
+
+  def dragos = {
+
+    // ----------------------------
+    // copy to cpu policies
+    // ----------------------------
+
+    //copytocpu_headerfield_unchanged
+    //copytocpu_cpu_packets_dropped
+    //copytocpu_cpu_encapsulation
+
+    // ----------------------------
+    // nat policies
+    // ----------------------------
+
+    nat_default_drop
+
+
+    /*
+       var topo = Map (
+         "A" -> Fork(Forward("X"),Forward("B"),Forward("C")),
+         "X" -> Fork(InstructionBlock(NoOp,NoOp,Fail("X"))),
+         "B" -> InstructionBlock(Fork(NoOp,NoOp),Fail("Fin")),
+         "Fin" -> NoOp,
+         "Syn" -> NoOp,
+         "C" -> InstructionBlock(Fork(NoOp,Fork(InstructionBlock(NoOp,Fail("1")),InstructionBlock(NoOp,Fail("2")))),Forward("D")),
+         "D" -> Fork(InstructionBlock(NoOp,Forward("None1")),InstructionBlock(NoOp,Forward("None2")))
+       )
+
+       var log = verify(EF(Constrain("CurrentPort",:==:(ConstantStringValue("D")))),"A",topo,Map[LocationId,LocationId]())
+       Printer.vizPrinter((log.code,log.links),"test.html");
     */
 
 
@@ -132,44 +382,6 @@ object Tester {
 
 
 
-    /*
-    val bvExec = new OVSExecutor(new Z3BVSolver)
-
-    var clickExecutionContext = P4ExecutionContext(
-      res.instructions(), res.links(), bvExec.execute(ib, State.clean, true)._1, bvExec
-    )
-    var init = System.currentTimeMillis()
-    var runs  = 0
-    while (!clickExecutionContext.isDone && runs < 10000) {
-      clickExecutionContext = clickExecutionContext.execute(true)
-      runs = runs + 1
-    }
-
-    println(s"Failed # ${clickExecutionContext.failedStates.size}, Ok # ${clickExecutionContext.stuckStates.size}")
-    println(s"Time is ${System.currentTimeMillis() - init}ms")
-
-    val psok = new BufferedOutputStream(new FileOutputStream("inputs/simple-nat/click-exec-ok-port0.json"))
-    JsonUtil.toJson(clickExecutionContext.stuckStates, psok)
-    psok.close()
-
-    val relevant = clickExecutionContext.failedStates.filter(x => {
-      !x.history.head.startsWith("router.parser")
-      //      true
-    })
-
-    val psko = new BufferedOutputStream(new FileOutputStream("inputs/simple-nat/click-exec-fail-port0.json"))
-    JsonUtil.toJson(relevant, psko)
-    psko.close()
-
-
-    val psokpretty = new PrintStream("inputs/simple-nat/click-exec-ok-port0-pretty.json")
-    psokpretty.println(clickExecutionContext.stuckStates)
-    psokpretty.close()
-
-    val pskopretty = new PrintStream("inputs/simple-nat/click-exec-fail-port0-pretty.json")
-    pskopretty.println(relevant)
-    pskopretty.close()
-  */
 
   }
 
@@ -226,6 +438,8 @@ object Tester {
     {IPSrc == 5 ; TCPSrc >=5}
 
     */
+
+
   def model_1 = Fork (InstructionBlock(Constrain(IPSrc, :>=:(ConstantValue(5))), Constrain(TcpSrc, :>=:(ConstantValue(5))))
     ,InstructionBlock(Fork(Assign(IPSrc,ConstantValue(3)),Assign(IPSrc,ConstantValue(4)),Assign(IPSrc,ConstantValue(5))),Assign(TcpSrc,ConstantValue(5)))
     ,InstructionBlock(Constrain(IPSrc,:==:(ConstantValue(5))),Fork(Constrain(TcpSrc,:>=:(ConstantValue(3))),Constrain(TcpSrc,:>=:(ConstantValue(4))),Constrain(TcpSrc,:>=:(ConstantValue(5)))))
@@ -296,7 +510,7 @@ object Tester {
     )).setLogger(JsonLogger)
 
 
-    var (v,log) = verify(EF(Formula.Fail),"packet-in-0-in",exe.instructions,exe.links)
+    var log = verify(EF(Formula.Fail),"packet-in-0-in",exe.instructions,exe.links)
     Printer.vizPrinter((log.code,log.links),"asa.html");
 
     //val start = System.currentTimeMillis()

@@ -21,6 +21,7 @@ object Printer {
 
   def header =
     """
+      |
       |<!doctype html>
       |<html>
       |<head>
@@ -32,7 +33,7 @@ object Printer {
       |    <style type="text/css">
       |        #mynetwork {
       |            width: 1200px;
-      |            height: 900px;
+      |            height: 600px;
       |            border: 1px solid lightgray;
       |        }
       |    </style>
@@ -45,21 +46,28 @@ object Printer {
       |
       |<script type="text/javascript">
       |
-      |  var options = {
-      |  manipulation: false,
-      |  height: '150%',
-      |  layout: {
-      |    hierarchical: {
-      |      enabled: true,
-      |      levelSeparation: 300
-      |    }
-      |  },
-      |  physics: {
-      |    hierarchicalRepulsion: {
-      |      nodeDistance: 300
-      |    }
-      |  }
-      |};
+      |
+      |var options = {
+      |        layout: {
+      |            hierarchical: {
+      |                direction: "LR",
+      |                sortMethod: "directed"
+      |            }
+      |        },
+      |        interaction: {dragNodes :false},
+      |        physics: {
+      |            enabled: false
+      |        },
+      |        configure: {
+      |          filter: function (option, path) {
+      |              if (path.indexOf('hierarchical') !== -1) {
+      |                  return true;
+      |              }
+      |              return false;
+      |          },
+      |          showButton:false
+      |        }
+      |    };
       |
       |var nodes = [
     """.stripMargin
