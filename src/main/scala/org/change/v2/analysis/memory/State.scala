@@ -273,4 +273,9 @@ object State {
 
    afterBigBang._1.head
  }
+
+  lazy val symbolicIpState = InstructionBlock(
+    start,
+    ipSymb
+  )(State.clean, true)._1.head
 }
