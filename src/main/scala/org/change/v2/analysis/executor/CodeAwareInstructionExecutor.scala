@@ -12,11 +12,57 @@ import org.change.v2.analysis.processingmodels._
 import org.change.v2.analysis.processingmodels.instructions._
 import org.change.v2.analysis.types.LongType
 
+
+trait StateConsumer {
+  def consume(state : State) : Unit
+  def consumeAll(states : List[State]): Unit = states.foreach(consume)
+}
+
+object StateConsumer {
+  implicit def fromFunction(fun : Function1[State, Unit]) = new StateConsumer {
+    override def consume(state: State): Unit = fun(state)
+  }
+}
+
+class CodeAwareInstructionExecutorWithListeners(caie : CodeAwareInstructionExecutor,
+                                  successStateConsumers : List[StateConsumer] = Nil,
+                                  failedStateConsumers : List[StateConsumer] = Nil)
+  extends CodeAwareInstructionExecutor(caie) {
+
+  override def execute(instruction: Instruction, state: State, verbose: Boolean): (List[State], List[State]) = {
+    val (o, f) = super.execute(instruction, state, verbose)
+    failedStateConsumers.foreach(c => c.consumeAll(f))
+    (o, Nil)
+  }
+
+  override def executeExoticInstruction(instruction: Instruction, s: State, v: Boolean): (List[State], List[State]) = instruction match {
+    case ExistsNamedSymbol(_) => (super.executeExoticInstruction(instruction, s, v)._1, Nil)
+    case ExistsRaw(_) => (super.executeExoticInstruction(instruction, s, v)._1, Nil)
+    case NotExistsNamedSymbol(_) => (super.executeExoticInstruction(instruction, s, v)._1, Nil)
+    case NotExistsRaw(_) => (super.executeExoticInstruction(instruction, s, v)._1, Nil)
+    case _ => super.executeExoticInstruction(instruction, s, v)
+  }
+
+  override def executeForward(instruction: Forward, s: State, v: Boolean): (List[State], List[State]) = {
+    if (!program.contains(instruction.place)) {
+      successStateConsumers.foreach(c =>
+        c.consume(s.
+          addInstructionToHistory(instruction).
+          forwardTo(instruction.place)
+        )
+      )
+      (Nil, Nil)
+    } else super.executeForward(instruction, s, v)
+  }
+}
+
 /**
   * Created by dragos on 16.10.2017.
   */
 class CodeAwareInstructionExecutor(val program : Map[String, Instruction],
-                                   solver : Solver) extends OVSExecutor(solver) {
+                                   private val solver : Solver) extends OVSExecutor(solver) {
+
+  def this(caie: CodeAwareInstructionExecutor) = this(caie.program, caie.solver)
 
   override def executeForward(instruction: Forward, s: State, v: Boolean): (List[State], List[State]) = {
     val crt = super.executeForward(instruction, s, v)._1.head
@@ -35,7 +81,8 @@ class CodeAwareInstructionExecutor(val program : Map[String, Instruction],
   override def executeInstructionBlock(instruction: InstructionBlock, s: State, v: Boolean): (List[State], List[State]) =
     instruction.instructions.toList match {
       case Forward(place) :: tail => this.executeInternal(Forward(place), s, v)
-      case InstructionBlock(is) :: tail => this.executeInternal(InstructionBlock(is ++ tail), s, v)
+      case InstructionBlock(is) :: tail =>
+        this.executeInternal(InstructionBlock(is ++ tail), s, v)
       case SuperFork(forkBlocks) :: tail =>
         this.executeInternal(SuperFork(forkBlocks.map(f => InstructionBlock(f :: tail))), s, v)
       case If (a, b, c) :: tail => this.execute(If(a, InstructionBlock(b :: tail), InstructionBlock(c :: tail)), s, v)

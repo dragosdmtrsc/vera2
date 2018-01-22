@@ -1,0 +1,98 @@
+{
+{
+
+}
+If({
+Constrain(cpu_header.IsValid, :==:([1]))
+Constrain(ethernet.IsValid, :==:([1]))
+Constrain(ethernet.etherType, :==:([2048]))
+Constrain(ipv4.IsValid, :==:([1]))
+Constrain(ipv4.protocol, :==:([6]))
+Constrain(tcp.IsValid, :==:([1]))
+}) {
+Forward(router.deparser.parse_cpu_header.parse_ethernet.parse_ipv4.parse_tcp)
+}
+else {
+{
+{
+
+}
+If({
+Constrain(cpu_header.IsValid, :==:([1]))
+Constrain(ethernet.IsValid, :==:([1]))
+Constrain(ethernet.etherType, :==:([2048]))
+Constrain(ipv4.IsValid, :==:([1]))
+Constrain(ipv4.protocol, :~:(:==:([6])))
+}) {
+Forward(router.deparser.parse_cpu_header.parse_ethernet.parse_ipv4)
+}
+else {
+{
+{
+
+}
+If({
+Constrain(cpu_header.IsValid, :==:([1]))
+Constrain(ethernet.IsValid, :==:([1]))
+Constrain(ethernet.etherType, :~:(:==:([2048])))
+}) {
+Forward(router.deparser.parse_cpu_header.parse_ethernet)
+}
+else {
+{
+{
+
+}
+If({
+Constrain(ethernet.IsValid, :==:([1]))
+Constrain(ethernet.etherType, :==:([2048]))
+Constrain(ipv4.IsValid, :==:([1]))
+Constrain(ipv4.protocol, :==:([6]))
+Constrain(tcp.IsValid, :==:([1]))
+}) {
+Forward(router.deparser.parse_ethernet.parse_ipv4.parse_tcp)
+}
+else {
+{
+{
+
+}
+If({
+Constrain(ethernet.IsValid, :==:([1]))
+Constrain(ethernet.etherType, :==:([2048]))
+Constrain(ipv4.IsValid, :==:([1]))
+Constrain(ipv4.protocol, :~:(:==:([6])))
+}) {
+Forward(router.deparser.parse_ethernet.parse_ipv4)
+}
+else {
+{
+{
+
+}
+If({
+Constrain(ethernet.IsValid, :==:([1]))
+Constrain(ethernet.etherType, :~:(:==:([2048])))
+}) {
+Forward(router.deparser.parse_ethernet)
+}
+else {
+Fail(Deparser error: No match)
+}
+
+}
+}
+
+}
+}
+
+}
+}
+
+}
+}
+
+}
+}
+
+}

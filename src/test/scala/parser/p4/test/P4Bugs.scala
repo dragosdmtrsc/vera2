@@ -2,11 +2,12 @@ package parser.p4.test
 
 import java.io.{BufferedOutputStream, FileOutputStream, PrintStream}
 
-import org.change.parser.p4.ControlFlowInterpreter
+import org.change.parser.p4.{ControlFlowInterpreter, P4ExecutionContext}
 import org.change.parser.p4.factories.{InstanceBasedInitFactory, SymbolicRegistersInitFactory}
 import org.change.parser.p4.tables.SymbolicSwitchInstance
 import org.change.utils.prettifier.JsonUtil
 import org.change.v2.analysis.executor.CodeAwareInstructionExecutor
+import org.change.v2.analysis.executor.loopdetection.BVLoopDetectingExecutor
 import org.change.v2.analysis.executor.solvers.Z3BVSolver
 import org.change.v2.analysis.expression.concrete.ConstantValue
 import org.change.v2.analysis.memory.{State, Tag}
@@ -16,6 +17,7 @@ import org.scalatest.FunSuite
 import org.change.v2.analysis.memory.TagExp.IntImprovements
 
 class P4Bugs extends FunSuite {
+
   test("INTEGRATION - copy-to-cpu parser bug") {
     val dir = "inputs/copy-to-cpu-bug-parser-failed/"
     val p4 = s"$dir/copy_to_cpu-ppc.p4"
@@ -157,6 +159,54 @@ class P4Bugs extends FunSuite {
     printResults(dir, port, ok, relevant, "bad")
   }
 
+  test("INTEGRATION - mplb no deparse with stars") {
+    val dir = "inputs/parser-deparser-bug/"
+    val p4 = s"$dir/mplb_router-ppc.p4"
+    val dataplane = s"$dir/commands.txt"
+    val switch = Switch.fromFile(p4)
+    val switchInstance = SymbolicSwitchInstance.fromFileWithSyms("router", Map[Int, String](1 -> "veth0", 2 -> "veth1"),
+      Map.empty, switch, dataplane)
+    val res = new ControlFlowInterpreter(switchInstance, switchInstance.switch)
+    val port = 1
+    val ib = InstructionBlock(
+      Forward(s"router.input.$port")
+    )
+    val codeAwareInstructionExecutor = CodeAwareInstructionExecutor(res.instructions(), res.links(), solver = new Z3BVSolver)
+    val (initial, fld) = codeAwareInstructionExecutor.
+      execute(InstructionBlock(
+        CreateTag("START", 0),
+        Call("router.generator.parse_ethernet.parse_ipv4.parse_tcp"),
+        Constrain(Tag("START") + 272 + 16, :==:(ConstantValue(1025)))
+      ), State.clean, verbose = true)
+    val (ok: List[State], failed: List[State]) = executeAndPrintStats(ib, initial, codeAwareInstructionExecutor)
+    val relevant = failed
+    printResults(dir, port, ok, relevant, "bad")
+  }
+
+  test("INTEGRATION - mplb") {
+    val dir = "inputs/mplb-router-fuller/"
+    val p4 = s"$dir/mplb_router-ppc.p4"
+    val dataplane = s"$dir/commands.txt"
+
+    val switchInstance = SymbolicSwitchInstance.fromFileWithSyms("router", Map[Int, String](1 -> "veth0", 2 -> "veth1"),
+      Map[Int, Int](), Switch.fromFile(p4), dataplane)
+    val res = new ControlFlowInterpreter(switchInstance, switchInstance.switch)
+
+    val port = 1
+    val ib = InstructionBlock(
+      Forward(s"router.input.$port")
+    )
+    val codeAwareInstructionExecutor = CodeAwareInstructionExecutor(res.instructions(), res.links(), solver = new Z3BVSolver)
+    val (initial, fld) = codeAwareInstructionExecutor.
+      execute(InstructionBlock(
+        CreateTag("START", 0),
+        Call("router.generator.parse_ethernet.parse_ipv4.parse_tcp")
+      ), State.clean, verbose = true)
+    val (ok: List[State], failed: List[State]) = executeAndPrintStats(ib, initial, codeAwareInstructionExecutor)
+    val relevant = failed
+    printResults(dir, port, ok, relevant, "bad")
+  }
+
   test("INTEGRATION - ndp_router reg access test") {
     val dir = "inputs/ndp-router-reg-access/"
     val p4 = s"$dir/ndp_router-ppc.p4"
@@ -247,7 +297,35 @@ class P4Bugs extends FunSuite {
     }
     assert(thrown.getMessage.toLowerCase().contains("no such action"))
   }
+  test("resubmit with loop detector") {
+    val dir = "inputs/resubmit/"
+    val p4 = s"$dir/resubmit.p4"
+    val dataplane = s"$dir/commands.txt"
+    val res = ControlFlowInterpreter(p4, dataplane, Map[Int, String](1 -> "veth0", 2 -> "veth1", 3 -> "cpu"), "router")
+    val ib = InstructionBlock(
+      res.allParserStatesInline(),
+      Forward("router.input.1"),
+      Assign("Truncate", ConstantValue(0))
+    )
+    val bvExec = new BVLoopDetectingExecutor(Set("router.parser"), res.instructions())
+    var clickExecutionContext = P4ExecutionContext(
+      res.instructions(), res.links(), bvExec.execute(ib, State.clean, true)._1, bvExec
+    )
+    var init = System.currentTimeMillis()
+    var runs  = 0
+    while (!clickExecutionContext.isDone && runs < 10000) {
+      clickExecutionContext = clickExecutionContext.execute(true)
+      runs = runs + 1
+    }
+    println(s"Failed # ${clickExecutionContext.failedStates.size}, Ok # ${clickExecutionContext.stuckStates.size}")
+    println(s"Time is ${System.currentTimeMillis() - init}ms")
 
+    val psok = new BufferedOutputStream(new FileOutputStream(s"$dir/click-exec-ok-port0.json"))
+    JsonUtil.toJson(clickExecutionContext.stuckStates, psok)
+    psok.close()
+    val relevant = clickExecutionContext.failedStates
+    printResults(dir, 0, clickExecutionContext.stuckStates,  clickExecutionContext.failedStates, "nasty")
+  }
   test("p4xos/learner-ppc.p4") {
     val dir = "inputs/p4xos"
     val p4 = s"$dir/learner-ppc.p4"
@@ -290,7 +368,6 @@ class P4Bugs extends FunSuite {
       val (ok: List[State], failed: List[State]) = executeAndPrintStats(ib, initial, codeAwareInstructionExecutor)
       printResults(dir, port, ok, failed, "soso")
     }
-    assert(thrown.getMessage.toLowerCase().contains("no such action") || thrown.getMessage.toLowerCase().contains("no such table"))
   }
 
 }

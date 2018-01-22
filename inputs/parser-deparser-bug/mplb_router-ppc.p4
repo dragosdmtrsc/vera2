@@ -109,6 +109,9 @@ action set_dst() {
 action set_dmac(dmac) {
     modify_field(ethernet.dstAddr, dmac);
 }
+action _nop() {
+    no_op();
+}
 action rewrite_mac(smac) {
     modify_field(ethernet.srcAddr, smac);
 }
@@ -119,6 +122,7 @@ table mplb_port {
     actions {
         set_dst_mplb_port;
         _drop;
+        _nop;
     }
     size: 65536;
 }
@@ -129,6 +133,7 @@ table mplb {
     actions {
         set_dst;
         _drop;
+        _nop;
     }
     size: 2000;
 }

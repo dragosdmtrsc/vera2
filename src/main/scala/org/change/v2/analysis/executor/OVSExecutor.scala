@@ -82,6 +82,10 @@ class OVSExecutor(solver: Solver) extends DecoratedInstructionExecutor(solver) {
       case destroy : DestroyPacket => destroy(s, verbose = true)
       case AssignNamedSymbolWithLength(id, exp, width) => AssignNamedSymbolWithLength(id, exp, width)(s, v)
       case Call(i) => executeForward(Forward(i), s, v)
+      case er : ExistsRaw => er(s, v)
+      case er : ExistsNamedSymbol => er(s, v)
+      case er : NotExistsNamedSymbol => er(s, v)
+      case er : NotExistsRaw => er(s, v)
       case _ if instruction.isTool => instruction(s, v)
       case _ => throw new UnsupportedOperationException("Cannot handle this kind of instruction. Make it Translatable " + instruction)
     }

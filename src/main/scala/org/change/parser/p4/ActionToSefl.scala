@@ -30,17 +30,14 @@ class ActionInstance(p4Action: P4Action,
                      switch : Switch,
                      table : String,
                      flowNumber : Int = -1,
-                     dropMessage : String = "Dropped right here") {
-
+                     dropMessage : String = "Dropped right here",
+                     relaxed : Boolean = false) {
+  // TODO: for relaxed flag => if set disable add_header and remove_header checks
   override def toString: String = s"${switchInstance.getName}.action.$table.$flowNumber"
 
   private def handleValidDestination(dst : String, continueWith : Instruction) = {
     val hdr = dst.split("\\.")(0)
-    val cd = if (hdr.contains("["))
-      hdr.split("\\[")(0)
-    else
-      hdr
-    if (switch.getInstance(cd).isMetadata)
+    if (switch.getInstance(hdr).isMetadata)
       continueWith
     else
       If (Constrain(hdr + ".IsValid", :==:(ConstantValue(1))),
@@ -359,7 +356,7 @@ class ActionInstance(p4Action: P4Action,
         NoOp
       else {
         InstructionBlock(hInstance.getLayout.getFields.map(x => {
-            Assign(hname + "[" + newIndex + "]" + "." + x.getName, :@(hname + index + "." + x.getName))
+            Assign(hname + "[" + newIndex + "]" + "." + x.getName, :@(hname + "[" + index + "]" + "." + x.getName))
           })
         )
       }
@@ -435,30 +432,33 @@ class ActionInstance(p4Action: P4Action,
     val fhname = if (index >= 0) hname + "[" + index + "]" else hname
     If (Constrain(fhname + ".IsValid", :==:(ConstantValue(1))),
       InstructionBlock(
-//        Assign(regName + ".IsValid", ConstantValue(0)),
         if (index >= 0) {
           // if we are at a header array
           val instance = switch.getInstance(hname).asInstanceOf[ArrayInstance]
-          val moveUpInstruction = (index + 1 until instance.getLength).map( x => {
-            val newIndex = x - 1
-            If (Constrain(hname + "[" + x  + "]" + ".IsValid", :==:(ConstantValue(1))),
-              if (newIndex < 0 || newIndex >= instance.getLength) {
-                NoOp
-              } else {
-                If (Constrain(hname + "[" + newIndex + "]" + ".IsValid", :==:(ConstantValue(1))),
-                  moveHeader(hname, x, newIndex),
+          if (index == instance.getLength - 1) Assign(s"$hname[$index].IsValid", ConstantValue(0))
+          else {
+            val moveUpInstruction = (index + 1 until instance.getLength).map( x => {
+              val newIndex = x - 1
+              If (Constrain(hname + "[" + x  + "]" + ".IsValid", :==:(ConstantValue(1))),
+                if (newIndex < 0 || newIndex >= instance.getLength) {
+                  NoOp
+                } else {
                   InstructionBlock(
-                    Assign(hname + "[" + newIndex + "]" + ".IsValid", ConstantValue(1)),
-                    allocateHeader(hname, newIndex),
-                    moveHeader(hname, x, newIndex)
+                    If (Constrain(hname + "[" + newIndex + "]" + ".IsValid", :==:(ConstantValue(1))),
+                      moveHeader(hname, x, newIndex),
+                      InstructionBlock(
+                        Assign(hname + "[" + newIndex + "]" + ".IsValid", ConstantValue(1)),
+                        allocateHeader(hname, newIndex),
+                        moveHeader(hname, x, newIndex)
+                      )
+                    )
                   )
-                )
-              },
-              Assign(hname + "[" + newIndex + "]" + ".IsValid", ConstantValue(0))
-            )
+                },
+                Assign(hname + "[" + newIndex + "]" + ".IsValid", ConstantValue(0))
+              )
+            }).toList
+            InstructionBlock(moveUpInstruction :+ Assign(s"$hname[${instance.getLength - 1}].IsValid", ConstantValue(0)))
           }
-          ).toList
-          InstructionBlock(moveUpInstruction)
         } else {
           // when this is a scalar header
           InstructionBlock(
@@ -482,27 +482,29 @@ class ActionInstance(p4Action: P4Action,
     )
   }
 
-  def handleAddHeader(addHeader: AddHeader) : Instruction = {
+  def handleAddHeader(shouldCheck : Boolean = true) : Instruction = {
     val headerInstance = argList.head.asInstanceOf[Symbol].id
     val (regName, hname, index) = getNameAndIndex(headerInstance)
-    val instance = switch.getInstance(headerInstance)
-    If (Constrain(regName + ".IsValid", :==:(ConstantValue(1))),
-      Fail("Attempt to add_header whilst header instance is already valid"),
+    val instance = switch.getInstance(regName)
+    If (Constrain(headerInstance + ".IsValid", :==:(ConstantValue(1))),
+      if (shouldCheck)
+        Fail("Attempt to add_header whilst header instance is already valid")
+      else
+        NoOp,
       InstructionBlock(
-        Assign(regName + ".IsValid", ConstantValue(1)),
-        if (regName != hname) {
+        if (index >= 0) {
           // if we are at a header array
           val instance = switch.getInstance(hname).asInstanceOf[ArrayInstance]
-          val moveUpInstruction = (instance.getLength - 1).to(index, -1).map(x => {
+          val moveUpInstruction = (instance.getLength - 2).to(index, -1).map(x => {
               val newIndex = x + 1
-              If (Constrain(hname + x + ".IsValid", :==:(ConstantValue(1))),
+              If (Constrain(hname + s"[$x].IsValid", :==:(ConstantValue(1))),
                 if (newIndex >= instance.getLength) {
                   NoOp
                 } else {
-                  If (Constrain(hname + newIndex + ".IsValid", :==:(ConstantValue(1))),
+                  If (Constrain(hname + s"[$newIndex].IsValid", :==:(ConstantValue(1))),
                     moveHeader(hname, x, newIndex),
                     InstructionBlock(
-                      Assign(hname + newIndex + ".IsValid", ConstantValue(1)),
+                      Assign(hname + s"[$newIndex].IsValid", ConstantValue(1)),
                       allocateHeader(hname, newIndex),
                       moveHeader(hname, x, newIndex)
                     )
@@ -512,7 +514,15 @@ class ActionInstance(p4Action: P4Action,
               )
             }
           ).toList
-          InstructionBlock(moveUpInstruction)
+          If (InstructionBlock(
+              (0 until instance.getLength).map(r => Constrain(hname + s"[$r].IsValid", :==:(ConstantValue(1))))
+            ),
+            Fail(s"Attempt to add header to the fully populated array instance $hname"),
+            InstructionBlock(moveUpInstruction :+ InstructionBlock(
+              Assign(hname + s"[$index].IsValid", ConstantValue(1)),
+              allocateHeader(hname, index))
+            )
+          )
         } else {
           // when this is a scalar header
           InstructionBlock(
@@ -538,7 +548,7 @@ class ActionInstance(p4Action: P4Action,
     val arrName = argList.head.asInstanceOf[Symbol].id
     val hdrArray = switch.getInstance(arrName).asInstanceOf[ArrayInstance]
     argList(1) match {
-      case ConstantValue(c, _, _) => popBy(c.toInt, hdrArray, arrName)
+      case ConstantValue(c, _, _) => pushBy(c.toInt, hdrArray, arrName)
       case _ => (0 until hdrArray.getLength).foldRight(NoOp : Instruction)((x, acc) => {
         val tmp = s"tmp${UUID.randomUUID()}"
         InstructionBlock(
@@ -560,7 +570,7 @@ class ActionInstance(p4Action: P4Action,
 
     val createNews = (0 until count).map(x => {
       new ActionInstance(switch.getActionRegistrar.getAction("add_header"),
-        List[FloatingExpression](:@(s"$arrName[$x]")), switchInstance, switch, table, flowNumber, dropMessage).sefl()
+        List[FloatingExpression](:@(s"$arrName[$x]")), switchInstance, switch, table, flowNumber, dropMessage).handleAddHeader(false)
     }).toList
     InstructionBlock(
       pushDown ++ createNews
@@ -588,7 +598,12 @@ class ActionInstance(p4Action: P4Action,
   private def popBy(count: Int, hdrArray: ArrayInstance, arrName : String): Instruction = {
     val pushUp = (count until hdrArray.getLength).map(x => {
       new ActionInstance(switch.getActionRegistrar.getAction("copy_header"),
-        List[FloatingExpression](:@(s"$arrName[${x - count}]"), :@(s"$arrName[$x]")), switchInstance, switch, table, flowNumber, dropMessage).sefl()
+        List[FloatingExpression](:@(s"$arrName[${x - count}]"), :@(s"$arrName[$x]")),
+        switchInstance,
+        switch,
+        table,
+        flowNumber,
+        dropMessage).handleCopyHeader()
     })
 
     val deleteNews = (0 until count).map(x => {
@@ -600,9 +615,18 @@ class ActionInstance(p4Action: P4Action,
         flowNumber,
         dropMessage).handleRemoveHeader(shouldCheck = false)
     })
-    InstructionBlock(
-      (pushUp ++ deleteNews).toList
-    )
+
+    if (pushUp.isEmpty)
+      Fail(s"Attempt to pop $count which is more than the length of ${hdrArray.getName}, that is ${hdrArray.getLength}")
+    else
+      (0 until count).foldRight(InstructionBlock(
+        (pushUp ++ deleteNews).toList
+      ) : Instruction)((x, acc) => {
+        If (Constrain(s"$arrName[$x].IsValid", :==:(ConstantValue(1))),
+          acc,
+          Fail(s"Attempt to pop the array ${hdrArray.getName} with $x elements by $count")
+        )
+      })
   }
 
   def handleBitAndOrXor(isAnd : Boolean, isOr : Boolean, isXor : Boolean): Instruction = {
@@ -653,9 +677,9 @@ class ActionInstance(p4Action: P4Action,
       case P4ActionType.CloneIngressPktToEgress => handleCloneFromIngressToEgress(primitiveAction.asInstanceOf[CloneIngressPktToEgress])
       case P4ActionType.Resubmit => handleResubmit(primitiveAction.asInstanceOf[Resubmit])
       case P4ActionType.Recirculate => handleRecirculate(primitiveAction.asInstanceOf[Recirculate])
-      case P4ActionType.AddHeader => handleAddHeader(primitiveAction.asInstanceOf[AddHeader])
+      case P4ActionType.AddHeader => handleAddHeader()
       case P4ActionType.CopyHeader => handleCopyHeader()
-      case P4ActionType.RemoveHeader => handleRemoveHeader()
+      case P4ActionType.RemoveHeader => handleRemoveHeader(shouldCheck = !relaxed)
       case P4ActionType.Pop => handlePop()
       case P4ActionType.Push => handlePush()
       case P4ActionType.BitAnd => handleBitAndOrXor(isAnd = true, isOr = false, isXor = false)
@@ -670,6 +694,7 @@ class ActionInstance(p4Action: P4Action,
 
 
   def normalize(p4Action : P4Action): P4Action = {
+    assert(p4Action != null, this.table + "@" + this.flowNumber)
     val actual = if (p4Action.getActionType == P4ActionType.UNKNOWN) {
       switch.getActionRegistrar.getAction(p4Action.getActionName)
     } else {
@@ -679,7 +704,10 @@ class ActionInstance(p4Action: P4Action,
   }
   def normalize(p4ActionCall: P4ActionCall) : P4ActionCall = {
     p4ActionCall.parameterInstances().foldLeft(new P4ActionCall(
-      normalize(p4ActionCall.getP4Action)
+      if (p4ActionCall.getP4Action == null)
+        throw new Exception(s"p4 action doesn't exist for $table and $flowNumber and ${this.p4Action.getActionName}")
+      else
+        normalize(p4ActionCall.getP4Action)
     ))((acc, x) => {
       acc.addParameter(x)
     })

@@ -3,12 +3,13 @@ package org.change.parser.p4.tables
 import java.util.UUID
 
 import org.change.parser.p4._
+import org.change.parser.p4.tables.P4Utils.fieldDef
 import org.change.v2.abstractnet.mat.condition.Range
 import org.change.v2.abstractnet.mat.tree.Node
 import org.change.v2.abstractnet.mat.tree.Node.Forest
 import org.change.v2.analysis.expression.abst.FloatingExpression
 import org.change.v2.analysis.expression.concrete.nonprimitive._
-import org.change.v2.analysis.expression.concrete.{ConstantValue, SymbolicValue}
+import org.change.v2.analysis.expression.concrete.{ConstantBValue, ConstantValue, SymbolicValue}
 import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.analysis.processingmodels.instructions._
 import org.change.v2.p4.model.table.{MatchKind, TableMatch}
@@ -110,7 +111,7 @@ abstract class FullTableGeneric[T<:ISwitchInstance](tableName : String,
       })
     }),
     If (Constrain("IsClone", :==:(ConstantValue(0))),
-      Forward(s"table.$tableName.out" + (if (id.length != 0) s".$id" else ""))
+      Forward(s"${switchInstance.getName}.table.$tableName.out" + (if (id.length != 0) s".$id" else ""))
     )
   )
 }
@@ -131,29 +132,71 @@ class FullTableWithInstances[T<:ISwitchInstance](tableName : String,
         val uuid = UUID.randomUUID().toString
         val size = switch.getSize(k.getKey)
         val varName = s"tmp$uuid"
-        InstructionBlock(
-          Allocate(varName, size),
-          Assign(varName, :&&:(va, :<<:(ConstantValue(1 << size - 1), :-:(ConstantValue(size), prefix)))),
-          Constrain(varName, :==:(:@(k.getKey)))
-        )
+        val (hdr, fieldName) = fieldDef(k.getKey)
+        if (switch.getInstance(hdr) != null && !switch.getInstance(hdr).isMetadata) {
+          InstructionBlock(
+            Allocate(varName, size),
+            Assign(varName, :&&:(:@(k.getKey), :<<:(:-:(:<<:(ConstantValue(1), prefix), ConstantValue(1)), :-:(ConstantValue(size), prefix)))),
+            Constrain(hdr + ".IsValid", :==:(ConstantValue(1))),
+            Constrain(varName, :==:(va))
+          )
+        } else {
+          InstructionBlock(
+            Allocate(varName, size),
+            Assign(varName, :&&:(:@(k.getKey), :<<:(:-:(:<<:(ConstantValue(1), prefix), ConstantValue(1)), :-:(ConstantValue(size), prefix)))),
+            Constrain(varName, :==:(va))
+          )
+        }
       case RangeMatch(min, max) => InstructionBlock(
         Constrain(k.getKey, :&:(:>=:(min), :<=:(max)))
       )
       case TernaryMatch(va, mask) =>
         val uuid = UUID.randomUUID().toString
-        val size = switch.getSize(k.getKey)
-        val varName = s"tmp$uuid"
-        InstructionBlock(
-          Allocate(varName, size),
-          Assign(varName, :&&:(:@(k.getKey), mask)),
-          Constrain(varName, :==:(va))
+        val size = switch.getSize(
+            k.getKey
         )
+        val (hdr, fieldName) = fieldDef(k.getKey)
+
+        val varName = s"tmp$uuid"
+        if (!switch.getInstance(hdr).isMetadata) {
+          mask match {
+            case ConstantValue(0, _, _) => InstructionBlock()
+            case ConstantBValue(v, _) if BigInt(v.substring(2), 16) == 0 => InstructionBlock()
+            case _ => InstructionBlock(
+              Allocate(varName, size),
+              Assign(varName, :&&:(:@(k.getKey), mask)),
+              Constrain(hdr + ".IsValid", :==:(ConstantValue(1))),
+              Constrain(varName, :==:(va))
+            )
+          }
+        } else {
+          mask match {
+            case ConstantValue(0, _, _) => InstructionBlock()
+            case ConstantBValue(v, _) if BigInt(v.substring(2), 16) == 0 => InstructionBlock()
+            case _ => InstructionBlock(
+              Allocate(varName, size),
+              Assign(varName, :&&:(:@(k.getKey), mask)),
+              Constrain(varName, :==:(va))
+            )
+          }
+        }
+
       case ValidMatch(v) => InstructionBlock(
         Constrain(k.getKey + ".IsValid", :==:(v))
       )
-      case Equal(va) => InstructionBlock(
-        Constrain(k.getKey, :==:(va))
-      )
+      case Equal(va) =>
+        val (hdr, fieldName) = fieldDef(k.getKey)
+        if (switch.getInstance(hdr) != null && !switch.getInstance(hdr).isMetadata) {
+          InstructionBlock(
+            Constrain(hdr + ".IsValid", :==:(ConstantValue(1))),
+            Constrain(k.getKey, :==:(va))
+          )
+        } else {
+          InstructionBlock(
+            Constrain(k.getKey, :==:(va))
+          )
+        }
+
       case _ => ???
     })
   }

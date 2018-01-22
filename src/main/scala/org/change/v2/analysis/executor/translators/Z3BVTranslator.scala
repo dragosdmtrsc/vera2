@@ -2,7 +2,7 @@ package org.change.v2.analysis.executor.translators
 
 import org.change.v2.analysis.constraint._
 import org.change.v2.analysis.expression.abst.Expression
-import org.change.v2.analysis.expression.concrete.{ConstantStringValue, ConstantValue, SymbolicValue}
+import org.change.v2.analysis.expression.concrete.{ConstantBValue, ConstantStringValue, ConstantValue, SymbolicValue}
 import org.change.v2.analysis.expression.concrete.nonprimitive._
 import org.change.v2.analysis.memory.{MemorySpace, Value}
 import z3.scala.{Z3AST, Z3Context, Z3Solver}
@@ -24,6 +24,7 @@ class Z3BVTranslator(context: Z3Context) extends Translator[Z3Solver] {
       case Minus(a, b) => context.mkBVSub(translate(slv, a, size)._1, translate(slv, b, size)._1)
       case Reference(what, _) => translate(slv, what, size)._1
       case ConstantValue(v, _, _) => context.mkNumeral(v.toString, context.mkBVSort(size))
+      case ConstantBValue(v, sz) => context.mkNumeral(BigInt(v.substring(2), 16).toString, context.mkBVSort(size))
       case SymbolicValue(_) => context.mkConst(e.id.toString, context.mkBVSort(size))
       case Lor(a, b) => context.mkBVOr(translate(slv, a, size)._1, translate(slv, b, size)._1)
       case LAnd(a, b) => context.mkBVAnd(translate(slv, a, size)._1, translate(slv, b, size)._1)

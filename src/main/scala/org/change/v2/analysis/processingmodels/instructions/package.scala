@@ -10,7 +10,6 @@ package object instructions {
 
   private val isDebugging = false
 
-
   def optionToStatePair(previousState: State, error: ErrorCause,
                         forceFail: Boolean = false)(block: State => Option[MemorySpace]): (List[State], List[State]) = {
     val nm = block(previousState)

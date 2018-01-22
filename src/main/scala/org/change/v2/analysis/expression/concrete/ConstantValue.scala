@@ -48,6 +48,21 @@ case class ConstantValue(value: Long, isIp: Boolean = false, isMac: Boolean = fa
   }
 }
 
+
+case class ConstantBValue(value : String, size : Int) extends Expression with FloatingExpression {
+  /**
+    * A floating expression may include unbounded references (e.g. symbol ids)
+    *
+    * Given a context (the state) it can produce an evaluable expression.
+    *
+    * @param s
+    * @return
+    */
+  override def instantiate(s: State) = Left(this)
+
+  override def toZ3(solver: Option[Z3Solver]) = ???
+}
+
 /**
   *
   * For testing purposes only!!!! Note that this is just for better visualization

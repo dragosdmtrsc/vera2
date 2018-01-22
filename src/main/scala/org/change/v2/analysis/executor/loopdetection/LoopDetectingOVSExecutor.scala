@@ -2,7 +2,7 @@ package org.change.v2.analysis.executor.loopdetection
 
 import java.util.concurrent.ConcurrentLinkedQueue
 
-import org.change.v2.analysis.executor.{CodeAwareInstructionExecutor, OVSExecutor}
+import org.change.v2.analysis.executor.{AMFExecutor, CodeAwareInstructionExecutor, OVSExecutor}
 import org.change.v2.analysis.executor.solvers.{Solver, Z3BVSolver, Z3Solver}
 import org.change.v2.analysis.memory
 import org.change.v2.analysis.memory.State
@@ -14,7 +14,7 @@ import scala.collection.concurrent.{TrieMap, Map => ConcurrentMap}
 class LoopDetectingOVSExecutor(
                                 checkedPorts: Set[LocationId],
                                 instructions: Map[LocationId, Instruction],
-                                solver: Solver) extends CodeAwareInstructionExecutor(instructions, solver) {
+                                solver: Solver) extends AMFExecutor(instructions, solver) {
 
   lazy val stateHistory: ConcurrentMap[LocationId, ConcurrentLinkedQueue[State]] = {
     val history = new TrieMap[LocationId, ConcurrentLinkedQueue[State]]()
@@ -30,14 +30,14 @@ class LoopDetectingOVSExecutor(
     var toExecuteNext = () => super.executeForward(instruction, s, v)
 
     if (s.history.nonEmpty) {
-      val port = s.location
+      val port = instruction.place
 
       if (checkedPorts contains port)
         if (stateHistory(port).isEmpty)
           stateHistory(port).add(s)
         else {
           import scala.collection.JavaConverters._
-          if (stateHistory(port).asScala.exists(BVLoopDetector.loop(s, _)))
+          if (stateHistory(port).asScala.exists(older => older.history.length < s.history.length && BVLoopDetector.loop(s, older)))
           // Stop, loop detected
             toExecuteNext = () => super.executeFail(Fail("Loop detected"), s, v)
           else {

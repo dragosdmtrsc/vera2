@@ -1,0 +1,10 @@
+table_set_default send_frame _drop
+table_set_default forward _drop
+table_set_default ipv4_lpm _drop
+table_set_default mplb_port _drop
+table_set_default mplb _drop
+table_add send_frame rewrite_mac 2 => 11:22:33:44:55:66
+table_add forward set_dmac 10.0.0.1 => 11:22:33:44:55:67
+table_add ipv4_lpm set_nhop 0.0.0.0/0 => 10.0.0.1 2
+table_add mplb set_dst 80 => 20.20.20.20
+table_add mplb_port set_dst_mplb_port 1030 => 10.10.10.10

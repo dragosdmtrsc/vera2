@@ -10,6 +10,9 @@ scalacOptions := Seq("-unchecked", "-deprecation", "-encoding", "utf8")
 
 fork := true
 
+resolvers += "Sonatype OSS Snapshots" at
+   "https://oss.sonatype.org/content/repositories/releases"
+
 libraryDependencies ++= {
   Seq(
     "org.antlr" % "antlr4" % "4.7",
@@ -19,20 +22,28 @@ libraryDependencies ++= {
     "com.fasterxml.jackson.core" % "jackson-databind" % "2.8.3",
     "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.8.3",
     "com.regblanc" %% "scala-smtlib" % "0.2",
-    "junit" % "junit" % "4.12"
+    "junit" % "junit" % "4.12",
+    "com.storm-enroute" %% "scalameter" % "0.8.2"
   )
 }
 
+testFrameworks += new TestFramework("org.scalameter.ScalaMeterFramework")
+
+parallelExecution in Test := false
+
 exportJars := true
 
-//unmanagedJars in Compile += file("lib/scalaz3_2.11-2.1.jar")
+unmanagedJars in Compile += file("lib/scalaz3_2.11-2.1.jar")
 
 unmanagedResourceDirectories in Compile += baseDirectory.value / "lib"
 
 includeFilter in(Compile, unmanagedResourceDirectories) := ".dll,.so"
 
-
-test in assembly := {}
+fork in Test := true
+javaOptions in Test += "-Xss128M"
+javaOptions in Test += "-Xmx4G"
+javaOptions in run += "-Xss128M"
+//test in assembly := {}
 
 lazy val p4control = taskKey[Unit]("P4 control function to SEFL")
 
@@ -115,4 +126,4 @@ fullRunTask(p4, Compile, "org.change.v2.verification.P4Tester")
  fullRunTask(printer, Compile, "org.change.v2.verification.Printer")
 
 
- seq(Revolver.settings: _*)
+// seq(Revolver.settings: _*)

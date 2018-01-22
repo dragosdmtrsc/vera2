@@ -64,7 +64,7 @@ object OptimizedRouter {
     (for {
       line <- scala.io.Source.fromFile(file).getLines()
       tokens = line.split("\\s+")
-      if (tokens.length >= 3)
+      if tokens.length >= 3
       if tokens(0) != ""
       matchPattern = tokens(0)
       forwardingPort = tokens(2)
