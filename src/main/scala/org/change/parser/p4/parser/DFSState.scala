@@ -398,8 +398,24 @@ object StateExpander {
           NoOp
       }).toList)
     else NoOp
+    val totalLengthForThisBranch = x.history.tail.filter(_.isInstanceOf[ExtractStatement]).map {
+      case v : ExtractStatement =>
+        val sref = v.getExpression.asInstanceOf[StringRef].getRef
+        sw.getInstance(sref).getLayout.getFields.map(_.getLength).sum
+    }.sum
+
+
     InstructionBlock(
-      (watchForOtherHeaders :: (DestroyPacket() ::
+      List[Instruction](watchForOtherHeaders, DestroyPacket(), Instruction(
+        (as : org.change.v2.analysis.memory.State) => {
+          val firstOne = as.memory.rawObjects.keys.toList.sorted.headOption
+          (List[org.change.v2.analysis.memory.State](firstOne.map(f => {
+            val diff = totalLengthForThisBranch - f
+            as.copy(memory = as.memory.copy(rawObjects = as.memory.rawObjects.map(r => {
+              (r._1 + diff) -> r._2
+            })))
+          }).getOrElse(as)), Nil : List[org.change.v2.analysis.memory.State])
+        })) ++
         x.history.tail.filter(!_.isInstanceOf[ReturnStatement]).reverse.map {
           case v: ExtractStatement =>
             val sref = v.getExpression.asInstanceOf[StringRef].getRef
@@ -421,7 +437,7 @@ object StateExpander {
             })
             InstructionBlock(i)
           case _ => NoOp
-        })) :+ (x.history.head match {
+        } ++ List(x.history.head match {
         case v: ReturnStatement => if (!v.isError)
           Forward(name + s"deparser.out")
         else Fail(s"Parser failure because ${v.getMessage}")
@@ -449,6 +465,7 @@ object StateExpander {
                   (acc._1 ++ List[Instruction](
                     Allocate(sref + s".${r.getName}", r.getLength),
                     Assign(sref + s".${r.getName}", :@(Tag("START") + v.getCrt + acc._2)),
+                    CreateTag("LAST_HEADER", Tag("START") + v.getCrt + acc._2),
                     Allocate(s"Original.$sref.${r.getName}", r.getLength),
                     Assign(s"Original.$sref.${r.getName}", :@(sref + s".${r.getName}"))
                   ), acc._2 + r.getLength)

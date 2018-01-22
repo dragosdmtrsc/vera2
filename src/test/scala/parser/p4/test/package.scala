@@ -36,19 +36,6 @@ package object test {
     CodeAwareInstructionExecutor.flattenProgram(res.instructions(), res.links())
   }
 
-
-  def anonymizeAndForward(port : String): Instruction = {
-    InstructionBlock(
-      Instruction(anonymize),
-      Forward(port)
-    )
-  }
-
-  def anonymize(state: State): (List[State], List[State]) = {
-    (state.copy(memory = state.memory.copy(symbols = state.memory.symbols.map(r => s"${r._1}_anon${UUID.randomUUID().toString}" -> r._2))) :: Nil,
-      Nil : List[State])
-  }
-
   def postParserInject(parserout : Instruction, program : Map[String, Instruction], name : String = "router"): Map[String, Instruction] = {
     val newparserout = InstructionBlock(
       parserout,

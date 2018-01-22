@@ -1,0 +1,51 @@
+nodes:
+  - name: router-ingress
+    p4: router.p4
+    dataplane: commands-router-ingress.txt
+    ifaces:
+      1: veth0
+      2: veth1
+  - name: router-egress
+    p4: router.p4
+    dataplane: commands-router-egress.txt
+    ifaces:
+      1: veth0
+      2: veth1
+  - name: nat
+    p4: nat.p4
+    dataplane: commands-nat.txt
+    ifaces:
+      1: veth0
+      2: veth1
+      3: cpu
+  - name: cpu
+    p4: cpu.p4
+    dataplane: commands-cpu.txt
+    ifaces:
+      1: veth0
+      2: veth1
+edges:
+  - from:
+      node: nat
+      port: 1
+    to:
+      node: router-ingress
+      port: 2
+  - from:
+      node: nat
+      port: 2
+    to:
+      node: router-egress
+      port: 1
+  - from:
+      node: nat
+      port: 3
+    to:
+      node: cpu
+      port: 1
+  - from:
+      node: cpu
+      port: 1
+    to:
+      node: nat
+      port: 3
