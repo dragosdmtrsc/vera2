@@ -1,5 +1,6 @@
 package org.change.v2.verification
-import org.change.v2.analysis.processingmodels.instructions.{Fork, InstructionBlock, NoOp, Fail}
+import org.change.v2.analysis.memory.State
+import org.change.v2.analysis.processingmodels.instructions.{Fail, Fork, InstructionBlock, NoOp}
 import org.change.v2.analysis.processingmodels.{Instruction, LocationId}
 import org.change.v2.verification.Tester.Topo
 
@@ -11,25 +12,58 @@ import scala.collection.mutable.ListBuffer
 
 
 class PolicyLogger(start : LocationId) {
-  def unsatifState(p: Instruction) = if (newBlock(codePort)) {
-            codeToAdd += Fail("Unsatisfstate");
-            code += (currentPort -> InstructionBlock(codeToAdd));
-            currentCode = ListBuffer();
-            codeToAdd = currentCode;
+
+  // prepares a new codeBlock to write to
+
+  def newBlock() : Boolean = !(code.contains(currentPort))
+
+  // Todo:
+  def resetCodePointers = {currentCode = ListBuffer(); codeToAdd = currentCode;}
+
+  def createCodeblock = {
+    if (newBlock) {
+      if (codeToAdd.length == 1)
+        code += (currentPort -> codeToAdd(0));
+      else
+        code += (currentPort -> InstructionBlock(codeToAdd))
+    }
+    //println("New Codeblock "+codeToAdd)
+
+    resetCodePointers
   }
 
-  def failedState(p: Instruction) = if (newBlock(codePort)) {
-    codeToAdd += Fail("FailedState");
-    code += (currentPort -> InstructionBlock(codeToAdd));
-    currentCode = ListBuffer();
-    codeToAdd = currentCode;
+  // marks the termination of a code block
+  def addOutPort(port : LocationId) = {
+    //a codeblock has ended
+    createCodeblock
+    history.last += port
+    //println("History addoutport ",history)
+
+  }
+
+  //creates a link
+  def addInPort(port : LocationId) = {
+    links += (currentPort -> port)
+    history.last += port
+    //println("History addinport ",history)
   }
 
 
-  var paths = 0
+  def unsatifState(p: Instruction) = {
+    currentCode += Fail("Unsatifstate");
+    //createCodeblock
+    if (locationChanged) createCodeblock
+  }
+
+  def failedState(s:State, p: Instruction) = {
+    //should not be necessary, as this is triggered by a Fail instruction which is already documented
+    currentCode += Fail("FailedState: "+s.errorCause);
+    //createCodeblock
+    if (locationChanged) createCodeblock
+  }
+
+
   var history : ListBuffer[ListBuffer[LocationId]] = ListBuffer(ListBuffer(start))
-  var instructionTrace : ListBuffer[ListBuffer[Instruction]] = ListBuffer(ListBuffer())
-  var lastInstruction : Instruction = null
 
 
   // set of variables for constructing a partial topology
@@ -37,138 +71,193 @@ class PolicyLogger(start : LocationId) {
   var (code,links) : Topo = (Map(),Map())
   var currentCode : ListBuffer[Instruction] = ListBuffer(NoOp)
   var codeToAdd : ListBuffer[Instruction] = currentCode;
-  var codePort : LocationId = start;
+  var codeLoc : ListBuffer[LocationId] = ListBuffer(start)
 
 
-  // prepares a new codeBlock to write to
 
-  def newBlock(port : LocationId) : Boolean = !(code.contains(port))
-
-  def newCodeBlock(port : LocationId) = {
-    if (newBlock(port)) {
-      if (codeToAdd.length == 1)
-        code += (codePort -> codeToAdd(0));
-      else
-        code += (codePort -> InstructionBlock(codeToAdd))
+  def InstructionBlockEnded() = {//Todo
+    if (locationChanged && newBlock()) createCodeblock
     }
-    //println("Creating block !!",InstructionBlock(codeToAdd));
-    currentCode = ListBuffer();
-    codeToAdd = currentCode;
-    codePort = port;
-  }
-
-  def addLink(from: LocationId, to: LocationId) = links += (from -> to)
-
-  def pathEnded() = if (newBlock(codePort)) {code += (currentPort -> InstructionBlock(codeToAdd)); currentCode = ListBuffer(); codeToAdd = currentCode;}
 
   //end...
 
+  def initFork = {
+    history += ListBuffer(currentPort)
+    //println("History init fork ",history)
+    //println("Beginning of init fork: "+codeToAdd);
+
+    // for the partial topology
+    var crt:ListBuffer[Instruction] = ListBuffer() //reset the current code pointer
+    var forkList :ListBuffer[Instruction] = ListBuffer(InstructionBlock(crt));  // create the fork list
+    var i = Fork( forkList );
+    currentCode += i;
+    currentCode = crt;
+    forkStack += i;
+    codeLoc += currentPort; //we are now writing instructions in a Fork at the current location
 
 
-  var branchingHistoryList : ListBuffer[ListBuffer[LocationId]] = ListBuffer(ListBuffer())
-  def branchingHistory = branchingHistoryList.last
+    //println("End of init fork"+codeToAdd);
+  }
 
-  var branchingTraceList : ListBuffer[ListBuffer[Instruction]] = ListBuffer(ListBuffer())
-  def branchingTrace = branchingTraceList.last
+  def addPath = {
+    history.remove(history.length-1);
+    history += ListBuffer(currentPort)
+    //println("History addpath ",history, "current path ",codeToAdd)
 
-  def initFork = {branchingHistoryList += currentHistory; branchingTraceList += currentInstructionTrace;
-                  // for the partial topology
-                  currentCode = ListBuffer() //reset the current code pointer
-                  var forkList :ListBuffer[Instruction] = ListBuffer(); forkList += InstructionBlock(currentCode); // create the fork list
-                  var i = Fork( forkList );
-                  codeToAdd += Fork(i);
-                  forkStack += i;
-                  }
+    // for the partial topology
+    // must create a suitable "current code"; "codeToAdd" must be empty, since we are modifying an existing codeblock
+    //codeToAdd = ListBuffer() // the instructions preceding the fork have been added to the topology
 
-  def endFork = { branchingHistoryList.remove(branchingHistoryList.length-1);
-                  branchingTraceList.remove(branchingTraceList.length-1);
-                  history.remove(history.length-1); paths -=1; instructionTrace.remove(instructionTrace.length-1);
+    var f : Instruction = forkStack.last; // get the last Fork that has been executed
 
-                  // for the partial topology
-                  forkStack.remove(forkStack.length-1);
-                  //todo no need to improve, we are unfolding Fork(l);....
-                  codeToAdd = ListBuffer()
-                  currentCode = ListBuffer()
+    //println("Before : "+codeToAdd+"\n.........\n")
 
-                }
+    currentCode = ListBuffer()
 
-  def addPath = {paths+=1; history += (ListBuffer() ++ branchingHistory); instructionTrace += (ListBuffer() ++ branchingTrace);
+    f match {case Fork(l:ListBuffer[Instruction]) => l += InstructionBlock(currentCode);} //add a new path to it
+    //println("After : "+codeToAdd+"\n.........\n")
+    codeLoc.remove(codeLoc.length-1);    //update the location at which we are writing
+    codeLoc += currentPort;
+  }
 
-                  // for the partial topology
-                  // must create a suitable "current code"; "codeToAdd" must be empty, since we are modifying an existing codeblock
-                  codeToAdd = ListBuffer()
-                  var f : Instruction = forkStack.last;
-                  currentCode = ListBuffer()
-                  f match {case Fork(l:ListBuffer[Instruction]) => l += InstructionBlock(currentCode);}
+  def endFork = {
+    history.remove(history.length-1);
+    //println("History endfork ",history)
 
-                }
+    // for the partial topology
+    forkStack.remove(forkStack.length-1);
 
-  def addPort (port : LocationId) = history.last += port
-  def addInstruction(i : Instruction) = {instructionTrace.last += i; currentCode += i }
+    codeLoc.remove(codeLoc.length-1);
+    //todo no need to improve, we are unfolding Fork(l);....
+    //resetCodePointers
 
-  def currentPort = history.last.last
-  def currentHistory = history.last
-  def currentInstructionTrace = instructionTrace.last
-
-  def getInstructionTrace = {
-    //prettyPrint(instructionTrace)
-
-    println ("+++++++++++++")
-    for (i <- 0 to paths) {
-      println("Branches: "+i)
-      println ("Path ")
-      println (history(i))
-      println ("Trace ")
-      println (instructionTrace(i))
-    }
-    println ("-------------")
+    if (locationChanged && newBlock()) createCodeblock
 
   }
+  def locationChanged : Boolean = codeLoc.last == currentPort
+
+
+  //def addPort (port : LocationId) = history.last += port
+  def addInstruction(i : Instruction) = {
+    currentCode += i; //println("Instruction "+i+"\n*********\n added to \n"+codeToAdd+"\n-------\n")
+  }
+
+  def currentPort = history.last.last
+
 
 }
 
 
+
+
 /*
+
 class PolicyLogger(start : LocationId) {
-  var paths = 0
+
+  // prepares a new codeBlock to write to
+
+  def newBlock() : Boolean = !(code.contains(currentPort))
+  def resetCodePointers = {currentCode = ListBuffer(); codeToAdd = currentCode;}
+
+
+  def createCodeblock = {
+    if (newBlock) {
+      if (codeToAdd.length == 1)
+        code += (currentPort -> codeToAdd(0));
+      else
+        code += (currentPort -> InstructionBlock(codeToAdd))
+    }
+    resetCodePointers
+  }
+
+  // marks the termination of a code block
+  def addOutPort(port : LocationId) = {
+    //a codeblock has ended
+    createCodeblock
+    history.last += port
+    println("History addoutport ",history)
+
+  }
+
+  //creates a link
+  def addInPort(port : LocationId) = {
+    links += (currentPort -> port)
+    history.last += port
+    println("History addinport ",history)
+  }
+
+
+  def unsatifState(p: Instruction) = {
+    currentCode += Fail("Unsatifstate");
+    createCodeblock
+  }
+
+  def failedState(s:State, p: Instruction) = {
+    //should not be necessary, as this is triggered by a Fail instruction which is already documented
+    currentCode += Fail("FailedState: "+s.errorCause);
+    createCodeblock
+  }
+
+
   var history : ListBuffer[ListBuffer[LocationId]] = ListBuffer(ListBuffer(start))
-  var instructionTrace : ListBuffer[ListBuffer[Instruction]] = ListBuffer(ListBuffer())
-  var lastInstruction : Instruction = null
 
-  var branchingPortList : ListBuffer[LocationId] = ListBuffer()
-  def branchingPort = branchingPortList.last
 
-  def initFork = branchingPortList += currentPort;
-  def endFork = {branchingPortList.remove(branchingPortList.length-1); history.remove(history.length-1); paths -=1; instructionTrace.remove(instructionTrace.length-1);}
+  // set of variables for constructing a partial topology
+  var forkStack : ListBuffer[Fork] = ListBuffer()
+  var (code,links) : Topo = (Map(),Map())
+  var currentCode : ListBuffer[Instruction] = ListBuffer(NoOp)
+  var codeToAdd : ListBuffer[Instruction] = currentCode;
 
-  def addPath = {paths+=1; history += ListBuffer(branchingPort); instructionTrace += ListBuffer()}
 
-  def addPort (port : LocationId) = history.last += port
-  def addInstruction(i : Instruction) = {instructionTrace.last += i}
+
+  def pathEnded() = newBlock()
+
+  //end...
+
+  def initFork = {
+    history += ListBuffer(currentPort)
+    println("History init fork ",history)
+
+    // for the partial topology
+    currentCode = ListBuffer() //reset the current code pointer
+    var forkList :ListBuffer[Instruction] = ListBuffer(InstructionBlock(currentCode));  // create the fork list
+    var i = Fork( forkList );
+    codeToAdd += i;
+    forkStack += i;
+  }
+
+  def addPath = {
+    history.remove(history.length-1);
+    history += ListBuffer(currentPort)
+    println("History addpath ",history, "current path ",currentCode)
+
+    // for the partial topology
+    // must create a suitable "current code"; "codeToAdd" must be empty, since we are modifying an existing codeblock
+    //codeToAdd = ListBuffer() // the instructions preceding the fork have been added to the topology
+
+    var f : Instruction = forkStack.last; // get the last Fork that has been executed
+    currentCode = ListBuffer()
+    f match {case Fork(l:ListBuffer[Instruction]) => l += InstructionBlock(currentCode);} //add a new path to it
+    //println("Current fork: "+f+"\n.........\n")
+  }
+
+  def endFork = {
+    history.remove(history.length-1);
+    println("History endfork ",history)
+
+    // for the partial topology
+    forkStack.remove(forkStack.length-1);
+    //todo no need to improve, we are unfolding Fork(l);....
+    resetCodePointers
+
+  }
+
+
+
+  //def addPort (port : LocationId) = history.last += port
+  def addInstruction(i : Instruction) = { currentCode += i; println("Instruction "+i+"\n*********\n added to \n"+forkStack+"\n-------\n") }
 
   def currentPort = history.last.last
 
-
-  //def getHistory = prettyPrint(history)
-  /*
-  def prettyPrint[T] (l : ListBuffer[ListBuffer[T]]) =
-    l.fold("")(_ +"\n"+ _)
-*/
-
-
-  def getInstructionTrace = {
-    //prettyPrint(instructionTrace)
-
-    println ("+++++++++++++")
-    for (i <- 0 to paths) {
-      println("Branches: "+i)
-      println ("Path ")
-      println (history(i))
-      println ("Trace ")
-      println (instructionTrace(i))
-    }
-    println ("-------------")
-
-  }
 
 }*/
