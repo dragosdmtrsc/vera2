@@ -246,14 +246,16 @@ object Policy {
             }
             case None => elseWhat
           }
-          case InstructionBlock(instructions) => transform(s, instructions.foldRight(thenWhat)((x, acc) => {
+          case InstructionBlock(instructions) if instructions.nonEmpty => transform(s, instructions.foldRight(thenWhat)((x, acc) => {
             If(x, acc, elseWhat)
           }))
-          case Fork(instructions) => transform(s, instructions.foldRight(elseWhat)((x, acc) => {
+          case InstructionBlock(_) => thenWhat
+          case Fork(instructions) if instructions.nonEmpty => transform(s, instructions.foldRight(elseWhat)((x, acc) => {
             If(x, thenWhat, acc)
           }))
+          case Fork(_) => elseWhat
         }
-      case _ => null
+      case _ => ???
     }
   }
 

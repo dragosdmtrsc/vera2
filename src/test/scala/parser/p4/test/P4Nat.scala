@@ -228,10 +228,11 @@ class P4Nat extends FunSuite {
     import org.change.v2.verification.Policy._
     import org.change.v2.verification.Formula.Fail
 
-    check(EF(Fail), res.instructions()("router.input.1"), new MapState(res.instructions(), res.links(), State.clean,
-      CodeAwareInstructionExecutor(res.instructions(), res.links(), new Z3BVSolver)),
-      new PolicyLogger("router.input.1"))
-    var log_list = verifyP4(EF(Formula.Fail),"router.input.1",ib,res)
+//    check(EF(Fail), res.instructions()("router.input.1"), new MapState(res.instructions(), res.links(), State.clean,
+//      CodeAwareInstructionExecutor(res.instructions(), res.links(), new Z3BVSolver)),
+//      new PolicyLogger("router.input.1"))
+    var log_list = verifyP4(EF(Fail),"router.input.1",ib,res)
+
   }
 
   test("reverse run") {

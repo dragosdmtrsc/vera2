@@ -74,7 +74,6 @@ case class MapState (topology:Topology,
           logger.addInPort("Stuck");logger
         } //throw new Exception("Logger: cannot find a next hop for port "+inPort)
       }
-
     }
 
     p match {
