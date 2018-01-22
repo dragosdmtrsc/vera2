@@ -269,7 +269,7 @@ object Policy {
 def check (f : Formula, p: Instruction, s : PolicyState, logger : PolicyLogger) : (Formula,PolicyLogger) = {
 
   //verbose_print("Verifying " + f + "\n on program \n" + showp(p) + " port "+logger.currentPort,CustomMode);
-  //println(">>>>>>>>Verifying formula on program \n",show(p),"\n")
+  println(">>>>>>>>Verifying formula on program \n",p,"\n")
 
   if (s == UnsatisfState || s == FailedState)
     verbose_print("Failed branch (at port "+logger.currentPort+")"+" failed instruction ",LocMode);
@@ -385,7 +385,7 @@ def check (f : Formula, p: Instruction, s : PolicyState, logger : PolicyLogger) 
  }
 
   def check_sequence (f : Formula, s : PolicyState, p : Instruction, block : Continuation, logger:PolicyLogger) : (Formula,PolicyLogger) = {
-    //println("In check-sequence for "+p)
+    println("In check-sequence for "+p)
     //Thread.sleep(1000)
 
     val (sp,lp) = s.execute(p,logger)  // execute program pr in state s; if sp is unsatisfiable, this is treated by the subsequent "check" call

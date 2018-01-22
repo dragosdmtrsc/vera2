@@ -24,6 +24,7 @@ case class ExistsNamedSymbol(symbol : String) extends Instruction {
     }
   }
 }
+/*
 case class NotExistsRaw(a : Intable) extends Instruction {
   override def apply(s: State, verbose: Boolean): (List[State], List[State]) = {
     val news = if (verbose) s.addInstructionToHistory(this) else s
@@ -45,10 +46,12 @@ case class NotExistsNamedSymbol(symbol : String) extends Instruction {
     }
   }
 }
+
 object NotExists {
   def apply(symbol: String): Instruction = NotExistsNamedSymbol(symbol)
   def apply(intable: Intable): Instruction = NotExistsRaw(intable)
 }
+*/
 
 object Exists {
   def apply(symbol: String): Instruction = ExistsNamedSymbol(symbol)

@@ -343,6 +343,63 @@ def nat_star_to_cpu = {
   }
 }
 
+def nat_drop_from_external_when_no_mapping = {
+  val dir = "inputs/simple-nat-testing/"
+  val p4 = s"$dir/simple_nat-ppc.p4"
+  val dataplane = s"$dir/commands.txt"
+  val switchInstance = SymbolicSwitchInstance.fromFileWithSyms("router", Map[Int, String](1 -> "veth0", 2 -> "veth1", 11 -> "cpu"),
+    Map[Int, Int](250 -> 11), Switch.fromFile(p4), dataplane)
+
+  val res = ControlFlowInterpreter.buildSymbolicInterpreter(switchInstance, switchInstance.switch)
+
+  var ib = InstructionBlock(
+    res.allParserStatesInstruction(),
+    res.initFactory(switchInstance)
+  )
+
+  var log_list = verifyP4NAT("default",EF(Formula.Fail),"router.input.2",ib,res)
+
+  //var log = log_list(1);
+  //Printer.vizPrinter((res.instructions(),res.links),"p4nat_original.html");
+
+  var i = 0
+  for (log <- log_list) {
+    Printer.vizPrinter((log.code,log.links),"t0_drop_from_external_when_no_mapping_"+i+".html");
+    i += 1
+  }
+}
+
+  def nat_star_actions_from_int = {
+    val dir = "inputs/simple-nat-testing/"
+    val p4 = s"$dir/simple_nat-ppc.p4"
+    val dataplane = s"$dir/commands.txt"
+    val switchInstance = SymbolicSwitchInstance.fromFileWithSyms("router", Map[Int, String](1 -> "veth0", 2 -> "veth1", 11 -> "cpu"),
+      Map[Int, Int](250 -> 11), Switch.fromFile(p4), dataplane)
+
+    val res = ControlFlowInterpreter.buildSymbolicInterpreter(switchInstance, switchInstance.switch)
+
+    //println("Instruction ",res.instructions().find((r) => r._1.startsWith("router.table.nat.in.")).get)
+
+    var ib = InstructionBlock(
+      res.allParserStatesInstruction(),
+      res.initFactory(switchInstance)
+    )
+
+    var log_list = verifyP4NAT("default",EF(Formula.Fail),"router.input.1",ib,res)
+
+    //var log = log_list(1);
+    //Printer.vizPrinter((res.instructions(),res.links),"p4nat_original.html");
+
+    /*
+    var i = 0
+    for (log <- log_list) {
+      Printer.vizPrinter((log.code,log.links),"t1_star_actions_from_int_"+i+".html");
+      i += 1
+    }
+    */
+
+  }
+
 
   def dragos = {
 
@@ -358,7 +415,10 @@ def nat_star_to_cpu = {
     // nat policies
     // ----------------------------
 
-    nat_default_drop
+    //nat_default_drop
+    //nat_star_to_cpu
+    //nat_drop_from_external_when_no_mapping
+    nat_star_actions_from_int
 
 
     /*

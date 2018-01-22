@@ -94,8 +94,8 @@ lazy val policy = taskKey[Unit]("Policy testing")
 
 fullRunTask(policy, Compile, "org.change.v2.verification.Tester")
 
- javaOptions in policy += s"-Xmx1G"
- javaOptions in policy += s"-Xms256m"
+ javaOptions in policy += "-Xss128M"
+// javaOptions in policy += s"-Xms256m"
 
 lazy val btdemo = taskKey[Unit]("BTDemo")
 
