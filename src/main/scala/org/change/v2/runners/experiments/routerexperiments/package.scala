@@ -3,14 +3,16 @@ package org.change.v2.runners.experiments
 import java.io.File
 
 import org.change.v2.abstractnet.click.selfbuildingblocks.EtherMumboJumbo
+import org.change.v2.abstractnet.mat.tree.Node
+import org.change.v2.abstractnet.mat.tree.Node.Forest
 import org.change.v2.abstractnet.optimized.router.OptimizedRouter
-import org.change.v2.analysis.constraint._
 import org.change.v2.analysis.expression.concrete.ConstantValue
 import org.change.v2.analysis.expression.concrete.nonprimitive.:||:
 import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.analysis.processingmodels.instructions._
 import org.change.v2.util.canonicalnames._
-import org.change.v2.util.conversion.RepresentationConversion
+import org.change.v2.abstractnet.mat.condition.{Range => CRange}
+import org.change.v2.analysis.constraint.{AND, Constraint, GTE_E, LTE_E, NOT, OR}
 
 import scala.util.Random
 
@@ -36,7 +38,7 @@ package object routerexperiments {
 
   def buildIfElseChainModel(entries: RoutingEntries): Instruction = {
     entries.foldRight(NoOp: Instruction)( (i, crtCode) =>
-      If(Constrain(IPDst, :&:(:>=:(ConstantValue(i._1._1)), :<=:(ConstantValue(i._1._2)))),
+      If(Assert(IPDst, :&:(:>=:(ConstantValue(i._1._1)), :<=:(ConstantValue(i._1._2)))),
         Forward(i._2),
         crtCode
       )
@@ -78,7 +80,7 @@ package object routerexperiments {
         }))
     }).groupBy(_._1).map( kv =>
       InstructionBlock(
-        ConstrainRaw(IPDst, OR(kv._2.map(_._2).toList)),
+        Assert(IPDst, OR(kv._2.map(_._2).toList)),
         Forward(kv._1)))
     )
   }
@@ -88,11 +90,60 @@ package object routerexperiments {
       .mapValues(portEntries =>
         :|:(portEntries.map( entry => :&:(:>=:(ConstantValue(entry._1._1)), :<=:(ConstantValue(entry._1._2)))).toList))
       .foldRight(NoOp: Instruction)( (port, crtCode) =>
-        If(Constrain(IPDst, port._2),
+        If(Assert(IPDst, port._2),
           Forward(port._1),
           crtCode
         )
       )
   }
+
+  def buildImprovedFork(rawEntries: RoutingEntries): Instruction = {
+    val entries = rawEntries.reverse
+    assert(entries.unzip._1.toSet.size == entries.length, "No duplicates")
+
+    val portToRangeMapping = entries.groupBy(_._2)
+    val forest: Forest[CRange] = Node.makeForest[CRange](entries.map(entry => CRange(entry._1._1, entry._1._2)))
+    val constraints = getAllConstraints(forest)
+
+    assert(entries.length == Node.forestSize(forest), "Not enough nodes produced")
+    assert(entries.length == constraints.size, "Same number of constraints produced")
+    assert(portToRangeMapping.size == entries.map(_._2).toSet.size)
+
+    val f = Fork(
+      portToRangeMapping.map( portToRangeMapping => {
+        val port = portToRangeMapping._1
+        val mergedConstraints = OR(
+            portToRangeMapping._2.map( entry => {
+              constraints(entry._1)
+          }).toList
+        )
+
+        InstructionBlock(
+          Assert(IPDst, mergedConstraints),
+          Forward(port)
+        )
+      })
+    )
+
+    assert(f.forkBlocks.size == portToRangeMapping.size, "Fork has all ports")
+
+    f
+  }
+
+  private def getAllConstraints(f: Forest[CRange]): Map[(Long, Long), Constraint] =
+    f.flatMap(getAllConstraints).toMap
+
+  private def getAllConstraints(n: Node[CRange]): Map[(Long, Long), Constraint] = {
+    val nodeConstraint = if (n.children.nonEmpty || n.lateral.nonEmpty)
+      AND(List(
+        rangeToConstraint(n.condition),
+        NOT(OR((n.children ++ n.lateral).map(conflict => rangeToConstraint(conflict.condition)))))
+      ) else rangeToConstraint(n.condition)
+
+    getAllConstraints(n.children) + ((n.condition.lower, n.condition.upper) -> nodeConstraint)
+  }
+
+  private def rangeToConstraint(r: CRange): Constraint =
+    AND(List(GTE_E(ConstantValue(r.lower)), LTE_E(ConstantValue(r.upper))))
 
 }

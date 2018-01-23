@@ -42,16 +42,18 @@ class RouterTests extends FunSuite {
     import org.change.v2.runners.experiments.routerexperiments._
     val file: String = "src/main/resources/routing_tables/huge.txt"
     for {
-      count <- Seq(10, 100, 500, 1000, 5000, 10000)
+      count <- Seq(100000)
     } {
       val entries = selectNRandomRoutingEntries(file, Some(count))
-      println(s"Size is $count")
-      println("Stupid if/else")
-      buildAndMeasure(buildIfElseChainModel _, entries)
-      println("Port-grouped if/else")
-      buildAndMeasure(buildPerPortIfElse _, entries)
+      println(s"Size is $count, unique ports is ${entries.unzip._2.toSet.size}")
+//      println("Stupid if/else")
+//      buildAndMeasure(buildIfElseChainModel _, entries)
+//      println("Port-grouped if/else")
+//      buildAndMeasure(buildPerPortIfElse _, entries)
       println("Basic fork model")
       buildAndMeasure(buildBasicForkModel _, entries)
+      println("Improved fork model")
+      buildAndMeasure(buildImprovedFork _, entries)
     }
   }
 
@@ -88,6 +90,6 @@ class RouterTests extends FunSuite {
     }
     println(s"Time to execute: $timeToExecute")
 
-    println(s"Successful paths: ${r._1.size}")
+    println(s"Successful paths: ${r._1.size}, failed is ${r._2.size}")
   }
 }
