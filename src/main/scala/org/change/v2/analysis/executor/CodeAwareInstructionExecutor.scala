@@ -122,10 +122,13 @@ class CodeAwareInstructionExecutor(val program : Map[String, Instruction],
             x
           )
         })), s, v)
-      //        handleSuperFork(sf, s, v)
-      //        this.executeFork(Fork(sf.instructions), s, v)
+      case destroy : DestroyPacket =>
+        val stopHere = Tag("LAST_HEADER")(s).getOrElse(Int.MaxValue)
+        (List[State](s.copy(memory =
+          s.memory.copy(rawObjects = s.memory.rawObjects.filter(r => {
+            r._1 > stopHere
+          })).UnTag("LAST_HEADER").get)), Nil)
       case _ => super.executeExoticInstruction(instruction, s, v)
-//        instruction(s, v)
     }
   }
 

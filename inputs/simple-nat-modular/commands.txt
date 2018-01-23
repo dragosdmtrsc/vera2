@@ -1,0 +1,22 @@
+table_add nat nat_miss_ext_to_int 0x01 1 1 0x00000000&&&0x00000000 0x00000000&&&0x00000000 0x0000&&&0x0000 0x0000&&&0x0000 => 99
+table_add nat nat_miss_int_to_ext 0x00 1 1 0x00000000&&&0x00000000 0x00000000&&&0x00000000 0x0000&&&0x0000 0x0000&&&0x0000 => 99
+table_add nat nat_hit_int_to_ext 0x00 1 1 0x0a00000a&&&0xffffffff 0x00000000&&&0x00000000 0x86b6&&&0xffff 0x0000&&&0x0000 => 0xc0a80001 0x0401 1
+table_add nat nat_hit_ext_to_int 0x01 1 1 0x00000000&&&0x00000000 0xc0a80001&&&0xffffffff 0x0000&&&0x0000 0x0401&&&0xffff => 0x0a00000a 0x86b6 1
+table_set_default nat _drop
+table_add ipv4_lpm set_nhop 0x0a00000a/32 => 0x0a00000a 0x01
+table_add ipv4_lpm set_nhop 0xc0a8000a/32 => 0xc0a8000a 0x02
+table_set_default ipv4_lpm _drop
+table_set_default send_to_cpu do_cpu_encap
+table_add forward set_dmac 0x0a00000a => 0x0400000010
+table_add forward set_dmac 0xc0a8000a => 0x0500000010
+table_set_default forward _drop
+table_add if_info set_if_info 0x01 => 0x0a000001 0xaabb000004 0x00
+table_add if_info set_if_info 0x02 => 0xc0a80001 0xaabb000005 0x01
+table_set_default if_info _drop
+table_add send_frame do_rewrites 0x0001 => 0xaabb000004
+table_add send_frame do_rewrites 0x0002 => 0xaabb000005
+table_set_default send_frame _drop
+table_add send_frame_no_cpu do_rewrites_no_cpu 0x0001 => 0xaabb000004
+table_add send_frame_no_cpu do_rewrites_no_cpu 0x0002 => 0xaabb000005
+table_set_default send_frame_no_cpu _drop
+mirroring_add 250 11
