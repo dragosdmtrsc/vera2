@@ -1,11 +1,12 @@
 package org.change.v2.analysis.executor
 
+import java.util.UUID
 import java.util.concurrent.{ExecutorService, Executors}
 
 import org.change.v2.analysis.constraint._
 import org.change.v2.analysis.executor.solvers.{ConstraintLogger, LogSolver, Solver}
 import org.change.v2.analysis.expression.abst.Expression
-import org.change.v2.analysis.expression.concrete.nonprimitive.{Minus, Plus, Reference}
+import org.change.v2.analysis.expression.concrete.nonprimitive._
 import org.change.v2.analysis.expression.concrete.{ConstantStringValue, ConstantValue, SymbolicValue}
 import org.change.v2.analysis.memory._
 import org.change.v2.analysis.processingmodels.Instruction
@@ -55,6 +56,53 @@ object OVSExecutor {
 class OVSExecutor(solver: Solver) extends DecoratedInstructionExecutor(solver) {
 
   import OVSExecutor.normalize
+
+
+  override def executeAssignNamedSymbol(instruction: AssignNamedSymbol, s: State, v: Boolean): (List[State], List[State]) = {
+    if (!s.memory.symbolIsDefined(instruction.id)) instruction.exp match {
+      case Symbol(sb) => optionToStatePair(s, "Cannot allocate", true)(r => r.memory.symbols.get(sb).flatMap(mo => {
+        val (salloc, sfail) = execute(Allocate(id = instruction.id, size = mo.size), r, v)
+        if (salloc.isEmpty)
+          None : Option[MemorySpace]
+        else
+          mo.value.flatMap(v => salloc.head.memory.assignNewValue(instruction.id, v))
+      }))
+      case Address(a) =>
+        a(s) match {
+          case Some(sb) => optionToStatePair(s, "Cannot allocate", true)(r => r.memory.rawObjects.get(sb).flatMap(mo => {
+            val (salloc, sfail) = execute(Allocate(id = instruction.id, size = mo.size), r, v)
+            if (salloc.isEmpty)
+              None : Option[MemorySpace]
+            else
+              mo.value.flatMap(v => salloc.head.memory.assignNewValue(instruction.id, v))
+          }))
+          case None => execute(Fail(TagExp.brokenTagExpErrorMessage), s, v)
+        }
+      case _ => super.executeAssignNamedSymbol(instruction, s, v)
+    } else super.executeAssignNamedSymbol(instruction, s, v)
+  }
+
+  override def executeDeallocateRaw(instruction: DeallocateRaw, s: State, v: Boolean): (List[State], List[State]) = {
+    val DeallocateRaw(a: Intable, size: Int) = instruction
+    a(s) match {
+      case Some(int) =>
+        optionToStatePair(s, s"Cannot deallocate @ $a of size $size")(s => {
+          s.memory.rawObjects.get(int).flatMap(mo => {
+            s.memory.copy(symbols = s.memory.symbols + (s"${UUID.randomUUID()}" -> mo)).Deallocate(int, size)
+          })
+        })
+      case None => execute(Fail(TagExp.brokenTagExpErrorMessage), s, v)
+    }
+  }
+
+  override def executeDeallocateNamedSymbol(instruction: DeallocateNamedSymbol, s: State, v: Boolean): (List[State], List[State]) = {
+    val DeallocateNamedSymbol(id) = instruction
+    optionToStatePair(s, s"Cannot deallocate $id")(s => {
+      s.memory.symbols.get(id).flatMap(mo => {
+        s.memory.copy(symbols = s.memory.symbols + (s"${UUID.randomUUID()}" -> mo)).Deallocate(id)
+      })
+    })
+  }
 
 
   override def executeAssignRaw(instruction: AssignRaw,
