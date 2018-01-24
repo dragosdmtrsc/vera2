@@ -1,11 +1,12 @@
 package parser.p4.test
 
+import java.io.PrintStream
 import java.util.UUID
 
 import org.change.parser.p4.ControlFlowInterpreter
 import org.change.v2.analysis.executor.CodeAwareInstructionExecutor
 import org.change.v2.analysis.executor.solvers.Z3BVSolver
-import org.change.v2.analysis.expression.concrete.ConstantValue
+import org.change.v2.analysis.expression.concrete.{ConstantStringValue, ConstantValue}
 import org.change.v2.analysis.expression.concrete.nonprimitive.:@
 import org.change.v2.analysis.memory.State
 import org.change.v2.analysis.processingmodels.Instruction
@@ -210,7 +211,7 @@ class P4Nat extends FunSuite {
   }
 
   test("policy wrong") {
-    val dir = "inputs/simple-nat-testing/"
+    val dir = "inputs/simple-nat-populated/"
     val p4 = s"$dir/simple_nat-ppc.p4"
     val dataplane = s"$dir/commands.txt"
     val switchInstance = SymbolicSwitchInstance.fromFileWithSyms("router", Map[Int, String](1 -> "veth0", 2 -> "veth1", 11 -> "cpu"),
@@ -221,18 +222,19 @@ class P4Nat extends FunSuite {
     val what = res.instructions().find((r) => r._1.startsWith("router.table.nat.in.")).get
     println("Instruction " + what)
 
+    import org.change.v2.analysis.memory.TagExp.IntImprovements
     var ib = InstructionBlock(
-      res.allParserStatesInstruction(),
+      CreateTag("START", 0),
+      Call("router.generator.parse_ethernet.parse_ipv4.parse_tcp"),
       res.initFactory(switchInstance)
     )
     import org.change.v2.verification.Policy._
-    import org.change.v2.verification.Formula.Fail
 
+//    System.setOut(ps)
 //    check(EF(Fail), res.instructions()("router.input.1"), new MapState(res.instructions(), res.links(), State.clean,
 //      CodeAwareInstructionExecutor(res.instructions(), res.links(), new Z3BVSolver)),
 //      new PolicyLogger("router.input.1"))
-    var log_list = verifyP4(EF(Fail),"router.input.1",ib,res)
-
+    var log_list = verifyP4(AF(Constrain("CurrentPort",:==:(ConstantStringValue("router.output.1")))),"router.input.2",ib,res)
   }
 
   test("reverse run") {

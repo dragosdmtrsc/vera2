@@ -414,6 +414,15 @@ class SwitchTests extends FunSuite {
       "parse_ethernet.parse_ipv4.parse_tcp")
   }
 
+  test("SWITCH - L3VxlanTunnelTest with trivial deparser & deterministic parser double encap") {
+    val dir = "inputs/big-switch"
+    val p4 = s"$dir/switch-ppc-orig.p4"
+    val dataplane = s"$dir/pd-L3VxlanTunnelTest.txt"
+    val port = 2
+    setupAndRunSwitchWithSimpleParser(dir, p4, dataplane, port, ethernetIp4UdpVxlanIpUdp,
+      "parse_ethernet.parse_ipv4.parse_udp.parse_vxlan.parse_inner_ethernet.parse_inner_ipv4.parse_inner_udp")
+  }
+
   test("SWITCH - L2QinQTest with trivial deparser & deterministic parser encap") {
     val dir = "inputs/big-switch"
     val p4 = s"$dir/switch-ppc-orig.p4"
@@ -434,6 +443,8 @@ class SwitchTests extends FunSuite {
 
   def ethernetIp4UdpVxlanIpTcp(x : String) : Boolean =
     x == "parse_ethernet.parse_ipv4.parse_udp.parse_vxlan.parse_inner_ethernet.parse_inner_ipv4.parse_inner_tcp"
+  def ethernetIp4UdpVxlanIpUdp(x : String) : Boolean =
+    x == "parse_ethernet.parse_ipv4.parse_udp.parse_vxlan.parse_inner_ethernet.parse_inner_ipv4.parse_inner_udp"
 
   def ethernetIp4TcpPacket(x : String): Boolean =  x.contains("parse_ethernet") &&
     x.contains("parse_ipv4") &&

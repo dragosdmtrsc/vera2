@@ -297,7 +297,9 @@ object Constrainable {
   }
 }
 
-class FullTable(tableName : String, switchInstance: SwitchInstance, id : String = "") {
+class FullTable(tableName : String,
+                switchInstance: SwitchInstance,
+                id : String = "", egressPipeline : Boolean = false) {
 
   val switch: Switch = switchInstance.getSwitchSpec
   private val flows = switchInstance.flowInstanceIterator(tableName)

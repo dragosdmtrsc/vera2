@@ -511,7 +511,6 @@ def check (f : Formula, p: Instruction, s : PolicyState, logger : PolicyLogger) 
 
     // return a list of loggers
 
-
     l.map ((s:State) => {
       var (x,y) = check(f,res.instructions()(start),new MapState(res.instructions(),links,s,exe),new PolicyLogger(start))
       println("\n =================\n Formula is ",x.status)

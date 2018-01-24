@@ -418,8 +418,16 @@ class ActionInstance(p4Action: P4Action,
     )
     If (Constrain(src + ".IsValid", :==:(ConstantValue(1))),
       InstructionBlock(
-        Assign(dst + ".IsValid", ConstantValue(1)),
-        instrList
+        if (relaxed)
+          InstructionBlock(
+            Assign(dst + ".IsValid", ConstantValue(1)),
+            instrList
+          )
+        else
+          If (Constrain(dst + ".IsValid", :==:(ConstantValue(1))),
+            instrList,
+            Fail(s"Cannot copy $src to $dst, because $dst is still invalid")
+          )
       ),
       Assign(dst + ".IsValid", ConstantValue(0))
     )
@@ -565,12 +573,14 @@ class ActionInstance(p4Action: P4Action,
   private def pushBy(count: Int, hdrArray: ArrayInstance, arrName : String): Instruction = {
     val pushDown = (hdrArray.getLength - count - 1).to(0, -1).map(x => {
       new ActionInstance(switch.getActionRegistrar.getAction("copy_header"),
-        List[FloatingExpression](:@(s"$arrName[${x + count}]"), :@(s"$arrName[$x]")), switchInstance, switch, table, flowNumber, dropMessage).sefl()
+        List[FloatingExpression](:@(s"$arrName[${x + count}]"), :@(s"$arrName[$x]")), switchInstance,
+        switch, table, flowNumber, dropMessage).sefl()
     }).toList
 
     val createNews = (0 until count).map(x => {
       new ActionInstance(switch.getActionRegistrar.getAction("add_header"),
-        List[FloatingExpression](:@(s"$arrName[$x]")), switchInstance, switch, table, flowNumber, dropMessage).handleAddHeader(false)
+        List[FloatingExpression](:@(s"$arrName[$x]")), switchInstance, switch,
+        table, flowNumber, dropMessage).handleAddHeader(false)
     }).toList
     InstructionBlock(
       pushDown ++ createNews
@@ -667,7 +677,10 @@ class ActionInstance(p4Action: P4Action,
       case P4ActionType.Subtract => handleSubtract(primitiveAction.asInstanceOf[Subtract])
       case P4ActionType.SubtractFromField => handleSubtractFromField(primitiveAction.asInstanceOf[SubtractFromField])
       case P4ActionType.ModifyField => handleModifyField(primitiveAction.asInstanceOf[ModifyField])
-      case P4ActionType.Drop => Assign("standard_metadata.egress_spec", ConstantValue(511))//Fail(dropMessage)
+      case P4ActionType.Drop => If (Constrain("egress_pipeline", :==:(ConstantValue(0))),
+        Assign("standard_metadata.egress_spec", ConstantValue(511)),
+        Fail(dropMessage)
+      )
       case P4ActionType.NoOp => NoOp
       case P4ActionType.RegisterRead => handleRegisterRead(primitiveAction.asInstanceOf[RegisterRead])
       case P4ActionType.RegisterWrite => handleRegisterWrite(primitiveAction.asInstanceOf[RegisterWrite])

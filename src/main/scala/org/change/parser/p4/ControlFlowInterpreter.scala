@@ -8,7 +8,7 @@ import org.change.parser.p4.tables.SymbolicSwitchInstance
 import org.change.parser.p4.parser.{ParserGenerator, SwitchBasedParserGenerator}
 import org.change.parser.p4.tables.FullTable
 import org.change.v2.analysis.executor.InstructionExecutor
-import org.change.v2.analysis.expression.concrete.SymbolicValue
+import org.change.v2.analysis.expression.concrete.{ConstantValue, SymbolicValue}
 import org.change.v2.analysis.memory.State
 import org.change.v2.analysis.processingmodels._
 import org.change.v2.analysis.processingmodels.instructions._
@@ -48,9 +48,23 @@ class ControlFlowInterpreter[T<:ISwitchInstance](val switchInstance: T,
   private val initializeCode = new InitializeCode(switchInstance, switch, additionalInitCode, initFactory)
 
   private val controlFlowInstructions =
-    Rewriter.rewrite(switch.getControlFlowInstructions.toMap).transform()(renamer)._1
+    Rewriter.rewrite(switch.getControlFlowInstructions.toMap).transform()(renamer)._1.map(r => {
+      r._1 -> (
+        if (r._1 == s"${switchInstance.getName}.control.ingress")
+          InstructionBlock(
+            Assign("egress_pipeline", ConstantValue(0)),
+            r._2
+          )
+        else if (r._1 == s"${switchInstance.getName}.control.egress")
+          InstructionBlock(
+            Assign("egress_pipeline", ConstantValue(1)),
+            r._2
+          )
+        else
+          r._2
+      )
+    })
   private val controlFlowLinks = Rewriter.linkRewriter(switch.getControlFlowLinks.toMap).transform()(renamer)._2
-  private val controlExactMatcher = "control\\.(.*?)\\.out\\.(.*)".r
 
   private val tableExactMatcher = "table\\.(.*?)\\.out\\.(.*)".r
   val plugTables: Map[String, Instruction] = controlFlowLinks.

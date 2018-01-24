@@ -54,7 +54,8 @@ table_set_default nat_twice on_miss
 table_set_default egress_system_acl nop 
 table_set_default meter_index nop 
 table_add tunnel_encap_process_inner inner_ipv4_tcp_rewrite 1 0 1 0 0 => 
-table_set_default tunnel_encap_process_inner EMPTY 
+table_add tunnel_encap_process_inner inner_ipv4_udp_rewrite 1 0 0 1 0 =>
+table_set_default tunnel_encap_process_inner EMPTY
 table_set_default egress_ipv6_acl nop 
 table_set_default fabric_lag member(0) 
 table_set_default egress_filter_drop set_egress_filter_drop 
