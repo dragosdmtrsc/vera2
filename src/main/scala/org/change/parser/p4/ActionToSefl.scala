@@ -667,7 +667,7 @@ class ActionInstance(p4Action: P4Action,
       case P4ActionType.Subtract => handleSubtract(primitiveAction.asInstanceOf[Subtract])
       case P4ActionType.SubtractFromField => handleSubtractFromField(primitiveAction.asInstanceOf[SubtractFromField])
       case P4ActionType.ModifyField => handleModifyField(primitiveAction.asInstanceOf[ModifyField])
-      case P4ActionType.Drop => Fail(dropMessage)
+      case P4ActionType.Drop => Assign("standard_metadata.egress_spec", ConstantValue(511))//Fail(dropMessage)
       case P4ActionType.NoOp => NoOp
       case P4ActionType.RegisterRead => handleRegisterRead(primitiveAction.asInstanceOf[RegisterRead])
       case P4ActionType.RegisterWrite => handleRegisterWrite(primitiveAction.asInstanceOf[RegisterWrite])
