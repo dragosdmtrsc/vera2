@@ -14,9 +14,9 @@ object MemorySpaceToJson extends DefaultJsonProtocol {
     import org.change.v2.analysis.memory.jsonformatters.MemoryObjectToJson._
 
     override def write(obj: MemorySpace): JsValue = JsObject(
-      "tags" -> JsArray(obj.memTags.map(tv => JsObject(tv._1 -> JsNumber(tv._2))).toVector),
+      "tags" -> JsObject(obj.memTags.map(tv => tv._1 -> JsNumber(tv._2))),
       "meta_symbols" -> JsObject(obj.symbols.map(tv => tv._1 ->  tv._2.toJson)),
-      "header_fields" -> JsArray(obj.rawObjects.map(tv => JsObject(tv._1.toString -> tv._2.toJson)).toVector)
+      "header_fields" -> JsObject(obj.rawObjects.map(tv => tv._1.toString -> tv._2.toJson))
     )
   }
 

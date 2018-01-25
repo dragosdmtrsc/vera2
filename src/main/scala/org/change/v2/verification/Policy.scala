@@ -1,14 +1,15 @@
 package org.change.v2.verification
 
-import org.change.parser.p4.ControlFlowInterpreter
+import org.change.parser.p4.{ControlFlowInterpreter, anonymizeAndForward}
 import org.change.v2.analysis.constraint.NOT
 import org.change.v2.analysis.executor.solvers.{Z3BVSolver, Z3Solver}
 import org.change.v2.analysis.executor.{AbstractInstructionExecutor, CodeAwareInstructionExecutor, OVSExecutor}
-import org.change.v2.analysis.expression.concrete.ConstantStringValue
+import org.change.v2.analysis.expression.concrete.nonprimitive.:@
+import org.change.v2.analysis.expression.concrete.{ConstantStringValue, ConstantValue}
 import org.change.v2.analysis.memory.State
 import org.change.v2.analysis.processingmodels._
-import org.change.v2.analysis.processingmodels.instructions.{:~:, AllocateRaw, AllocateSymbol, Assign, AssignRaw, ConstrainNamedSymbol, ConstrainRaw, CreateTag, DeallocateNamedSymbol, DeallocateRaw, DestroyTag, ExistsNamedSymbol, ExistsRaw, Fork, Forward, If, InstructionBlock, NoOp, NotExistsNamedSymbol, NotExistsRaw, Fail => SEFLFail}
-import org.change.v2.p4.model.ISwitchInstance
+import org.change.v2.analysis.processingmodels.instructions.{:==:, :~:, AllocateRaw, AllocateSymbol, Assign, AssignRaw, Call, Constrain, ConstrainNamedSymbol, ConstrainRaw, CreateTag, DeallocateNamedSymbol, DeallocateRaw, DestroyTag, ExistsNamedSymbol, ExistsRaw, Fork, Forward, If, InstructionBlock, NoOp, NotExistsNamedSymbol, NotExistsRaw, Fail => SEFLFail}
+import org.change.v2.p4.model.{ISwitchInstance, SwitchInstance}
 import org.change.v2.verification.Formula._
 import org.change.v2.util._
 /**
@@ -486,9 +487,32 @@ def check (f : Formula, p: Instruction, s : PolicyState, logger : PolicyLogger) 
     logger
   }
 
-  def verifyP4[T<:ISwitchInstance] (f: Formula, start: LocationId, ib : Instruction, res : ControlFlowInterpreter[T]) : List[PolicyLogger] = {
-    var exe:AbstractInstructionExecutor = CodeAwareInstructionExecutor(res.instructions(),res.links(),new Z3BVSolver)
 
+  private def natAndReverse[T<:ISwitchInstance](res: ControlFlowInterpreter[T]) = {
+    import org.change.v2.analysis.memory.TagExp.IntImprovements
+    val codeAwareInstructionExecutor = CodeAwareInstructionExecutor(res.instructions(), res.links(), solver = new Z3BVSolver)
+    val newinstrs = codeAwareInstructionExecutor.program
+    val reverseBlock = createReverse("reverse")
+    val fullInstrs = (reverseBlock ++ newinstrs) + ("router.output.2" -> anonymizeAndForward("reverse.input.1")) +
+      ("reverse.output.1" -> anonymizeAndForward("router.input.2"))
+    fullInstrs
+  }
+  def createReverse(withName : String): Map[String, Instruction] = {
+    val dir = "inputs/reverse-p4/"
+    val p4 = s"$dir/reverse.p4"
+    val dataplane = s"$dir/commands-rev.txt"
+    val res = ControlFlowInterpreter(p4, dataplane, Map[Int, String](1 -> "veth0", 2 -> "veth1", 11 -> "cpu"), withName)
+    CodeAwareInstructionExecutor.flattenProgram(res.instructions(), res.links())
+  }
+  def verifyP4AndReverse[T<:ISwitchInstance] (f: Formula, start: LocationId, ib : Instruction,
+                                             res : ControlFlowInterpreter[T]) : List[PolicyLogger] = {
+    verifyP4(f, start, ib, natAndReverse(res), Map.empty)
+  }
+
+  def verifyP4(f: Formula, start: LocationId, ib : Instruction,
+                                    instructions : Map[String, Instruction],
+                                    lks : Map[String, String] = Map.empty) : List[PolicyLogger] = {
+    var exe:AbstractInstructionExecutor = CodeAwareInstructionExecutor(instructions, lks, new Z3BVSolver)
     /*
     val ib = InstructionBlock(
       res.allParserStatesInline(),
@@ -503,7 +527,7 @@ def check (f : Formula, p: Instruction, s : PolicyState, logger : PolicyLogger) 
     //println("OK:",l)
     //println("Fail:",fa)
 
-    var links = res.links() // - "router.buffer.out"
+    var links = lks // - "router.buffer.out"
 
 
     //l = l.head :: Nil
@@ -512,11 +536,15 @@ def check (f : Formula, p: Instruction, s : PolicyState, logger : PolicyLogger) 
     // return a list of loggers
 
     l.map ((s:State) => {
-      var (x,y) = check(f,res.instructions()(start),new MapState(res.instructions(),links,s,exe),new PolicyLogger(start))
+      var (x,y) = check(f,instructions(start),new MapState(instructions, links,s,exe),new PolicyLogger(start))
       println("\n =================\n Formula is ",x.status)
       y
     })
+  }
 
+
+  def verifyP4[T<:ISwitchInstance] (f: Formula, start: LocationId, ib : Instruction, res : ControlFlowInterpreter[T]) : List[PolicyLogger] = {
+    verifyP4(f, start, ib, res.instructions(), res.links())
   }
 
   /*

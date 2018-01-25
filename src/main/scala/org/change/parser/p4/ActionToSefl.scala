@@ -400,7 +400,7 @@ class ActionInstance(p4Action: P4Action,
     }
   }
 
-  def handleCopyHeader() : Instruction = {
+  def handleCopyHeader(noCheck : Boolean = relaxed) : Instruction = {
     val dst = argList.head.asInstanceOf[Symbol].id
     val src = argList(1).asInstanceOf[Symbol].id
 
@@ -418,7 +418,7 @@ class ActionInstance(p4Action: P4Action,
     )
     If (Constrain(src + ".IsValid", :==:(ConstantValue(1))),
       InstructionBlock(
-        if (relaxed)
+        if (noCheck)
           InstructionBlock(
             Assign(dst + ".IsValid", ConstantValue(1)),
             instrList
@@ -484,7 +484,7 @@ class ActionInstance(p4Action: P4Action,
         )
       ),
       if (shouldCheck)
-        Fail("Attempt to remove_header whilst header instance still not valid")
+        Fail(s"Attempt to remove_header whilst header instance $fhname still not valid")
       else
         NoOp
     )
@@ -496,7 +496,7 @@ class ActionInstance(p4Action: P4Action,
     val instance = switch.getInstance(regName)
     If (Constrain(headerInstance + ".IsValid", :==:(ConstantValue(1))),
       if (shouldCheck)
-        Fail("Attempt to add_header whilst header instance is already valid")
+        Fail(s"Attempt to add_header $regName whilst header instance is already valid")
       else
         NoOp,
       InstructionBlock(
@@ -690,9 +690,9 @@ class ActionInstance(p4Action: P4Action,
       case P4ActionType.CloneIngressPktToEgress => handleCloneFromIngressToEgress(primitiveAction.asInstanceOf[CloneIngressPktToEgress])
       case P4ActionType.Resubmit => handleResubmit(primitiveAction.asInstanceOf[Resubmit])
       case P4ActionType.Recirculate => handleRecirculate(primitiveAction.asInstanceOf[Recirculate])
-      case P4ActionType.AddHeader => handleAddHeader()
-      case P4ActionType.CopyHeader => handleCopyHeader()
-      case P4ActionType.RemoveHeader => handleRemoveHeader(shouldCheck = !relaxed)
+      case P4ActionType.AddHeader => handleAddHeader(shouldCheck = true)
+      case P4ActionType.CopyHeader => handleCopyHeader(noCheck = false)
+      case P4ActionType.RemoveHeader => handleRemoveHeader(shouldCheck = true)
       case P4ActionType.Pop => handlePop()
       case P4ActionType.Push => handlePush()
       case P4ActionType.BitAnd => handleBitAndOrXor(isAnd = true, isOr = false, isXor = false)
