@@ -1,6 +1,6 @@
 package org.change.v2.verification
 
-import org.change.parser.p4.{ControlFlowInterpreter, anonymizeAndForward}
+import org.change.parser.p4.{ControlFlowInterpreter, anonymizeAndForward, anonymize}
 import org.change.v2.analysis.constraint.NOT
 import org.change.v2.analysis.executor.solvers.{Z3BVSolver, Z3Solver}
 import org.change.v2.analysis.executor.{AbstractInstructionExecutor, CodeAwareInstructionExecutor, OVSExecutor}
@@ -506,6 +506,18 @@ def check (f : Formula, p: Instruction, s : PolicyState, logger : PolicyLogger) 
   }
   def verifyP4AndReverse[T<:ISwitchInstance] (f: Formula, start: LocationId, ib : Instruction,
                                              res : ControlFlowInterpreter[T]) : List[PolicyLogger] = {
+    import org.change.v2.analysis.memory.TagExp.IntImprovements
+    val newib = InstructionBlock(
+      CreateTag("START", 0),
+      Call("router.generator.parse_ethernet.parse_ipv4.parse_tcp"),
+      Call("router.parser.parse_ethernet.parse_ipv4.parse_tcp"),
+      // aici se adauga constrangerile pe campurile parsate
+      // e.g. Constrain("ipv4....
+      // sau asignarile Assign("x", "ipv4.dstAddr")
+      // NB: ca sa fie disponibile in continuare, campurile asignate, trebuiesc trecute in multimea de campuri
+      // din instructiunea anonymize de mai jos
+      Instruction(anonymize(_, Set()))
+    )
     verifyP4(f, start, ib, natAndReverse(res), Map.empty)
   }
 
