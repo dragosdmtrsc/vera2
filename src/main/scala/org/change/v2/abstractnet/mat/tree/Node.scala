@@ -74,7 +74,7 @@ object Node {
       */
     var which = 0
 
-    val result = if (grouped contains Super) {
+    val r = if (grouped contains Super) {
 
       // Propagate the new node in the oldest (most general) of the super nodes in order to avoid links between
       // trees that are not situated at the root.
@@ -87,7 +87,7 @@ object Node {
       val result = nodeAfterPropagation :: ((grouped(Super).tail ++ grouped.getOrElse(Intersect, Nil)) ++ rest)
 
       // The forest should be the same size
-      assert(result.length == forest.length)
+//      assert(result.length == forest.length)
 
       which = 1
 
@@ -104,7 +104,7 @@ object Node {
       val result = (newNode :: lateral) ++ rest
 
       // One node should have been created at this step.
-      assert(result.length == forest.length + 1)
+//      assert(result.length == forest.length + 1)
 
       which = 2
 
@@ -127,10 +127,10 @@ object Node {
       (newNode :: rest, newNode)
     }
 
-    if (Node.forestSize(result._1) != Node.forestSize(forest) + 1)
-      throw new Exception(s"Node was not added to forest: $condition, case is $which.")
+//    if (Node.forestSize(r._1) != Node.forestSize(forest) + 1)
+//      throw new Exception(s"Node was not added to forest: $condition, case is $which.")
 
-    result
+    r
   }
 
   def partitionByCondition[T <: Condition](p: T => Boolean, forest: Forest[T]): (Forest[T],Forest[T]) =

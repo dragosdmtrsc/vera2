@@ -38,7 +38,7 @@ package object routerexperiments {
 
   def buildIfElseChainModel(entries: RoutingEntries): Instruction = {
     entries.foldRight(NoOp: Instruction)( (i, crtCode) =>
-      If(Assert(IPDst, :&:(:>=:(ConstantValue(i._1._1)), :<=:(ConstantValue(i._1._2)))),
+      If(Constrain(IPDst, :&:(:>=:(ConstantValue(i._1._1)), :<=:(ConstantValue(i._1._2)))),
         Forward(i._2),
         crtCode
       )
@@ -90,7 +90,7 @@ package object routerexperiments {
       .mapValues(portEntries =>
         :|:(portEntries.map( entry => :&:(:>=:(ConstantValue(entry._1._1)), :<=:(ConstantValue(entry._1._2)))).toList))
       .foldRight(NoOp: Instruction)( (port, crtCode) =>
-        If(Assert(IPDst, port._2),
+        If(Constrain(IPDst, port._2),
           Forward(port._1),
           crtCode
         )
@@ -105,17 +105,17 @@ package object routerexperiments {
     val forest: Forest[CRange] = Node.makeForest[CRange](entries.map(entry => CRange(entry._1._1, entry._1._2)))
     val constraints = getAllConstraints(forest)
 
-    assert(entries.length == Node.forestSize(forest), "Not enough nodes produced")
-    assert(entries.length == constraints.size, "Same number of constraints produced")
-    assert(portToRangeMapping.size == entries.map(_._2).toSet.size)
+//    assert(entries.length == Node.forestSize(forest), "Not enough nodes produced")
+//    assert(entries.length == constraints.size, "Same number of constraints produced")
+//    assert(portToRangeMapping.size == entries.map(_._2).toSet.size)
 
     val f = Fork(
       portToRangeMapping.map( portToRangeMapping => {
         val port = portToRangeMapping._1
         val mergedConstraints = OR(
             portToRangeMapping._2.map( entry => {
-              constraints(entry._1)
-          }).toList
+              constraints.get(entry._1)
+          }).filter(_.nonEmpty).map(_.get).toList
         )
 
         InstructionBlock(
@@ -125,7 +125,7 @@ package object routerexperiments {
       })
     )
 
-    assert(f.forkBlocks.size == portToRangeMapping.size, "Fork has all ports")
+//    assert(f.forkBlocks.size == portToRangeMapping.size, "Fork has all ports")
 
     f
   }
