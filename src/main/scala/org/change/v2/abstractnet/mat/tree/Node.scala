@@ -2,6 +2,8 @@ package org.change.v2.abstractnet.mat.tree
 
 import org.change.v2.abstractnet.mat.condition._
 import org.change.v2.abstractnet.mat.tree.Node.Forest
+import org.change.v2.analysis.executor.CodeAwareInstructionExecutor
+import org.change.v2.analysis.processingmodels.instructions.Forward
 
 import scala.collection.LinearSeq
 
@@ -37,11 +39,22 @@ object Node {
 
   def makeForest[T <: Condition](conditions: Seq[T]): Forest[T] = {
     // TODO: Assert it is sorted properly
-    conditions.foldLeft(Nil:Forest[T])(addIgnoringNewNode)
+    conditions.zipWithIndex.foldLeft(Nil:Forest[T])((acc, ci) => addIgnoringNewNode(acc, ci._1, ci._2))
   }
 
-  def addIgnoringNewNode[T <: Condition](forest: Forest[T], condition: T): Forest[T] =
-    add(forest, condition)._1
+  def addIgnoringNewNode[T <: Condition](forest: Forest[T], condition: T, which: Int): Forest[T] = {
+    if (which % 10000 == 0) {
+      import org.scalameter._
+      val timeToExecute = measure {
+       add(forest, condition)._1
+      }
+      println(s"Time to execute $which: $timeToExecute")
+      add(forest, condition)._1
+    } else {
+      add(forest, condition)._1
+    }
+  }
+
 
   /**
     * Create a new node corresponding to a given condition.

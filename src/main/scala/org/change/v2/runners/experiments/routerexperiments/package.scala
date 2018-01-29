@@ -61,11 +61,13 @@ package object routerexperiments {
   }
 
   def buildBasicForkModel(entries: RoutingEntries): Instruction = {
-    Fork( entries.map(i => {
-      val ((l,u), port) = i
+
+    val f = Fork( entries.zipWithIndex.map(i => {
+      val ((l,u), port) = i._1
+
       (port, AND(List(GTE_E(ConstantValue(l)), LTE_E(ConstantValue(u))) ++
         {
-          val conflicts = entries.takeWhile(i =>  u-l > i._1._2 - i._1._1) filter (other => {
+          val conflicts = entries filter (other => {
             val ((otherL, otherU), otherPort) = other
             port != otherPort &&
               l <= otherL &&
@@ -83,6 +85,8 @@ package object routerexperiments {
         Assert(IPDst, OR(kv._2.map(_._2).toList)),
         Forward(kv._1)))
     )
+
+    f
   }
 
   def buildPerPortIfElse(entries: RoutingEntries): Instruction = {

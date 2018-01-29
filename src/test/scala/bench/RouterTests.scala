@@ -45,7 +45,7 @@ class RouterTests extends FunSuite {
     import org.change.v2.runners.experiments.routerexperiments._
     val file: String = "src/main/resources/routing_tables/huge.txt"
     for {
-      count <- Seq(/*10, 100, 1000, 10000 */ 100000, 150000, 180000)
+      count <- Seq(/*10, 100, 1000, 10000 100000, 150000,  */180000)
     } {
       val entries = selectNRandomRoutingEntries(file, Some(count))
       println(s"Size is $count, unique ports is ${entries.unzip._2.toSet.size}")
@@ -55,8 +55,8 @@ class RouterTests extends FunSuite {
 //      buildAndMeasure(buildPerPortIfElse _, entries)
       println("Basic fork model")
       buildAndMeasure(buildBasicForkModel _, entries)
-      println("Improved fork model")
-      buildAndMeasure(buildImprovedFork _, entries)
+//      println("Improved fork model")
+//      buildAndMeasure(buildImprovedFork _, entries)
     }
   }
 
@@ -92,7 +92,7 @@ class RouterTests extends FunSuite {
     } {
       import org.scalameter._
       val timeToExecute = measure {
-        r = executor.executeForward(Forward(CodeAwareInstructionExecutor.NULL_PORT), testPacket, false)
+        //r = executor.executeForward(Forward(CodeAwareInstructionExecutor.NULL_PORT), testPacket, false)
       }
       println(s"Time to execute $testIndex: $timeToExecute")
     }
