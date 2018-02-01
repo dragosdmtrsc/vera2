@@ -238,4 +238,23 @@ object ControlFlowInterpreter {
       optInitFactory = Some(initializerCode)
     )
   }
+
+  def buildSymbolicInterpreter(symSwitch: SymbolicSwitchInstance,
+                                switch: Switch,
+                               optParserGenerator : Option[ParserGenerator]): ControlFlowInterpreter[SymbolicSwitchInstance] = {
+
+    val initializerCode = { symbolicSwitchInstance: SymbolicSwitchInstance =>
+      InstructionBlock(
+        symbolicSwitchInstance.symbolicTableParams.toList.map(AssignNamedSymbol(_, SymbolicValue()))
+      )
+    }
+
+    new ControlFlowInterpreter[SymbolicSwitchInstance](
+      symSwitch,
+      switch,
+      optInitFactory = Some(initializerCode),
+      optParserGenerator = optParserGenerator
+    )
+  }
+
 }

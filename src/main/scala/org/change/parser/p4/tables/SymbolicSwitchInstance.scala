@@ -105,7 +105,7 @@ object SymbolicSwitchInstance {
   def fromFileWithSyms(name: String,
                        ifaces: Map[Int, String],
                        cloneSpec: Map[Int, Int],
-                       switch: Switch, file : String): SymbolicSwitchInstance = {
+                       switch: Switch, file : String, forceSymbolic : Boolean = false): SymbolicSwitchInstance = {
     val switchInstance = SwitchInstance.populateSwitchInstance(file, switch,
       new SwitchInstance(name, switch, ifaces.map(r => Integer.valueOf(r._1) -> r._2).asJava))
     import scala.collection.JavaConversions._
@@ -124,8 +124,20 @@ object SymbolicSwitchInstance {
             val symbolName = s"actionParam.$tableName.$perTableIndex.$actionName.${r._2}"
             introducedSymbolicTableParams.add(symbolName)
             :@(symbolName) : FloatingExpression
-          case lg: java.lang.Long => ConstantValue(lg): FloatingExpression
-          case in: java.lang.Integer => ConstantValue(in.intValue()): FloatingExpression
+          case lg: java.lang.Long => if (!forceSymbolic)
+            ConstantValue(lg): FloatingExpression
+          else {
+            val symbolName = s"actionParam.$tableName.$perTableIndex.$actionName.${r._2}"
+            introducedSymbolicTableParams.add(symbolName)
+            :@(symbolName) : FloatingExpression
+          }
+          case in: java.lang.Integer => if (!forceSymbolic)
+              ConstantValue(in.intValue()): FloatingExpression
+          else {
+            val symbolName = s"actionParam.$tableName.$perTableIndex.$actionName.${r._2}"
+            introducedSymbolicTableParams.add(symbolName)
+            :@(symbolName) : FloatingExpression
+          }
           case _ => ???
         })).toMap
 
