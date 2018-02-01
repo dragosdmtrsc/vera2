@@ -2,6 +2,8 @@ package org.change.v2.abstractnet.mat.tree
 
 import org.change.v2.abstractnet.mat.condition._
 import org.change.v2.abstractnet.mat.tree.Node.Forest
+import org.change.v2.analysis.executor.CodeAwareInstructionExecutor
+import org.change.v2.analysis.processingmodels.instructions.Forward
 
 import scala.collection.LinearSeq
 
@@ -37,11 +39,22 @@ object Node {
 
   def makeForest[T <: Condition](conditions: Seq[T]): Forest[T] = {
     // TODO: Assert it is sorted properly
-    conditions.foldLeft(Nil:Forest[T])(addIgnoringNewNode)
+    conditions.zipWithIndex.foldLeft(Nil:Forest[T])((acc, ci) => addIgnoringNewNode(acc, ci._1, ci._2))
   }
 
-  def addIgnoringNewNode[T <: Condition](forest: Forest[T], condition: T): Forest[T] =
-    add(forest, condition)._1
+  def addIgnoringNewNode[T <: Condition](forest: Forest[T], condition: T, which: Int): Forest[T] = {
+    if (which % 10000 == 0) {
+      import org.scalameter._
+      val timeToExecute = measure {
+       add(forest, condition)._1
+      }
+      println(s"Time to execute $which: $timeToExecute")
+      add(forest, condition)._1
+    } else {
+      add(forest, condition)._1
+    }
+  }
+
 
   /**
     * Create a new node corresponding to a given condition.
@@ -74,7 +87,7 @@ object Node {
       */
     var which = 0
 
-    val result = if (grouped contains Super) {
+    val r = if (grouped contains Super) {
 
       // Propagate the new node in the oldest (most general) of the super nodes in order to avoid links between
       // trees that are not situated at the root.
@@ -87,7 +100,7 @@ object Node {
       val result = nodeAfterPropagation :: ((grouped(Super).tail ++ grouped.getOrElse(Intersect, Nil)) ++ rest)
 
       // The forest should be the same size
-      assert(result.length == forest.length)
+//      assert(result.length == forest.length)
 
       which = 1
 
@@ -104,7 +117,7 @@ object Node {
       val result = (newNode :: lateral) ++ rest
 
       // One node should have been created at this step.
-      assert(result.length == forest.length + 1)
+//      assert(result.length == forest.length + 1)
 
       which = 2
 
@@ -127,10 +140,10 @@ object Node {
       (newNode :: rest, newNode)
     }
 
-    if (Node.forestSize(result._1) != Node.forestSize(forest) + 1)
-      throw new Exception(s"Node was not added to forest: $condition, case is $which.")
+//    if (Node.forestSize(r._1) != Node.forestSize(forest) + 1)
+//      throw new Exception(s"Node was not added to forest: $condition, case is $which.")
 
-    result
+    r
   }
 
   def partitionByCondition[T <: Condition](p: T => Boolean, forest: Forest[T]): (Forest[T],Forest[T]) =
