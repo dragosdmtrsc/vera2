@@ -143,26 +143,62 @@ As such, the `Z3BVSolver` succesfully handles the `and`, `or`, `xor` operations.
 
 ### Known limitations (to date)
 
-1. Some bit operations are not implemented - `shl`, `shr`
-2. `recirculate` and `resubmit` instructions are not implemented as per spec - 
+1. Shift left, multiplication and division operations are not implemented
+2. `recirculate` and `resubmit` instructions are not implemented entirely as per spec - 
 in the spec the packet is marked for resubmission and only at the end of the current
 pipeline is it resubmited for processing to the parser. Also, the effect of multiple
-recirculate/resubmit actions is
+recirculate/resubmit actions is not taken into account
 3. Meters and counters are not implemented. Consequently, no actions which take
 inputs meter or counter references are implemented
-4. No calculations are currently implemented. Consequently, no actions which take
+4. No calculations are currently implemented. Consequently, no actions which take as
  inputs calculated fields are implemented
-5. `truncate` and `count` instructions are not implemented
-6. The current parser and interpreter needs declarations prior to usage in functions. 
-As such, all header types need to be declared first, then all header instances. 
+5. `count` instruction is not implemented
+6. The current parser and interpreter works on p4 codes where declarations are prior to usage in functions.
+As such, all header types need to be declared first, then all header instances, then actions. 
+Manually modify P4 files accordingly 
 7. The current parser cannot ignore comments. - Worked around using approach in issue 8.
 8. The current parser has no built-in precompile step and will throw whenever
-macro definitions are observed and used - in order to use this, run the following command
+macro definitions are used - in order to use still use them, run the following command
 assuming `f.p4` is your input file: `gcc -E -x c -P f.p4 > f-ppc.p4` and then
 run Symnet-P4 integration against the pre-processed file `f-ppc.p4`
-9. Little to no testing done for array instances - most likely they will generate bugs
-10. No support for parser `value sets`
-11. No support for variable-width header fields
+9. No support for parser `value sets`
+10. No support for variable-width header fields
+
+Test cases
+=========
+
+Vera was tested against several p4 examples located in
+the _inputs/_ folder.
+
+The bulk of the test-cases are in _src/test/scala/parser/p4/test_.
+A good starting place for exploring the codebase is in 
+class P4Nat in _test("INTEGRATION - simple-nat test no entries")_
+
+Running Vera implies:
+1. Parsing a p4 file => P4 AST i.e. **class Switch** in package **org.change.v2.p4.model**
+2. Parsing a commands file + P4 AST => **abstract class ISwitchInstance** in package **org.change.v2.p4.model**
+with multiple implementations
+3. _Switch_ + _ISwitchInstance_ => Equivalent SEFL program 
+(i.e. a tuple instructions: Map[String, Instruction], links: Map[String, String])
+generated in **class ControlFlowInterpreter**
+4. **ControlFlowInterpreter** => initial packets.
+It is possible to generate all packets acceptable by a P4 switch's parser.
+Given an object of class **ControlFlowInterpreter** (let's say _res_), the
+call to _res.allParserStatesInstruction()_ will generate a
+set of symbolic packets which will be accepted by the parser
+starting from an initially _clean_ state (i.e. *State.clean*).
+5. Customizing the control flow (*Optional*) 
+**class ControlFlowInterpreter** can be customized to hook
+custom initialization code (both global and local init),
+custom parser/deparser codes and to accept different kinds of 
+**ISwitchInstance**s.
+6. Creating a _SEFL executor_ from a _SEFL program_ -
+**class CodeAwareInstructionExecutor**
+7. Executing the code taking some input packet(s) and port(s) and
+gathering the resulting states
+
+ 
+
 
 SymNet v2
 =========
