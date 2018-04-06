@@ -26,8 +26,8 @@ import java.util.stream.Collectors;
  * which is basically a holder for info regarding the P4 program comprised therein
  */
 public class Switch {
-    private Map<String, List<String>> allowedActions = new HashMap<String, List<String>>();
-    private Map<String, HeaderInstance> instances = new HashMap<String, HeaderInstance>();
+    private Map<String, List<String>> allowedActions = new HashMap<>();
+    private Map<String, HeaderInstance> instances = new HashMap<>();
     private Map<String, RegisterSpecification> registerSpecificationMap = null;
     private ActionRegistrar actionRegistrar = null;
     private Map<String, FieldList> fieldListMap = null;
@@ -71,7 +71,7 @@ public class Switch {
             return null;
     }
 
-    private Map<String, List<TableMatch>> matches = new HashMap<String, List<TableMatch>>();
+    private Map<String, List<TableMatch>> matches = new HashMap<>();
 
     public State getParserState(Object o) {
         return parserStates.get(o);
@@ -85,7 +85,7 @@ public class Switch {
         return parserStates.keySet();
     }
 
-    private Map<String, State> parserStates = new HashMap<String, State>();
+    private Map<String, State> parserStates = new HashMap<>();
 
     public List<String> getAllowedActions(String perTable) {
         if (!allowedActions.containsKey(perTable))
@@ -117,7 +117,7 @@ public class Switch {
 
     public Switch createTable(String table) {
         if (!this.matches.containsKey(table)) {
-            this.matches.put(table, new ArrayList<TableMatch>());
+            this.matches.put(table, new ArrayList<>());
         }
         return this;
     }
@@ -128,7 +128,7 @@ public class Switch {
 
     public Switch addTableMatch(TableMatch tm) {
         if (!this.matches.containsKey(tm.getTable())) {
-            this.matches.put(tm.getTable(), new ArrayList<TableMatch>());
+            this.matches.put(tm.getTable(), new ArrayList<>());
         }
         this.matches.get(tm.getTable()).add(tm);
         return this;
@@ -139,7 +139,7 @@ public class Switch {
     }
 
     public Switch setControlFlowLinks(Map<String, String> controlFlowLinks) {
-        this.controlFlowLinks = new HashMap<String, String>(controlFlowLinks);
+        this.controlFlowLinks = new HashMap<>(controlFlowLinks);
         return this;
     }
 
@@ -148,7 +148,7 @@ public class Switch {
     }
 
     public Switch setControlFlowInstructions(Map<String, Instruction> controlFlowInstructions) {
-        this.controlFlowInstructions =  new HashMap<String, Instruction>(controlFlowInstructions);
+        this.controlFlowInstructions = new HashMap<>(controlFlowInstructions);
         return this;
     }
 
