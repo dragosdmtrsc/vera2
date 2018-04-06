@@ -9,7 +9,7 @@ import org.change.v2.analysis.memory.State
 import org.change.v2.analysis.memory.State.{ipSymb, start}
 import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.analysis.processingmodels.instructions._
-import org.change.v2.runners.experiments.routerexperiments.{RoutingEntries, RoutingModelFactory}
+import org.change.v2.runners.experiments.routerexperiments.{RoutingEntries, RoutingModelFactory, buildBasicForkModel}
 import org.scalatest.FunSuite
 import org.change.v2.util.canonicalnames._
 
@@ -136,4 +136,18 @@ class RouterTests extends FunSuite {
   )(State.clean, true)._1.head
 
   lazy val states = Seq(symbolicIpState, symbolicIpState8, symbolicIpState16, symbolicIpState24)
+
+  def buildAndRun(
+                   entries: RoutingEntries,
+                   factory: RoutingModelFactory = buildBasicForkModel _
+                 ): (List[State], List[State]) = {
+    val model: Instruction = factory(entries)
+    val executor = CodeAwareInstructionExecutor.singleInstructionExecutor(model)
+
+    executor.executeForward(Forward(CodeAwareInstructionExecutor.NULL_PORT), symbolicIpState, v = true)
+  }
+
+  test("Parse and run router") {
+    buildAndRun(Seq.empty)
+  }
 }
