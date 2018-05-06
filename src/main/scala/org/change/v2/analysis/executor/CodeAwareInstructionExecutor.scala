@@ -2,7 +2,7 @@ package org.change.v2.analysis.executor
 
 import java.util.UUID
 
-import org.change.v2.analysis.executor.solvers.{Solver, Z3Solver}
+import org.change.v2.analysis.executor.solvers.{Solver, Z3BVSolver, Z3Solver}
 import org.change.v2.analysis.expression.abst.FloatingExpression
 import org.change.v2.analysis.expression.concrete.nonprimitive._
 import org.change.v2.analysis.expression.concrete.{ConstantStringValue, ConstantValue, SymbolicValue}
@@ -11,6 +11,8 @@ import org.change.v2.analysis.memory._
 import org.change.v2.analysis.processingmodels._
 import org.change.v2.analysis.processingmodels.instructions._
 import org.change.v2.analysis.types.LongType
+
+import scala.collection.mutable
 
 
 trait StateConsumer {
@@ -95,33 +97,88 @@ class CodeAwareInstructionExecutor(val program : Map[String, Instruction],
     new CodeAwareInstructionExecutor(program = program + pair, solver = solver)
   }
 
+  def executeSuperFork(sf : SuperFork, s: State, v: Boolean): (List[State], List[State]) = {
+    val outputStates = sf.instructions.map(inst => {
+      execute(inst, s, v)
+    }).map(r => r._1 ++ r._2)
+
+    def processTop(queue : Iterable[List[State]]): List[State] = {
+      if (queue.size == 1) {
+        queue.head
+      } else {
+        val one = queue.head.toArray
+        val two = queue.tail.head.toArray
+        val killedOne = mutable.Set[Int]()
+        val killedTwo = mutable.Set[Int]()
+        val alreadyProcessed = mutable.Set[(Int, Int)]()
+        val mutList = mutable.ArrayBuffer.empty[State]
+        var changes = true
+        val solver = new Z3BVSolver()
+        while (changes) {
+          changes = false
+          for (i <- one.indices) {
+            if (!killedOne.contains(i)) {
+              for (j <- two.indices) {
+                if (!alreadyProcessed.contains((i, j))) {
+                  var o = one(i)
+                  if (!killedOne.contains(i) || !killedTwo.contains(j)) {
+                    var t = two(j)
+                    val pleaseInsert = o.copy(memory = o.memory.copy(intersections = t :: o.memory.intersections))
+                    if (solver.solve(pleaseInsert.memory)) {
+                      changes = true
+                      mutList += pleaseInsert
+                      val diff1 = o.copy(memory = o.memory.copy(differences = t :: o.memory.differences))
+                      if (solver.solve(diff1.memory))
+                        one(i) = diff1
+                      else
+                        killedOne += i
+                      val diff2 = t.copy(memory = t.memory.copy(differences = o :: t.memory.differences))
+                      if (solver.solve(diff2.memory))
+                        two(j) = diff2
+                      else
+                        killedTwo += j
+                    }
+                    alreadyProcessed += ((i, j))
+                  }
+                }
+              }
+            }
+          }
+        }
+        for (i <- one.indices)
+          if (!killedOne.contains(i))
+            mutList += one(i)
+        for (j <- two.indices)
+          if (!killedTwo.contains(j))
+            mutList += two(j)
+        processTop(mutList.toList :: queue.tail.tail.toList)
+      }
+    }
+    val allOut = processTop(outputStates)
+    allOut.partition(s => {
+      s.errorCause.isEmpty || s.memory.intersections.exists(p => p.errorCause.isEmpty)
+    })
+  }
+
   override def executeExoticInstruction(instruction: Instruction, s: State, v: Boolean): (List[State], List[State]) = {
     instruction match {
       case t : Translatable => this.execute(t.generateInstruction(), s, v)
+
       case Call(fun) => this.executeForward(Forward(fun), s, v)
       case Unfail(u) => val (ok, failed) = executeInternal(u, s, v)
         (ok ++ failed.map(x => x.copy(errorCause = None).forwardTo(s"Fail(${x.errorCause})")), Nil)
-      case Let(string, u) => val (ok, failed) = executeInternal(u, s, v)
-        (ok.map(x => {
-          val symbols = x.memory.symbols.map( r => {
-            string + "." + r._1 -> r._2
-          }) ++ x.memory.rawObjects.map( r => {
-            string + ".packet[" + r._1 + "]" -> r._2
-          })
-          s.copy(instructionHistory = x.instructionHistory,
-            history = x.history,
-            memory = x.memory.memTags.foldLeft(s.memory.copy(symbols = symbols ++ s.memory.symbols))((acc, r) => {
-              acc.assignNewValue(s"$string.tags[${r._1}]", ConstantValue(r._2), LongType).get
-            }))
-        }), failed)
-      case sf : SuperFork =>
-        this.executeFork(Fork(sf.instructions.map(x => {
-          InstructionBlock(
-            Assign("PPid", :@("Pid")),
-            Assign("Pid", ConstantValue(UUID.randomUUID().getMostSignificantBits)),
-            x
-          )
-        })), s, v)
+      case Let(name, in) =>
+        val (ss, fs) = this.executeInternal(in, s, v)
+        ((ss ++ fs).map(r => {
+          val oldSaved = s.memory.saved
+          val newSaved = if (oldSaved.contains(name)) {
+            oldSaved + (name -> (r :: oldSaved(name)))
+          } else {
+            oldSaved + (name -> (r :: Nil))
+          }
+          s.copy(memory = s.memory.copy(saved = newSaved))
+        }), Nil)
+      case sf : SuperFork => executeSuperFork(sf, s, v)
       case destroy : DestroyPacket =>
         val stopHere = Tag("LAST_HEADER")(s).getOrElse(Int.MaxValue)
         (List[State](s.copy(memory =
@@ -131,50 +188,6 @@ class CodeAwareInstructionExecutor(val program : Map[String, Instruction],
       case _ => super.executeExoticInstruction(instruction, s, v)
     }
   }
-
-  def handleFork(instructions : List[Instruction], s : State, verbose : Boolean) : (List[State], List[State]) = {
-    val peri = instructions.map(i => {
-      this.executeInternal(Unfail(i), s, verbose)._1
-    })
-
-    def cartesianProduct[T](in: Seq[Seq[T]]): Seq[Seq[T]] = {
-      @scala.annotation.tailrec
-      def loop(acc: Seq[Seq[T]], rest: Seq[Seq[T]]): Seq[Seq[T]] = {
-        rest match {
-          case Nil =>
-            acc
-          case seq :: remainingSeqs =>
-            // Equivalent of:
-            // val next = seq.flatMap(i => acc.map(a => i+: a))
-            val next = for {
-              i <- seq
-              a <- acc
-            } yield i +: a
-            loop(next, remainingSeqs)
-        }
-      }
-
-      loop(Seq(Nil), in.reverse)
-    }
-    val cart = cartesianProduct(peri.filter(_.nonEmpty))
-    (cart.map(y => {
-      val uuid = UUID.randomUUID().toString
-      y.zipWithIndex.foldLeft(s.copy(history = Nil, instructionHistory = Nil))((acc, x) => {
-        val mappedSymbols = x._1.memory.symbols.map(r => s"$uuid.${x._2}.${r._1}" -> r._2)
-        val mappedRaws  =x._1.memory.rawObjects.map(r => s"$uuid.${x._2}.packet[${r._1}]" -> r._2)
-        acc.copy(memory = acc.memory.copy(
-          symbols = acc.memory.symbols ++ mappedRaws ++ mappedSymbols
-        ), history = x._1.history ++ acc.history,
-          instructionHistory = x._1.instructionHistory ++ acc.instructionHistory)
-      })
-    }).filter(x => this.isSat(x.memory)).toList, Nil)
-  }
-
-  def handleSuperFork(fork: SuperFork, s: State, verbose: Boolean): (List[State], List[State]) = {
-    val instructions = fork.instructions
-    handleFork(instructions, s, verbose)
-  }
-
 
   override def toString: String = {
     CodeRewriter(program)

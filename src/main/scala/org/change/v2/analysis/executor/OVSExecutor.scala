@@ -57,7 +57,6 @@ class OVSExecutor(solver: Solver) extends DecoratedInstructionExecutor(solver) {
 
   import OVSExecutor.normalize
 
-
   override def executeAssignNamedSymbol(instruction: AssignNamedSymbol, s: State, v: Boolean): (List[State], List[State]) = {
     if (!s.memory.symbolIsDefined(instruction.id)) instruction.exp match {
       case Symbol(sb) => optionToStatePair(s, "Cannot allocate", true)(r => r.memory.symbols.get(sb).flatMap(mo => {
