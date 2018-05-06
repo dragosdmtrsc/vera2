@@ -20,7 +20,9 @@ import scala.collection.mutable.{Map => MutableMap}
 */
 case class MemorySpace(val symbols: Map[String, MemoryObject] = Map.empty,
                        val rawObjects: Map[Int, MemoryObject] = Map.empty,
-                       val memTags: Map[String, Int] = Map.empty) {
+                       val memTags: Map[String, Int] = Map.empty,
+                       val intersections : List[State] = Nil,
+                       val differences : List[State] = Nil) {
   def destroyPacket(): MemorySpace = copy(rawObjects = Map.empty)
 
   private def resolveBy[K](id: K, m: Map[K, MemoryObject]): Option[Value] =

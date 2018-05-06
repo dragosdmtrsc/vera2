@@ -2,6 +2,7 @@ package org.change.v2.analysis.executor
 
 import java.util.UUID
 
+import org.change.v2.analysis.equivalence.FullZ3Solver
 import org.change.v2.analysis.executor.solvers.{Solver, Z3Solver}
 import org.change.v2.analysis.expression.abst.FloatingExpression
 import org.change.v2.analysis.expression.concrete.nonprimitive._
@@ -11,6 +12,8 @@ import org.change.v2.analysis.memory._
 import org.change.v2.analysis.processingmodels._
 import org.change.v2.analysis.processingmodels.instructions._
 import org.change.v2.analysis.types.LongType
+
+import scala.collection.mutable
 
 
 trait StateConsumer {
@@ -95,6 +98,69 @@ class CodeAwareInstructionExecutor(val program : Map[String, Instruction],
     new CodeAwareInstructionExecutor(program = program + pair, solver = solver)
   }
 
+  def executeSuperFork(sf : SuperFork, s: State, v: Boolean): (List[State], List[State]) = {
+    val outputStates = sf.instructions.map(inst => {
+      execute(inst, s, v)
+    }).map(r => r._1 ++ r._2)
+
+    def processTop(queue : List[List[State]]): List[State] = {
+      if (queue.size == 1) {
+        queue.head
+      } else {
+        val one = queue.head.toArray
+        val two = queue.tail.head.toArray
+        val killedOne = mutable.Set[Int]()
+        val killedTwo = mutable.Set[Int]()
+        val alreadyProcessed = mutable.Set[(Int, Int)]()
+        val mutList = mutable.ArrayBuffer.empty[State]
+        var changes = true
+        val solver = new FullZ3Solver()
+        while (changes) {
+          changes = false
+          for (i <- 0 to one.length) {
+            if (!killedOne.contains(i)) {
+              for (j <- 0 to two.length) {
+                if (!alreadyProcessed.contains((i, j))) {
+                  var o = one(i)
+                  if (!killedOne.contains(i) || !killedTwo.contains(j)) {
+                    var t = two(j)
+                    val pleaseInsert = o.copy(memory = o.memory.copy(intersections = t :: o.memory.intersections))
+                    if (solver.solve(pleaseInsert.memory)) {
+                      changes = true
+                      mutList += pleaseInsert
+                      val diff1 = o.copy(memory = o.memory.copy(differences = t :: o.memory.differences))
+                      if (solver.solve(diff1.memory))
+                        one(i) = diff1
+                      else
+                        killedOne += i
+                      val diff2 = t.copy(memory = t.memory.copy(differences = o :: t.memory.differences))
+                      if (solver.solve(diff2.memory))
+                        two(j) = diff2
+                      else
+                        killedTwo += j
+                    }
+                    alreadyProcessed += ((i, j))
+                  }
+                }
+              }
+            }
+          }
+        }
+        for (i <- 0 to one.length)
+          if (!killedOne.contains(i))
+            mutList += one(i)
+        for (j <- 0 to two.length)
+          if (!killedTwo.contains(j))
+            mutList += two(j)
+        processTop(mutList.toList :: queue.tail.tail)
+      }
+    }
+    val allOut = processTop(outputStates)
+    allOut.partition(s => {
+      s.errorCause.isEmpty || s.memory.intersections.exists(p => p.errorCause.isEmpty)
+    })
+  }
+
   override def executeExoticInstruction(instruction: Instruction, s: State, v: Boolean): (List[State], List[State]) = {
     instruction match {
       case t : Translatable => this.execute(t.generateInstruction(), s, v)
@@ -114,14 +180,7 @@ class CodeAwareInstructionExecutor(val program : Map[String, Instruction],
               acc.assignNewValue(s"$string.tags[${r._1}]", ConstantValue(r._2), LongType).get
             }))
         }), failed)
-      case sf : SuperFork =>
-        this.executeFork(Fork(sf.instructions.map(x => {
-          InstructionBlock(
-            Assign("PPid", :@("Pid")),
-            Assign("Pid", ConstantValue(UUID.randomUUID().getMostSignificantBits)),
-            x
-          )
-        })), s, v)
+      case sf : SuperFork => executeSuperFork(sf, s, v)
       case destroy : DestroyPacket =>
         val stopHere = Tag("LAST_HEADER")(s).getOrElse(Int.MaxValue)
         (List[State](s.copy(memory =

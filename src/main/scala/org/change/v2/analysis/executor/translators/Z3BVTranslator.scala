@@ -9,13 +9,23 @@ import z3.scala.{Z3AST, Z3Context, Z3Solver}
 
 class Z3BVTranslator(context: Z3Context) extends Translator[Z3Solver] {
   override def translate(mem: MemorySpace): Z3Solver = {
-    val slv = context.mkSolver()
-    (mem.symbols.values ++ mem.rawObjects.values).foldLeft(slv) { (slv, mo) =>
-      mo.value match {
-        case Some(v) => this.translate(slv, v, mo.size)._2
-        case _ => slv
+    mem.differences.foldLeft(mem.intersections.foldLeft(translate(mem, context.mkSolver()))((slv, st) => {
+      translate(st.memory, slv)
+    }))((slv, st) => {
+      translate(st.memory, slv, reverse = true)
+    })
+  }
+
+  private def translate(mem : MemorySpace, slv : Z3Solver, reverse : Boolean = false): Z3Solver = {
+    if (!reverse)
+      (mem.symbols.values ++ mem.rawObjects.values).foldLeft(slv) { (slv, mo) =>
+        mo.value match {
+          case Some(v) => this.translate(slv, v, mo.size)._2
+          case _ => slv
+        }
       }
-    }
+    else
+
   }
 
   def translate(slv: Z3Solver, e: Expression, size : Int): (Z3AST, Z3Solver) = {
@@ -55,6 +65,21 @@ class Z3BVTranslator(context: Z3Context) extends Translator[Z3Solver] {
       case EQ_E(e) => context.mkEq(ast, translate(slv, e, size)._1)
     }
     (ast2, slv)
+  }
+  private def translate(slv: Z3Solver, v: Value, size : Int, reverse : Boolean = false):
+    (Z3AST, Z3Solver) = {
+    val (e, cts) = (v.e, v.cts)
+    val (ast, slv2) = translate(slv, e, size)
+    if (!reverse) {
+      for {
+        c <- cts
+      } {
+        slv2.assertCnstr(translate(slv, ast, c, size)._1)
+      }
+    } else {
+      slv2.assertCnstr(context.mkOr(cts.map(c => context.mkNot(translate(slv, ast, c, size)._1)):_*))
+    }
+    (ast, slv2)
   }
 
   def translate(slv: Z3Solver, v: Value, size : Int): (Z3AST, Z3Solver) = {
