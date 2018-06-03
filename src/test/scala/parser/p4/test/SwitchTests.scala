@@ -14,6 +14,7 @@ import org.change.v2.analysis.memory.TagExp.IntImprovements
 import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.analysis.processingmodels.instructions._
 import org.change.v2.p4.model.{ISwitchInstance, Switch, SwitchInstance}
+import org.change.v2.util.ToDot
 import org.scalatest.FunSuite
 
 class SwitchTests extends FunSuite {
@@ -441,6 +442,41 @@ class SwitchTests extends FunSuite {
       "parse_ethernet.parse_qinq.parse_qinq_vlan.parse_ipv4.parse_tcp")
   }
 
+  test("SWITCH - toDot") {
+    val dir = "inputs/big-switch"
+    val p4 = s"$dir/switch-ppc-orig.p4"
+    val dataplane = s"$dir/pd-L2QinQTest.txt"
+    val ifaces = Map[Int, String](
+      0 -> "veth0", 1 -> "veth2",
+      2 -> "veth4", 3 -> "veth6",
+      4 -> "veth8", 5 -> "veth10",
+      6 -> "veth12", 7 -> "veth14",
+      8 -> "veth16", 64 -> "veth250"
+    )
+    val sw = Switch.fromFile(p4)
+    val switchInstance = SymbolicSwitchInstance.fromFileWithSyms("switch",
+      ifaces,
+      Map.empty,
+      sw,
+      dataplane, forceSymbolic = true)
+    //-i 0@veth0 -i 1@veth2 -i 2@veth4 -i 3@veth6 -i 4@veth8 -i 5@veth10 -i 6@veth12 -i 7@veth14 -i 8@veth16 -i 64@veth250
+    val res = ControlFlowInterpreter.buildSymbolicInterpreter(
+      switchInstance, sw,
+      optParserGenerator =
+        Some(
+          new TrivialDeparserGenerator(sw, switchInstance,
+            Some((x : String) =>
+              x == "parse_ethernet.parse_qinq.parse_qinq_vlan.parse_ipv4.parse_tcp")
+          )
+        )
+    )
+    val ps = new PrintStream("big-switch.dot")
+    ps.println(
+      ToDot("big-switch", res.instructions(), res.links()).toDot
+    )
+    ps.close()
+  }
+
   def ethernetIp4UdpVxlanIpTcp(x : String) : Boolean =
     x == "parse_ethernet.parse_ipv4.parse_udp.parse_vxlan.parse_inner_ethernet.parse_inner_ipv4.parse_inner_tcp"
   def ethernetIp4UdpVxlanIpUdp(x : String) : Boolean =
@@ -456,10 +492,16 @@ class SwitchTests extends FunSuite {
                                   stringFilter : (String) => Boolean,
                                   layout : String,
                                   postParser : Instruction = NoOp) = {
-    this.setupAndRunSwitchWithParser(dir, p4, dataplane, port, postParser, layout, (sw, switchInstance) => new SkipParserAndDeparser(switch = sw,
-      switchInstance = switchInstance,
-      codeFilter = Some(stringFilter)
-    ))
+    this.setupAndRunSwitchWithParser(dir,
+      p4,
+      dataplane,
+      port, postParser,
+      layout,
+      (sw, switchInstance) => new SkipParserAndDeparser(switch = sw,
+        switchInstance = switchInstance,
+        codeFilter = Some(stringFilter)
+      )
+    )
   }
 
 
@@ -468,14 +510,13 @@ class SwitchTests extends FunSuite {
                                   postParser : Instruction = NoOp,
                                   packetLayout : String,
                                   factory : Function2[Switch, ISwitchInstance, ParserGenerator]) = {
-    val ifaces = Map[Int, String](
+    setupAndRun(dir, p4, dataplane, postParser, Map[Int, String](
       0 -> "veth0", 1 -> "veth2",
       2 -> "veth4", 3 -> "veth6",
       4 -> "veth8", 5 -> "veth10",
       6 -> "veth12", 7 -> "veth14",
       8 -> "veth16", 64 -> "veth250"
-    )
-    setupAndRun(dir, p4, dataplane, postParser, ifaces, dir, packetLayout, port, factory)
+    ), dir, packetLayout, port, factory)
   }
 
 

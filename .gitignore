@@ -31,7 +31,7 @@ generated/
 .DS_Store
 ._.DS_Store
 .vagrant/
-
+*.class
 .classpath
 .project
 .settings/
@@ -71,5 +71,6 @@ generated\.err
 stack-inputs/
 
 eastwest-tapd66e3d2e-2f-compute1\.err
-
+*.pdf
+*.dot
 *.bak

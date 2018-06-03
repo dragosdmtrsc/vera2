@@ -12,20 +12,17 @@ class Z3BVTranslator(context: Z3Context) extends Translator[Z3Solver] {
     mem.differences.foldLeft(mem.intersections.foldLeft(translate(mem, context.mkSolver()))((slv, st) => {
       translate(st.memory, slv)
     }))((slv, st) => {
-      translate(st.memory, slv, reverse = true)
+      translate(st.memory, slv)
     })
   }
 
-  private def translate(mem : MemorySpace, slv : Z3Solver, reverse : Boolean = false): Z3Solver = {
-    if (!reverse)
-      (mem.symbols.values ++ mem.rawObjects.values).foldLeft(slv) { (slv, mo) =>
-        mo.value match {
-          case Some(v) => this.translate(slv, v, mo.size)._2
-          case _ => slv
-        }
+  private def translate(mem : MemorySpace, slv : Z3Solver): Z3Solver = {
+    (mem.symbols.values ++ mem.rawObjects.values).foldLeft(slv) { (slv, mo) =>
+      mo.value match {
+        case Some(v) => this.translate(slv, v, mo.size)._2
+        case _ => slv
       }
-    else
-
+    }
   }
 
   def translate(slv: Z3Solver, e: Expression, size : Int): (Z3AST, Z3Solver) = {

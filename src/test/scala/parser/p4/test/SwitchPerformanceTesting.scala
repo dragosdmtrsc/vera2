@@ -1,7 +1,9 @@
 package parser.p4.test
 
+import java.io.PrintStream
+
 import org.change.parser.p4.ControlFlowInterpreter
-import org.change.parser.p4.parser.{ParserGenerator, SkipParserAndDeparser, SwitchBasedParserGenerator, TrivialDeparserGenerator}
+import org.change.parser.p4.parser._
 import org.change.parser.p4.tables.SymbolicSwitchInstance
 import org.change.v2.analysis.executor.{CodeAwareInstructionExecutor, CodeAwareInstructionExecutorWithListeners}
 import org.change.v2.analysis.executor.solvers.Z3BVSolver
@@ -90,6 +92,75 @@ class SwitchPerformanceTesting  extends FunSuite {
       "parse_ethernet.parse_ipv4.parse_udp.parse_vxlan.parse_inner_ethernet.parse_inner_ipv4.parse_inner_udp"))
     println(cruntime +","+ sruntime + "," + "L3VxlanTunnelTest,2encap")
   }
+
+
+  test("mplb full symbolic") {
+    val dir = "inputs/mplb-router-fuller/"
+    val p4 = s"$dir/mplb_router-ppc.p4"
+    val switch = Switch.fromFile(p4)
+    val ifaces = Map[Int, String](1 -> "veth0", 2 -> "veth1")
+    val symbolicSwitchInstance = SymbolicSwitchInstance.fullSymbolic("switch", ifaces, Map.empty, switch)
+    val res = ControlFlowInterpreter.buildSymbolicInterpreter(symbolicSwitchInstance, switch)
+    val port = 1
+    val ib = InstructionBlock(
+      Forward(s"switch.input.$port")
+    )
+    val codeAwareInstructionExecutor = CodeAwareInstructionExecutor(res.instructions(), res.links(), solver = new Z3BVSolver)
+    val (initial, fld) = codeAwareInstructionExecutor.
+      execute(InstructionBlock(
+        CreateTag("START", 0),
+        res.allParserStatesInstruction(),
+        res.initializeGlobally()
+      ), State.clean, verbose = true)
+    val (ok: List[State], failed: List[State]) = executeAndPrintStats(ib, initial, codeAwareInstructionExecutor)
+    val relevant = failed
+    printResults(dir, port, ok, relevant, "bad")
+  }
+
+
+  test("SWITCH - L3VxlanTunnelTest full symbolic") {
+
+    val dir = "inputs/big-switch"
+    val p4 = s"$dir/switch-ppc-orig.p4"
+    val port = 2
+    val ifaces = Map[Int, String](
+      0 -> "veth0", 1 -> "veth2",
+      2 -> "veth4", 3 -> "veth6",
+      4 -> "veth8", 5 -> "veth10",
+      6 -> "veth12", 7 -> "veth14",
+      8 -> "veth16", 64 -> "veth250"
+    )
+    val switch = Switch.fromFile(p4)
+
+    val ps = new PrintStream("states.csv")
+    val expd = new StateExpander(switch, "start").doDFS(DFSState(0))
+    for (e <- expd) {
+      ps.println(e.seflPortName.replace('.', ','))
+    }
+    ps.close()
+
+    System.out.println(expd.size)
+
+    val (sm2dict, sruntime) = runAndLog(() =>
+      StateExpander.stateMachineToDict(expd, switch, Some((x : String) => {
+        !x.contains("parse_int_val")
+      }), name = "switch.")
+    )
+    System.out.println(sruntime, sm2dict.size)
+
+
+    val symbolicSwitchInstance = SymbolicSwitchInstance.fullSymbolic("switch", ifaces, Map.empty, switch)
+    val (_, ssruntime) = runAndLog(() => setupAndRun(dir, NoOp, dir,
+      "parse_ethernet.parse_ipv4.parse_udp.parse_vxlan.parse_inner_ethernet.parse_inner_ipv4.parse_inner_udp",
+      port,
+      (sw, switchInstance) => new SkipParserAndDeparser(switch = sw,
+        switchInstance = switchInstance,
+        codeFilter = None
+      ), true, switch, symbolicSwitchInstance
+    ))
+    println(ssruntime)
+  }
+
 
   test("SWITCH - L2QinQTest with trivial deparser & deterministic parser encap") {
     val dir = "inputs/big-switch"

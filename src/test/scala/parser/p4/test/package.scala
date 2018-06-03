@@ -17,10 +17,11 @@ import org.change.v2.analysis.memory.TagExp.IntImprovements
 
 package object test {
 
-  val PRINTER_OUTPUT_TO_FILE = false
+  val PRINTER_OUTPUT_TO_FILE = true
 
 
- def executeAndPrintStats(ib: Instruction, initial: List[State], codeAwareInstructionExecutor : CodeAwareInstructionExecutor): (List[State], List[State]) = {
+ def executeAndPrintStats(ib: Instruction, initial: List[State],
+                          codeAwareInstructionExecutor : CodeAwareInstructionExecutor): (List[State], List[State]) = {
     val init = System.currentTimeMillis()
     println("Ok now " + codeAwareInstructionExecutor.program.size)
     val (ok, failed) = initial.foldLeft((Nil, Nil): (List[State], List[State]))((acc, init) => {
@@ -117,6 +118,7 @@ package object test {
     (failIndex, successIndex, printer)
   }
 
+
   def setupAndRun(dir: String, p4: String, dataplane: String,
               postParserInjection: Instruction,
               ifaces: Map[Int, String],
@@ -132,6 +134,18 @@ package object test {
       Map.empty,
       sw,
       dataplane, forceSymbolic = forceSyms && useSyms)
+    setupAndRun(dir, postParserInjection, outputDir, packetLayout, port, genFactory, useSyms, sw, switchInstance)
+  }
+
+  def setupAndRun(dir: String,
+                          postParserInjection: Instruction,
+                          outputDir: String,
+                          packetLayout: String,
+                          port: Int,
+                          genFactory: (Switch, ISwitchInstance) => ParserGenerator,
+                          useSyms: Boolean,
+                          sw: Switch,
+                          switchInstance: SymbolicSwitchInstance): Unit = {
     val parserGenerator: ParserGenerator = genFactory(sw, switchInstance)
     //-i 0@veth0 -i 1@veth2 -i 2@veth4 -i 3@veth6 -i 4@veth8 -i 5@veth10 -i 6@veth12 -i 7@veth14 -i 8@veth16 -i 64@veth250
     val res = if (!useSyms)
@@ -167,6 +181,8 @@ package object test {
       ), State.clean, verbose = true)
 
     println(s"initial states gathered ${initial.size}")
+    println("initial state\n" + initial.head)
+
     val (ok: List[State], failed: List[State]) = executeAndPrintStats(
       ib,
       initial,
@@ -179,5 +195,4 @@ package object test {
     successIndex.close()
     failIndex.close()
   }
-
 }
