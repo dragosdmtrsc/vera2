@@ -17,7 +17,7 @@ import org.change.v2.analysis.memory.TagExp.IntImprovements
 
 package object test {
 
-  val PRINTER_OUTPUT_TO_FILE = true
+  val PRINTER_OUTPUT_TO_FILE = false
 
 
  def executeAndPrintStats(ib: Instruction, initial: List[State],
@@ -93,25 +93,27 @@ package object test {
     if (!outDir.exists())
       outDir.mkdir()
     val printer = (s: State) => {
-      if (PRINTER_OUTPUT_TO_FILE) {
-        val tmp = UUID.randomUUID().toString
-        if (s.errorCause.isEmpty) {
+      val tmp = UUID.randomUUID().toString
+      if (s.errorCause.isEmpty) {
+        if (PRINTER_OUTPUT_TO_FILE) {
           val ps = new PrintStream(s"$dir/outputs/success-$tmp.json")
           ps.println(s)
           ps.close()
-          successIndex.println(s"""<li><a href=\"file://$file/outputs/success-$tmp.json\">${s.history.head}</a></li>""")
-          successIndex.flush()
+        }
+        successIndex.println(s"""<li><a href=\"file://$file/outputs/success-$tmp.json\">${s.history.head}</a></li>""")
+        successIndex.flush()
+      } else {
+        if (s.location.startsWith("switch.parser") && (s.errorCause.get.startsWith("Cannot resolve") ||
+          s.errorCause.get.startsWith("Wrong choice"))) {
+          // nothing here
         } else {
-          if (s.location.startsWith("switch.parser") && (s.errorCause.get.startsWith("Cannot resolve") ||
-            s.errorCause.get.startsWith("Wrong choice"))) {
-            // nothing here
-          } else {
+          if (PRINTER_OUTPUT_TO_FILE) {
             val ps = new PrintStream(s"$dir/outputs/fail-$tmp.json")
             ps.println(s)
             ps.close()
-            failIndex.println(s"""<li><a href=\"file://$file/outputs/fail-$tmp.json\">${s.errorCause.get} - ${s.history.head}</a></li>""")
-            failIndex.flush()
           }
+          failIndex.println(s"""<li><a href=\"file://$file/outputs/fail-$tmp.json\">${s.errorCause.get} - ${s.history.head}</a></li>""")
+          failIndex.flush()
         }
       }
     }

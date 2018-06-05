@@ -131,33 +131,29 @@ class SwitchPerformanceTesting  extends FunSuite {
       8 -> "veth16", 64 -> "veth250"
     )
     val switch = Switch.fromFile(p4)
-
-    val ps = new PrintStream("states.csv")
-    val expd = new StateExpander(switch, "start").doDFS(DFSState(0))
-    for (e <- expd) {
-      ps.println(e.seflPortName.replace('.', ','))
-    }
-    ps.close()
-
-    System.out.println(expd.size)
-
-    val (sm2dict, sruntime) = runAndLog(() =>
-      StateExpander.stateMachineToDict(expd, switch, Some((x : String) => {
-        !x.contains("parse_int_val")
-      }), name = "switch.")
-    )
-    System.out.println(sruntime, sm2dict.size)
-
-
     val symbolicSwitchInstance = SymbolicSwitchInstance.fullSymbolic("switch", ifaces, Map.empty, switch)
-    val (_, ssruntime) = runAndLog(() => setupAndRun(dir, NoOp, dir,
-      "parse_ethernet.parse_ipv4.parse_udp.parse_vxlan.parse_inner_ethernet.parse_inner_ipv4.parse_inner_udp",
-      port,
-      (sw, switchInstance) => new SkipParserAndDeparser(switch = sw,
-        switchInstance = switchInstance,
-        codeFilter = None
-      ), true, switch, symbolicSwitchInstance
-    ))
+    val pg = new SkipParserAndDeparser(switch,
+      switchInstance = symbolicSwitchInstance,
+      codeFilter = None
+    )
+    val res = ControlFlowInterpreter.buildSymbolicInterpreter(symbolicSwitchInstance, switch, Some(
+      pg)
+    )
+    import org.change.v2.analysis.executor.StateConsumer.fromFunction
+    val printer = createConsumer(dir)
+
+    val codeAwareInstructionExecutorWithListeners = new CodeAwareInstructionExecutorWithListeners(
+      CodeAwareInstructionExecutor(res.instructions(), res.links(), new Z3BVSolver),
+      successStateConsumers = printer._3 :: Nil,
+      failedStateConsumers =  printer._3 :: Nil
+    )
+    val ib = Forward(s"${symbolicSwitchInstance.getName}.input.$port")
+    val (_, ssruntime) = runAndLog(() =>
+      codeAwareInstructionExecutorWithListeners.execute(InstructionBlock(
+        res.allParserStatesInstruction(),
+        res.initializeGlobally(),
+        ib
+      ), State.clean, true))
     println(ssruntime)
   }
 
