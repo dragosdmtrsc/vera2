@@ -154,6 +154,8 @@ class SwitchPerformanceTesting  extends FunSuite {
         res.initializeGlobally(),
         ib
       ), State.clean, true))
+    printer._1.close()
+    printer._2.close()
     println(ssruntime)
   }
 

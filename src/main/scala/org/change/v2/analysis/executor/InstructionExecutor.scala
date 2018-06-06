@@ -4,9 +4,11 @@ import org.change.v2.analysis.constraint._
 import org.change.v2.analysis.executor.solvers.{Solver, Z3SolverEnhanced}
 import org.change.v2.analysis.expression.abst.{Expression, FloatingExpression}
 import org.change.v2.analysis.expression.concrete.ConstantStringValue
-import org.change.v2.analysis.memory.{Intable, MemorySpace, State, TagExp}
+import org.change.v2.analysis.memory._
 import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.analysis.processingmodels.instructions._
+
+import scala.annotation.tailrec
 
 trait IExecutor[T] {
   def execute(instruction: Instruction,
@@ -260,6 +262,105 @@ abstract class AbstractInstructionExecutor extends InstructionExecutor {
     NoOp(s, v)
   }
 
+  protected def executeIf(testInstr : InstructionBlock,
+                          thenWhat : Instruction,
+                          elseWhat : Instruction,
+                          s : State,
+                          v : Boolean) : (List[State], List[State]) =
+//    this.execute(testInstr.instructions.foldRight(thenWhat)((x, acc) => {
+//      If(x, acc, elseWhat)
+//    }), s, v)
+    buildCondition(s, testInstr) match {
+      case Left(c) =>
+        val cnstrd = s.memory.copy(pathConditions = c :: s.memory.pathConditions)
+        val bt = if (isSat(cnstrd))
+          this.execute(thenWhat, s.copy(memory = cnstrd), v)
+        else
+          (Nil, Nil)
+        val cnstrdf = s.memory.copy(pathConditions = FNOT(c) :: s.memory.pathConditions)
+        val bf = if (isSat(cnstrdf))
+          this.execute(elseWhat, s.copy(memory = cnstrd), v)
+        else
+          (Nil, Nil)
+        (bt._1 ++ bf._1, bt._2 ++ bf._2)
+      case Right(msg) => execute(Fail(msg), s, v)
+    }
+
+  protected def executeIf(testInstr : Fork,
+                          thenWhat : Instruction,
+                          elseWhat : Instruction,
+                          s : State,
+                          v : Boolean) : (List[State], List[State]) =
+//    this.execute(testInstr.forkBlocks.foldRight(elseWhat)((x, acc) => {
+//      If(x, thenWhat, acc)
+//    }), s, v)
+  buildCondition(s, testInstr) match {
+    case Left(c) =>
+      val cnstrd = s.memory.copy(pathConditions = c :: s.memory.pathConditions)
+      val bt = if (isSat(cnstrd))
+        this.execute(thenWhat, s.copy(memory = cnstrd), v)
+      else
+        (Nil, Nil)
+      val cnstrdf = s.memory.copy(pathConditions = FNOT(c) :: s.memory.pathConditions)
+      val bf = if (isSat(cnstrdf))
+        this.execute(elseWhat, s.copy(memory = cnstrd), v)
+      else
+        (Nil, Nil)
+      (bt._1 ++ bf._1, bt._2 ++ bf._2)
+    case Right(msg) => execute(Fail(msg), s, v)
+  }
+
+  @tailrec
+  final def buildOr(s : State, lst : List[Instruction], or : FOR): Either[Condition, String] = lst match {
+    case Nil => Left(or)
+    case h :: tail => buildCondition(s, h) match {
+      case Right(err) => Right(err)
+      case Left(c) => buildOr(s, tail, or.copy(c :: or.conditions))
+    }
+  }
+
+  @tailrec
+  final def buildAnd(s : State, lst : List[Instruction], fand : FAND): Either[Condition, String] = lst match {
+    case Nil => Left(fand)
+    case h :: tail => buildCondition(s, h) match {
+      case Right(err) => Right(err)
+      case Left(c) => buildAnd(s, tail, fand.copy(c :: fand.conditions))
+    }
+  }
+
+  def buildCondition(s : State, testInstr : Instruction) : Either[Condition, String] = testInstr match {
+    case Fork(fb) if fb.isEmpty => Left(FALSE())
+    case Fork(h :: tail) => buildCondition(s, h) match {
+      case Right(err) => Right(err)
+      case Left(c) => buildOr(s, tail, FOR(c :: Nil))
+    }
+    case InstructionBlock(i) if i.isEmpty => Left(TRUE())
+    case InstructionBlock(lst) => buildCondition(s, lst.head) match {
+      case Right(err) => Right(err)
+      case Left(c) => buildAnd(s, lst.tail.toList, FAND(c :: Nil))
+    }
+    case ConstrainNamedSymbol(what, withWhat, _) => instantiate(s, withWhat) match {
+      case Left(c) if s.memory.symbolIsAssigned(what) =>
+        val mo = s.memory.evalToObject(what).get
+        val fresh = MemoryObject(size = mo.size).addValue(mo.value.get)
+        Left(OP(fresh, c))
+      case Left(c) => Right(s"Symbol $what does not exist")
+      case Right(msg) => Right(msg)
+    }
+    case ConstrainRaw(what, withWhat, _) => what(s) match {
+      case Some(i) => instantiate(s, withWhat) match {
+        case Left(c) if s.memory.canRead(i) =>
+          val mo = s.memory.evalToObject(i).get
+          val fresh = MemoryObject(size = mo.size).addValue(mo.value.get)
+          Left(OP(fresh, c))
+        case Left(c) => Right(s"Symbol $what does not exist")
+        case Right(msg) => Right(msg)
+      }
+      case None => Left(FALSE())
+    }
+  }
+
+
   override def executeIf(instruction: If, s: State, v: Boolean = false):
   (List[State], List[State]) = {
     val If(testInstr, thenWhat, elseWhat) = instruction
@@ -285,12 +386,9 @@ abstract class AbstractInstructionExecutor extends InstructionExecutor {
         }
         case None => execute(elseWhat, s, v)
       }
-      case InstructionBlock(instructions) => this.execute(instructions.foldRight(thenWhat)((x, acc) => {
-        If(x, acc, elseWhat)
-      }), s, v)
-      case Fork(instructions) => this.execute(instructions.foldRight(elseWhat)((x, acc) => {
-        If(x, thenWhat, acc)
-      }), s, v)
+      case InstructionBlock(instructions) =>
+        executeIf(InstructionBlock(instructions), thenWhat, elseWhat, s, v)
+      case Fork(instructions) => executeIf(Fork(instructions), thenWhat, elseWhat, s, v)
       case _ => stateToError(s, "Bad test instruction")
     }
   }

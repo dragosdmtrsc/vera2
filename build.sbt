@@ -35,7 +35,7 @@ includeFilter in(Compile, unmanagedResourceDirectories) := ".dll,.so"
 
 fork in Test := true
 javaOptions in Test += "-Xss128M"
-javaOptions in Test += "-Xmx4G"
+javaOptions in Test += "-Xmx32G"
 javaOptions in run += "-Xss128M"
 //test in assembly := {}
 

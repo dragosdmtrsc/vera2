@@ -18,7 +18,7 @@ class SpeculativeExecutor(solver: Solver = new Z3Solver)
 
 
   def constrainMemory(memory: MemorySpace, id: Int, c: Constraint) = {
-    val MemorySpace(symbols, rawObjects, memTags, _, _) = memory
+    val MemorySpace(symbols, rawObjects, memTags, _, _, _) = memory
     memory.eval(id).flatMap(smb => {
       val newSmb = smb.constrain(c)
       val newMem = memory.replaceValue(id, newSmb).get
@@ -38,7 +38,7 @@ class SpeculativeExecutor(solver: Solver = new Z3Solver)
 
 
   def constrainMemory(memory: MemorySpace, id: String, c: Constraint) = {
-    val MemorySpace(symbols, rawObjects, memTags, _, _) = memory
+    val MemorySpace(symbols, rawObjects, memTags, _, _, _) = memory
     memory.eval(id).flatMap(smb => {
       val newSmb = smb.constrain(c)
       val newMem = memory.replaceValue(id, newSmb).get

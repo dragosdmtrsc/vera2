@@ -27,7 +27,7 @@ object StateConsumer {
   }
 }
 
-class CodeAwareInstructionExecutorWithListeners(caie : CodeAwareInstructionExecutor,
+class CodeAwareInstructionExecutorWithListeners(val caie : CodeAwareInstructionExecutor,
                                   successStateConsumers : List[StateConsumer] = Nil,
                                   failedStateConsumers : List[StateConsumer] = Nil)
   extends CodeAwareInstructionExecutor(caie) {

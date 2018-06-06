@@ -118,7 +118,7 @@ class StatePrettifier {
       //          "history : {\n" + prettify(history, oAlready) + "\n}," +
       //          "error : {\n" + prettify(errorCause, oAlready) + "\n},"
       //          "Instruction history\n" + prettify(instructionHistory)
-      case MemorySpace(symbols, rawObjects, memTags, _, _) =>
+      case MemorySpace(symbols, rawObjects, memTags, _, _, _) =>
         //          "Symbols : {\n" + prettify(symbols, oAlready) + "\n}," +
         "Tags : {\n" + prettifyRawObjects(symbols, rawObjects, memTags) + "\n},"
       case MemoryObject(valueStack, size) =>

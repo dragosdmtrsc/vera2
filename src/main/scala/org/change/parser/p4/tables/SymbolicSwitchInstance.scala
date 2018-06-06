@@ -62,7 +62,7 @@ object SymbolicSwitchInstance {
         switch.getActionsPerProfile(h) != null).flatMap(r => {
         switch.getActionsPerProfile(r).map(_.getActionName)
       })
-      val finstances = allActions.map(action => {
+      val finstances = allActions.filter(_ != "nop").map(action => {
         val actionDef = switch.getActionRegistrar.getAction(action)
         if (actionDef == null) {
           val actions = switch.getActionsPerProfile(action)

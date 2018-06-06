@@ -18,11 +18,12 @@ import scala.collection.mutable.{Map => MutableMap}
 *  Author: Radu Stoenescu
 *  Don't be a stranger to symnet.radustoe@spamgourmet.com
 */
-case class MemorySpace(val symbols: Map[String, MemoryObject] = Map.empty,
-                       val rawObjects: Map[Int, MemoryObject] = Map.empty,
-                       val memTags: Map[String, Int] = Map.empty,
-                       val intersections : List[State] = Nil,
-                       val differences : List[State] = Nil) {
+case class MemorySpace(symbols: Map[String, MemoryObject] = Map.empty,
+                       rawObjects: Map[Int, MemoryObject] = Map.empty,
+                       memTags: Map[String, Int] = Map.empty,
+                       intersections : List[State] = Nil,
+                       differences : List[State] = Nil,
+                       pathConditions : List[Condition] = Nil) {
   def destroyPacket(): MemorySpace = copy(rawObjects = Map.empty)
 
   private def resolveBy[K](id: K, m: Map[K, MemoryObject]): Option[Value] =
@@ -31,8 +32,8 @@ case class MemorySpace(val symbols: Map[String, MemoryObject] = Map.empty,
   private def resolveByToObject[K](id: K, m: Map[K, MemoryObject]): Option[MemoryObject] =
     m.get(id)
 
-  def Tag(name: String, value: Int): Option[MemorySpace] = Some(MemorySpace(symbols, rawObjects, memTags + (name -> value)))
-  def UnTag(name: String): Option[MemorySpace] = Some(MemorySpace(symbols, rawObjects, memTags - name))
+  def Tag(name: String, value: Int): Option[MemorySpace] = Some(copy(symbols, rawObjects, memTags + (name -> value)))
+  def UnTag(name: String): Option[MemorySpace] = Some(copy(symbols, rawObjects, memTags - name))
 
   /**
    * Get the currently visible value associated with a symbol.
@@ -77,7 +78,7 @@ case class MemorySpace(val symbols: Map[String, MemoryObject] = Map.empty,
     Allocate(id, 0)
 
   def Allocate(id: String, size: Int): Option[MemorySpace] = {
-    Some(MemorySpace(
+    Some(copy(
       symbols + (id -> (if (!symbolIsDefined(id)) MemoryObject(size = size) else symbols(id).allocateNewStack)),
       rawObjects,
       memTags
@@ -85,13 +86,13 @@ case class MemorySpace(val symbols: Map[String, MemoryObject] = Map.empty,
   }
 
   def Allocate(a: Int, size: Int): Option[MemorySpace] = if (canModifyExisting(a, size))
-    Some(MemorySpace(
+    Some(copy(
       symbols,
       rawObjects + ( a -> rawObjects(a).allocateNewStack),
       memTags
     ))
   else if (canModify(a, size))
-    Some(MemorySpace(
+    Some(copy(
       symbols,
       rawObjects + ( a -> MemoryObject(size = size)),
       memTags
@@ -104,7 +105,7 @@ case class MemorySpace(val symbols: Map[String, MemoryObject] = Map.empty,
    * @return
    */
   def Deallocate(id: String): Option[MemorySpace] = symbols.get(id).flatMap(_.deallocateStack).map( o =>
-    MemorySpace(
+    copy(
       if (o.isVoid) symbols - id else symbols + (id -> o),
       rawObjects,
       memTags
@@ -113,7 +114,7 @@ case class MemorySpace(val symbols: Map[String, MemoryObject] = Map.empty,
 
   def Deallocate(a: Int, size: Int): Option[MemorySpace] = if (canModifyExisting(a, size))
     rawObjects.get(a).flatMap(_.deallocateStack).map(o =>
-      MemorySpace(
+      copy(
         symbols,
         if (o.isVoid) rawObjects - a else rawObjects + (a -> o),
         memTags
@@ -136,7 +137,7 @@ case class MemorySpace(val symbols: Map[String, MemoryObject] = Map.empty,
     if (isAllocated(a)) {
       exp match {
         case Reference(v, _) => {
-          val nm = Some(MemorySpace(
+          val nm = Some(copy(
             symbols,
             rawObjects + (a -> rawObjects(a).addValue(v.copy())),
             memTags
@@ -144,7 +145,7 @@ case class MemorySpace(val symbols: Map[String, MemoryObject] = Map.empty,
           nm
         }
         case _ => {
-          val nm = Some(MemorySpace(
+          val nm = Some(copy(
             symbols,
             rawObjects + (a -> rawObjects(a).addValue(Value(exp))),
             memTags

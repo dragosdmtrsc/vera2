@@ -14,6 +14,7 @@ import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.analysis.processingmodels.instructions._
 import org.change.v2.p4.model.{ISwitchInstance, Switch}
 import org.change.v2.analysis.memory.TagExp.IntImprovements
+import spray.json.{JsArray, JsString}
 
 package object test {
 
@@ -97,7 +98,8 @@ package object test {
       if (s.errorCause.isEmpty) {
         if (PRINTER_OUTPUT_TO_FILE) {
           val ps = new PrintStream(s"$dir/outputs/success-$tmp.json")
-          ps.println(s)
+          ps.println(JsArray(s.instructionHistory.reverse.zipWithIndex.map(ip =>
+            JsString(ip._1.toString)).toVector).toString())
           ps.close()
         }
         successIndex.println(s"""<li><a href=\"file://$file/outputs/success-$tmp.json\">${s.history.head}</a></li>""")
@@ -109,7 +111,8 @@ package object test {
         } else {
           if (PRINTER_OUTPUT_TO_FILE) {
             val ps = new PrintStream(s"$dir/outputs/fail-$tmp.json")
-            ps.println(s)
+            ps.println(JsArray(s.instructionHistory.reverse.zipWithIndex.map(ip =>
+              JsString(ip._1.toString)).toVector).toString())
             ps.close()
           }
           failIndex.println(s"""<li><a href=\"file://$file/outputs/fail-$tmp.json\">${s.errorCause.get} - ${s.history.head}</a></li>""")

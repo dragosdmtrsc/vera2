@@ -164,8 +164,9 @@ public class SwitchInstance implements ISwitchInstance {
                                 new AbstractMap.SimpleEntry<String, Integer>(prof.getName(), member);
                         String actName = switchInstance.actionProfileActions.get(theEntry);
                         List<Object> actParams = switchInstance.actionProfileParams.get(theEntry);
+                        flowInstance.setFireAction(actName);
                         for (Object parm : actParams)
-                            flowInstance.setFireAction(actName).addActionParams(parm);
+                            flowInstance.addActionParams(parm);
                         switchInstance.add(flowInstance);
                         continue;
                     } else {

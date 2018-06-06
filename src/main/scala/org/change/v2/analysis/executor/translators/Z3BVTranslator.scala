@@ -9,11 +9,31 @@ import z3.scala.{Z3AST, Z3Context, Z3Solver}
 
 class Z3BVTranslator(context: Z3Context) extends Translator[Z3Solver] {
   override def translate(mem: MemorySpace): Z3Solver = {
-    mem.differences.foldLeft(mem.intersections.foldLeft(translate(mem, context.mkSolver()))((slv, st) => {
+    val slv = mem.differences.foldLeft(mem.intersections.foldLeft(translate(mem, context.mkSolver()))((slv, st) => {
       translate(st.memory, slv)
     }))((slv, st) => {
       translate(st.memory, slv)
     })
+    for (cd <- mem.pathConditions) {
+      slv.assertCnstr(translateCd(cd, slv)._1)
+    }
+    slv
+  }
+
+  private def translateCd(condition: Condition, slv : Z3Solver) : (Z3AST, Z3Solver) = condition match {
+    case OP(memoryObject, constraint) => val e = translate(slv, memoryObject.value.get.e, memoryObject.size)
+      val c = translate(slv, e._1, constraint, memoryObject.size)._1
+      (c, slv)
+    case FAND(conditions) => (context.mkAnd(conditions.map(r => {
+      translateCd(r, slv)._1
+    }):_*), slv)
+    case FOR(conditions) => (context.mkOr(conditions.map(r => {
+      translateCd(r, slv)._1
+    }):_*), slv)
+    case FNOT(r) => (context.mkNot(translateCd(r, slv)._1), slv)
+    case TRUE() => (context.mkTrue(), slv)
+    case FALSE() => (context.mkFalse(), slv)
+    case _ => ???
   }
 
   private def translate(mem : MemorySpace, slv : Z3Solver): Z3Solver = {
