@@ -2,8 +2,8 @@ package org.change.v2.analysis.memory
 
 import org.change.v2.analysis.constraint.{EQ_E, GTE_E, GT_E, LTE_E, LT_E, _}
 import org.change.v2.analysis.expression.abst.Expression
-import org.change.v2.analysis.expression.concrete.SymbolicValue
-import org.change.v2.analysis.expression.concrete.nonprimitive.Reference
+import org.change.v2.analysis.expression.concrete.{ConstantBValue, ConstantStringValue, ConstantValue, SymbolicValue}
+import org.change.v2.analysis.expression.concrete.nonprimitive._
 import org.change.v2.analysis.types.{NumericType, TypeUtils}
 import org.change.v2.analysis.z3.Z3Util
 import org.change.v2.executor.clickabstractnetwork.ClickExecutionContext
@@ -24,7 +24,103 @@ case class MemorySpace(symbols: Map[String, MemoryObject] = Map.empty,
                        intersections : List[State] = Nil,
                        differences : List[State] = Nil,
                        pathConditions : List[Condition] = Nil) {
+
+
+
   def destroyPacket(): MemorySpace = copy(rawObjects = Map.empty)
+
+  def crawlMemoryObject(mo : MemoryObject) : Set[String] = {
+    mo.valueStack.flatMap(vs => {
+      vs.vs.flatMap(v => crawlValue(v, false))
+    }).toSet
+  }
+
+  var crtSymbols : Option[Set[String]] = None
+
+  def getSymbols() : Set[String] = {
+    if (crtSymbols.nonEmpty)
+      crtSymbols.get
+    else {
+      println("compute symbols")
+      crtSymbols = Some(computeActiveSymbols())
+      crtSymbols.get
+    }
+  }
+
+  def crawlValue(v : Value, expr : Boolean = true) : Set[String] = {
+    if (expr || v.cts.nonEmpty)
+      crawlExpression(v.e) ++ v.cts.flatMap(crawlConstraint)
+    else
+      Set.empty[String]
+  }
+
+  def crawlConstraint(ct : Constraint) : Set[String] = ct match {
+    case LT_E(e) => crawlExpression(e)
+    case LTE_E(e) => crawlExpression(e)
+    case GTE_E(e) => crawlExpression(e)
+    case GT_E(e) => crawlExpression(e)
+    case EQ_E(e) => crawlExpression(e)
+    case No => Set.empty
+    case LT(v) => Set.empty
+    case LTE(v) => Set.empty
+    case GT(v) => Set.empty
+    case GTE(v) => Set.empty
+    case E(v) => Set.empty
+    case Truth() => Set.empty
+    case Range(v1, v2) => Set.empty
+    case OR(constraints) => constraints.flatMap(crawlConstraint).toSet
+    case AND(constraints) =>constraints.flatMap(crawlConstraint).toSet
+    case NOT(constraint) => crawlConstraint(constraint)
+    case _ => Set.empty
+  }
+
+  def crawlExpression(e : Expression) : Set[String] = e match {
+    case Concat(expressions) => expressions.flatMap(crawlMemoryObject).toSet
+    case LShift(a, b) => crawlValue(a) ++ crawlValue(b)
+    case Reference(what, name) => crawlValue(what)
+    case SymbolicValue(name) => Set("sym" + e.id)
+    case Plus(a, b) => crawlValue(a) ++ crawlValue(b)
+    case LNot(a) => crawlValue(a)
+    case LAnd(a, b) => crawlValue(a) ++ crawlValue(b)
+    case Lor(a, b) => crawlValue(a) ++ crawlValue(b)
+    case LXor(a, b) => crawlValue(a) ++ crawlValue(b)
+    case Minus(a, b) => crawlValue(a) ++ crawlValue(b)
+    case ConstantValue(value, isIp, isMac) => Set.empty
+    case PlusE(a, b) => crawlExpression(a) ++ crawlExpression(b)
+    case MinusE(a, b) => crawlExpression(a) ++ crawlExpression(b)
+    case LogicalOr(a, b) => crawlValue(a) ++ crawlValue(b)
+    case ConstantBValue(value, size) => Set.empty
+    case ConstantStringValue(value) => Set.empty
+    case _ => Set.empty
+  }
+
+  def crawlCondition(condition: Condition) : Set[String] = condition match {
+    case OP(memoryObject, constraint) => crawlExpression(memoryObject.value.get.e) ++ crawlConstraint(constraint)
+    case FAND(conditions) => conditions.flatMap(crawlCondition).toSet
+    case FOR(conditions) => conditions.flatMap(crawlCondition).toSet
+    case FNOT(condition) => crawlCondition(condition)
+    case TRUE() => Set.empty
+    case FALSE() => Set.empty
+    case _ => Set.empty
+  }
+
+  def computeActiveSymbols() : Set[String] = rawObjects.flatMap(x => crawlMemoryObject(x._2)).toSet ++
+      symbols.flatMap(x => crawlMemoryObject(x._2)).toSet ++ pathConditions.flatMap(crawlCondition)
+
+  def copy(
+            symbols: Map[String, MemoryObject] = this.symbols,
+            rawObjects: Map[Int, MemoryObject] = this.rawObjects,
+            memTags: Map[String, Int] = this.memTags,
+            intersections : List[State] = this.intersections,
+            differences : List[State] = this.differences,
+            pathConditions : List[Condition] = this.pathConditions
+          ) : MemorySpace = {
+    val ms = MemorySpace(symbols, rawObjects, memTags, intersections, differences, pathConditions)
+    if (crtSymbols.nonEmpty)
+      ms.crtSymbols = crtSymbols
+    ms
+  }
+
 
   private def resolveBy[K](id: K, m: Map[K, MemoryObject]): Option[Value] =
     m.get(id).flatMap(_.value)
@@ -158,36 +254,47 @@ case class MemorySpace(symbols: Map[String, MemoryObject] = Map.empty,
       None
 
 
+  def addCondition(condition : Condition) : MemorySpace = {
+    val news = copy(pathConditions = condition :: pathConditions)
+    news.crtSymbols = Some(this.getSymbols() ++ crawlCondition(condition))
+    news
+  }
+
   def addConstraint(id: String, c: Constraint): Option[MemorySpace] = addConstraint(id, c, false)
 
-  def addConstraint(id: String, c: Constraint, defer: Boolean): Option[MemorySpace] = eval(id).flatMap(smb => {
-    //    val (newSmb, isSolved) = checkSat(smb.copy(e = normalize(smb.e)), normalize(c))
-    val (newSmb, isSolved) = (Option[Value](smb.constrain(c)), false)
-    if (isSolved) {
-      if (newSmb.isDefined) {
-        Some(replaceValue(id, newSmb.get).get)
-      }
-      else {
-        None
-      }
-    }
-    else {
-      val newMem = replaceValue(id, newSmb.get).get
-      val subject = newMem.eval(id).get
-      if (defer)
-        Some(newMem)
-      else {
-        c match {
-          case EQ_E(someE) if someE.id == subject.e.id => Some(newMem)
-          case GT_E(someE) if someE.id == subject.e.id => None
-          case GTE_E(someE) if someE.id == subject.e.id => Some(newMem)
-          case LT_E(someE) if someE.id == subject.e.id => None
-          case LTE_E(someE) if someE.id == subject.e.id => Some(newMem)
-          case _ => if (!defer) memoryToOption(newMem) else Some(newMem)
+  def addConstraint(id: String, c: Constraint, defer: Boolean): Option[MemorySpace] = {
+    val maybeMemm = eval(id).flatMap(smb => {
+      //    val (newSmb, isSolved) = checkSat(smb.copy(e = normalize(smb.e)), normalize(c))
+      val (newSmb, isSolved) = (Option[Value](smb.constrain(c)), false)
+      if (isSolved) {
+        if (newSmb.isDefined) {
+          Some(replaceValue(id, newSmb.get).get)
+        } else {
+          None
+        }
+      } else {
+        val newMem = replaceValue(id, newSmb.get).get
+        val subject = newMem.eval(id).get
+        if (defer)
+          Some(newMem)
+        else {
+          c match {
+            case EQ_E(someE) if someE.id == subject.e.id => Some(newMem)
+            case GT_E(someE) if someE.id == subject.e.id => None
+            case GTE_E(someE) if someE.id == subject.e.id => Some(newMem)
+            case LT_E(someE) if someE.id == subject.e.id => None
+            case LTE_E(someE) if someE.id == subject.e.id => Some(newMem)
+            case _ => if (!defer) memoryToOption(newMem) else Some(newMem)
+          }
         }
       }
-    }
-  })
+    })
+    maybeMemm.map(r => {
+      if (r.crtSymbols.nonEmpty)
+        r.crtSymbols = Some(r.crtSymbols.get ++ crawlConstraint(c))
+      r
+    })
+  }
 
   /**
     * ONLY RUN THIS after checkSat
@@ -204,36 +311,43 @@ case class MemorySpace(symbols: Map[String, MemoryObject] = Map.empty,
 
   def addConstraint(a: Int, c: Constraint): Option[MemorySpace] = addConstraint(a, c, false)
 
-  def addConstraint(a: Int, c: Constraint, defer: Boolean): Option[MemorySpace] = eval(a).flatMap(smb => {
-    val (newSmb, isSolved) = (Option[Value](smb.constrain(c)), false)
-    if (isSolved) {
-      if (newSmb.isDefined) {
-        Some(replaceValue(a, newSmb.get).get)
+  def addConstraint(a: Int, c: Constraint, defer: Boolean): Option[MemorySpace] = {
+    val maybeMemm =  eval(a).flatMap(smb => {
+      val (newSmb, isSolved) = (Option[Value](smb.constrain(c)), false)
+      if (isSolved) {
+        if (newSmb.isDefined) {
+          Some(replaceValue(a, newSmb.get).get)
+        }
+        else {
+          None
+        }
       }
       else {
-        None
-      }
-    }
-    else {
-      val newMem = replaceValue(a, newSmb.get).get
-      val subject = newMem.eval(a).get
-      if (defer)
-        Some(newMem)
-      else {
-        c match {
-          case EQ_E(someE) if someE.id == subject.e.id => Some(newMem)
-          case GT_E(someE) if someE.id == subject.e.id => None
-          case GTE_E(someE) if someE.id == subject.e.id => Some(newMem)
-          case LT_E(someE) if someE.id == subject.e.id => None
-          case LTE_E(someE) if someE.id == subject.e.id => Some(newMem)
-          case _ => {
-            //            println(s"Can't handle the truth for $smb added ct $c and newSmb is $newSmb")
-            memoryToOption(newMem)
+        val newMem = replaceValue(a, newSmb.get).get
+        val subject = newMem.eval(a).get
+        if (defer)
+          Some(newMem)
+        else {
+          c match {
+            case EQ_E(someE) if someE.id == subject.e.id => Some(newMem)
+            case GT_E(someE) if someE.id == subject.e.id => None
+            case GTE_E(someE) if someE.id == subject.e.id => Some(newMem)
+            case LT_E(someE) if someE.id == subject.e.id => None
+            case LTE_E(someE) if someE.id == subject.e.id => Some(newMem)
+            case _ => {
+              //            println(s"Can't handle the truth for $smb added ct $c and newSmb is $newSmb")
+              memoryToOption(newMem)
+            }
           }
         }
       }
-    }
-  })
+    })
+    maybeMemm.map(r => {
+      if (r.crtSymbols.nonEmpty)
+        r.crtSymbols = Some(r.crtSymbols.get ++ crawlConstraint(c))
+      r
+    })
+  }
 
   // FOR TESTING purposes ONLY
   //  def Constrain(id: String, c: Constraint): Option[MemorySpace] = eval(id).flatMap(smb => {
@@ -276,7 +390,7 @@ case class MemorySpace(symbols: Map[String, MemoryObject] = Map.empty,
       None
 
   def replaceValue(id: String, v: Value): Option[MemorySpace] = symbols.get(id).flatMap(_.replaceValue(v)).map(
-    mo => MemorySpace(
+    mo => copy(
       symbols + (id -> mo),
       rawObjects,
       memTags
@@ -284,7 +398,7 @@ case class MemorySpace(symbols: Map[String, MemoryObject] = Map.empty,
   )
 
   def replaceValue(id: Int, v: Value): Option[MemorySpace] = rawObjects.get(id).flatMap(_.replaceValue(v)).map(
-    mo => MemorySpace(
+    mo => copy(
       symbols,
       rawObjects + (id -> mo),
       memTags
@@ -305,12 +419,13 @@ case class MemorySpace(symbols: Map[String, MemoryObject] = Map.empty,
     }
   }
 
-  def assignNewValue(id: String, v: Value): Option[MemorySpace] =
-    Some(MemorySpace(
+  def assignNewValue(id: String, v: Value): Option[MemorySpace] = {
+    Some(copy(
       symbols + (id -> (if (symbolIsDefined(id)) symbols(id).addValue(v) else MemoryObject(size = 64).addValue(v))),
       rawObjects,
       memTags
     ))
+  }
 
   import org.change.v2.analysis.memory.jsonformatters.MemorySpaceToJson._
   def jsonString = this.toJson.toString

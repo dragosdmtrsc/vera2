@@ -292,23 +292,14 @@ class OVSExecutor(solver: Solver) extends DecoratedInstructionExecutor(solver) {
                 val sat = isSat(m2)
                 log(a, value, c, sat)
                 if (sat) {
-                  c match {
-                    case EQ_E(ConstantValue(y, _, _)) => {
-                      value.e match {
-                        //                          case z : SymbolicValue => Some(mapMemory(m2, z.id, y))
-                        case _ => Some(m2)
-                      }
-                    }
-                    case _ => Some(m2)
-                  }
-                }
-                else {
+                  Some(m2)
+                } else {
                   None
                 }
               })
-            }
-            else
+            } else {
               mm._1
+            }
           }
         }
         }

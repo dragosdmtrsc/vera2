@@ -33,23 +33,26 @@ class FullBlownSwitch extends FunSuite {
       pg)
     )
     import org.change.v2.analysis.executor.StateConsumer.fromFunction
-    val printer = createConsumer(dir)
+    val printer = createConsumer("/home/dragos/extended/vera-outputs/")
 
     val codeAwareInstructionExecutorWithListeners = new CodeAwareInstructionExecutorWithListeners(
       CodeAwareInstructionExecutor(res.instructions(), res.links(), new Z3BVSolver),
       successStateConsumers = printer._3 :: Nil,
       failedStateConsumers =  printer._3 :: Nil
     )
-    val init  = codeAwareInstructionExecutorWithListeners.caie.execute(
-      res.initializeGlobally(), State.clean, false
-    )._1.head
     import org.change.v2.analysis.memory.TagExp._
+
+    val init  = codeAwareInstructionExecutorWithListeners.caie.execute(
+      InstructionBlock(
+        CreateTag("START", 0),
+        Call("switch.generator.parse_ethernet.parse_ipv4.parse_tcp"),
+        res.initializeGlobally()
+      ), State.clean, false
+    )._1.head
     val ib = Forward(s"${symbolicSwitchInstance.getName}.input.$port")
 
     val (_, ssruntime) = runAndLog(() =>
       codeAwareInstructionExecutorWithListeners.execute(InstructionBlock(
-        CreateTag("START", 0),
-        Call("switch.generator.parse_ethernet.parse_ipv4.parse_tcp"),
         ib
       ), init, true))
     printer._1.close()

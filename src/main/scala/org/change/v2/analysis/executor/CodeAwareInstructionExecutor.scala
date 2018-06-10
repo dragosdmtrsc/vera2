@@ -13,6 +13,7 @@ import org.change.v2.analysis.processingmodels._
 import org.change.v2.analysis.processingmodels.instructions._
 import org.change.v2.analysis.types.LongType
 
+import scala.annotation.tailrec
 import scala.collection.mutable
 
 
@@ -77,21 +78,23 @@ class CodeAwareInstructionExecutor(val program : Map[String, Instruction],
     }
   }
 
-  def executeInternal(instruction : Instruction, state : State, verbose : Boolean) : (List[State], List[State]) = {
-    this.execute(instruction, state, verbose)
-  }
-
-  override def executeInstructionBlock(instruction: InstructionBlock, s: State, v: Boolean): (List[State], List[State]) =
+  override final def executeInstructionBlock(instruction: InstructionBlock, s: State, v: Boolean): (List[State], List[State]) =
     instruction.instructions.toList match {
-      case Forward(place) :: tail => this.executeInternal(Forward(place), s, v)
+      case Forward(place) :: tail => executeForward(Forward(place), s, v)
       case InstructionBlock(is) :: tail =>
-        this.executeInternal(InstructionBlock(is ++ tail), s, v)
+        this.executeInstructionBlock(InstructionBlock(is ++ tail), s, v)
       case SuperFork(forkBlocks) :: tail =>
-        this.executeInternal(SuperFork(forkBlocks.map(f => InstructionBlock(f :: tail))), s, v)
-      case If (a, b, c) :: tail => this.execute(If(a, InstructionBlock(b :: tail), InstructionBlock(c :: tail)), s, v)
-      case Fork(forkBlocks) :: tail => this.executeInternal(Fork(forkBlocks.map(f => InstructionBlock(f :: tail))), s, v)
-      case head :: tail => super.executeInstructionBlock(InstructionBlock(head, InstructionBlock(tail)), s, v)
-      case _ => super.executeInstructionBlock(instruction, s, v)
+        this.execute(SuperFork(forkBlocks.map(f => InstructionBlock(f :: tail))), s, v)
+      case If (a, b, c) :: tail => this.executeIf(If(a, InstructionBlock(b :: tail), InstructionBlock(c :: tail)), s, v)
+      case Fork(forkBlocks) :: tail =>
+        this.execute(Fork(forkBlocks.map(f => InstructionBlock(f :: tail))), s, v)
+      case head :: tail =>
+        val (s1, f1) = this.execute(head, s, v)
+        s1.foldLeft((Nil, f1) : (List[State], List[State]))((acc, x) => {
+          val (s2, f2) = this.executeInstructionBlock(InstructionBlock(tail), x, v)
+          (acc._1 ++ s2, acc._2 ++ f2)
+        })
+      case Nil => (s :: Nil, Nil)
     }
 
   def +(pair : (String, Instruction)) : CodeAwareInstructionExecutor = {
@@ -165,9 +168,9 @@ class CodeAwareInstructionExecutor(val program : Map[String, Instruction],
     instruction match {
       case t : Translatable => this.execute(t.generateInstruction(), s, v)
       case Call(fun) => this.executeForward(Forward(fun), s, v)
-      case Unfail(u) => val (ok, failed) = executeInternal(u, s, v)
+      case Unfail(u) => val (ok, failed) = execute(u, s, v)
         (ok ++ failed.map(x => x.copy(errorCause = None).forwardTo(s"Fail(${x.errorCause})")), Nil)
-      case Let(string, u) => val (ok, failed) = executeInternal(u, s, v)
+      case Let(string, u) => val (ok, failed) = execute(u, s, v)
         (ok.map(x => {
           val symbols = x.memory.symbols.map( r => {
             string + "." + r._1 -> r._2
@@ -193,7 +196,7 @@ class CodeAwareInstructionExecutor(val program : Map[String, Instruction],
 
   def handleFork(instructions : List[Instruction], s : State, verbose : Boolean) : (List[State], List[State]) = {
     val peri = instructions.map(i => {
-      this.executeInternal(Unfail(i), s, verbose)._1
+      this.execute(Unfail(i), s, verbose)._1
     })
 
     def cartesianProduct[T](in: Seq[Seq[T]]): Seq[Seq[T]] = {

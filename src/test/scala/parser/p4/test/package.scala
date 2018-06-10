@@ -18,7 +18,7 @@ import spray.json.{JsArray, JsString}
 
 package object test {
 
-  val PRINTER_OUTPUT_TO_FILE = false
+  val PRINTER_OUTPUT_TO_FILE = true
 
 
  def executeAndPrintStats(ib: Instruction, initial: List[State],
@@ -93,30 +93,33 @@ package object test {
     val outDir = new File(dir + "/outputs")
     if (!outDir.exists())
       outDir.mkdir()
+    var succIdx = 0
+    var failIdx = 0
     val printer = (s: State) => {
-      val tmp = UUID.randomUUID().toString
       if (s.errorCause.isEmpty) {
         if (PRINTER_OUTPUT_TO_FILE) {
-          val ps = new PrintStream(s"$dir/outputs/success-$tmp.json")
+          val ps = new PrintStream(s"$dir/outputs/success-$succIdx.json")
           ps.println(JsArray(s.instructionHistory.reverse.zipWithIndex.map(ip =>
             JsString(ip._1.toString)).toVector).toString())
           ps.close()
         }
-        successIndex.println(s"""<li><a href=\"file://$file/outputs/success-$tmp.json\">${s.history.head}</a></li>""")
+        successIndex.println(s"""<li><a href=\"file://$file/outputs/success-$succIdx.json\">${s.history.head}</a></li>""")
         successIndex.flush()
+        succIdx = succIdx + 1
       } else {
         if (s.location.startsWith("switch.parser") && (s.errorCause.get.startsWith("Cannot resolve") ||
           s.errorCause.get.startsWith("Wrong choice"))) {
           // nothing here
         } else {
           if (PRINTER_OUTPUT_TO_FILE) {
-            val ps = new PrintStream(s"$dir/outputs/fail-$tmp.json")
+            val ps = new PrintStream(s"$dir/outputs/fail-$failIdx.json")
             ps.println(JsArray(s.instructionHistory.reverse.zipWithIndex.map(ip =>
               JsString(ip._1.toString)).toVector).toString())
             ps.close()
           }
-          failIndex.println(s"""<li><a href=\"file://$file/outputs/fail-$tmp.json\">${s.errorCause.get} - ${s.history.head}</a></li>""")
+          failIndex.println(s"""<li><a href=\"file://$file/outputs/fail-$failIdx.json\">${s.errorCause.get} - ${s.history.head}</a></li>""")
           failIndex.flush()
+          failIdx = failIdx + 1
         }
       }
     }
