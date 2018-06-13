@@ -121,26 +121,52 @@ class ActionInstance(p4Action: P4Action,
 
   def restore(butFor : List[String]) : Instruction = {
     InstructionBlock(switch.getInstances.flatMap(x => {
-        if (!butFor.contains(x.getName)) {
-          x.getLayout.getFields.map(y => {
-            if (!butFor.contains(x.getName + "." + y.getName)) {
-              if (x.isMetadata) {
-                NoOp
-              } else {
-                If (Constrain(s"${x.getName}.IsValid", :==:(ConstantValue(1))),
-                  InstructionBlock(
-                    Allocate(x.getName + "." + y.getName, y.getLength),
-                    Assign(x.getName + "." + y.getName, :@("Original." + x.getName + "." + y.getName))
+      x match {
+        case instance: ArrayInstance =>
+          if (!butFor.contains(x.getName)) {
+            (0 until instance.getLength).flatMap(idx => {
+              x.getLayout.getFields.map(y => {
+                if (!butFor.contains(x.getName + s"[$idx]." + y.getName)) {
+                  if (x.isMetadata) {
+                    NoOp
+                  } else {
+                    If(Constrain(s"${x.getName}[$idx].IsValid", :==:(ConstantValue(1))),
+                      InstructionBlock(
+                        Allocate(x.getName + s"[$idx]." + y.getName, y.getLength),
+                        Assign(x.getName + s"[$idx]." + y.getName, :@("Original." + x.getName + s"[$idx]." + y.getName))
+                      )
+                    )
+                  }
+                } else {
+                  NoOp
+                }
+              })
+            })
+          } else {
+            NoOp :: Nil
+          }
+        case _ =>
+          if (!butFor.contains(x.getName)) {
+            x.getLayout.getFields.map(y => {
+              if (!butFor.contains(x.getName + "." + y.getName)) {
+                if (x.isMetadata) {
+                  NoOp
+                } else {
+                  If(Constrain(s"${x.getName}.IsValid", :==:(ConstantValue(1))),
+                    InstructionBlock(
+                      Allocate(x.getName + "." + y.getName, y.getLength),
+                      Assign(x.getName + "." + y.getName, :@("Original." + x.getName + "." + y.getName))
+                    )
                   )
-                )
+                }
+              } else {
+                NoOp
               }
-            }
-            else
-              NoOp
-          })
-        } else {
-          List[Instruction](NoOp)
-        }
+            })
+          } else {
+            List[Instruction](NoOp)
+          }
+      }
       }).toList
     )
   }

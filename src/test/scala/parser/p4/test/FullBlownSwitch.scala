@@ -5,8 +5,9 @@ import org.change.parser.p4.parser.SkipParserAndDeparser
 import org.change.parser.p4.tables.SymbolicSwitchInstance
 import org.change.v2.analysis.executor.solvers.Z3BVSolver
 import org.change.v2.analysis.executor.{CodeAwareInstructionExecutor, CodeAwareInstructionExecutorWithListeners}
+import org.change.v2.analysis.expression.concrete.ConstantValue
 import org.change.v2.analysis.memory.State
-import org.change.v2.analysis.processingmodels.instructions.{Call, CreateTag, Forward, InstructionBlock}
+import org.change.v2.analysis.processingmodels.instructions._
 import org.change.v2.p4.model.Switch
 import org.scalatest.FunSuite
 
@@ -29,14 +30,20 @@ class FullBlownSwitch extends FunSuite {
       switchInstance = symbolicSwitchInstance,
       codeFilter = None
     )
-    val res = ControlFlowInterpreter.buildSymbolicInterpreter(symbolicSwitchInstance, switch, Some(
-      pg)
-    )
+    val res = ControlFlowInterpreter.buildSymbolicInterpreter(symbolicSwitchInstance, switch, Some(pg))
     import org.change.v2.analysis.executor.StateConsumer.fromFunction
     val printer = createConsumer("/home/dragos/extended/vera-outputs/")
 
+    val allIfaces = Fork(symbolicSwitchInstance.ifaces.map(x => {
+      Constrain("standard_metadata.egress_port", :==:(ConstantValue(x._1.longValue())))
+    }))
     val codeAwareInstructionExecutorWithListeners = new CodeAwareInstructionExecutorWithListeners(
-      CodeAwareInstructionExecutor(res.instructions(), res.links(), new Z3BVSolver),
+      CodeAwareInstructionExecutor(res.instructions() +
+        (s"${symbolicSwitchInstance.getName}.output.in" -> If (allIfaces,
+          Forward(s"${symbolicSwitchInstance.getName}.output.out"),
+          Fail("Cannot find egress_port match for current interfaces")
+        )),
+        res.links(), new Z3BVSolver),
       successStateConsumers = printer._3 :: Nil,
       failedStateConsumers =  printer._3 :: Nil
     )

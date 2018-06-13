@@ -156,7 +156,6 @@ class FullTableWithInstances[T<:ISwitchInstance](tableName : String,
             k.getKey
         )
         val (hdr, fieldName) = fieldDef(k.getKey)
-
         val varName = s"tmp$uuid"
         if (!switch.getInstance(hdr).isMetadata) {
           mask match {
@@ -196,7 +195,6 @@ class FullTableWithInstances[T<:ISwitchInstance](tableName : String,
             Constrain(k.getKey, :==:(va))
           )
         }
-
       case _ => ???
     })
   }

@@ -27,17 +27,19 @@ class BufferMechanism(switchInstance: ISwitchInstance) {
     })
   )
 
-  def normalCase(): Instruction = switchInstance.getIfaceSpec.keySet().
-    foldRight(
-      If (Constrain("standard_metadata.egress_spec", :==:(ConstantValue(511l))),
-        Fail("Egress spec set to 511 <=> dropping packet post ingress"),
-        Fail("Egress spec not set. Resolve to drop")
-      ) : Instruction)((x, acc) => {
-    If (Constrain("standard_metadata.egress_spec", :==:(ConstantValue(x.longValue()))),
-      Assign("standard_metadata.egress_port", ConstantValue(x.longValue())),
-      acc
+  def normalCase(): Instruction = {
+    val default = If (Constrain("standard_metadata.egress_spec", :==:(ConstantValue(511l))),
+      Fail("Egress spec set to 511 <=> dropping packet post ingress"),
+      Fail("Egress spec not set. Resolve to drop")
     )
-  })
+    val cnstr = Fork(switchInstance.getIfaceSpec.keySet().map(x => {
+      Constrain("standard_metadata.egress_spec", :==:(ConstantValue(x.longValue())))
+    }))
+    If (cnstr,
+      Assign("standard_metadata.egress_port", :@("standard_metadata.egress_spec")),
+      default
+    )
+  }
 
   def symnetCode() : Instruction = InstructionBlock(
       If(Constrain("standard_metadata.instance_type", :|:(
