@@ -375,7 +375,21 @@ abstract class AbstractInstructionExecutor extends InstructionExecutor {
               (Nil, Nil)
             (bt._1 ++ bf._1, bt._2 ++ bf._2)
         }
-      case Right(m) => this.execute(Fail(m), s, v)
+      // pretty uncool stuff... example use case:
+      // if (x && *x == 10) ...
+      // if x is null then the whole if condition will fail, even though
+      // explicit protection in this case has been provided => there is no bug
+      // in this case
+      // TODO: need a clean way of doing this!!! too much recursion will kill you
+      case Right(m) => testInstr match {
+        case InstructionBlock(instrs) => execute(instrs.foldRight(thenWhat)((acc, i) => {
+          If (i, acc, elseWhat)
+        }), s, v)
+        case Fork(fb) => execute(fb.foldRight(elseWhat)((acc, i) => {
+          If (i, thenWhat, acc)
+        }), s, v)
+        case _ => this.execute(Fail(m), s, v)
+      }
     }
   }
 
@@ -399,9 +413,9 @@ abstract class AbstractInstructionExecutor extends InstructionExecutor {
 
   def buildCondition(s : State, testInstr : Instruction) : Either[Condition, String] = testInstr match {
     case Fork(fb) if fb.isEmpty => Left(FALSE())
-    case Fork(h :: tail) => buildCondition(s, h) match {
+    case Fork(fb) => buildCondition(s, fb.head) match {
       case Right(err) => Right(err)
-      case Left(c) => buildOr(s, tail, FOR(c :: Nil))
+      case Left(c) => buildOr(s, fb.tail.toList, FOR(c :: Nil))
     }
     case InstructionBlock(i) if i.isEmpty => Left(TRUE())
     case InstructionBlock(lst) => buildCondition(s, lst.head) match {
