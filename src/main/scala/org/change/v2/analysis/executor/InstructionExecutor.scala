@@ -382,10 +382,10 @@ abstract class AbstractInstructionExecutor extends InstructionExecutor {
       // in this case
       // TODO: need a clean way of doing this!!! too much recursion will kill you
       case Right(m) => testInstr match {
-        case InstructionBlock(instrs) => execute(instrs.foldRight(thenWhat)((acc, i) => {
+        case InstructionBlock(instrs) => execute(instrs.foldRight(thenWhat)((i, acc) => {
           If (i, acc, elseWhat)
         }), s, v)
-        case Fork(fb) => execute(fb.foldRight(elseWhat)((acc, i) => {
+        case Fork(fb) => execute(fb.foldRight(elseWhat)((i, acc) => {
           If (i, thenWhat, acc)
         }), s, v)
         case _ => this.execute(Fail(m), s, v)
@@ -453,7 +453,7 @@ abstract class AbstractInstructionExecutor extends InstructionExecutor {
       case in : InstructionBlock =>
         executeIf(in, thenWhat, elseWhat, s, v)
       case in : Fork => executeIf(in, thenWhat, elseWhat, s, v)
-      case _ => stateToError(s, "Bad test instruction")
+      case _ => stateToError(s, s"Bad test instruction $testInstr")
     }
   }
 

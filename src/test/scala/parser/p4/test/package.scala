@@ -95,6 +95,8 @@ package object test {
       outDir.mkdir()
     var succIdx = 0
     var failIdx = 0
+    val pscsv = new PrintStream(s"$dir/outputs/success.csv")
+    val pscsvf = new PrintStream(s"$dir/outputs/fail.csv")
     val printer = (s: State) => {
       if (s.errorCause.isEmpty) {
         if (PRINTER_OUTPUT_TO_FILE) {
@@ -102,6 +104,8 @@ package object test {
           ps.println(JsArray(s.instructionHistory.reverse.zipWithIndex.map(ip =>
             JsString(ip._1.toString)).toVector).toString())
           ps.close()
+          pscsv.println(s.history.reverse.mkString(","))
+          pscsv.flush()
         }
         successIndex.println(s"""<li><a href=\"file://$file/outputs/success-$succIdx.json\">${s.history.head}</a></li>""")
         successIndex.flush()
@@ -116,6 +120,8 @@ package object test {
             ps.println(JsArray(s.instructionHistory.reverse.zipWithIndex.map(ip =>
               JsString(ip._1.toString)).toVector).toString())
             ps.close()
+            pscsvf.println(s.history.reverse.mkString(",") + ',' + s.errorCause.get)
+            pscsvf.flush()
           }
           failIndex.println(s"""<li><a href=\"file://$file/outputs/fail-$failIdx.json\">${s.errorCause.get} - ${s.history.head}</a></li>""")
           failIndex.flush()
