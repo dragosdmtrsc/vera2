@@ -519,17 +519,6 @@ class P4GrammarListener extends P4GrammarBaseListener {
       this.instructions.put(s"control.${ctx.controlFunctionName}", Forward(s"control.${ctx.controlFunctionName}.out"))
     else
       this.instructions.put(s"control.${ctx.controlFunctionName}", Forward(s"control.${ctx.controlFunctionName}" + "[0]"))
-
-//    println("\n\n------------------------------\nGenerated SEFL CODE for function "+ ctx.control_fn_name.getText +"\n------------------------------\n")
-//    for ((x,y) <- ports){
-//      println(x+":")
-//      for ( z <- y)
-//        println("\t"+z)
-//    }
-//
-//    if(currentInstructions.nonEmpty){
-//      System.out.println("Not expecting instructions at exit of ctrl function!\n"+currentInstructions)
-//    }
   }
 
   override def enterControl_block(ctx:Control_blockContext) {

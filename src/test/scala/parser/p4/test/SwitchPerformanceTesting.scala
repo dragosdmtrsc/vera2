@@ -102,16 +102,16 @@ class SwitchPerformanceTesting  extends FunSuite {
     val symbolicSwitchInstance = SymbolicSwitchInstance.fullSymbolic("switch", ifaces, Map.empty, switch)
     val res = ControlFlowInterpreter.buildSymbolicInterpreter(symbolicSwitchInstance, switch)
     val port = 1
-    val ib = InstructionBlock(
-      Forward(s"switch.input.$port")
-    )
+    val ib = Fork(ifaces.map(r => {
+        Forward(s"switch.input.${r._1}")
+      }))
     val codeAwareInstructionExecutor = CodeAwareInstructionExecutor(res.instructions(), res.links(), solver = new Z3BVSolver)
     val (initial, fld) = codeAwareInstructionExecutor.
       execute(InstructionBlock(
         CreateTag("START", 0),
         res.allParserStatesInstruction(),
         res.initializeGlobally()
-      ), State.clean, verbose = true)
+      ), State.clean, verbose = false)
     val (ok: List[State], failed: List[State]) = executeAndPrintStats(ib, initial, codeAwareInstructionExecutor)
     val relevant = failed
     printResults(dir, port, ok, relevant, "bad")

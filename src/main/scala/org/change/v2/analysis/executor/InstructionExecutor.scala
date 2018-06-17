@@ -267,7 +267,10 @@ abstract class AbstractInstructionExecutor extends InstructionExecutor {
     case Reference(a, _) => evaluateE(a.e)
     case ConstantStringValue(x) => Some(BigInt(x.hashCode.toLong))
     case ConstantValue(y, _, _) => Some(BigInt(y))
-    case ConstantBValue(h, sz) => Some(BigInt.apply(h, 16))
+    case ConstantBValue(h, sz) => if (h.startsWith("#x"))
+        Some(BigInt.apply(h.replace("#x", ""), 16))
+      else
+        Some(BigInt.apply(h, 16))
     case Plus(a, b) => evaluateE(a.e).flatMap(x => evaluateE(b.e).map(x + _))
     case LAnd(a, b) => evaluateE(a.e).flatMap(x => evaluateE(b.e).map(x & _))
     case Lor(a, b) => evaluateE(a.e).flatMap(x => evaluateE(b.e).map(x | _))
@@ -381,7 +384,9 @@ abstract class AbstractInstructionExecutor extends InstructionExecutor {
       // explicit protection in this case has been provided => there is no bug
       // in this case
       // TODO: need a clean way of doing this!!! too much recursion will kill you
-      case Right(m) => testInstr match {
+      case Right(m) =>
+        System.err.println(s"Nasty case $m, $testInstr")
+      testInstr match {
         case InstructionBlock(instrs) => execute(instrs.foldRight(thenWhat)((i, acc) => {
           If (i, acc, elseWhat)
         }), s, v)
@@ -619,9 +624,6 @@ abstract class AbstractInstructionExecutor extends InstructionExecutor {
       case None => execute(Fail(TagExp.brokenTagExpErrorMessage), s, v)
     }
   }
-
-
-
 
   override def executeDeallocateRaw(instruction: DeallocateRaw,
                                     s: State,

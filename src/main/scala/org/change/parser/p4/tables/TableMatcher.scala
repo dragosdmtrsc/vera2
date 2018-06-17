@@ -18,6 +18,7 @@ import org.change.v2.util.conversion.RepresentationConversion._
 
 import scala.collection.JavaConversions._
 import scala.collection.mutable
+import scala.collection.mutable.ListBuffer
 
 
 
@@ -59,12 +60,12 @@ abstract class FullTableGeneric[T<:ISwitchInstance](tableName : String,
 
   protected def priorAndConstraints(index : Int): (List[Instruction], List[Instruction]) = {
     val init = generateConstrainableInstructions(index)
-    (init.map ( x => {
-      InstructionBlock(x.instructions.filter(x => x.isInstanceOf[AssignNamedSymbol] ||
-        x.isInstanceOf[AllocateSymbol] || x.isInstanceOf[AllocateRaw]))
-    }), init.map ( x => {
-      InstructionBlock(x.instructions.filter(x => x.isInstanceOf[ConstrainNamedSymbol] || x.isInstanceOf[ConstrainRaw]))
-    }))
+    (InstructionBlock(init.flatMap( x => {
+      x.instructions.filter(x => x.isInstanceOf[AssignNamedSymbol] ||
+        x.isInstanceOf[AllocateSymbol] || x.isInstanceOf[AllocateRaw])
+    })) :: Nil, InstructionBlock(init.flatMap(x => {
+      x.instructions.filter(x => x.isInstanceOf[ConstrainNamedSymbol] || x.isInstanceOf[ConstrainRaw])
+    })) :: Nil)
   }
   protected def default() : Instruction = If (Constrain("IsClone", :==:(ConstantValue(0))),
     InstructionBlock(
@@ -86,34 +87,37 @@ abstract class FullTableGeneric[T<:ISwitchInstance](tableName : String,
       )
     )
   }
-  def fullAction() : Instruction = InstructionBlock(
-    initializeTable(),
-    (0 until numberOfFlows).foldRight(default())((x, acc) => {
-      val priorAndCt = priorAndConstraints(x)
-      priorAndCt._2.zip(priorAndCt._1).foldRight(action(x))((y, acc2) => {
-        If (Constrain("IsClone", :==:(ConstantValue(0))),
-          InstructionBlock(
-            y._2,
-            If (y._1,
-              InstructionBlock(
-                acc2,
-                Assign(s"${actionDef(x)}.Fired", ConstantValue(1)),
-                Assign(s"$tableName.Hit", ConstantValue(1))
-              ),
-              InstructionBlock(
-                Assign(s"${actionDef(x)}.Fired", ConstantValue(0)),
-                Assign(s"$tableName.Hit", ConstantValue(0)),
-                acc
+  def fullAction() : Instruction = {
+    val ib = InstructionBlock(
+      initializeTable(),
+      (0 until numberOfFlows).foldRight(default())((x, acc) => {
+        val priorAndCt = priorAndConstraints(x)
+        priorAndCt._2.zip(priorAndCt._1).foldRight(action(x))((y, acc2) => {
+          If (Constrain("IsClone", :==:(ConstantValue(0))),
+            InstructionBlock(
+              y._2,
+              If (y._1,
+                InstructionBlock(
+                  acc2,
+                  Assign(s"${actionDef(x)}.Fired", ConstantValue(1)),
+                  Assign(s"$tableName.Hit", ConstantValue(1))
+                ),
+                InstructionBlock(
+                  Assign(s"${actionDef(x)}.Fired", ConstantValue(0)),
+                  Assign(s"$tableName.Hit", ConstantValue(0)),
+                  acc
+                )
               )
             )
           )
-        )
-      })
-    }),
-    If (Constrain("IsClone", :==:(ConstantValue(0))),
-      Forward(s"${switchInstance.getName}.table.$tableName.out" + (if (id.length != 0) s".$id" else ""))
+        })
+      }),
+      If (Constrain("IsClone", :==:(ConstantValue(0))),
+        Forward(s"${switchInstance.getName}.table.$tableName.out" + (if (id.length != 0) s".$id" else ""))
+      )
     )
-  )
+    ib
+  }
 }
 
 class FullTableWithInstances[T<:ISwitchInstance](tableName : String,
@@ -125,6 +129,125 @@ class FullTableWithInstances[T<:ISwitchInstance](tableName : String,
   private val tableMatches = switch.getTableMatches(tableName).toList
 
   override def numberOfFlows(): Int = flowDefinitions.size
+
+  override protected def priorAndConstraints(index : Int) : (List[InstructionBlock], List[InstructionBlock]) = {
+    val assignments = mutable.ListBuffer[mutable.ListBuffer[Instruction]]()
+    val constraints = mutable.ListBuffer[mutable.ListBuffer[Instruction]]()
+
+    assignments += ListBuffer[Instruction]()
+    constraints += ListBuffer[Instruction]()
+
+    val finstance = flowDefinitions(index)
+
+    var lastValid = false
+    for (k <- tableMatches) {
+      val ib : (InstructionBlock, InstructionBlock) = finstance.matchParams(k.getKey) match {
+        case LPMMatch(va, prefix) =>
+          val uuid = UUID.randomUUID().toString
+          val size = switch.getSize(k.getKey)
+          val varName = s"tmp$uuid"
+          val (hdr, fieldName) = fieldDef(k.getKey)
+          if (switch.getInstance(hdr) != null && !switch.getInstance(hdr).isMetadata) {
+            (InstructionBlock(
+              Allocate(varName, size),
+              Assign(varName, :&&:(:@(k.getKey), :<<:(:-:(:<<:(ConstantValue(1), prefix), ConstantValue(1)), :-:(ConstantValue(size), prefix))))
+            ), InstructionBlock(
+              Constrain(hdr + ".IsValid", :==:(ConstantValue(1))),
+              Constrain(varName, :==:(va))
+            ))
+          } else {
+            (InstructionBlock(
+              Allocate(varName, size),
+              Assign(varName, :&&:(:@(k.getKey),
+                :<<:(:-:(:<<:(ConstantValue(1), prefix), ConstantValue(1)), :-:(ConstantValue(size), prefix))))),
+            InstructionBlock(Constrain(varName, :==:(va))))
+          }
+        case RangeMatch(min, max) =>
+          (InstructionBlock(Nil),
+          InstructionBlock(
+            Constrain(k.getKey, :&:(:>=:(min), :<=:(max)))
+          ))
+        case TernaryMatch(va, mask) =>
+          val uuid = UUID.randomUUID().toString
+          val size = switch.getSize(
+            k.getKey
+          )
+          val (hdr, fieldName) = fieldDef(k.getKey)
+          val varName = s"tmp$uuid"
+          if (!switch.getInstance(hdr).isMetadata) {
+            mask match {
+              case ConstantValue(0, _, _) => (InstructionBlock(), InstructionBlock())
+              case ConstantBValue(v, _) if BigInt(v.substring(2), 16) == 0 => (InstructionBlock(), InstructionBlock())
+              case _ => (
+                InstructionBlock(
+                  Allocate(varName, size),
+                  Assign(varName, :&&:(:@(k.getKey), mask))
+                ),
+                InstructionBlock(
+                  Constrain(hdr + ".IsValid", :==:(ConstantValue(1))),
+                  Constrain(varName, :==:(va))
+                )
+              )
+            }
+          } else {
+            mask match {
+              case ConstantValue(0, _, _) => (InstructionBlock(), InstructionBlock())
+              case ConstantBValue(v, _) if BigInt(v.substring(2), 16) == 0 => (InstructionBlock(), InstructionBlock())
+              case _ => (
+                InstructionBlock(
+                  Allocate(varName, size),
+                  Assign(varName, :&&:(:@(k.getKey), mask))
+                ),
+                InstructionBlock(
+                  Constrain(varName, :==:(va))
+                )
+              )
+            }
+          }
+
+        case ValidMatch(v) => (
+          InstructionBlock(),
+          InstructionBlock(
+            Constrain(k.getKey + ".IsValid", :==:(v))
+          )
+        )
+        case Equal(va) =>
+          val (hdr, fieldName) = fieldDef(k.getKey)
+          if (switch.getInstance(hdr) != null && !switch.getInstance(hdr).isMetadata) {
+            (
+              InstructionBlock(),
+              InstructionBlock(
+                Constrain(hdr + ".IsValid", :==:(ConstantValue(1))),
+                Constrain(k.getKey, :==:(va))
+              )
+            )
+          } else {
+            (
+              InstructionBlock(),
+              InstructionBlock(
+                Constrain(k.getKey, :==:(va))
+              )
+            )
+          }
+        case _ => ???
+      }
+      if (k.getMatchKind == MatchKind.Valid) {
+        assignments.last ++= ib._1.instructions
+        constraints.last ++= ib._2.instructions
+        lastValid = true
+      } else {
+        if (lastValid) {
+          assignments += ListBuffer[Instruction]()
+          constraints += ListBuffer[Instruction]()
+        }
+        assignments.last ++= ib._1.instructions
+        constraints.last ++= ib._2.instructions
+        lastValid = false
+      }
+    }
+    (assignments.map(InstructionBlock(_)).toList, constraints.map(InstructionBlock(_)).toList)
+  }
+
   override protected def generateConstrainableInstructions(index: Int) : List[InstructionBlock] = {
     val finstance = flowDefinitions(index)
     tableMatches.map(k => finstance.matchParams(k.getKey) match {

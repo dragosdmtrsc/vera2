@@ -323,7 +323,7 @@ object JsonUtil {
   }
 
   def toJson(value: Any, outputStream: OutputStream): Unit = {
-    mapper.writerWithDefaultPrettyPrinter().writeValue(outputStream, value)
+    mapper.writer().writeValue(outputStream, value)
   }
 
   //  def toMap[V](json:String)(implicit m: Manifest[V]) = fromJson[Map[String,V]](json)

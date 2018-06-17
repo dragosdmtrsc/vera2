@@ -100,15 +100,17 @@ package object test {
     val printer = (s: State) => {
       if (s.errorCause.isEmpty) {
         if (PRINTER_OUTPUT_TO_FILE) {
-          val ps = new PrintStream(s"$dir/outputs/success-$succIdx.json")
-          ps.println(JsArray(s.instructionHistory.reverse.zipWithIndex.map(ip =>
-            JsString(ip._1.toString)).toVector).toString())
-          ps.close()
+//          val ps = new PrintStream(s"$dir/outputs/success-$succIdx.json")
+//          ps.println(JsArray(s.instructionHistory.reverse.zipWithIndex.map(ip =>
+//            JsString(ip._1.toString)).toVector).toString())
+//          ps.close()
           pscsv.println(s.history.reverse.mkString(","))
-          pscsv.flush()
+          if (succIdx % 1000 == 1)
+            pscsv.flush()
         }
         successIndex.println(s"""<li><a href=\"file://$file/outputs/success-$succIdx.json\">${s.history.head}</a></li>""")
-        successIndex.flush()
+        if (succIdx % 1000 == 1)
+          successIndex.flush()
         succIdx = succIdx + 1
       } else {
         if (s.location.startsWith("switch.parser") && (s.errorCause.get.startsWith("Cannot resolve") ||
@@ -116,15 +118,17 @@ package object test {
           // nothing here
         } else {
           if (PRINTER_OUTPUT_TO_FILE) {
-            val ps = new PrintStream(s"$dir/outputs/fail-$failIdx.json")
-            ps.println(JsArray(s.instructionHistory.reverse.zipWithIndex.map(ip =>
-              JsString(ip._1.toString)).toVector).toString())
-            ps.close()
+//            val ps = new PrintStream(s"$dir/outputs/fail-$failIdx.json")
+//            ps.println(JsArray(s.instructionHistory.reverse.zipWithIndex.map(ip =>
+//              JsString(ip._1.toString)).toVector).toString())
+//            ps.close()
             pscsvf.println(s.history.reverse.mkString(",") + ',' + s.errorCause.get)
-            pscsvf.flush()
+            if (failIdx % 1000 == 1)
+              pscsvf.flush()
           }
           failIndex.println(s"""<li><a href=\"file://$file/outputs/fail-$failIdx.json\">${s.errorCause.get} - ${s.history.head}</a></li>""")
-          failIndex.flush()
+          if (failIdx % 1000 == 1)
+            failIndex.flush()
           failIdx = failIdx + 1
         }
       }

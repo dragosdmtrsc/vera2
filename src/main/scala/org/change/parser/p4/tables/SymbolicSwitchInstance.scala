@@ -62,7 +62,7 @@ object SymbolicSwitchInstance {
         switch.getActionsPerProfile(h) != null).flatMap(r => {
         switch.getActionsPerProfile(r).map(_.getActionName)
       })
-      val finstances = allActions.filter(_ != "nop").map(action => {
+      val finstances = allActions.map(action => {
         val actionDef = switch.getActionRegistrar.getAction(action)
         if (actionDef == null) {
           val actions = switch.getActionsPerProfile(action)
@@ -102,7 +102,7 @@ object SymbolicSwitchInstance {
         })
         P4FlowInstance(keys.toMap, actionDefinition)
       })
-      tableName -> P4TableDefinition(finstances.toList)
+      tableName -> P4TableDefinition(finstances.toList, ActionDefinition("no_op", Map.empty))
     }).toMap
     SymbolicSwitchInstance(name, ifaces, cloneSpec, switch, tables, introducedSymbolicTableParams.toSet)
   }

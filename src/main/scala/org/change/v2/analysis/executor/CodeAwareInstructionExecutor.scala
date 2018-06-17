@@ -28,6 +28,7 @@ object StateConsumer {
   }
 }
 
+
 class CodeAwareInstructionExecutorWithListeners(val caie : CodeAwareInstructionExecutor,
                                   successStateConsumers : List[StateConsumer] = Nil,
                                   failedStateConsumers : List[StateConsumer] = Nil)
@@ -57,6 +58,44 @@ class CodeAwareInstructionExecutorWithListeners(val caie : CodeAwareInstructionE
       )
       (Nil, Nil)
     } else super.executeForward(instruction, s, v)
+  }
+}
+
+
+class CodeAwareInstructionExecutorWithListeners2(val caie : CodeAwareInstructionExecutor,
+                                                successStateConsumers : List[StateConsumer] = Nil,
+                                                failedStateConsumers : List[StateConsumer] = Nil,
+                                                unfinishedStateConsumers : List[StateConsumer] = Nil)
+  extends CodeAwareInstructionExecutor(caie) {
+
+  override def execute(instruction: Instruction, state: State, verbose: Boolean): (List[State], List[State]) = {
+    val (o, f) = super.execute(instruction, state, verbose)
+    failedStateConsumers.foreach(c => c.consumeAll(f))
+    (o, Nil)
+  }
+
+  override def executeExoticInstruction(instruction: Instruction, s: State, v: Boolean): (List[State], List[State]) = instruction match {
+    case ExistsNamedSymbol(_) => (super.executeExoticInstruction(instruction, s, v)._1, Nil)
+    case ExistsRaw(_) => (super.executeExoticInstruction(instruction, s, v)._1, Nil)
+    case NotExistsNamedSymbol(_) => (super.executeExoticInstruction(instruction, s, v)._1, Nil)
+    case NotExistsRaw(_) => (super.executeExoticInstruction(instruction, s, v)._1, Nil)
+    case _ => super.executeExoticInstruction(instruction, s, v)
+  }
+
+  override def executeForward(instruction: Forward, s: State, v: Boolean): (List[State], List[State]) = {
+    if (!program.contains(instruction.place)) {
+      successStateConsumers.foreach(c =>
+        c.consume(s.
+          addInstructionToHistory(instruction).
+          forwardTo(instruction.place)
+        )
+      )
+      (Nil, Nil)
+    } else {
+      unfinishedStateConsumers.foreach(c => c.consume(s.
+        forwardTo(instruction.place).addInstructionToHistory(instruction)))
+      (Nil, Nil)
+    }
   }
 }
 
@@ -416,7 +455,7 @@ object RewriteLogic {
       apply(InstructionBlock(tail)),
       Fail("Assertion failed")))
     case Fork(forkBlocks) :: tail => List[Instruction](Fork(forkBlocks.map(i => apply(InstructionBlock(i :: tail)))))
-    case (t : Translatable) :: tail => List[Instruction](apply(InstructionBlock(t.generateInstruction() :: tail)))
+//    case (t : Translatable) :: tail => List[Instruction](apply(InstructionBlock(t.generateInstruction() :: tail)))
     case If (a, b, c) :: tail => List[Instruction](apply(If (a, InstructionBlock(b :: tail), InstructionBlock(c :: tail))))
     //        InstructionBlock(If (a, apply(b), apply(c)), apply(InstructionBlock(tail)))
     case SuperFork(forkBlocks) :: tail => List[Instruction](SuperFork(forkBlocks.map(i => apply(InstructionBlock(i :: tail)))))
@@ -430,14 +469,14 @@ object RewriteLogic {
     case If (a, b, c) => If(a, apply(b), apply(c))
     case Fork(forkBlocks) => Fork(forkBlocks.map(apply))
     case SuperFork(forkBlocks) => SuperFork(forkBlocks.map(apply))
-    case (t : Translatable) => apply(t.generateInstruction())
+//    case (t : Translatable) => apply(t.generateInstruction())
     case Let(place, instruction) => Let(place, apply(instruction))
     case Unfail(instruction) => Unfail(apply(instruction))
     case _ => instruction
   }
 
   def apply(program : Map[String, Instruction]) : Map[String, Instruction] = {
-    //    program.map(kv => kv._1 -> apply(kv._2))
+//    program.map(kv => kv._1 -> apply(kv._2))
     program
   }
 }

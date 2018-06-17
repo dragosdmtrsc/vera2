@@ -187,7 +187,6 @@ public class Switch {
     }
 
     public static Switch fromFile(String p4File) throws IOException {
-        org.change.parser.p4.P4GrammarListener lsn = new P4GrammarListener();
         CharStream p4Input = CharStreams.fromFileName(p4File);
         P4GrammarLexer lexer = new P4GrammarLexer(p4Input);
         CommonTokenStream tokens = new CommonTokenStream(lexer);
@@ -196,7 +195,7 @@ public class Switch {
         ParseTreeWalker walker = new ParseTreeWalker();
         P4GrammarListener listener = new P4GrammarListener();
 
-        walker.walk(listener,tree);
+        walker.walk(listener, tree);
 
         Switch sw = new Switch().
                 setActionRegistrar(listener.actionRegistrar()).
