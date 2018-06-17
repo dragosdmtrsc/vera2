@@ -8,12 +8,16 @@ import org.change.parser.p4.tables.SymbolicSwitchInstance
 import org.change.utils.prettifier.JsonUtil
 import org.change.v2.analysis.executor.solvers.Z3BVSolver
 import org.change.v2.analysis.executor.{CodeAwareInstructionExecutor, CodeAwareInstructionExecutorWithListeners, CodeAwareInstructionExecutorWithListeners2, StateConsumer}
-import org.change.v2.analysis.expression.concrete.ConstantValue
+import org.change.v2.analysis.expression.abst.{Expression, FloatingExpression}
+import org.change.v2.analysis.expression.concrete.{ConstantBValue, ConstantStringValue, ConstantValue, SymbolicValue}
+import org.change.v2.analysis.expression.concrete.nonprimitive._
 import org.change.v2.analysis.memory.State
+import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.analysis.processingmodels.instructions._
 import org.change.v2.p4.model.Switch
 import org.scalatest.FunSuite
 
+import scala.collection.mutable.ListBuffer
 import scala.util.Random
 
 class FullBlownSwitch extends FunSuite {
@@ -42,9 +46,17 @@ class FullBlownSwitch extends FunSuite {
     val allIfaces = Fork(symbolicSwitchInstance.ifaces.map(x => {
       Constrain("standard_metadata.egress_port", :==:(ConstantValue(x._1.longValue())))
     }))
-    val q = scala.collection.mutable.Queue[State]()
+    val q = scala.collection.mutable.Queue[String]()
+    val map = scala.collection.mutable.Map[String, ListBuffer[State]]()
+
+
     def caieConsumer(s : State) : Unit = {
-      q.enqueue(s)
+      if (!map.contains(s.location)) {
+        q.enqueue(s.location)
+        map.put(s.location, ListBuffer[State](s))
+      } else {
+        map(s.location) += s
+      }
     }
     val codeAwareInstructionExecutorWithListeners = new CodeAwareInstructionExecutorWithListeners2(
       CodeAwareInstructionExecutor(res.instructions() +
@@ -70,27 +82,82 @@ class FullBlownSwitch extends FunSuite {
 
     codeAwareInstructionExecutorWithListeners.execute(InstructionBlock(
       ib
-    ), init, true)
+    ), init, false)
 
+
+//    val psvars = new PrintStream("vars.txt")
+//
+//    codeAwareInstructionExecutorWithListeners.caie.program.foreach(u => {
+//      val outVals = scala.collection.mutable.Set[String]()
+//      val inVals = scala.collection.mutable.Set[String]()
+//
+//      def crawlFloating(floatingExpression: FloatingExpression,
+//                        vls : scala.collection.mutable.Set[String]) : Unit = floatingExpression match {
+//        case :<<:(left, right) =>crawlFloating(left, vls); crawlFloating(right, vls)
+//        case :!:(left) =>crawlFloating(left, vls)
+//        case Symbol(id) => vls += id
+//        case :||:(left, right) => crawlFloating(left, vls); crawlFloating(right, vls)
+//        case :^:(left, right) =>crawlFloating(left, vls); crawlFloating(right, vls)
+//        case :&&:(left, right) =>crawlFloating(left, vls); crawlFloating(right, vls)
+//        case :+:(left, right) =>crawlFloating(left, vls); crawlFloating(right, vls)
+//        case :-:(left, right) =>crawlFloating(left, vls); crawlFloating(right, vls)
+//        case _ =>
+//      }
+//
+//      def crawlConstraint(floatingConstraint: FloatingConstraint,
+//                        vls : scala.collection.mutable.Set[String]) : Unit = floatingConstraint match {
+//        case :|:(a, b) => crawlConstraint(a, vls); crawlConstraint(b, vls)
+//        case :&:(a, b) => crawlConstraint(a, vls); crawlConstraint(b, vls)
+//        case :~:(c) => crawlConstraint(c, vls)
+//        case :==:(exp) => crawlFloating(exp, vls)
+//        case :<:(exp) => crawlFloating(exp, vls)
+//        case :<=:(exp) =>crawlFloating(exp, vls)
+//        case :>:(exp) =>crawlFloating(exp, vls)
+//        case :>=:(exp) =>crawlFloating(exp, vls)
+//        case _ =>
+//      }
+//
+//      def crawlVals(instruction : Instruction) : Unit = instruction match {
+//        case InstructionBlock(instructions) => instructions.foreach(crawlVals)
+//        case Fork(forkBlocks) => forkBlocks.foreach(crawlVals)
+//        case ConstrainNamedSymbol(x, ct, _) => inVals += x; crawlConstraint(ct, inVals)
+//        case If(a, b, c) => crawlVals(a); crawlVals(b); crawlVals(c)
+//        case AssignNamedSymbol(x, exp, _) => outVals += x; crawlFloating(exp, inVals)
+//        case AllocateSymbol(x, _) => outVals += x
+//        case _ =>
+//      }
+//      if (u._1.startsWith(s"${symbolicSwitchInstance.getName}.table") && u._1.contains(".in")) {
+//        crawlVals(u._2)
+//        psvars.println(s"for ${u._1}")
+//        psvars.println(inVals)
+//        psvars.println(outVals)
+//      }
+//    })
+//    psvars.close()
+//    System.exit(0)
 
     while (q.nonEmpty) {
       val initqsize = q.size
 
       val start = System.currentTimeMillis()
-      val s = q.dequeue()
-      val port = s.location
-      if (port.startsWith("switch.table.validate_outer_ethernet.in")) {
-        println("started writing")
-        val bos = new BufferedOutputStream(new FileOutputStream("/home/dragos/extended/vera-outputs/code.json"))
-        JsonUtil.toJson(codeAwareInstructionExecutorWithListeners.caie.program(port), bos)
-        bos.close()
-        println("done writing")
+      val port = q.dequeue()
+      val states = map(port)
+      map.remove(port)
+      System.err.println(s"now at $port executing ${states.size}")
+      val instr = codeAwareInstructionExecutorWithListeners.caie.program(port)
+      instr match {
+        case Forward(place) => if (!map.contains(place)) {
+          q.enqueue(place)
+          map.put(place, states.map(_.forwardTo(place)))
+        } else {
+          map(place) ++= states.map(_.forwardTo(place))
+        }
+        case _ => states.foreach(codeAwareInstructionExecutorWithListeners.execute(
+          instr,
+          _,
+          verbose = false
+        ))
       }
-      codeAwareInstructionExecutorWithListeners.execute(
-        codeAwareInstructionExecutorWithListeners.caie.program(port),
-        s,
-        verbose = true
-      )
       val total = System.currentTimeMillis() - start
       System.err.println(s"time $total for initial port $port $initqsize final ${q.size}")
     }

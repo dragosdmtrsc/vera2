@@ -51,9 +51,11 @@ class CodeAwareInstructionExecutorWithListeners(val caie : CodeAwareInstructionE
   override def executeForward(instruction: Forward, s: State, v: Boolean): (List[State], List[State]) = {
     if (!program.contains(instruction.place)) {
       successStateConsumers.foreach(c =>
-        c.consume(s.
-          addInstructionToHistory(instruction).
-          forwardTo(instruction.place)
+        c.consume(
+          (if (v)
+            s.addInstructionToHistory(instruction)
+          else
+            s).forwardTo(instruction.place)
         )
       )
       (Nil, Nil)
@@ -85,15 +87,18 @@ class CodeAwareInstructionExecutorWithListeners2(val caie : CodeAwareInstruction
   override def executeForward(instruction: Forward, s: State, v: Boolean): (List[State], List[State]) = {
     if (!program.contains(instruction.place)) {
       successStateConsumers.foreach(c =>
-        c.consume(s.
-          addInstructionToHistory(instruction).
-          forwardTo(instruction.place)
+        c.consume((if (v)
+          s.addInstructionToHistory(instruction)
+        else
+          s).forwardTo(instruction.place)
         )
       )
       (Nil, Nil)
     } else {
-      unfinishedStateConsumers.foreach(c => c.consume(s.
-        forwardTo(instruction.place).addInstructionToHistory(instruction)))
+      unfinishedStateConsumers.foreach(c => c.consume((if (v)
+        s.addInstructionToHistory(instruction)
+      else
+        s).forwardTo(instruction.place)))
       (Nil, Nil)
     }
   }
