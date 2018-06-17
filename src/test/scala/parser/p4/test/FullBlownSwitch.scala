@@ -6,12 +6,13 @@ import org.change.parser.p4.ControlFlowInterpreter
 import org.change.parser.p4.parser.SkipParserAndDeparser
 import org.change.parser.p4.tables.SymbolicSwitchInstance
 import org.change.utils.prettifier.JsonUtil
+import org.change.v2.analysis.constraint._
 import org.change.v2.analysis.executor.solvers.Z3BVSolver
 import org.change.v2.analysis.executor.{CodeAwareInstructionExecutor, CodeAwareInstructionExecutorWithListeners, CodeAwareInstructionExecutorWithListeners2, StateConsumer}
 import org.change.v2.analysis.expression.abst.{Expression, FloatingExpression}
 import org.change.v2.analysis.expression.concrete.{ConstantBValue, ConstantStringValue, ConstantValue, SymbolicValue}
 import org.change.v2.analysis.expression.concrete.nonprimitive._
-import org.change.v2.analysis.memory.State
+import org.change.v2.analysis.memory.{MemoryObject, State, Value, ValueStack}
 import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.analysis.processingmodels.instructions._
 import org.change.v2.p4.model.Switch
@@ -84,58 +85,11 @@ class FullBlownSwitch extends FunSuite {
       ib
     ), init, false)
 
+    val ps = new PrintStream("diagnostics.txt")
 
-//    val psvars = new PrintStream("vars.txt")
-//
-//    codeAwareInstructionExecutorWithListeners.caie.program.foreach(u => {
-//      val outVals = scala.collection.mutable.Set[String]()
-//      val inVals = scala.collection.mutable.Set[String]()
-//
-//      def crawlFloating(floatingExpression: FloatingExpression,
-//                        vls : scala.collection.mutable.Set[String]) : Unit = floatingExpression match {
-//        case :<<:(left, right) =>crawlFloating(left, vls); crawlFloating(right, vls)
-//        case :!:(left) =>crawlFloating(left, vls)
-//        case Symbol(id) => vls += id
-//        case :||:(left, right) => crawlFloating(left, vls); crawlFloating(right, vls)
-//        case :^:(left, right) =>crawlFloating(left, vls); crawlFloating(right, vls)
-//        case :&&:(left, right) =>crawlFloating(left, vls); crawlFloating(right, vls)
-//        case :+:(left, right) =>crawlFloating(left, vls); crawlFloating(right, vls)
-//        case :-:(left, right) =>crawlFloating(left, vls); crawlFloating(right, vls)
-//        case _ =>
-//      }
-//
-//      def crawlConstraint(floatingConstraint: FloatingConstraint,
-//                        vls : scala.collection.mutable.Set[String]) : Unit = floatingConstraint match {
-//        case :|:(a, b) => crawlConstraint(a, vls); crawlConstraint(b, vls)
-//        case :&:(a, b) => crawlConstraint(a, vls); crawlConstraint(b, vls)
-//        case :~:(c) => crawlConstraint(c, vls)
-//        case :==:(exp) => crawlFloating(exp, vls)
-//        case :<:(exp) => crawlFloating(exp, vls)
-//        case :<=:(exp) =>crawlFloating(exp, vls)
-//        case :>:(exp) =>crawlFloating(exp, vls)
-//        case :>=:(exp) =>crawlFloating(exp, vls)
-//        case _ =>
-//      }
-//
-//      def crawlVals(instruction : Instruction) : Unit = instruction match {
-//        case InstructionBlock(instructions) => instructions.foreach(crawlVals)
-//        case Fork(forkBlocks) => forkBlocks.foreach(crawlVals)
-//        case ConstrainNamedSymbol(x, ct, _) => inVals += x; crawlConstraint(ct, inVals)
-//        case If(a, b, c) => crawlVals(a); crawlVals(b); crawlVals(c)
-//        case AssignNamedSymbol(x, exp, _) => outVals += x; crawlFloating(exp, inVals)
-//        case AllocateSymbol(x, _) => outVals += x
-//        case _ =>
-//      }
-//      if (u._1.startsWith(s"${symbolicSwitchInstance.getName}.table") && u._1.contains(".in")) {
-//        crawlVals(u._2)
-//        psvars.println(s"for ${u._1}")
-//        psvars.println(inVals)
-//        psvars.println(outVals)
-//      }
-//    })
-//    psvars.close()
-//    System.exit(0)
+    val allEmptyDict = scala.collection.mutable.Map[(String, Set[String]), (List[State], List[State])]()
 
+    val z3BVSolver = new Z3BVSolver()
     while (q.nonEmpty) {
       val initqsize = q.size
 
@@ -152,11 +106,12 @@ class FullBlownSwitch extends FunSuite {
         } else {
           map(place) ++= states.map(_.forwardTo(place))
         }
-        case _ => states.foreach(codeAwareInstructionExecutorWithListeners.execute(
-          instr,
-          _,
-          verbose = false
-        ))
+        case _ =>
+          states.foreach(codeAwareInstructionExecutorWithListeners.execute(
+            instr,
+            _,
+            verbose = false
+          ))
       }
       val total = System.currentTimeMillis() - start
       System.err.println(s"time $total for initial port $port $initqsize final ${q.size}")
