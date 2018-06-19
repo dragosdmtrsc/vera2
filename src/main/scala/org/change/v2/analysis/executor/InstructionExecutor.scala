@@ -458,7 +458,15 @@ abstract class AbstractInstructionExecutor extends InstructionExecutor {
           offender match {
             case None => executeIfCond(FAND(cds), thenWhat, elseWhat, s, v)
             case Some(Fork(xs)) => if (cds.isEmpty) {
-              executeIf(Fork(xs), thenWhat, elseWhat, s, v)
+              executeIf(Fork(xs),
+                if (left.isEmpty)
+                  thenWhat
+                else
+                  If (InstructionBlock(left),
+                    thenWhat,
+                    elseWhat
+                  ),
+                elseWhat, s, v)
             } else {
               executeIfCond(FAND(cds),
                 If(Fork(xs),
