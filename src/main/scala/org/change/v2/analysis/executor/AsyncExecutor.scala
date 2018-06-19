@@ -232,4 +232,7 @@ class AsyncExecutor(syncExec: InstructionExecutor,
 
   }
 
+  override def executeConstrainFloatingExpression(i: ConstrainFloatingExpression, s: State, v: Boolean): Unit = {
+    executeInstructionBlock(InstructionBlock(i), s, v)
+  }
 }

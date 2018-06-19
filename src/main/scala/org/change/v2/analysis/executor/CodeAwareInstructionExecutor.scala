@@ -122,7 +122,8 @@ class CodeAwareInstructionExecutor(val program : Map[String, Instruction],
     }
   }
 
-  override final def executeInstructionBlock(instruction: InstructionBlock, s: State, v: Boolean): (List[State], List[State]) =
+  override final def executeInstructionBlock(instruction: InstructionBlock, s: State, v: Boolean):
+  (List[State], List[State]) =
     instruction.instructions.toList match {
       case Forward(place) :: tail => executeForward(Forward(place), s, v)
       case InstructionBlock(is) :: tail =>
@@ -211,23 +212,8 @@ class CodeAwareInstructionExecutor(val program : Map[String, Instruction],
   override def executeExoticInstruction(instruction: Instruction, s: State, v: Boolean): (List[State], List[State]) = {
     instruction match {
       case t : Translatable => this.execute(t.generateInstruction(), s, v)
-      case Call(fun) => this.executeForward(Forward(fun), s, v)
-      case Unfail(u) => val (ok, failed) = execute(u, s, v)
-        (ok ++ failed.map(x => x.copy(errorCause = None).forwardTo(s"Fail(${x.errorCause})")), Nil)
-      case Let(string, u) => val (ok, failed) = execute(u, s, v)
-        (ok.map(x => {
-          val symbols = x.memory.symbols.map( r => {
-            string + "." + r._1 -> r._2
-          }) ++ x.memory.rawObjects.map( r => {
-            string + ".packet[" + r._1 + "]" -> r._2
-          })
-          s.copy(instructionHistory = x.instructionHistory,
-            history = x.history,
-            memory = x.memory.memTags.foldLeft(s.memory.copy(symbols = symbols ++ s.memory.symbols))((acc, r) => {
-              acc.assignNewValue(s"$string.tags[${r._1}]", ConstantValue(r._2), LongType).get
-            }))
-        }), failed)
-      case sf : SuperFork => executeSuperFork(sf, s, v)
+      case Call(fun) => this.execute(program(fun), s, v)
+//      case sf : SuperFork => executeSuperFork(sf, s, v)
       case destroy : DestroyPacket =>
         val stopHere = Tag("LAST_HEADER")(s).getOrElse(Int.MaxValue)
         (List[State](s.copy(memory =

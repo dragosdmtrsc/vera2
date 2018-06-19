@@ -4,7 +4,6 @@ import java.io.PrintWriter
 import java.util.UUID
 
 import org.change.utils.prettifier.JsonUtil
-import org.change.v2.analysis.equivalence.CodeAwareInstructionExecutor2
 import org.change.v2.analysis.executor.{InstructionExecutor, OVSExecutor}
 import org.change.v2.analysis.executor.solvers.Z3BVSolver
 import org.change.v2.analysis.expression.abst.FloatingExpression

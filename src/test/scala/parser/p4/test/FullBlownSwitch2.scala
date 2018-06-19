@@ -1,28 +1,20 @@
 package parser.p4.test
 
-import java.io.{BufferedOutputStream, FileOutputStream, PrintStream}
-
 import org.change.parser.p4.ControlFlowInterpreter
 import org.change.parser.p4.parser.SkipParserAndDeparser
 import org.change.parser.p4.tables.SymbolicSwitchInstance
-import org.change.utils.prettifier.JsonUtil
-import org.change.v2.analysis.constraint._
 import org.change.v2.analysis.executor.solvers.Z3BVSolver
-import org.change.v2.analysis.executor.{CodeAwareInstructionExecutor, CodeAwareInstructionExecutorWithListeners, CodeAwareInstructionExecutorWithListeners2, StateConsumer}
-import org.change.v2.analysis.expression.abst.{Expression, FloatingExpression}
-import org.change.v2.analysis.expression.concrete.{ConstantBValue, ConstantStringValue, ConstantValue, SymbolicValue}
-import org.change.v2.analysis.expression.concrete.nonprimitive._
-import org.change.v2.analysis.memory.{MemoryObject, State, Value, ValueStack}
-import org.change.v2.analysis.processingmodels.Instruction
+import org.change.v2.analysis.executor.{CodeAwareInstructionExecutor, CodeAwareInstructionExecutorWithListeners2, StateConsumer, TripleInstructionExecutor}
+import org.change.v2.analysis.expression.concrete.ConstantValue
+import org.change.v2.analysis.memory.State
 import org.change.v2.analysis.processingmodels.instructions._
 import org.change.v2.p4.model.Switch
 import org.scalatest.FunSuite
 
 import scala.collection.mutable.ListBuffer
-import scala.util.Random
 
-class FullBlownSwitch extends FunSuite {
-  test("SWITCH - L3VxlanTunnelTest full symbolic") {
+class FullBlownSwitch2 extends FunSuite {
+  test("SWITCH - L3VxlanTunnelTest full symbolic 2") {
 
     val dir = "inputs/big-switch"
     val p4 = s"$dir/switch-ppc-orig.p4"
@@ -50,15 +42,6 @@ class FullBlownSwitch extends FunSuite {
     val q = scala.collection.mutable.Queue[String]()
     val map = scala.collection.mutable.Map[String, ListBuffer[State]]()
 
-
-    def caieConsumer(s : State) : Unit = {
-      if (!map.contains(s.location)) {
-        q.enqueue(s.location)
-        map.put(s.location, ListBuffer[State](s))
-      } else {
-        map(s.location) += s
-      }
-    }
     val prog = CodeAwareInstructionExecutor.flattenProgram(res.instructions() +
       (s"${symbolicSwitchInstance.getName}.output.in" -> If (allIfaces,
         Forward(s"${symbolicSwitchInstance.getName}.output.out"),
@@ -66,30 +49,35 @@ class FullBlownSwitch extends FunSuite {
       )),
       res.links())
 
-    val codeAwareInstructionExecutorWithListeners = new CodeAwareInstructionExecutorWithListeners2(
-      CodeAwareInstructionExecutor(prog, new Z3BVSolver),
-      successStateConsumers = printer._3 :: Nil,
-      failedStateConsumers =  printer._3 :: Nil,
-      unfinishedStateConsumers = StateConsumer.fromFunction(caieConsumer) :: Nil
-    )
+    def caieConsumer(s : State) : Unit = {
+      if (prog.contains(s.location)) {
+        if (!map.contains(s.location)) {
+          q.enqueue(s.location)
+          map.put(s.location, ListBuffer[State](s))
+        } else {
+          map(s.location) += s
+        }
+      } else {
+        printer._3(s)
+      }
+    }
+
+    val iexe = new TripleInstructionExecutor(new Z3BVSolver)
     import org.change.v2.analysis.memory.TagExp._
 
-    val init  = codeAwareInstructionExecutorWithListeners.caie.execute(
+    val init  = iexe.execute(
       InstructionBlock(
         CreateTag("START", 0),
         prog("switch.generator.parse_ethernet.parse_ipv4.parse_tcp"),
-        res.initializeGlobally()
+        res.initializeGlobally(),
+        Forward(s"${symbolicSwitchInstance.getName}.input.$port")
       ), State.clean, false
     )._1.head
-    val ib = Forward(s"${symbolicSwitchInstance.getName}.input.$port")
 
-    codeAwareInstructionExecutorWithListeners.execute(InstructionBlock(
-      ib
-    ), init, false)
+    caieConsumer(init)
 
     val allEmptyDict = scala.collection.mutable.Map[(String, Set[String]), (List[State], List[State])]()
 
-    val z3BVSolver = new Z3BVSolver()
     while (q.nonEmpty) {
       val initqsize = q.size
 
@@ -98,7 +86,7 @@ class FullBlownSwitch extends FunSuite {
       val states = map(port)
       map.remove(port)
       System.err.println(s"now at $port executing ${states.size}")
-      val instr = codeAwareInstructionExecutorWithListeners.caie.program(port)
+      val instr = prog(port)
       instr match {
         case Forward(place) => if (!map.contains(place)) {
           q.enqueue(place)
@@ -107,11 +95,16 @@ class FullBlownSwitch extends FunSuite {
           map(place) ++= states.map(_.forwardTo(place))
         }
         case _ =>
-          states.foreach(codeAwareInstructionExecutorWithListeners.execute(
-            instr,
-            _,
-            verbose = false
-          ))
+          states.foreach(st => {
+            val (s, f, u) = iexe.execute(
+              instr,
+              st,
+              verbose = false
+            )
+            u.foreach(printer._3)
+            f.foreach(printer._3)
+            s.foreach(caieConsumer)
+          })
       }
       val total = System.currentTimeMillis() - start
       System.err.println(s"time $total for initial port $port $initqsize final ${q.size}")

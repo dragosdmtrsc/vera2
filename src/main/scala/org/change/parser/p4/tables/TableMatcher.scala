@@ -156,14 +156,30 @@ class FullTableWithInstances[T<:ISwitchInstance](tableName : String,
               Constrain(varName, :==:(va))
             ))
           } else {
-            (InstructionBlock(
-              Allocate(varName, size),
-              Assign(varName, :&&:(:@(k.getKey),
-                :<<:(:-:(:<<:(ConstantValue(1), prefix), ConstantValue(1)), :-:(ConstantValue(size), prefix))))),
-            InstructionBlock(Constrain(varName, :==:(va))))
+            (
+              InstructionBlock(),
+              InstructionBlock(
+                Constrain(
+                  :&&:(
+                    :@(k.getKey),
+                    :<<:(
+                      :-:(
+                        :<<:(
+                          ConstantValue(1),
+                          prefix
+                        ),
+                        ConstantValue(1)
+                      ),
+                      :-:(ConstantValue(size), prefix)
+                    )
+                  ),
+                  :==:(va)
+                )
+              )
+            )
           }
         case RangeMatch(min, max) =>
-          (InstructionBlock(Nil),
+          (InstructionBlock(),
           InstructionBlock(
             Constrain(k.getKey, :&:(:>=:(min), :<=:(max)))
           ))
@@ -179,13 +195,10 @@ class FullTableWithInstances[T<:ISwitchInstance](tableName : String,
               case ConstantValue(0, _, _) => (InstructionBlock(), InstructionBlock())
               case ConstantBValue(v, _) if BigInt(v.substring(2), 16) == 0 => (InstructionBlock(), InstructionBlock())
               case _ => (
-                InstructionBlock(
-                  Allocate(varName, size),
-                  Assign(varName, :&&:(:@(k.getKey), mask))
-                ),
+                InstructionBlock(),
                 InstructionBlock(
                   Constrain(hdr + ".IsValid", :==:(ConstantValue(1))),
-                  Constrain(varName, :==:(va))
+                  Constrain(:&&:(:@(k.getKey), mask), :==:(va))
                 )
               )
             }
@@ -194,12 +207,9 @@ class FullTableWithInstances[T<:ISwitchInstance](tableName : String,
               case ConstantValue(0, _, _) => (InstructionBlock(), InstructionBlock())
               case ConstantBValue(v, _) if BigInt(v.substring(2), 16) == 0 => (InstructionBlock(), InstructionBlock())
               case _ => (
+                InstructionBlock(),
                 InstructionBlock(
-                  Allocate(varName, size),
-                  Assign(varName, :&&:(:@(k.getKey), mask))
-                ),
-                InstructionBlock(
-                  Constrain(varName, :==:(va))
+                  Constrain(:&&:(:@(k.getKey), mask), :==:(va))
                 )
               )
             }
@@ -231,19 +241,21 @@ class FullTableWithInstances[T<:ISwitchInstance](tableName : String,
           }
         case _ => ???
       }
-      if (k.getMatchKind == MatchKind.Valid) {
-        assignments.last ++= ib._1.instructions
-        constraints.last ++= ib._2.instructions
-        lastValid = true
-      } else {
-        if (lastValid) {
-          assignments += ListBuffer[Instruction]()
-          constraints += ListBuffer[Instruction]()
-        }
-        assignments.last ++= ib._1.instructions
-        constraints.last ++= ib._2.instructions
-        lastValid = false
-      }
+//      if (k.getMatchKind == MatchKind.Valid) {
+//        assignments.last ++= ib._1.instructions
+//        constraints.last ++= ib._2.instructions
+//        lastValid = true
+//      } else {
+//        if (lastValid) {
+//          assignments += ListBuffer[Instruction]()
+//          constraints += ListBuffer[Instruction]()
+//        }
+//        assignments.last ++= ib._1.instructions
+//        constraints.last ++= ib._2.instructions
+//        lastValid = false
+//      }
+      assignments.last ++= ib._1.instructions
+      constraints.last ++= ib._2.instructions
     }
     (assignments.map(InstructionBlock(_)).toList, constraints.map(InstructionBlock(_)).toList)
   }

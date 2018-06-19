@@ -17,29 +17,5 @@ import z3.scala.{Z3AST, Z3Config, Z3Context, Z3Solver}
 
 import scala.collection.mutable
 
-class FullZ3BVTranslator(context: Z3Context) extends Z3BVTranslator(context = context) {
-  override def translate(mem: MemorySpace): Z3Solver =
-    (mem.symbols.values ++ mem.rawObjects.values).foldLeft(context.mkSolver())((slv, mo) =>
-      mo.valueStack.foldLeft(slv)((acc, vs) => {
-        vs.vs.foldLeft(acc)((acc2, v) => translate(acc2, v, mo.size)._2)
-      })
-    )
 
-  override def translate(slv: Z3Solver, e: Expression, size: Int): (Z3AST, Z3Solver) = e match {
-    case s : SymbolicValue => (context.mkConst("sym" + s.id, context.mkBVSort(size)), slv)
-    case _ => super.translate(slv, e, size)
-  }
-}
-
-class FullZ3Solver extends Z3BVSolver {
-  override def translate(mem: MemorySpace): Z3Solver = {
-    val z3 = createContext
-    val transl = new FullZ3BVTranslator(z3)
-    transl.translate(mem)
-  }
-}
-
-class CodeAwareInstructionExecutor2(program : Map[String, Instruction],
-                                    solver : Solver) extends
-  CodeAwareInstructionExecutor(program, solver) {
-}
+class FullZ3Solver extends Z3BVSolver

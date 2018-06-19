@@ -95,7 +95,7 @@ case class MemorySpace(symbols: Map[String, MemoryObject] = Map.empty,
   }
 
   def crawlCondition(condition: Condition) : Set[String] = condition match {
-    case OP(memoryObject, constraint) => crawlExpression(memoryObject.value.get.e) ++ crawlConstraint(constraint)
+    case OP(e, c, _) => crawlExpression(e) ++ crawlConstraint(c)
     case FAND(conditions) => conditions.flatMap(crawlCondition).toSet
     case FOR(conditions) => conditions.flatMap(crawlCondition).toSet
     case FNOT(condition) => crawlCondition(condition)

@@ -1,10 +1,11 @@
 package org.change.v2.analysis.executor
 
+import org.apache.commons.math3.stat.descriptive.rank.Max
 import org.change.v2.analysis.constraint._
 import org.change.v2.analysis.executor.solvers.{Solver, Z3SolverEnhanced}
 import org.change.v2.analysis.expression.abst.{Expression, FloatingExpression}
 import org.change.v2.analysis.expression.concrete.nonprimitive._
-import org.change.v2.analysis.expression.concrete.{ConstantBValue, ConstantStringValue, ConstantValue}
+import org.change.v2.analysis.expression.concrete.{ConstantBValue, ConstantStringValue, ConstantValue, SymbolicValue}
 import org.change.v2.analysis.memory._
 import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.analysis.processingmodels.instructions._
@@ -18,6 +19,8 @@ trait IExecutor[T] {
 
 
 abstract class Executor[T] extends IExecutor[T] {
+
+
   override def execute(instruction: Instruction,
                        state: State, verbose: Boolean): T = {
     val s = if (verbose &&
@@ -61,6 +64,8 @@ abstract class Executor[T] extends IExecutor[T] {
         executeIf(v, s, verbose)
       case v: InstructionBlock =>
         executeInstructionBlock(v, s, verbose)
+      case v : ConstrainFloatingExpression =>
+        executeConstrainFloatingExpression(v, s, verbose)
       case _ =>
         executeExoticInstruction(instruction, s, verbose)
     }
@@ -101,6 +106,9 @@ abstract class Executor[T] extends IExecutor[T] {
                           s: State,
                           v: Boolean = false):
   T
+  def executeConstrainFloatingExpression(i: ConstrainFloatingExpression,
+                                         s: State,
+                                         v: Boolean) : T
 
   def executeConstrainNamedSymbol(instruction: ConstrainNamedSymbol,
                                   s: State,
@@ -150,9 +158,56 @@ abstract class Executor[T] extends IExecutor[T] {
     constraint.instantiate(s)
   }
 
-  protected def instantiate(s: State, expression: FloatingExpression): Either[Expression, String] = {
-    expression.instantiate(s)
+  protected def instantiate(s : State, expression: FloatingExpression, crt : Int):
+  Either[(Expression, Int), String] = expression match {
+    case sv : SymbolicValue => Left(sv, crt)
+    case c : ConstantValue => Left((c, math.max(if (c.value != 0)
+      math.ceil(math.log(c.value + 1) / math.log(2)).toInt
+    else
+      1, crt
+    )))
+    case :<<:(left, right) =>
+      instantiate(s, left, crt) match {
+        case Left(ee) => instantiate(s, right, ee._2)
+        case Right(m) => Right(m)
+      }
+    case :!:(left) => instantiate(s, left, crt)
+    case Symbol(id) => s.memory.evalToObject(id).flatMap(r => {
+        r.value.map(v => Left((v.e, r.size)))
+    }).getOrElse(Right(s"Cannot resolve reference to symbol: $id"))
+    case :||:(left, right) => instantiate(s, left, crt) match {
+      case Left(ee) => instantiate(s, right, ee._2)
+      case Right(m) => Right(m)
+    }
+    case :^:(left, right) => instantiate(s, left, crt) match {
+      case Left(ee) => instantiate(s, right, ee._2)
+      case Right(m) => Right(m)
+    }
+    case :&&:(left, right) => instantiate(s, left, crt) match {
+      case Left(ee) => instantiate(s, right, ee._2)
+      case Right(m) => Right(m)
+    }
+    case :+:(left, right) => instantiate(s, left, crt) match {
+      case Left(ee) => instantiate(s, right, ee._2)
+      case Right(m) => Right(m)
+    }
+    case Address(a) => a(s) match {
+      case Some(int) => s.memory.evalToObject(int).flatMap(r => {
+        r.value.map(x => Left(x.e, r.size))
+      }).getOrElse(Right(s"Cannot resolve reference to $int"))
+      case None => Right(TagExp.brokenTagExpErrorMessage)
+    }
+    case :-:(left, right) => instantiate(s, left, crt) match {
+      case Left(ee) => instantiate(s, right, ee._2)
+      case Right(m) => Right(m)
+    }
+    case v : ConstantBValue => Left(v, math.max(crt, v.size))
+    case v : ConstantStringValue => Left(v, math.max(crt, 64))
+    case _ => ???
   }
+
+  protected def instantiate(s: State, expression: FloatingExpression):
+    Either[(Expression, Int), String] = instantiate(s, expression, 0)
 }
 
 
@@ -240,6 +295,11 @@ abstract class InstructionExecutor extends Executor[(List[State], List[State])] 
                            v: Boolean = false):
   (List[State], List[State])
 
+  override def executeConstrainFloatingExpression(i: ConstrainFloatingExpression,
+                                                  s: State,
+                                                  v: Boolean):
+    (List[State], List[State])
+
 }
 
 abstract class AbstractInstructionExecutor extends InstructionExecutor {
@@ -247,17 +307,31 @@ abstract class AbstractInstructionExecutor extends InstructionExecutor {
                                        s: State,
                                        v: Boolean = false):
   (List[State], List[State]) = {
-    val InstructionBlock(instructions) = instruction
-    instructions.foldLeft((List(s), Nil: List[State])) { (acc, i) => {
+    instruction.instructions.foldLeft((List(s), Nil: List[State]))((acc, i) => {
       val (valid: List[State], failed: List[State]) = acc
       val (nextValid, nextFailed) = valid.map(execute(i, _, v)).unzip
       val allValid = nextValid.foldLeft(Nil: List[State])(_ ++ _)
       val allFailed = nextFailed.foldLeft(failed: List[State])(_ ++ _)
       (allValid, allFailed)
-    }
-    }
+    })
   }
 
+  override def executeConstrainFloatingExpression(instruction: ConstrainFloatingExpression,
+                                                  s: State,
+                                                  v: Boolean): (List[State], List[State]) =
+    buildCondition(s, instruction) match {
+      case Left(c) =>
+        tryEval(c) match {
+          case Some(b) if b => (s :: Nil, Nil)
+          case Some(b) if !b => (Nil, Nil)
+          case None => val mem = s.memory.addCondition(c)
+            if (isSat(mem))
+              (s :: Nil, Nil)
+            else
+              (Nil, Nil)
+        }
+      case Right(m) => execute(Fail(m), s, v)
+    }
 
   override def executeNoOp(s: State, v: Boolean = false): (List[State], List[State]) = {
     (s :: Nil, Nil)
@@ -320,7 +394,7 @@ abstract class AbstractInstructionExecutor extends InstructionExecutor {
   }
 
   def tryEval(condition: Condition) : Option[Boolean] = condition match {
-    case OP(memoryObject, constraint) => tryEval(memoryObject.value.get.e, constraint)
+    case OP(expression, constraint, sz) => tryEval(expression, constraint)
     case FAND(conditions) => conditions.foldLeft(Some(true) : Option[Boolean])((acc, v) => acc match {
       case Some(false) => Some(false)
       case Some(true) => tryEval(v)
@@ -351,50 +425,98 @@ abstract class AbstractInstructionExecutor extends InstructionExecutor {
                           elseWhat : Instruction,
                           s : State,
                           v : Boolean) : (List[State], List[State]) = {
+    @tailrec
+    def findKiller(instruction : Iterable[Instruction],
+                   current : List[Condition],
+                   left : Iterable[Instruction]) :
+    (Option[Instruction], List[Condition], Iterable[Instruction]) = {
+      if (instruction.isEmpty)
+        (None, current, Nil)
+      else
+        buildCondition(s, instruction.head) match {
+          case Left(c) => findKiller(instruction.tail, current :+ c, instruction.tail)
+          case Right(m) => (Some(instruction.head), current, instruction.tail)
+        }
+    }
     val cd = buildCondition(s, testInstr)
     cd match {
       case Left(c) =>
-        tryEval(c) match {
-          case Some(true) =>
-            val cnstrd = s.memory.addCondition(c)
-            this.execute(thenWhat, s.copy(memory = cnstrd), v)
-          case Some(false) =>
-            val cnstrdf = s.memory.addCondition(FNOT(c))
-            this.execute(elseWhat, s.copy(memory = cnstrdf), v)
-          case None =>
-            val syms = s.memory.crawlCondition(c)
-            val crtSet = s.memory.getSymbols()
-            val mustCheck = syms.intersect(crtSet).nonEmpty
-            val cnstrd = s.memory.addCondition(c)
-            val bt = if (!mustCheck || isSat(cnstrd)) {
-              this.execute(thenWhat, s.copy(memory = cnstrd), v)
-            } else {
-              (Nil, Nil)
-            }
-            val cnstrdf = s.memory.addCondition(FNOT(c))
-            val bf = if (!mustCheck || isSat(cnstrdf))
-              this.execute(elseWhat, s.copy(memory = cnstrdf), v)
-            else
-              (Nil, Nil)
-            (bt._1 ++ bf._1, bt._2 ++ bf._2)
-        }
+        executeIfCond(c, thenWhat, elseWhat, s, v)
       // pretty uncool stuff... example use case:
-      // if (x && *x == 10) ...
+      // void f(int *x) {
+      //  if (x && *x == 10) ...
+      //}
       // if x is null then the whole if condition will fail, even though
       // explicit protection in this case has been provided => there is no bug
       // in this case
-      // TODO: need a clean way of doing this!!! too much recursion will kill you
+      // TODO: need a clean way of doing this!!! too much recursion will eventually kill you
       case Right(m) =>
-        System.err.println(s"Nasty case $m, $testInstr")
       testInstr match {
-        case InstructionBlock(instrs) => execute(instrs.foldRight(thenWhat)((i, acc) => {
-          If (i, acc, elseWhat)
-        }), s, v)
+        case InstructionBlock(instrs) =>
+          val (offender, cds, left) = findKiller(instrs, Nil, instrs)
+          System.err.println(s"Nasty case $m, $testInstr $left")
+          offender match {
+            case None => executeIfCond(FAND(cds), thenWhat, elseWhat, s, v)
+            case Some(Fork(xs)) => if (cds.isEmpty) {
+              executeIf(Fork(xs), thenWhat, elseWhat, s, v)
+            } else {
+              executeIfCond(FAND(cds),
+                If(Fork(xs),
+                  if (left.isEmpty)
+                    thenWhat
+                  else
+                    If (InstructionBlock(left),
+                      thenWhat,
+                      elseWhat
+                    ),
+                  elseWhat
+                ),
+                elseWhat, s, v
+              )
+            }
+            case _ => if (cds.isEmpty) {
+              execute(Fail(m), s, v)
+            } else {
+              executeIfCond(FAND(cds),
+                Fail(m),
+                elseWhat, s, v)
+            }
+          }
+        //TODO: do the same as above for Fork
         case Fork(fb) => execute(fb.foldRight(elseWhat)((i, acc) => {
           If (i, thenWhat, acc)
         }), s, v)
         case _ => this.execute(Fail(m), s, v)
       }
+    }
+  }
+
+  private def executeIfCond(c: Condition,
+                            thenWhat: Instruction,
+                            elseWhat: Instruction, s: State, v: Boolean) = {
+    tryEval(c) match {
+      case Some(true) =>
+        val cnstrd = s.memory.addCondition(c)
+        this.execute(thenWhat, s.copy(memory = cnstrd), v)
+      case Some(false) =>
+        val cnstrdf = s.memory.addCondition(FNOT(c))
+        this.execute(elseWhat, s.copy(memory = cnstrdf), v)
+      case None =>
+        val crtSet = s.memory.getSymbols()
+        val syms = s.memory.crawlCondition(c)
+        val mustCheck = syms.intersect(crtSet).nonEmpty
+        val cnstrd = s.memory.addCondition(c)
+        val bt = if (!mustCheck || isSat(cnstrd)) {
+          this.execute(thenWhat, s.copy(memory = cnstrd), v)
+        } else {
+          (Nil, Nil)
+        }
+        val cnstrdf = s.memory.addCondition(FNOT(c))
+        val bf = if (!mustCheck || isSat(cnstrdf))
+          this.execute(elseWhat, s.copy(memory = cnstrdf), v)
+        else
+          (Nil, Nil)
+        (bt._1 ++ bf._1, bt._2 ++ bf._2)
     }
   }
 
@@ -430,8 +552,7 @@ abstract class AbstractInstructionExecutor extends InstructionExecutor {
     case ConstrainNamedSymbol(what, withWhat, _) => instantiate(s, withWhat) match {
       case Left(c) if s.memory.symbolIsAssigned(what) =>
         val mo = s.memory.evalToObject(what).get
-        val fresh = MemoryObject(size = mo.size).addValue(mo.value.get)
-        Left(OP(fresh, c))
+        Left(OP(mo.value.get.e, c, mo.size))
       case Left(c) => Right(s"Symbol $what does not exist")
       case Right(msg) => Right(msg)
     }
@@ -439,12 +560,19 @@ abstract class AbstractInstructionExecutor extends InstructionExecutor {
       case Some(i) => instantiate(s, withWhat) match {
         case Left(c) if s.memory.canRead(i) =>
           val mo = s.memory.evalToObject(i).get
-          val fresh = MemoryObject(size = mo.size).addValue(mo.value.get)
-          Left(OP(fresh, c))
+          Left(OP(mo.value.get.e, c, mo.size))
         case Left(c) => Right(s"Symbol $what does not exist")
         case Right(msg) => Right(msg)
       }
       case None => Left(FALSE())
+    }
+    case ConstrainFloatingExpression(what, withWhat) => instantiate(s, what) match {
+      case Left(e) =>
+        instantiate(s, withWhat) match {
+          case Left(c) => Left(OP(e._1, c, e._2))
+          case Right(m) => Right(m)
+        }
+      case Right(m) => Right(m)
     }
   }
 
@@ -457,6 +585,7 @@ abstract class AbstractInstructionExecutor extends InstructionExecutor {
       case in : ConstrainRaw => executeIf(in, thenWhat, elseWhat, s, v)
       case in : InstructionBlock =>
         executeIf(in, thenWhat, elseWhat, s, v)
+      case in : ConstrainFloatingExpression => executeIf(in, thenWhat, elseWhat, s, v)
       case in : Fork => executeIf(in, thenWhat, elseWhat, s, v)
       case _ => stateToError(s, s"Bad test instruction $testInstr")
     }
@@ -493,25 +622,21 @@ abstract class AbstractInstructionExecutor extends InstructionExecutor {
   protected def isSat(memory: MemorySpace): Boolean
 
   override def executeConstrainRaw(instruction: ConstrainRaw, s: State, v: Boolean = false):
-  (List[State], List[State]) = {
-    val ConstrainRaw(a, dc, c) = instruction
-    a(s) match {
-      case Some(int) => c match {
-        case None => instantiate(s, dc) match {
-          case Left(c) => optionToStatePair(s, s"Memory object @ $a cannot $dc")(s => {
-            val maybeNewMem = s.memory.addConstraint(int, c, true)
-            getNewMemory(maybeNewMem)
-          })
-          case Right(err) => Fail(err)(s, v)
+  (List[State], List[State]) =
+    buildCondition(s, instruction) match {
+      case Left(c) =>
+        tryEval(c) match {
+          case Some(b) if b => (s :: Nil, Nil)
+          case Some(b) if !b => (Nil, Nil)
+          case None => val mem = s.memory.addCondition(c)
+            if (isSat(mem))
+              (s :: Nil, Nil)
+            else
+              (Nil, Nil)
         }
-        case Some(c) => optionToStatePair(s, s"Memory object @ $a cannot $dc")(s => {
-          val maybeNewMem = s.memory.addConstraint(int, c, true)
-          getNewMemory(maybeNewMem)
-        })
-      }
-      case None => execute(Fail(TagExp.brokenTagExpErrorMessage), s, v)
+      case Right(m) => execute(Fail(m), s, v)
     }
-  }
+
 
   protected def getNewMemory(maybeNewMem: Option[org.change.v2.analysis.memory.MemorySpace]): Option[MemorySpace] = {
     maybeNewMem match {
@@ -522,21 +647,18 @@ abstract class AbstractInstructionExecutor extends InstructionExecutor {
   }
 
   override def executeConstrainNamedSymbol(instruction: ConstrainNamedSymbol, s: State, v: Boolean = false):
-  (List[State], List[State]) = {
-    val ConstrainNamedSymbol(id, dc, c) = instruction
-    c match {
-      case None => instantiate(s, dc) match {
-        case Left(c) => optionToStatePair(s, s"Symbol $id cannot $dc")(s => {
-          val maybeNewMem = s.memory.addConstraint(id, c, true)
-          getNewMemory(maybeNewMem)
-        })
-        case Right(err) => Fail(err)(s, v)
+  (List[State], List[State]) = buildCondition(s, instruction) match {
+    case Left(c) =>
+      tryEval(c) match {
+        case Some(b) if b => (s :: Nil, Nil)
+        case Some(b) if !b => (Nil, Nil)
+        case None => val mem = s.memory.addCondition(c)
+          if (isSat(mem))
+            (s :: Nil, Nil)
+          else
+            (Nil, Nil)
       }
-      case Some(c) => optionToStatePair(s, s"Symbol $id cannot $dc")(s => {
-        val maybeNewMem = s.memory.addConstraint(id, c, true)
-        getNewMemory(maybeNewMem)
-      })
-    }
+    case Right(m) => execute(Fail(m), s, v)
   }
 
 
@@ -547,7 +669,7 @@ abstract class AbstractInstructionExecutor extends InstructionExecutor {
     assert(exp != null, s"Something terribly wrong for instruction $instruction")
     instantiate(s, exp) match {
       case Left(e) => optionToStatePair(s, s"Error during assignment of $id")(s => {
-        s.memory.Assign(id, e, t)
+        s.memory.Assign(id, e._1, t)
       })
       case Right(err) => execute(Fail(err), s, v)
     }
@@ -575,7 +697,7 @@ abstract class AbstractInstructionExecutor extends InstructionExecutor {
     a(s) match {
       case Some(int) => instantiate(s, exp) match {
         case Left(e) => optionToStatePair(s, s"Error during assignment at $a")(s => {
-          s.memory.Assign(int, e)
+          s.memory.Assign(int, e._1)
         })
         case Right(err) => execute(Fail(err), s, v)
       }

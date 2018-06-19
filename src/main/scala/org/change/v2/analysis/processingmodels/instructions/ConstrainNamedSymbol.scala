@@ -33,6 +33,11 @@ case class ConstrainNamedSymbol (id: String, dc: FloatingConstraint, c: Option[C
   }
 }
 
+case class ConstrainFloatingExpression(floatingExpression: FloatingExpression,
+                                       dc : FloatingConstraint) extends Instruction {
+  override def apply(s: State, verbose: Boolean): (List[State], List[State]) = ???
+}
+
 case class ConstrainRaw (a: Intable, dc: FloatingConstraint, c: Option[Constraint] = None) extends Instruction {
   override def apply(s: State, v: Boolean): (List[State], List[State]) = a(s) match {
     case Some(int) => c match {
@@ -74,6 +79,9 @@ object Constrain {
     ConstrainNamedSymbol(id, dc, None)
   def apply (a: Intable, dc: FloatingConstraint): Instruction =
     ConstrainRaw(a, dc, None)
+
+  def apply(e : FloatingExpression, dc : FloatingConstraint): ConstrainFloatingExpression =
+    ConstrainFloatingExpression(e, dc)
 
   def apply(a: Either[String, Intable], dc: FloatingConstraint): Instruction =
     a match {
