@@ -100,10 +100,10 @@ package object test {
     val printer = (s: State) => {
       if (s.errorCause.isEmpty) {
         if (PRINTER_OUTPUT_TO_FILE) {
-          val ps = new PrintStream(s"$dir/outputs/success-$succIdx.json")
-          ps.println(JsArray(s.instructionHistory.reverse.zipWithIndex.map(ip =>
-            JsString(ip._1.toString)).toVector).toString())
-          ps.close()
+//          val ps = new PrintStream(s"$dir/outputs/success-$succIdx.json")
+//          ps.println(JsArray(s.instructionHistory.reverse.zipWithIndex.map(ip =>
+//            JsString(ip._1.toString)).toVector).toString())
+//          ps.close()
           pscsv.println(s.history.reverse.mkString(","))
           if (succIdx % 1000 == 1)
             pscsv.flush()
@@ -118,11 +118,11 @@ package object test {
           // nothing here
         } else {
           if (PRINTER_OUTPUT_TO_FILE) {
-            val ps = new PrintStream(s"$dir/outputs/fail-$failIdx.json")
-            ps.println(JsArray(s.instructionHistory.reverse.zipWithIndex.map(ip =>
-              JsString(ip._1.toString)).toVector).toString())
-            ps.close()
-            pscsvf.println(s.history.reverse.mkString(",") + ',' + s.errorCause.get)
+//            val ps = new PrintStream(s"$dir/outputs/fail-$failIdx.json")
+//            ps.println(JsArray(s.instructionHistory.reverse.zipWithIndex.map(ip =>
+//              JsString(ip._1.toString)).toVector).toString())
+//            ps.close()
+//            pscsvf.println(s.history.reverse.mkString(",") + ',' + s.errorCause.get)
             if (failIdx % 1000 == 1)
               pscsvf.flush()
           }
