@@ -73,7 +73,7 @@ object SymbolicSwitchInstance {
           actionDef.getParameterList.
             map(x => {
               val actionParmName = prefix + ".action_parm." + x.getParamName
-              introducedSymbolicTableParams += actionParmName
+              introducedSymbolicTableParams += (actionParmName)
               x.getParamName -> :@(actionParmName)
             }).toMap
         )

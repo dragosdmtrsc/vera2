@@ -41,7 +41,6 @@ case class MemorySpace(symbols: Map[String, MemoryObject] = Map.empty,
     if (crtSymbols.nonEmpty)
       crtSymbols.get
     else {
-      println("compute symbols")
       crtSymbols = Some(computeActiveSymbols())
       crtSymbols.get
     }

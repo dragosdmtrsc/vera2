@@ -152,7 +152,7 @@ class TripleInstructionExecutor(solver: Solver) extends Executor[(List[State], L
         testInstr match {
           case InstructionBlock(instrs) =>
             val (offender, cds, left) = findKiller(instrs, Nil, instrs)
-            System.err.println(s"Nasty case $m, $testInstr $left")
+//            System.err.println(s"Nasty case $m, $testInstr $left")
             offender match {
               case None => executeIfCond(FAND(cds), thenWhat, elseWhat, s, v)
               case Some(Fork(xs)) => if (cds.isEmpty) {
@@ -204,11 +204,9 @@ class TripleInstructionExecutor(solver: Solver) extends Executor[(List[State], L
   (List[State], List[State], List[State]) = {
     tryEval(c) match {
       case Some(true) =>
-        val cnstrd = s.memory.addCondition(c)
-        this.execute(thenWhat, s.copy(memory = cnstrd), v)
+        this.execute(thenWhat, s, v)
       case Some(false) =>
-        val cnstrdf = s.memory.addCondition(FNOT(c))
-        this.execute(elseWhat, s.copy(memory = cnstrdf), v)
+        this.execute(elseWhat, s, v)
       case None =>
         val crtSet = s.memory.getSymbols()
         val syms = s.memory.crawlCondition(c)

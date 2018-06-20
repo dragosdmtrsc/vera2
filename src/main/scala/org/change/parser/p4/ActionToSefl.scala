@@ -248,7 +248,7 @@ class ActionInstance(p4Action: P4Action,
           Assign("IsClone", ConstantValue(1)),
           Forward(switchInstance.getName + ".parser")
         ),
-        Forward("control.egress.out")
+        NoOp
       )
     )
   }
