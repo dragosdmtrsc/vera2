@@ -7,8 +7,9 @@ import org.change.parser.p4.parser.StateExpander.{DeparserInstruction, ParsePack
 import org.change.parser.p4.parser.{NewParserStrategy, SkipParserAndDeparser}
 import org.change.parser.p4.tables.SymbolicSwitchInstance
 import org.change.v2.analysis.constraint._
+import org.change.v2.analysis.equivalence.{MultiSuperState, SimpleSuperState, SuperState}
 import org.change.v2.analysis.executor.solvers.{AlwaysTrue, Solver, Z3BVSolver}
-import org.change.v2.analysis.executor.{CodeAwareInstructionExecutor, InstantiateAndRun, TripleInstructionExecutor}
+import org.change.v2.analysis.executor.{CodeAwareInstructionExecutor, InstantiateAndRun, TripleInstructionExecutor, TrivialTripleInstructionExecutor}
 import org.change.v2.analysis.expression.abst.FloatingExpression
 import org.change.v2.analysis.expression.concrete.nonprimitive._
 import org.change.v2.analysis.expression.concrete.{ConstantBValue, ConstantStringValue, ConstantValue, SymbolicValue}
@@ -41,7 +42,7 @@ class FullBlownSwitch3 extends FunSuite {
       codeFilter = None
     )
     val res = ControlFlowInterpreter.buildSymbolicInterpreter(symbolicSwitchInstance, switch, Some(pg))
-    val printer = createConsumer("/home/dragos2/extended/vera-outputs/")
+    val printer = createConsumer("/home/dragos/extended/vera-outputs/")
 
     val allIfaces = Fork(symbolicSwitchInstance.ifaces.map(x => {
       Constrain("standard_metadata.egress_port", :==:(ConstantValue(x._1.longValue())))
@@ -53,7 +54,7 @@ class FullBlownSwitch3 extends FunSuite {
       (s"${symbolicSwitchInstance.getName}.output.in" -> If (allIfaces,
         Forward(s"${symbolicSwitchInstance.getName}.output.out"),
         Fail("Cannot find egress_port match for current interfaces")
-      )),
+      )) + (s"${symbolicSwitchInstance.getName}.parser" -> Forward("switch.parser.parse_ethernet.parse_ipv4.parse_tcp")),
       res.links()
     )
 
@@ -70,11 +71,10 @@ class FullBlownSwitch3 extends FunSuite {
       }
     }
 
-    val alltrueexec = new TripleInstructionExecutor(AlwaysTrue)
     val iexe = new TripleInstructionExecutor(new Z3BVSolver)
     import org.change.v2.analysis.memory.TagExp._
 
-    val init  = alltrueexec.execute(
+    val init  = TrivialTripleInstructionExecutor.execute(
       InstructionBlock(
         CreateTag("START", 0),
         Assign("egress_pipeline", ConstantValue(1)),
@@ -84,69 +84,78 @@ class FullBlownSwitch3 extends FunSuite {
       ), State.clean, false
     )._1.head
 
-    def instantiateCondition(conditions : List[Condition], against : State): List[Condition] = {
-      conditions.map(ConditionInstantiator(_, against))
-    }
+    val allEmptyDict = scala.collection.mutable.Map[
+      (String,
+        Set[(String, Int)],
+        Set[(String, Long)]), (List[State], List[State], List[State])]()
+    val waitingQueue = ListBuffer[SuperState]()
+    val backupQueue  = ListBuffer[SuperState]()
+    val solver  = new Z3BVSolver()
 
-    caieConsumer(init)
-
-    val allEmptyDict = scala.collection.mutable.Map[(String, Set[(String, Int)]), (List[State], List[State], List[State])]()
-//    val regex = "switch.table.[^\\.]+\\.in".r
-    val regex = "switch.table.egress_system_acl\\.in".r
-    val alwaysTrue = new Solver() {
-      override def solve(memory: MemorySpace): Boolean = true
-    }
-
-    while (q.nonEmpty) {
-      val initqsize = q.size
-
-      val start = System.currentTimeMillis()
-      val port = q.dequeue()
-      val states = map(port)
-      map.remove(port)
-      System.err.println(s"now at $port executing ${states.size}")
-      val instr = prog(port)
-      instr match {
-        case Forward(place) => if (!map.contains(place)) {
-          q.enqueue(place)
-          map.put(place, states.map(_.forwardTo(place)))
-        } else {
-          map(place) ++= states.map(_.forwardTo(place))
-        }
-        case _ =>
-          val (read, write) = InstructionCrawler.crawlInstruction(instr)
-          val all = read ++ write
-          val segEquiv = states.groupBy(r => {
-            r.memory.symbols.keySet.intersect(all).map(sm => (sm, r.memory.evalToObject(sm).get.size))
-          })
-          System.err.println(s"#classes: ${segEquiv.size} vs ${states.size}")
-          for ((syms, sts) <- segEquiv) {
-            val history = if (allEmptyDict.contains((port, syms))) {
-              allEmptyDict(port, syms)
-            } else {
-              val res = InstantiateAndRun(
-                instr, syms
-              )
-              allEmptyDict.put((port, syms), res)
-              res
-            }
-          }
-          states.foreach(st => {
-            val (s, f, u) = iexe.execute(
-              instr,
-              st,
-              verbose = false
-            )
-            u.foreach(printer._3)
-            f.foreach(printer._3)
-            s.foreach(caieConsumer)
-          })
+    def caieConsumer2(s : SuperState): Unit = {
+      if (prog.contains(s.port)) {
+        backupQueue += s
+      } else {
+        s.materialize().filter(st => solver.solve(st.memory)).foreach(printer._3)
       }
-      val total = System.currentTimeMillis() - start
-      System.err.println(s"time $total for initial port $port $initqsize final ${q.size}")
     }
-
-    printer._1.close()
-    printer._2.close()
+    caieConsumer2(SimpleSuperState(init))
+    waitingQueue ++= backupQueue
+    backupQueue.clear()
+    while (waitingQueue.nonEmpty) {
+      if (waitingQueue.size < 5 && waitingQueue.forall(_.isInstanceOf[SimpleSuperState])) {
+        for (st <- waitingQueue) {
+          val instr = prog(st.port)
+          System.err.println(s"running simple case at ${st.port}")
+          val (o, f, s) = iexe.execute(instr, st.asInstanceOf[SimpleSuperState].state, verbose = false)
+          (s ++ f).foreach(printer._3)
+          o.foreach(x => caieConsumer2(SimpleSuperState(x)))
+        }
+      } else {
+        val start = System.currentTimeMillis()
+        val portClasses = waitingQueue.groupBy(f => f.port)
+        for ((port, states) <- portClasses) {
+          val instr = prog(port)
+          instr match {
+            case Forward(place) => caieConsumer2(MultiSuperState(State.clean.forwardTo(place), states))
+            case _ =>
+              val eqEnd = System.currentTimeMillis()
+              val (read, write) = InstructionCrawler.crawlInstruction(instr)
+              val dict = states.flatMap(st => {
+                st.varsAndValids(read).toList
+              }).groupBy(_._1).map(v => v._1 -> v._2.flatMap(h => h._2))
+              System.err.println(s"equiv on vars and valids took ${System.currentTimeMillis() - eqEnd}ms at port " +
+                s"$port")
+              for (((syms, valids), sts) <- dict) {
+                val history = if (allEmptyDict.contains((port, syms, valids))) {
+                  allEmptyDict(port, syms, valids)
+                } else {
+                  val pleaseAdd = InstructionBlock(
+                    valids.toList.map(i => {
+                      Assign(i._1, ConstantValue(i._2))
+                    })
+                  )
+                  val res = InstantiateAndRun(
+                    instr, syms, pleaseAdd
+                  )
+                  allEmptyDict.put((port, syms, valids), res)
+                  res
+                }
+                val startMaterializing = System.currentTimeMillis()
+                (history._2 ++ history._3).foreach(r => MultiSuperState(r, sts).materialize().filter(st => solver.solve(st.memory)).foreach(h => {
+                  printer._3(h)
+                }))
+                System.err.println(s"materializing time ${System.currentTimeMillis() - startMaterializing}ms at " +
+                  s"$port")
+                history._1.foreach(r => caieConsumer2(MultiSuperState(r, sts)))
+              }
+          }
+        }
+        System.err.println(s"total step time ${System.currentTimeMillis() - start}ms")
+      }
+      waitingQueue.clear()
+      waitingQueue ++= backupQueue
+      backupQueue.clear()
+    }
   }
 }

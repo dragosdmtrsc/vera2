@@ -122,7 +122,7 @@ package object test {
 //            ps.println(JsArray(s.instructionHistory.reverse.zipWithIndex.map(ip =>
 //              JsString(ip._1.toString)).toVector).toString())
 //            ps.close()
-//            pscsvf.println(s.history.reverse.mkString(",") + ',' + s.errorCause.get)
+            pscsvf.println(s.history.reverse.mkString(",") + ',' + s.errorCause.get)
             if (failIdx % 1000 == 1)
               pscsvf.flush()
           }

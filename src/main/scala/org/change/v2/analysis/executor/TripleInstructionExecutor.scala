@@ -1,7 +1,7 @@
 package org.change.v2.analysis.executor
 
 import org.change.v2.analysis.constraint._
-import org.change.v2.analysis.executor.solvers.Solver
+import org.change.v2.analysis.executor.solvers.{AlwaysTrue, Solver}
 import org.change.v2.analysis.expression.abst.Expression
 import org.change.v2.analysis.expression.concrete.{ConstantBValue, ConstantStringValue, ConstantValue}
 import org.change.v2.analysis.expression.concrete.nonprimitive._
@@ -424,3 +424,6 @@ class TripleInstructionExecutor(solver: Solver) extends Executor[(List[State], L
   override def executeDeallocateRaw(instruction: DeallocateRaw, s: State, v: Boolean):
     (List[State], List[State], List[State]) = ???
 }
+
+
+object TrivialTripleInstructionExecutor extends TripleInstructionExecutor(AlwaysTrue)
