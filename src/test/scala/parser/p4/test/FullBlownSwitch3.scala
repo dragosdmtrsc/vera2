@@ -118,7 +118,6 @@ class FullBlownSwitch3 extends FunSuite {
             val (read, write) = InstructionCrawler.crawlInstruction(instr)
             val dict = states.foldLeft(Map.empty[(Set[(String, Int)], Set[(String, Long)]),
               Iterable[SuperState]])((acc, x) => {
-//                val x.varsAndValids(read)
               x.varsAndValids(read).foldLeft(acc)((acc2, y) => {
                 if (acc2.contains(y._1))
                   acc2 + (y._1 -> (acc2(y._1) ++ y._2))
@@ -126,9 +125,9 @@ class FullBlownSwitch3 extends FunSuite {
                   acc2 + y
               })
             })
-
-            System.err.println(s"equiv on vars and valids took ${System.currentTimeMillis() - eqEnd}ms at port " +
-              s"$port")
+//
+//            System.err.println(s"equiv on vars and valids took ${System.currentTimeMillis() - eqEnd}ms at port " +
+//              s"$port")
             for (((syms, valids), sts) <- dict) {
               val history = if (allEmptyDict.contains((port, syms, valids))) {
                 allEmptyDict(port, syms, valids)
@@ -139,19 +138,20 @@ class FullBlownSwitch3 extends FunSuite {
                   })
                 )
                 val res = InstantiateAndRun(
-                  instr, syms, pleaseAdd
+                  instr, syms, pleaseAdd, instructionExecutor = iexe
                 )
-
                 allEmptyDict.put((port, syms, valids), res)
                 res
               }
-              if (history._2.nonEmpty && history._3.nonEmpty) {
+              if (history._2.nonEmpty || history._3.nonEmpty) {
                 val startMaterializing = System.currentTimeMillis()
-                (history._2 ++ history._3).foreach(r => MultiSuperState(r, sts).materialize().filter(st => solver.solve(st.memory)).foreach(h => {
-                  printer._3(h)
-                }))
-                System.err.println(s"materializing time ${System.currentTimeMillis() - startMaterializing}ms at " +
-                  s"$port")
+                history._2.foreach(r => {
+                  System.err.println(s"failing because " +
+                    s"${r.errorCause.get} at $port for max ${MultiSuperState(r, sts).max()}")
+                })
+                history._3.foreach(r => {
+                  System.err.println(s"successful at $port for max ${MultiSuperState(r, sts).max()}")
+                })
               }
 
               val historyClasses = history._1.groupBy(x => {
@@ -172,7 +172,7 @@ class FullBlownSwitch3 extends FunSuite {
                     if (a.exp.isInstanceOf[Symbol]) {
                       val sb = a.exp.asInstanceOf[Symbol]
                       if (sb.id.endsWith(".IsValid")) {
-                        x.memory.eval(sb.id).get.e.asInstanceOf[ConstantValue].value
+                        valids.find(x => x._1 == sb.id).get._2
                       } else {
                         throw new IllegalArgumentException(x.instructionHistory + "")
                       }
@@ -185,7 +185,6 @@ class FullBlownSwitch3 extends FunSuite {
                 })
                 (x.location, ovalids, allocs)
               })
-              System.err.println(s"history ${history._1.size} vs equivalence classes ${historyClasses.size}")
               historyClasses.foreach(hc => {
                 val allocd = hc._1._3.foldLeft(State.clean)((acc, h) => {
                   acc.addInstructionToHistory(Allocate(h._1, h._2))
@@ -196,18 +195,14 @@ class FullBlownSwitch3 extends FunSuite {
                 }).forwardTo(hc._1._1)
 
                 if (!prog.contains(st.location)) {
-                  MultiSuperState(st, sts).materialize().filter(st => {
-                    solver.solve(st.memory)
-                  }).foreach(h => {
-                    printer._3(h)
-                  })
+                  System.err.println(s"out at ${st.location} maximum ${MultiSuperState(st, sts, Some(hc._2)).max()} states")
                 } else {
                   if (waitingQueue.nonEmpty && cfg.levels(st.location) < cfg.levels(port)) {
                     System.err.println(s"o fi facut ceva copilu, o fi injurat ${st.location} " +
                       s"(${cfg.levels(st.location)})< $port(${cfg.levels(port)})")
-                    backupQueue += MultiSuperState(st, sts)
+                    backupQueue += MultiSuperState(st, sts, Some(hc._2))
                   } else {
-                    val mss = MultiSuperState(st, sts)
+                    val mss = MultiSuperState(st, sts, Some(hc._2))
                     waitingQueue.enqueue(mss)
                   }
                 }
@@ -215,9 +210,8 @@ class FullBlownSwitch3 extends FunSuite {
             }
           }
 
-        System.err.println(s"total step time ${System.currentTimeMillis() - start}ms")
+        System.err.println(s"total step time($port) ${System.currentTimeMillis() - start}ms")
       }
-      System.err.println(s"left outstanding ${backupQueue.size}")
     }
   }
 }

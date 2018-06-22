@@ -12,6 +12,7 @@ trait SuperState {
   def varsAndValids(inputVars : Set[String]) : Map[(Set[(String, Int)], Set[(String, Long)]), Iterable[SuperState]]
   def materialize(iexec : TripleInstructionExecutor = TrivialTripleInstructionExecutor,
                   solver : Solver = AlwaysTrue) : Iterable[State]
+  def max() : Int
 }
 
 object SimpleSuperState {
@@ -27,12 +28,14 @@ case class SimpleSuperState(state : State) extends SuperState {
       x._1 -> state.memory.eval(x._1).get.e.asInstanceOf[ConstantValue].value
     })) -> (this :: Nil))
   }
-
+  override def max : Int = 1
   override def materialize(iexec : TripleInstructionExecutor = TrivialTripleInstructionExecutor,
                            solver : Solver = AlwaysTrue): Iterable[State] = Iterable(state)
 }
 
-case class MultiSuperState(state : State, otherStates : Iterable[SuperState]) extends SuperState {
+case class MultiSuperState(state : State,
+                           otherStates : Iterable[SuperState],
+                           eqClass : Option[List[State]] = None) extends SuperState {
   override def port: String = state.location
 
   lazy val addedHere = state.instructionHistory.collect {
@@ -46,6 +49,13 @@ case class MultiSuperState(state : State, otherStates : Iterable[SuperState]) ex
   }.foldRight(Map.empty[String, Long])((x, acc) => {
     acc + x
   })
+
+  override def max() : Int = {
+    (if (eqClass.isEmpty)
+      1
+    else
+      eqClass.get.size) * otherStates.map(r => r.max()).sum
+  }
 
   override def materialize(iexec : TripleInstructionExecutor = TrivialTripleInstructionExecutor,
                   solver : Solver = AlwaysTrue) : Iterable[State] = {
@@ -70,7 +80,7 @@ case class MultiSuperState(state : State, otherStates : Iterable[SuperState]) ex
       sb.foldLeft(acc)((acc2, y) => {
         val z = (y._1._1 ++ flt, y._1._2 ++ vld)
         if (acc2.contains(z))
-          acc2 + (z -> (acc2(y._1) ++ y._2))
+          acc2 + (z -> (acc2(z) ++ y._2))
         else
           acc2 + (z -> y._2)
       })

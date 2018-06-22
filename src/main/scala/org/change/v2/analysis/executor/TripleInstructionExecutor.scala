@@ -351,9 +351,16 @@ class TripleInstructionExecutor(solver: Solver) extends Executor[(List[State], L
     val AssignNamedSymbol(id, exp, t) = instruction
     assert(exp != null, s"Something terribly wrong for instruction $instruction")
     instantiate(s, exp) match {
-      case Left(e) => val (ss, sf) = optionToStatePair(s, s"Error during assignment of $id")(s => {
-        s.memory.Assign(id, e._1, t)
-      })
+      case Left(e) =>
+        val sss = if (v && !s.memory.symbolIsDefined(id)) {
+          val h = s.instructionHistory.head
+          s.copy(instructionHistory = h :: AllocateSymbol(id, 64) :: s.instructionHistory.tail)
+        } else {
+          s
+        }
+        val (ss, sf) = optionToStatePair(sss, s"Error during assignment of $id")(s => {
+          s.memory.Assign(id, e._1, t)
+        })
       (Nil, sf, ss)
       case Right(err) => execute(Fail(err), s, v)
     }
