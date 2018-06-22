@@ -104,6 +104,7 @@ class FullBlownSwitch3 extends FunSuite {
         val port = top.head.port
         System.err.println(s"running at level ${cfg.levels(port)} = $port")
         val instr = prog(port)
+
         instr match {
           case Forward(place) =>
             if (waitingQueue.nonEmpty && cfg.levels(place) < cfg.levels(port))
@@ -115,19 +116,17 @@ class FullBlownSwitch3 extends FunSuite {
           case _ =>
             val eqEnd = System.currentTimeMillis()
             val (read, write) = InstructionCrawler.crawlInstruction(instr)
-            val dict = if (read.isEmpty) {
-              Map.empty[(Set[(String, Int)], Set[(String, Long)]), Iterable[SuperState]]
-            } else {
-              states.foldLeft(Map.empty[(Set[(String, Int)], Set[(String, Long)]), Iterable[SuperState]])((acc, x) => {
+            val dict = states.foldLeft(Map.empty[(Set[(String, Int)], Set[(String, Long)]),
+              Iterable[SuperState]])((acc, x) => {
 //                val x.varsAndValids(read)
-                x.varsAndValids(read).foldLeft(acc)((acc2, y) => {
-                  if (acc2.contains(y._1))
-                    acc2 + (y._1 -> (acc2(y._1) ++ y._2))
-                  else
-                    acc2 + y
-                })
+              x.varsAndValids(read).foldLeft(acc)((acc2, y) => {
+                if (acc2.contains(y._1))
+                  acc2 + (y._1 -> (acc2(y._1) ++ y._2))
+                else
+                  acc2 + y
               })
-            }
+            })
+
             System.err.println(s"equiv on vars and valids took ${System.currentTimeMillis() - eqEnd}ms at port " +
               s"$port")
             for (((syms, valids), sts) <- dict) {
@@ -154,13 +153,52 @@ class FullBlownSwitch3 extends FunSuite {
                 System.err.println(s"materializing time ${System.currentTimeMillis() - startMaterializing}ms at " +
                   s"$port")
               }
-              if (port.startsWith("switch.table.sflow_ing_take_sample.in")) {
-                System.err.println(s"acu am rulat ${history._1.size} ${history._2.size} ${history._3.size}")
-                System.err.println(history._1.map(_.location).map(f => f -> cfg.levels(f)).mkString(","))
-              }
-              history._1.foreach(st => {
+
+              val historyClasses = history._1.groupBy(x => {
+                val ih = x.instructionHistory.filter(x => x match {
+                  case a : AllocateSymbol => true
+                  case AssignNamedSymbol(id, _, _) if id.endsWith(".IsValid") => true
+                  case _ => false
+                })
+                val allocs = ih.collect {
+                  case a: AllocateSymbol => a
+                }.map(r => (r.id, r.size)).foldLeft(Map[String, Int]())((acc, x) => {
+                  acc + x
+                })
+                val ovalids = ih.collect{
+                  case a : AssignNamedSymbol => a.id -> (if (a.exp.isInstanceOf[ConstantValue])
+                      a.exp.asInstanceOf[ConstantValue].value
+                  else {
+                    if (a.exp.isInstanceOf[Symbol]) {
+                      val sb = a.exp.asInstanceOf[Symbol]
+                      if (sb.id.endsWith(".IsValid")) {
+                        x.memory.eval(sb.id).get.e.asInstanceOf[ConstantValue].value
+                      } else {
+                        throw new IllegalArgumentException(x.instructionHistory + "")
+                      }
+                    } else {
+                      throw new IllegalArgumentException("wrong type " + a + " " + x.instructionHistory + "")
+                    }
+                  })
+                }.foldLeft(Map[String, Long]())((acc, x) => {
+                  acc + x
+                })
+                (x.location, ovalids, allocs)
+              })
+              System.err.println(s"history ${history._1.size} vs equivalence classes ${historyClasses.size}")
+              historyClasses.foreach(hc => {
+                val allocd = hc._1._3.foldLeft(State.clean)((acc, h) => {
+                  acc.addInstructionToHistory(Allocate(h._1, h._2))
+                })
+
+                val st = hc._1._2.foldLeft(allocd)((acc, h) => {
+                  acc.addInstructionToHistory(Assign(h._1, ConstantValue(h._2)))
+                }).forwardTo(hc._1._1)
+
                 if (!prog.contains(st.location)) {
-                  MultiSuperState(st, sts).materialize().filter(st => solver.solve(st.memory)).foreach(h => {
+                  MultiSuperState(st, sts).materialize().filter(st => {
+                    solver.solve(st.memory)
+                  }).foreach(h => {
                     printer._3(h)
                   })
                 } else {

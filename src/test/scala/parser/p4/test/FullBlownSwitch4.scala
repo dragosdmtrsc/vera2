@@ -1,5 +1,7 @@
 package parser.p4.test
 
+import java.io.PrintStream
+
 import org.change.parser.p4.ControlFlowInterpreter
 import org.change.parser.p4.parser.SkipParserAndDeparser
 import org.change.parser.p4.tables.SymbolicSwitchInstance
@@ -52,7 +54,28 @@ class FullBlownSwitch4 extends FunSuite {
     val cfg = new ControlFlowGraph(name = "switch", program = prog)
     System.err.println(s"starting topo sort")
     cfg.topoSort(s"${symbolicSwitchInstance.getName}.input.2" :: Nil)
-    for (x <- cfg.levels)
-      println(x._2, x._1)
+
+    val mapper = cfg.sorted.filter(prog.contains).
+      map(x => x -> InstructionCrawler.crawlInstruction(prog(x))).toMap
+
+    val dependencies = scala.collection.mutable.Map[(String, String), Set[String]]()
+
+    val ps = new PrintStream("deps.txt")
+    for (x <- cfg.sorted.zipWithIndex) {
+      if (!x._1.startsWith(s"${symbolicSwitchInstance.getName}.input.") && mapper.contains(x._1)) {
+        val rwx = mapper(x._1)
+        for (y <- cfg.sorted.drop(x._2 + 1)) {
+          if (mapper.contains(y)) {
+            val rwy = mapper(y)
+            val intersection = rwx._2.intersect(rwy._1).filter(x=> x != "IsClone")
+            if (intersection.nonEmpty) {
+              dependencies.put((x._1, y), intersection)
+              ps.println(s"$y depends on $x because of $intersection")
+            }
+          }
+        }
+      }
+    }
+
   }
 }
