@@ -6,6 +6,7 @@ import org.change.parser.p4.ControlFlowInterpreter
 import org.change.parser.p4.parser.StateExpander.{DeparserInstruction, ParsePacket}
 import org.change.parser.p4.parser.{NewParserStrategy, SkipParserAndDeparser}
 import org.change.parser.p4.tables.SymbolicSwitchInstance
+import org.change.v2.analysis.ControlFlowGraph
 import org.change.v2.analysis.constraint._
 import org.change.v2.analysis.equivalence.{MultiSuperState, SimpleSuperState, SuperState}
 import org.change.v2.analysis.executor.solvers.{AlwaysTrue, Solver, Z3BVSolver}
@@ -20,6 +21,7 @@ import org.change.v2.analysis.processingmodels.networkproc._
 import org.change.v2.p4.model.Switch
 import org.scalatest.FunSuite
 
+import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 
 class FullBlownSwitch3 extends FunSuite {
@@ -47,8 +49,7 @@ class FullBlownSwitch3 extends FunSuite {
     val allIfaces = Fork(symbolicSwitchInstance.ifaces.map(x => {
       Constrain("standard_metadata.egress_port", :==:(ConstantValue(x._1.longValue())))
     }))
-    val q = scala.collection.mutable.Queue[String]()
-    val map = scala.collection.mutable.Map[String, ListBuffer[State]]()
+
 
     val prog = CodeAwareInstructionExecutor.flattenProgram(res.instructions() +
       (s"${symbolicSwitchInstance.getName}.output.in" -> If (allIfaces,
@@ -57,19 +58,6 @@ class FullBlownSwitch3 extends FunSuite {
       )) + (s"${symbolicSwitchInstance.getName}.parser" -> Forward("switch.parser.parse_ethernet.parse_ipv4.parse_tcp")),
       res.links()
     )
-
-    def caieConsumer(s : State) : Unit = {
-      if (prog.contains(s.location)) {
-        if (!map.contains(s.location)) {
-          q.enqueue(s.location)
-          map.put(s.location, ListBuffer[State](s))
-        } else {
-          map(s.location) += s
-        }
-      } else {
-        printer._3(s)
-      }
-    }
 
     val iexe = new TripleInstructionExecutor(new Z3BVSolver)
     import org.change.v2.analysis.memory.TagExp._
@@ -88,74 +76,110 @@ class FullBlownSwitch3 extends FunSuite {
       (String,
         Set[(String, Int)],
         Set[(String, Long)]), (List[State], List[State], List[State])]()
-    val waitingQueue = ListBuffer[SuperState]()
+    val cfg = new ControlFlowGraph(symbolicSwitchInstance.getName, program = prog)
+    cfg.topoSort(s"${symbolicSwitchInstance.getName}.input.$port" :: Nil)
+    val waitingQueue = mutable.PriorityQueue.empty[SuperState](
+      Ordering.by[SuperState, Int](s => cfg.levels(s.port)).reverse
+    )
     val backupQueue  = ListBuffer[SuperState]()
     val solver  = new Z3BVSolver()
 
-    def caieConsumer2(s : SuperState): Unit = {
-      if (prog.contains(s.port)) {
-        backupQueue += s
-      } else {
-        s.materialize().filter(st => solver.solve(st.memory)).foreach(printer._3)
-      }
-    }
-    caieConsumer2(SimpleSuperState(init))
-    waitingQueue ++= backupQueue
-    backupQueue.clear()
+    waitingQueue.enqueue(SimpleSuperState(init))
     while (waitingQueue.nonEmpty) {
-      if (waitingQueue.size < 5 && waitingQueue.forall(_.isInstanceOf[SimpleSuperState])) {
-        for (st <- waitingQueue) {
+      val top = ListBuffer(waitingQueue.dequeue())
+      while (waitingQueue.nonEmpty && waitingQueue.head.port == top.head.port) {
+        top += waitingQueue.dequeue()
+      }
+
+      if (top.size < 5 && top.forall(_.isInstanceOf[SimpleSuperState])) {
+        for (st <- top) {
           val instr = prog(st.port)
-          System.err.println(s"running simple case at ${st.port}")
           val (o, f, s) = iexe.execute(instr, st.asInstanceOf[SimpleSuperState].state, verbose = false)
           (s ++ f).foreach(printer._3)
-          o.foreach(x => caieConsumer2(SimpleSuperState(x)))
+          o.foreach(x => waitingQueue.enqueue(SimpleSuperState(x)))
         }
       } else {
         val start = System.currentTimeMillis()
-        val portClasses = waitingQueue.groupBy(f => f.port)
-        for ((port, states) <- portClasses) {
-          val instr = prog(port)
-          instr match {
-            case Forward(place) => caieConsumer2(MultiSuperState(State.clean.forwardTo(place), states))
-            case _ =>
-              val eqEnd = System.currentTimeMillis()
-              val (read, write) = InstructionCrawler.crawlInstruction(instr)
-              val dict = states.flatMap(st => {
-                st.varsAndValids(read).toList
-              }).groupBy(_._1).map(v => v._1 -> v._2.flatMap(h => h._2))
-              System.err.println(s"equiv on vars and valids took ${System.currentTimeMillis() - eqEnd}ms at port " +
-                s"$port")
-              for (((syms, valids), sts) <- dict) {
-                val history = if (allEmptyDict.contains((port, syms, valids))) {
-                  allEmptyDict(port, syms, valids)
-                } else {
-                  val pleaseAdd = InstructionBlock(
-                    valids.toList.map(i => {
-                      Assign(i._1, ConstantValue(i._2))
-                    })
-                  )
-                  val res = InstantiateAndRun(
-                    instr, syms, pleaseAdd
-                  )
-                  allEmptyDict.put((port, syms, valids), res)
-                  res
-                }
+        val states = top
+        val port = top.head.port
+        System.err.println(s"running at level ${cfg.levels(port)} = $port")
+        val instr = prog(port)
+        instr match {
+          case Forward(place) =>
+            if (waitingQueue.nonEmpty && cfg.levels(place) < cfg.levels(port))
+              backupQueue += MultiSuperState(State.clean.forwardTo(place), states)
+            else if (prog.contains(place))
+              waitingQueue.enqueue(MultiSuperState(State.clean.forwardTo(place), states))
+            else
+              MultiSuperState(State.clean.forwardTo(place), states).materialize().foreach(f => printer._3(f))
+          case _ =>
+            val eqEnd = System.currentTimeMillis()
+            val (read, write) = InstructionCrawler.crawlInstruction(instr)
+            val dict = if (read.isEmpty) {
+              Map.empty[(Set[(String, Int)], Set[(String, Long)]), Iterable[SuperState]]
+            } else {
+              states.foldLeft(Map.empty[(Set[(String, Int)], Set[(String, Long)]), Iterable[SuperState]])((acc, x) => {
+//                val x.varsAndValids(read)
+                x.varsAndValids(read).foldLeft(acc)((acc2, y) => {
+                  if (acc2.contains(y._1))
+                    acc2 + (y._1 -> (acc2(y._1) ++ y._2))
+                  else
+                    acc2 + y
+                })
+              })
+            }
+            System.err.println(s"equiv on vars and valids took ${System.currentTimeMillis() - eqEnd}ms at port " +
+              s"$port")
+            for (((syms, valids), sts) <- dict) {
+              val history = if (allEmptyDict.contains((port, syms, valids))) {
+                allEmptyDict(port, syms, valids)
+              } else {
+                val pleaseAdd = InstructionBlock(
+                  valids.toList.map(i => {
+                    Assign(i._1, ConstantValue(i._2))
+                  })
+                )
+                val res = InstantiateAndRun(
+                  instr, syms, pleaseAdd
+                )
+
+                allEmptyDict.put((port, syms, valids), res)
+                res
+              }
+              if (history._2.nonEmpty && history._3.nonEmpty) {
                 val startMaterializing = System.currentTimeMillis()
                 (history._2 ++ history._3).foreach(r => MultiSuperState(r, sts).materialize().filter(st => solver.solve(st.memory)).foreach(h => {
                   printer._3(h)
                 }))
                 System.err.println(s"materializing time ${System.currentTimeMillis() - startMaterializing}ms at " +
                   s"$port")
-                history._1.foreach(r => caieConsumer2(MultiSuperState(r, sts)))
               }
+              if (port.startsWith("switch.table.sflow_ing_take_sample.in")) {
+                System.err.println(s"acu am rulat ${history._1.size} ${history._2.size} ${history._3.size}")
+                System.err.println(history._1.map(_.location).map(f => f -> cfg.levels(f)).mkString(","))
+              }
+              history._1.foreach(st => {
+                if (!prog.contains(st.location)) {
+                  MultiSuperState(st, sts).materialize().filter(st => solver.solve(st.memory)).foreach(h => {
+                    printer._3(h)
+                  })
+                } else {
+                  if (waitingQueue.nonEmpty && cfg.levels(st.location) < cfg.levels(port)) {
+                    System.err.println(s"o fi facut ceva copilu, o fi injurat ${st.location} " +
+                      s"(${cfg.levels(st.location)})< $port(${cfg.levels(port)})")
+                    backupQueue += MultiSuperState(st, sts)
+                  } else {
+                    val mss = MultiSuperState(st, sts)
+                    waitingQueue.enqueue(mss)
+                  }
+                }
+              })
+            }
           }
-        }
+
         System.err.println(s"total step time ${System.currentTimeMillis() - start}ms")
       }
-      waitingQueue.clear()
-      waitingQueue ++= backupQueue
-      backupQueue.clear()
+      System.err.println(s"left outstanding ${backupQueue.size}")
     }
   }
 }

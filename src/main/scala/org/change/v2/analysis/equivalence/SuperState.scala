@@ -20,11 +20,10 @@ object SimpleSuperState {
 
 case class SimpleSuperState(state : State) extends SuperState {
   override def port: String = state.location
-
+  lazy val syms = state.memory.symbols.keySet.map(sm => (sm, state.memory.evalToObject(sm).get.size))
   override def varsAndValids(inputVars: Set[String]): Map[(Set[(String, Int)], Set[(String, Long)]), Iterable[SuperState]] = {
-    val syms = state.memory.symbols.keySet.
-      intersect(inputVars).map(sm => (sm, state.memory.evalToObject(sm).get.size))
-    Map((syms, syms.filter(x => x._1.endsWith(".IsValid")).map(x => {
+    val intersect = syms.filter(h => inputVars.contains(h._1))
+    Map((intersect, syms.filter(x => x._1.endsWith(".IsValid")).map(x => {
       x._1 -> state.memory.eval(x._1).get.e.asInstanceOf[ConstantValue].value
     })) -> (this :: Nil))
   }
@@ -35,6 +34,18 @@ case class SimpleSuperState(state : State) extends SuperState {
 
 case class MultiSuperState(state : State, otherStates : Iterable[SuperState]) extends SuperState {
   override def port: String = state.location
+
+  lazy val addedHere = state.instructionHistory.collect {
+    case AllocateSymbol(x, sz) => (x, sz)
+  }.foldRight(Map.empty[String, Int])((x, acc) => {
+    acc + x
+  })
+  lazy val validatedHere = state.instructionHistory.collect {
+    case AssignNamedSymbol(x, ConstantValue(value, _, _), _) if x.endsWith(".IsValid") =>
+      x -> value
+  }.foldRight(Map.empty[String, Long])((x, acc) => {
+    acc + x
+  })
 
   override def materialize(iexec : TripleInstructionExecutor = TrivialTripleInstructionExecutor,
                   solver : Solver = AlwaysTrue) : Iterable[State] = {
@@ -52,24 +63,18 @@ case class MultiSuperState(state : State, otherStates : Iterable[SuperState]) ex
   }
 
   override def varsAndValids(inputVars: Set[String]): Map[(Set[(String, Int)], Set[(String, Long)]), Iterable[SuperState]] = {
-    val addedSyms = state.instructionHistory.collect {
-      case AllocateSymbol(x, sz) if inputVars.contains(x) => (x, sz)
-    }.foldRight(Map.empty[String, Int])((x, acc) => {
-      acc + x
+    val flt = addedHere.filter(k => inputVars.contains(k._1))
+    val vld = validatedHere.filter(k => inputVars.contains(k._1))
+    otherStates.foldLeft(Map.empty[(Set[(String, Int)], Set[(String, Long)]), Iterable[SuperState]])((acc, x) => {
+      val sb = x.varsAndValids(inputVars)
+      sb.foldLeft(acc)((acc2, y) => {
+        val z = (y._1._1 ++ flt, y._1._2 ++ vld)
+        if (acc2.contains(z))
+          acc2 + (z -> (acc2(y._1) ++ y._2))
+        else
+          acc2 + (z -> y._2)
+      })
     })
 
-    val addedValids = state.instructionHistory.collect {
-      case AssignNamedSymbol(x, ConstantValue(value, _, _), _) if inputVars.contains(x) && x.endsWith(".IsValid") =>
-        x -> value
-    }.foldRight(Map.empty[String, Long])((x, acc) => {
-      acc + x
-    })
-
-    otherStates.flatMap(_.varsAndValids(inputVars).toList).groupBy(kv => {
-      (kv._1._1 ++ addedSyms, kv._1._2 ++ addedValids)
-    }).map(f => {
-      val uzp = f._2
-      f._1 -> uzp.flatMap(r => r._2)
-    })
   }
 }

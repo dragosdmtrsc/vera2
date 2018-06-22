@@ -672,7 +672,7 @@ object StateExpander {
 
   case class ParsePacket(x: DFSState, sw: Switch) extends Instruction {
     private lazy val oVSExecutor = new OVSExecutor(new Z3BVSolver)
-    private lazy val returnStatement: Statement = x.history.head
+    lazy val returnStatement: Statement = x.history.head
     private lazy val others: List[Statement] = x.history.tail.filter(!_
       .isInstanceOf[ReturnStatement]).reverse
 
