@@ -12,24 +12,20 @@ import org.change.v2.analysis.processingmodels.instructions._
 
 import scala.annotation.tailrec
 
-trait IExecutor[T] {
-  def execute(instruction: Instruction,
-              state: State, verbose: Boolean): T
+trait Mapper[S, T] {
+  def execute(instruction : Instruction, state: S, verbose : Boolean) : T
 }
-
-
-abstract class Executor[T] extends IExecutor[T] {
-
-
+abstract class AbsMapper[S, T] extends Mapper[S, T] {
+  def addToHistory(state : S, instruction : Instruction) : S = state
   override def execute(instruction: Instruction,
-                       state: State, verbose: Boolean): T = {
+                       state: S, verbose: Boolean): T = {
     val s = if (verbose &&
       !instruction.isInstanceOf[If] &&
       !instruction.isInstanceOf[Fork] &&
       !instruction.isInstanceOf[InstructionBlock] &&
       !instruction.isTool &&
       !instruction.isInstanceOf[Translatable])
-      state.addInstructionToHistory(instruction)
+      addToHistory(state, instruction)
     else
       state
     val as = instruction match {
@@ -73,86 +69,96 @@ abstract class Executor[T] extends IExecutor[T] {
   }
 
   def executeExoticInstruction(instruction: Instruction,
-                               s: State,
+                               s: S,
                                verbose: Boolean): T
 
-  def executeNoOp(s: State, v: Boolean = false): T
+  def executeNoOp(s: S, v: Boolean = false): T
 
   def executeInstructionBlock(instruction: InstructionBlock,
-                              s: State,
+                              s: S,
                               v: Boolean = false):
   T
 
   def executeIf(instruction: If,
-                s: State,
+                s: S,
                 v: Boolean = false): T
 
   def executeForward(instruction: Forward,
-                     s: State,
+                     s: S,
                      v: Boolean = false):
   T
 
   def executeFork(instruction: Fork,
-                  s: State,
+                  s: S,
                   v: Boolean = false):
   T
 
   def executeFail(instruction: Fail,
-                  s: State,
+                  s: S,
                   v: Boolean = false):
   T
 
   def executeConstrainRaw(instruction: ConstrainRaw,
-                          s: State,
+                          s: S,
                           v: Boolean = false):
   T
   def executeConstrainFloatingExpression(i: ConstrainFloatingExpression,
-                                         s: State,
+                                         s: S,
                                          v: Boolean) : T
 
   def executeConstrainNamedSymbol(instruction: ConstrainNamedSymbol,
-                                  s: State,
+                                  s: S,
                                   v: Boolean = false):
   T
 
   def executeAssignNamedSymbol(instruction: AssignNamedSymbol,
-                               s: State,
+                               s: S,
                                v: Boolean = false):
   T
 
   def executeAllocateRaw(instruction: AllocateRaw,
-                         state: State,
+                         state: S,
                          verbose: Boolean = false):
   T
 
   def executeAssignRaw(instruction: AssignRaw,
-                       s: State,
+                       s: S,
                        v: Boolean = false):
   T
 
   def executeAllocateSymbol(instruction: AllocateSymbol,
-                            s: State,
+                            s: S,
                             v: Boolean = false):
   T
 
   def executeDestroyTag(instruction: DestroyTag,
-                        s: State,
+                        s: S,
                         v: Boolean = false):
   T
 
   def executeDeallocateNamedSymbol(instruction: DeallocateNamedSymbol,
-                                   s: State,
+                                   s: S,
                                    v: Boolean = false):
   T
 
-  def executeCreateTag(instruction: CreateTag, s: State, v: Boolean = false):
+  def executeCreateTag(instruction: CreateTag, s: S, v: Boolean = false):
   T
 
 
   def executeDeallocateRaw(instruction: DeallocateRaw,
-                           s: State,
+                           s: S,
                            v: Boolean = false):
   T
+}
+
+trait IExecutor[T] extends Mapper[State, T]
+
+
+abstract class Executor[T] extends AbsMapper[State, T] with IExecutor[T] {
+
+  override def addToHistory(state: State, instruction: Instruction): State =
+    state.addInstructionToHistory(instruction)
+
 
   protected def instantiate(s: State, constraint: FloatingConstraint): Either[Constraint, String] = {
     constraint.instantiate(s)

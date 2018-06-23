@@ -78,6 +78,35 @@ class FullBlownSwitch3 extends FunSuite {
         Set[(String, Long)]), (List[State], List[State], List[State])]()
     val cfg = new ControlFlowGraph(symbolicSwitchInstance.getName, program = prog)
     cfg.topoSort(s"${symbolicSwitchInstance.getName}.input.$port" :: Nil)
+    val mapper = cfg.sorted.filter(prog.contains).
+      map(x => x -> InstructionCrawler.crawlInstruction(prog(x))).toMap
+    val dependencies = scala.collection.mutable.Map[String, Map[String, Set[String]]]()
+    val allDependencies = scala.collection.mutable.Map[String, Set[String]]()
+
+    val ps = new PrintStream("deps.txt")
+    for (x <- cfg.sorted.zipWithIndex) {
+      if (!x._1.startsWith(s"${symbolicSwitchInstance.getName}.input.") && mapper.contains(x._1)) {
+        val rwx = mapper(x._1)
+        for (y <- cfg.sorted.drop(x._2 + 1)) {
+          if (mapper.contains(y)) {
+            val rwy = mapper(y)
+            val intersection = rwx._2.intersect(rwy._1).filter(x=> x != "IsClone")
+            if (intersection.nonEmpty) {
+              if (!dependencies.contains(x._1)) {
+                dependencies.put(x._1, Map.empty)
+                allDependencies.put(x._1, Set.empty)
+              }
+              if (!dependencies(x._1).contains(y))
+                dependencies.put(x._1, Map.empty + (y -> Set.empty))
+              dependencies.put(x._1, dependencies(x._1) + (y -> intersection))
+              allDependencies.put(x._1, allDependencies(x._1) ++ intersection)
+              ps.println(s"$y depends on $x because of $intersection")
+            }
+          }
+        }
+      }
+    }
+
     val waitingQueue = mutable.PriorityQueue.empty[SuperState](
       Ordering.by[SuperState, Int](s => cfg.levels(s.port)).reverse
     )
@@ -85,6 +114,8 @@ class FullBlownSwitch3 extends FunSuite {
     val solver  = new Z3BVSolver()
 
     waitingQueue.enqueue(SimpleSuperState(init))
+    val psfail = new PrintStream("fail.txt")
+    val psOk = new PrintStream("done.txt")
     while (waitingQueue.nonEmpty) {
       val top = ListBuffer(waitingQueue.dequeue())
       while (waitingQueue.nonEmpty && waitingQueue.head.port == top.head.port) {
@@ -110,9 +141,15 @@ class FullBlownSwitch3 extends FunSuite {
             if (waitingQueue.nonEmpty && cfg.levels(place) < cfg.levels(port))
               backupQueue += MultiSuperState(State.clean.forwardTo(place), states)
             else if (prog.contains(place))
-              waitingQueue.enqueue(MultiSuperState(State.clean.forwardTo(place), states))
-            else
-              MultiSuperState(State.clean.forwardTo(place), states).materialize().foreach(f => printer._3(f))
+              states.foreach(x => waitingQueue.enqueue(x match {
+                case SimpleSuperState(s) => SimpleSuperState(s.forwardTo(place))
+                case MultiSuperState(s, otherStates, maybeList) => MultiSuperState(
+                  s.forwardTo(place), otherStates, maybeList
+                )
+              }))
+            else {
+              psOk.println(s"successful at $port for max ${MultiSuperState(State.clean.forwardTo(place), states).max()}")
+            }
           case _ =>
             val eqEnd = System.currentTimeMillis()
             val (read, write) = InstructionCrawler.crawlInstruction(instr)
@@ -129,81 +166,104 @@ class FullBlownSwitch3 extends FunSuite {
 //            System.err.println(s"equiv on vars and valids took ${System.currentTimeMillis() - eqEnd}ms at port " +
 //              s"$port")
             for (((syms, valids), sts) <- dict) {
-              val history = if (allEmptyDict.contains((port, syms, valids))) {
-                allEmptyDict(port, syms, valids)
-              } else {
-                val pleaseAdd = InstructionBlock(
-                  valids.toList.map(i => {
-                    Assign(i._1, ConstantValue(i._2))
-                  })
-                )
-                val res = InstantiateAndRun(
-                  instr, syms, pleaseAdd, instructionExecutor = iexe
-                )
-                allEmptyDict.put((port, syms, valids), res)
-                res
-              }
+              val pleaseAdd = InstructionBlock(
+                valids.toList.map(i => {
+                  Assign(i._1, ConstantValue(i._2))
+                })
+              )
+              val history =  InstantiateAndRun(
+                instr, syms, pleaseAdd, instructionExecutor = iexe
+              )
               if (history._2.nonEmpty || history._3.nonEmpty) {
                 val startMaterializing = System.currentTimeMillis()
                 history._2.foreach(r => {
-                  System.err.println(s"failing because " +
+                  psfail.println(s"failing because " +
                     s"${r.errorCause.get} at $port for max ${MultiSuperState(r, sts).max()}")
                 })
                 history._3.foreach(r => {
-                  System.err.println(s"successful at $port for max ${MultiSuperState(r, sts).max()}")
+                  psOk.println(s"successful at $port for max ${MultiSuperState(r, sts).max()}")
                 })
               }
-
-              val historyClasses = history._1.groupBy(x => {
-                val ih = x.instructionHistory.filter(x => x match {
-                  case a : AllocateSymbol => true
-                  case AssignNamedSymbol(id, _, _) if id.endsWith(".IsValid") => true
-                  case _ => false
-                })
-                val allocs = ih.collect {
-                  case a: AllocateSymbol => a
-                }.map(r => (r.id, r.size)).foldLeft(Map[String, Int]())((acc, x) => {
-                  acc + x
-                })
-                val ovalids = ih.collect{
-                  case a : AssignNamedSymbol => a.id -> (if (a.exp.isInstanceOf[ConstantValue])
-                      a.exp.asInstanceOf[ConstantValue].value
-                  else {
-                    if (a.exp.isInstanceOf[Symbol]) {
-                      val sb = a.exp.asInstanceOf[Symbol]
-                      if (sb.id.endsWith(".IsValid")) {
-                        valids.find(x => x._1 == sb.id).get._2
-                      } else {
-                        throw new IllegalArgumentException(x.instructionHistory + "")
-                      }
-                    } else {
-                      throw new IllegalArgumentException("wrong type " + a + " " + x.instructionHistory + "")
-                    }
+              val nodep = !dependencies.contains(port)
+              val historyClasses = if (nodep) {
+                history._1.groupBy(x => {
+                  x.location
+                }).map(r => (State.clean.forwardTo(r._1), r._2))
+              } else {
+                history._1.groupBy(x => {
+                  val ih = x.instructionHistory.filter(x => x match {
+                    case a : AllocateSymbol => true
+                    case AssignNamedSymbol(id, _, _) if id.endsWith(".IsValid") => true
+                    case _ => false
                   })
-                }.foldLeft(Map[String, Long]())((acc, x) => {
-                  acc + x
+                  val allocs = ih.collect {
+                    case a: AllocateSymbol => a
+                  }.map(r => (r.id, r.size)).filter(h => syms.contains(h)).foldLeft(Map[String, Int]())((acc, x) => {
+                    acc + x
+                  }).filter(y => {
+                    !nodep && allDependencies(port).contains(y._1)
+                  })
+                  val ovalids = ih.collect{
+                    case a : AssignNamedSymbol => a.id -> (if (a.exp.isInstanceOf[ConstantValue])
+                      a.exp.asInstanceOf[ConstantValue].value
+                    else {
+                      if (a.exp.isInstanceOf[Symbol]) {
+                        val sb = a.exp.asInstanceOf[Symbol]
+                        if (sb.id.endsWith(".IsValid")) {
+                          valids.find(x => x._1 == sb.id).get._2
+                        } else {
+                          throw new IllegalArgumentException(x.instructionHistory + "")
+                        }
+                      } else {
+                        throw new IllegalArgumentException("wrong type " + a + " " + x.instructionHistory + "")
+                      }
+                    })
+                  }.foldLeft(Map[String, Long]())((acc, x) => {
+                    acc + x
+                  }).filter(y => {
+                    !nodep && allDependencies(port).contains(y._1)
+                  })
+                  (x.location, ovalids, allocs)
+                }).map(hc => {
+                  val allocd = hc._1._3.foldLeft(State.clean)((acc, h) => {
+                    acc.addInstructionToHistory(Allocate(h._1, h._2))
+                  })
+
+                  (hc._1._2.foldLeft(allocd)((acc, h) => {
+                    acc.addInstructionToHistory(Assign(h._1, ConstantValue(h._2)))
+                  }).forwardTo(hc._1._1), hc._2)
                 })
-                (x.location, ovalids, allocs)
-              })
+              }
+              System.err.println(s"hist equiv = ${history._1.size} vs ${historyClasses.size}")
+              if (history._1.size.toDouble == historyClasses.size.toDouble && history._1.size != 1) {
+                System.err.println(s"bad ${history._1.map(x => x.location)} vs ")
+                historyClasses.foreach(x => {
+                  System.err.println(s"@ ${x._1.location}")
+                  System.err.println(x._1.instructionHistory)
+                })
+              }
               historyClasses.foreach(hc => {
-                val allocd = hc._1._3.foldLeft(State.clean)((acc, h) => {
-                  acc.addInstructionToHistory(Allocate(h._1, h._2))
-                })
-
-                val st = hc._1._2.foldLeft(allocd)((acc, h) => {
-                  acc.addInstructionToHistory(Assign(h._1, ConstantValue(h._2)))
-                }).forwardTo(hc._1._1)
-
+                val st = hc._1
                 if (!prog.contains(st.location)) {
-                  System.err.println(s"out at ${st.location} maximum ${MultiSuperState(st, sts, Some(hc._2)).max()} states")
+                  psOk.println(s"out at ${st.location} maximum ${MultiSuperState(st, sts, Some(hc._2)).max()} states")
                 } else {
-                  if (waitingQueue.nonEmpty && cfg.levels(st.location) < cfg.levels(port)) {
-                    System.err.println(s"o fi facut ceva copilu, o fi injurat ${st.location} " +
-                      s"(${cfg.levels(st.location)})< $port(${cfg.levels(port)})")
-                    backupQueue += MultiSuperState(st, sts, Some(hc._2))
+                  if (hc._1.instructionHistory.isEmpty) {
+                    val place = hc._1.location
+                    sts.foreach(x => waitingQueue.enqueue(x match {
+                      case SimpleSuperState(s) => SimpleSuperState(s.forwardTo(place))
+                      case MultiSuperState(s, otherStates, maybeList) => MultiSuperState(
+                        s.forwardTo(place), otherStates, maybeList
+                      )
+                    }))
                   } else {
-                    val mss = MultiSuperState(st, sts, Some(hc._2))
-                    waitingQueue.enqueue(mss)
+                    if (waitingQueue.nonEmpty && cfg.levels(st.location) < cfg.levels(port)) {
+                      System.err.println(s"o fi facut ceva copilu, o fi injurat ${st.location} " +
+                        s"(${cfg.levels(st.location)})< $port(${cfg.levels(port)})")
+                      backupQueue += MultiSuperState(st, sts, Some(hc._2))
+                    } else {
+                      val mss = MultiSuperState(st, sts, Some(hc._2))
+                      waitingQueue.enqueue(mss)
+                    }
                   }
                 }
               })

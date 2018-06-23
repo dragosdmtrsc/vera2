@@ -22,6 +22,8 @@ object SimpleSuperState {
 case class SimpleSuperState(state : State) extends SuperState {
   override def port: String = state.location
   lazy val syms = state.memory.symbols.keySet.map(sm => (sm, state.memory.evalToObject(sm).get.size))
+  
+
   override def varsAndValids(inputVars: Set[String]): Map[(Set[(String, Int)], Set[(String, Long)]), Iterable[SuperState]] = {
     val intersect = syms.filter(h => inputVars.contains(h._1))
     Map((intersect, syms.filter(x => x._1.endsWith(".IsValid")).map(x => {
@@ -75,16 +77,26 @@ case class MultiSuperState(state : State,
   override def varsAndValids(inputVars: Set[String]): Map[(Set[(String, Int)], Set[(String, Long)]), Iterable[SuperState]] = {
     val flt = addedHere.filter(k => inputVars.contains(k._1))
     val vld = validatedHere.filter(k => inputVars.contains(k._1))
-    otherStates.foldLeft(Map.empty[(Set[(String, Int)], Set[(String, Long)]), Iterable[SuperState]])((acc, x) => {
-      val sb = x.varsAndValids(inputVars)
-      sb.foldLeft(acc)((acc2, y) => {
-        val z = (y._1._1 ++ flt, y._1._2 ++ vld)
-        if (acc2.contains(z))
-          acc2 + (z -> (acc2(z) ++ y._2))
-        else
-          acc2 + (z -> y._2)
+    if (flt.isEmpty && vld.isEmpty) {
+      otherStates.foldLeft(Map.empty[(Set[(String, Int)], Set[(String, Long)]), Iterable[SuperState]])((acc, x) => {
+        x.varsAndValids(inputVars).foldLeft(acc)((acc2, y) => {
+          if (acc2.contains(y._1))
+            acc2 + (y._1 -> (acc2(y._1) ++ y._2))
+          else
+            acc2 + y
+        })
       })
-    })
-
+    } else {
+      otherStates.foldLeft(Map.empty[(Set[(String, Int)], Set[(String, Long)]), Iterable[SuperState]])((acc, x) => {
+        val sb = x.varsAndValids(inputVars)
+        sb.foldLeft(acc)((acc2, y) => {
+          val z = (y._1._1 ++ flt, y._1._2 ++ vld)
+          if (acc2.contains(z))
+            acc2 + (z -> (acc2(z) ++ y._2))
+          else
+            acc2 + (z -> y._2)
+        })
+      })
+    }
   }
 }

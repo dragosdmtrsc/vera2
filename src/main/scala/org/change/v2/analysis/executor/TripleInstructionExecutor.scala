@@ -198,7 +198,7 @@ class TripleInstructionExecutor(solver: Solver) extends Executor[(List[State], L
   }
 
 
-  private def executeIfCond(c: Condition,
+  protected def executeIfCond(c: Condition,
                             thenWhat: Instruction,
                             elseWhat: Instruction, s: State, v: Boolean) :
   (List[State], List[State], List[State]) = {
@@ -432,5 +432,26 @@ class TripleInstructionExecutor(solver: Solver) extends Executor[(List[State], L
     (List[State], List[State], List[State]) = ???
 }
 
+class ReallySimpleInstructionExecutor extends TripleInstructionExecutor(AlwaysTrue) {
 
-object TrivialTripleInstructionExecutor extends TripleInstructionExecutor(AlwaysTrue)
+  protected override def executeIfCond(c: Condition,
+                              thenWhat: Instruction,
+                              elseWhat: Instruction, s: State, v: Boolean) :
+  (List[State], List[State], List[State]) = {
+    tryEval(c) match {
+      case Some(true) =>
+        this.execute(thenWhat, s, v)
+      case Some(false) =>
+        this.execute(elseWhat, s, v)
+      case None =>
+        val cnstrd = s.memory.addCondition(c)
+        val bt = this.execute(thenWhat, s.copy(memory = cnstrd), v)
+        val cnstrdf = s.memory.addCondition(FNOT(c))
+        val bf = this.execute(elseWhat, s.copy(memory = cnstrdf), v)
+        (bt._1 ++ bf._1, bt._2 ++ bf._2, bt._3 ++ bf._3)
+    }
+  }
+
+}
+
+object TrivialTripleInstructionExecutor extends ReallySimpleInstructionExecutor
