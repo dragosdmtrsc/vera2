@@ -22,7 +22,8 @@ libraryDependencies ++= {
     "com.fasterxml.jackson.dataformat" % "jackson-dataformat-yaml" % "2.8.3",
     "com.regblanc" %% "scala-smtlib" % "0.2",
     "junit" % "junit" % "4.12",
-    "com.storm-enroute" %% "scalameter" % "0.8.2"
+    "com.storm-enroute" %% "scalameter" % "0.8.2",
+    "org.scodec" %% "scodec-bits" % "1.1.6"
   )
 }
 
