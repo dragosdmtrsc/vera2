@@ -40,7 +40,7 @@ class ControlFlowGraph(name : String, program : Map[String, Instruction]) {
         }
       }
       marks.put(s, 2)
-      System.err.println("reached " + s)
+//      System.err.println("reached " + s)
       sorted.prepend(s)
     }
   }

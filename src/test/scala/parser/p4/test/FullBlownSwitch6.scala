@@ -1,11 +1,12 @@
 package parser.p4.test
 
-import java.io.PrintStream
+import java.io.{BufferedOutputStream, FileOutputStream, PrintStream}
 import java.util.UUID
 
 import org.change.parser.p4.ControlFlowInterpreter
 import org.change.parser.p4.parser.SkipParserAndDeparser
 import org.change.parser.p4.tables.SymbolicSwitchInstance
+import org.change.utils.prettifier.JsonUtil
 import org.change.v2.analysis.constraint._
 import org.change.v2.analysis.executor.solvers.Z3BVSolver
 import org.change.v2.analysis.executor.{CodeAwareInstructionExecutor, TripleInstructionExecutor, TrivialTripleInstructionExecutor}
@@ -16,8 +17,10 @@ import org.change.v2.analysis.{ControlFlowGraph, Topology}
 import org.change.v2.p4.model.Switch
 import org.scalatest.FunSuite
 import scodec.bits.BitVector
+import spray.json.{JsArray, JsNumber, JsObject, JsString, JsonWriter}
 
 import scala.collection.mutable
+import scala.collection.mutable.ListBuffer
 
 class FullBlownSwitch6 extends FunSuite {
   test("SWITCH - L3VxlanTunnelTest full symbolic 3") {
@@ -70,170 +73,162 @@ class FullBlownSwitch6 extends FunSuite {
     val cfg = new ControlFlowGraph(symbolicSwitchInstance.getName, program = prog)
     cfg.topoSort(s"${symbolicSwitchInstance.getName}.input.$port" :: Nil)
     val mapper = cfg.sorted.filter(prog.contains)
-    val waitingQueue = mutable.PriorityQueue.empty[Either[State, SimpleMemory]](
-      Ordering.by[Either[State, SimpleMemory], Int] {
-        case Left(s) => cfg.levels(s.location)
-        case Right(s) => cfg.levels(s.location)
-      }.reverse
-    )
-    val parsed = mutable.PriorityQueue.empty[State](
-      Ordering.by[State, Int](s => cfg.levels(s.location)).reverse
-    )
-    val solver = new Z3BVSolver()
-    waitingQueue.enqueue(Left(init))
-    val psfail = new PrintStream("fail.txt")
-    val psOk = new PrintStream("done.txt")
-
-//    val topo = Topology(prog)
-//    val all = topo.allVars()
-//    val rnw = all.read.diff(all.write)
-//    val wnr = all.write.diff(all.read)
-//    val rw = all.write.intersect(all.read)
 
     def location(e : Either[State, SimpleMemory]) = e match {
       case Left(s) => s.location
       case Right(s) => s.location
     }
+    val waitingQueue = mutable.PriorityQueue.empty[Either[State, SimpleMemory]](
+      Ordering.by[Either[State, SimpleMemory], Int](x => cfg.levels(location(x))).reverse
+    )
+    val solver = new Z3BVSolver()
+    waitingQueue.enqueue(Left(init))
+    val start = System.currentTimeMillis()
+    val topo = Topology(prog)
+    var mergeThreshhold = 100
 
+    val alllevels = cfg.sorted.foldRight(Nil : List[Set[String]])((st, acc) => {
+      if (topo.m.contains(st)) {
+        val crt = topo.m(st).read
+        if (acc.isEmpty)
+          crt :: acc
+        else
+          (crt ++ acc.head) :: acc
+      } else {
+        Set.empty[String] :: acc
+      }
+    })
+
+    val walllevels = cfg.sorted.foldRight(Nil : List[Set[String]])((st, acc) => {
+      if (topo.m.contains(st)) {
+        val crt = topo.m(st).write
+        if (acc.isEmpty)
+          crt :: acc
+        else
+          (crt ++ acc.head) :: acc
+      } else {
+        Set.empty[String] :: acc
+      }
+    })
+
+    val failed = ListBuffer[SimpleMemory]()
+    val success = ListBuffer[SimpleMemory]()
+    val statEnd = System.currentTimeMillis()
+    val globalRNW = alllevels.head.diff(walllevels.head)
+    System.out.println(s"static analysis done in ${statEnd - start}ms")
     while (waitingQueue.nonEmpty) {
       val crt = waitingQueue.dequeue()
       val lst = mutable.ListBuffer(crt)
-      while (waitingQueue.nonEmpty && waitingQueue.head.isRight == crt.isRight && location(crt) == location(waitingQueue.head)) {
+      val loc = location(crt)
+
+      while (waitingQueue.nonEmpty && waitingQueue.head.isRight == crt.isRight && loc == location(waitingQueue.head)) {
         lst += waitingQueue.dequeue()
       }
-      val loc = location(crt)
-      print(s"reduction for ${lst.size} @$loc = ${cfg.levels(loc)} / ${cfg.levels.size}")
-      val redStart = System.currentTimeMillis()
-      if (crt == s"${symbolicSwitchInstance.getName}.control.ingress" && crt.isLeft) {
-        lst.map(h => {
-
-        })
-      } else {
-        if (crt.isLeft) {
-          lst.foreach {
-            case Left(s) => val (s, f, c) = TrivialTripleInstructionExecutor.execute(prog(loc), s, false)
-              waitingQueue.enqueue(s.map(Left(_)):_*)
-          }
+      if (prog.contains(loc)) {
+        val redStart = System.currentTimeMillis()
+        if (loc == s"${symbolicSwitchInstance.getName}.control.ingress" && crt.isLeft) {
+          waitingQueue.enqueue(lst.map(h => {
+            Right(SimpleMemory(h.left.get))
+          }):_*)
         } else {
-          if (lst.size > 100) {
-            val id = UUID.randomUUID().toString
-            lst.map(_.right.get).groupBy(h => (h.memTags,
-              h.rawObjects.keySet,
-              h.symbols.keySet.filter(!_.endsWith("IsValid")),
-              h.symbols.filter(r => r._1.endsWith("IsValid")))).map(chi => {
-              val ms = SimpleMemory(
-                memTags = chi._1._1,
-                symbols = chi._1._4 ++ chi._1._3.map(meta => {
-                  meta -> SimpleMemoryObject(SymbolicValue(s"meta$meta$id"), chi._2.head.symbols(meta).size)
-                }).toMap,
-                rawObjects = chi._1._2.map(offset => {
-                  offset -> SimpleMemoryObject(SymbolicValue(s"offset$offset$id"), chi._2.head.rawObjects(offset).size)
-                }).toMap
-              )
-              val cdLst = FOR(chi._2.foldLeft(List.empty[Condition])((acc, st) => {
-                val mms = st
-                val pcForSyms = chi._1._3.foldLeft(mms.pathConditions)((acc, meta) => {
-                  val symName = s"meta$meta$id"
-                  val toBeAdded = OP(SymbolicValue(symName), EQ_E(mms.symbols(meta).expression), mms.symbols(meta).size)
-                  toBeAdded :: acc
-                })
-                val pcForRaws = chi._1._2.foldLeft(pcForSyms)((acc, offset) => {
-                  val symName = s"offset$offset$id"
-                  val toBeAdded = OP(SymbolicValue(symName), EQ_E(mms.rawObjects(offset).expression), mms.rawObjects(offset).size)
-                  toBeAdded :: acc
-                })
-                FAND(pcForRaws) :: acc
-              }))
-              ms.addCondition(cdLst)
+          if (crt.isLeft) {
+            val execStart = System.currentTimeMillis()
+            lst.foreach(ss => {
+              val (s, f, c) = TrivialTripleInstructionExecutor.execute(prog(loc), ss.left.get, false)
+              waitingQueue.enqueue(s.map(Left(_)): _*)
             })
+            val execEnd = System.currentTimeMillis()
+            println(s"left executing at $loc time ${execEnd - execStart}")
+          } else {
+            if (lst.size > mergeThreshhold) {
+              val lvl = cfg.levels(loc)
+              val rw = alllevels(lvl).diff(globalRNW)
+              val id = UUID.randomUUID().toString
+              val grpStart = System.currentTimeMillis()
+              val grouped = lst.map(_.right.get).groupBy(h => (h.memTags,
+                h.rawObjects.keySet,
+                h.symbols.keySet.filter(h => !h.endsWith("IsValid") && h != "IsClone").intersect(rw),
+                h.symbols.filter(r => r._1 == "IsClone" || r._1.endsWith("IsValid") || globalRNW.contains(r._1))))
+              //            val ps = new PrintStream("ceva.txt")
+              //            for (g <- grouped) {
+              //              ps.println(g._1)
+              //            }
+              //            ps.close()
+              //            System.exit(0)
+              val grpEnd = System.currentTimeMillis()
+              println(s"grouping at $loc = (${cfg.levels(loc)} / ${cfg.levels.size}) with ${rw.size} threshold $mergeThreshhold ${grouped.size} vs ${lst.size} time ${grpEnd - grpStart}")
+              if (grouped.size > mergeThreshhold) {
+                mergeThreshhold = grouped.size + grouped.size / 2
+                val execStart = System.currentTimeMillis()
+                lst.foreach(st => {
+                  val trp = TrivialSimpleMemoryInterpreter.execute(prog(loc), st.right.get, false)
+                  waitingQueue.enqueue(trp.success.map(Right(_)):_*)
+                })
+                val execEnd = System.currentTimeMillis()
+                println(s"increased threshhold to ${mergeThreshhold} right executing at $loc time ${execEnd - execStart}")
+              } else {
+                mergeThreshhold = grouped.size + grouped.size / 2
+                val merged = grouped.map(chi => {
+                  val ms = SimpleMemory(
+                    memTags = chi._1._1,
+                    symbols = chi._1._4 ++ chi._1._3.map(meta => {
+                      meta -> SimpleMemoryObject(SymbolicValue(s"meta$meta$id"), chi._2.head.symbols(meta).size)
+                    }).toMap,
+                    rawObjects = chi._1._2.map(offset => {
+                      offset -> SimpleMemoryObject(SymbolicValue(s"offset$offset$id"), chi._2.head.rawObjects(offset).size)
+                    }).toMap
+                  )
+                  val cdLst = FOR(chi._2.foldLeft(List.empty[Condition])((acc, st) => {
+                    val mms = st
+                    val pcForSyms = chi._1._3.foldLeft(mms.pathConditions)((acc, meta) => {
+                      val symName = s"meta$meta$id"
+                      val toBeAdded = OP(SymbolicValue(symName), EQ_E(mms.symbols(meta).expression), mms.symbols(meta).size)
+                      toBeAdded :: acc
+                    })
+                    val pcForRaws = chi._1._2.foldLeft(pcForSyms)((acc, offset) => {
+                      val symName = s"offset$offset$id"
+                      val toBeAdded = OP(SymbolicValue(symName), EQ_E(mms.rawObjects(offset).expression), mms.rawObjects(offset).size)
+                      toBeAdded :: acc
+                    })
+                    FAND(pcForRaws) :: acc
+                  }))
+                  ms.addCondition(cdLst)
+                })
+                val mergeEnd = System.currentTimeMillis()
+                println(s"merging at $loc time ${mergeEnd - grpEnd}")
+                merged.foreach(st => {
+                  val trp = TrivialSimpleMemoryInterpreter.execute(prog(loc), st, false)
+                  waitingQueue.enqueue(trp.success.map(Right(_)):_*)
+                  failed ++= trp.failed
+                  success ++= trp.continue
+                })
+                val execEnd = System.currentTimeMillis()
+                println(s"executing at $loc time ${execEnd - mergeEnd}")
+              }
+            } else {
+              val execStart = System.currentTimeMillis()
+              lst.foreach(st => {
+                val trp = TrivialSimpleMemoryInterpreter.execute(prog(loc), st.right.get, false)
+                waitingQueue.enqueue(trp.success.map(Right(_)):_*)
+                failed ++= trp.failed
+                success ++= trp.continue
+              })
+              val execEnd = System.currentTimeMillis()
+              println(s"right executing at $loc ${waitingQueue.size} time ${execEnd - execStart}")
+            }
           }
         }
+      } else {
+        System.err.println(s"Done @$loc, ${lst.size}")
+        success ++= lst.map(_.right.get)
       }
-
-//      val buf = if (lst.size > 1000) {
-//        val id = UUID.randomUUID()
-//        lst.groupBy(h => (h.memory.memTags,
-//          h.memory.rawObjects.keySet,
-//          h.memory.symbols.keySet.filter(!_.endsWith("IsValid")),
-//          h.memory.symbols.filter(r => r._1.endsWith("IsValid")))).map(chi => {
-//          val ms = MemorySpace(
-//            memTags = chi._1._1,
-//            symbols = chi._1._4 ++ chi._1._3.map(meta => {
-//              meta -> MemoryObject(SymbolicValue(s"meta$meta$id"), chi._2.head.memory.symbols(meta).size)
-//            }).toMap,
-//            rawObjects = chi._1._2.map(offset => {
-//              offset -> MemoryObject(SymbolicValue(s"offset$offset$id"), chi._2.head.memory.rawObjects(offset).size)
-//            }).toMap
-//          )
-//          val cdLst = FOR(chi._2.foldLeft(List.empty[Condition])((acc, st) => {
-//            val mms = st.memory
-//            val pcForSyms = chi._1._3.foldLeft(mms.pathConditions)((acc, meta) => {
-//              val symName = s"meta$meta$id"
-//              val toBeAdded = OP(SymbolicValue(symName), EQ_E(mms.symbols(meta).expression), mms.symbols(meta).size)
-//              toBeAdded :: acc
-//            })
-//            val pcForRaws = chi._1._2.foldLeft(pcForSyms)((acc, offset) => {
-//              val symName = s"offset$offset$id"
-//              val toBeAdded = OP(SymbolicValue(symName), EQ_E(mms.rawObjects(offset).expression), mms.rawObjects(offset).size)
-//              toBeAdded :: acc
-//            })
-//            FAND(pcForRaws) :: acc
-//          }))
-//          State(memory = ms.addCondition(cdLst), history = crt.location :: Nil)
-//        })
-//      } else {
-//        lst
-//      }
-//      val redTime  = System.currentTimeMillis() - redStart
-//      println(s" in ${redTime}ms ${buf.size}")
-//      buf.foreach(crt => {
-//        val (a, b, c) = TrivialTripleInstructionExecutor.execute(prog(crt.location), crt, false)
-//        waitingQueue.enqueue(a:_*)
-//      })
     }
-
-//    println(s"rnw ${rnw.size}, wnr ${wnr.size}, rw ${rw.size}")
-//    val allvars = rw
-//    println(parsed.size, parsed.map(_.location).mkString(","))
-//    val absExec = mutable.PriorityQueue.empty[AbsState](
-//      Ordering.by[AbsState, Int](s => cfg.levels(s.location)).reverse
-//    )
-//    parsed.foreach(r => {
-//      absExec.enqueue(AbsState.fromState(r, rw, rnw, wnr))
-//    })
-//    val absexecutor = new AbsInterpreter()
-//    while (absExec.nonEmpty) {
-//      val crt = absExec.dequeue()
-//      val lst = mutable.ListBuffer(crt)
-//      while (absExec.nonEmpty && absExec.head.location == crt.location) {
-//        lst += absExec.dequeue()
-//      }
-//      val groups = lst.groupBy(r => (r.valid, r.allocated)).values.map(h => h.head)
-//      val rd = topo.m(crt.location).read
-//      val mask = rd.filter(crt.mapping.contains).map(crt.mapping(_)).foldLeft(BitVector.low(crt.mapping.size))((acc, x) => acc.set(x))
-//      val vmask = rd.filter(crt.valMapping.contains).map(crt.valMapping(_)).foldLeft(BitVector.low(crt.valMapping.size))((acc, n) => acc.set(n))
-//      val startSameBeh = System.currentTimeMillis()
-//      val sameBehavior = groups.groupBy(h => {
-//        val startAnd = System.currentTimeMillis()
-//        val masked = ((h.valid & vmask).toByteVector, (h.allocated & mask).toByteVector)
-//        val total = System.currentTimeMillis() - startSameBeh
-//        masked
-//      })
-//      val behEq = System.currentTimeMillis() - startSameBeh
-//      println(s"at location ${crt.location} L${cfg.levels(crt.location)} of ${cfg.levels.size} ${lst.size} vs ${groups.size} vs ${sameBehavior.size} took $behEq ms")
-//      sameBehavior.foreach(h => {
-//        val as = crt.copy(allocated = BitVector(h._1._2), valid = BitVector(h._1._1))
-//        val at = absexecutor.execute(prog(crt.location), as, false)
-//
-//        val fw = at.success.flatMap(r => {
-//          h._2.map(chi => {
-//            chi.copy(valid = chi.valid | (as.valid ^ r.valid & r.valid) & ~(as.valid ^ r.valid & as.valid),
-//              allocated = chi.allocated | (as.allocated ^ r.allocated & r.allocated) & ~(as.allocated ^ r.allocated & as.allocated),
-//              history = r.location :: chi.history)
-//          })
-//        })
-//        absExec.enqueue(fw:_*)
-//      })
-//    }
+    System.err.println(s"Done, ${failed.size}, ${success.size}")
+    val br = new BufferedOutputStream(new FileOutputStream("failed.json"))
+    JsonUtil.toJson(failed.groupBy(h => (h.errorCause.getOrElse(""), h.location)).keys, br)
+    br.close()
+    val bok = new BufferedOutputStream(new FileOutputStream("ok.json"))
+    JsonUtil.toJson(success.map(h => (h.location)), bok)
+    bok.close()
   }
 }

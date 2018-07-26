@@ -73,12 +73,12 @@ case class SimpleMemory(errorCause: Option[String] = None,
     if (canModifyExisting(a, size))
       Some(
         copy(
-          rawObjects = rawObjects + (a -> rawObjects(a).copy(size = size)),
+          rawObjects = rawObjects + (a -> rawObjects(a).copy(size = size))
         ))
     else if (canModify(a, size))
       Some(
         copy(
-          rawObjects = rawObjects + (a -> SimpleMemoryObject(size = size)),
+          rawObjects = rawObjects + (a -> SimpleMemoryObject(size = size))
         ))
     else None
   def Allocate(id: String, sz: Int): SimpleMemory =
@@ -88,7 +88,7 @@ case class SimpleMemory(errorCause: Option[String] = None,
     if (canRead(a)) {
       Some(
         copy(
-          rawObjects = rawObjects + (a -> rawObjects(a).copy(expression = exp)),
+          rawObjects = rawObjects + (a -> rawObjects(a).copy(expression = exp))
         ))
     } else {
       None
@@ -159,8 +159,16 @@ class SimpleMemoryInterpreter
 
   def instantiate(fc: FloatingConstraint,
                   simpleMemory: SimpleMemory): Option[Constraint] = fc match {
-    case :|:(a, b) => ???
-    case :&:(a, b) => ???
+    case :|:(a, b) => instantiate(a, simpleMemory).flatMap(ca => {
+      instantiate(b, simpleMemory).map(cb => {
+        OR(ca :: cb :: Nil)
+      })
+    })
+    case :&:(a, b) => instantiate(a, simpleMemory).flatMap(ca => {
+      instantiate(b, simpleMemory).map(cb => {
+        AND(ca :: cb :: Nil)
+      })
+    })
     case Yes()     => Some(Truth())
     case :~:(c)    => instantiate(c, simpleMemory).map(NOT)
     case :==:(exp) => instantiate(exp, simpleMemory).map(EQ_E)
@@ -207,6 +215,7 @@ class SimpleMemoryInterpreter
         case Truth()                       => Some(true)
         case _                             => None
       }
+    case _ => None
   }
 
   override def execute(instruction: Instruction,
@@ -250,37 +259,56 @@ class SimpleMemoryInterpreter
         testInstr match {
           case InstructionBlock(is) =>
             val at =
-              is.foldLeft(Triple.startFrom[SimpleMemory](state))((acc, hd) => {
+              is.foldLeft(
+                Triple.startFrom[SimpleMemory](
+                  state.copy(pathConditions = Nil)))((acc, hd) => {
                 val a1 = execute(If(hd, Forward("tt"), Forward("ff")),
                                  acc.continue.head,
                                  verbose)
-                val (gtt, gff) = a1.success
-                  .map(r => r.copy(history = r.history.tail))
-                  .partition(_.location == "tt")
+                val (gt, gf) = a1.success.partition(_.location == "tt")
+                val (gtt, gff) = (gt.map(r => r.copy(history = r.history.tail)),
+                                  gf.map(r => r.copy(history = r.history.tail)))
                 acc + a1.copy(success = gff, continue = gtt)
               })
-            (at.success.headOption
-              .map(h => execute(elseWhat, h, verbose))
-              .getOrElse(new Triple[SimpleMemory]()) + execute(thenWhat,
-                                                               at.continue.head,
-                                                               verbose))
-              .copy(failed = at.failed)
+            SimpleMemory
+              .mergeConditions(at.success, state)
+              .map(
+                execute(elseWhat, _, verbose)
+              )
+              .getOrElse(new Triple[SimpleMemory]()) + at.continue.headOption
+              .map(
+                execute(thenWhat, _, verbose)
+              )
+              .getOrElse(new Triple[SimpleMemory]()) +
+              SimpleMemory
+                .mergeConditions(at.failed, state)
+                .map(r => new Triple[SimpleMemory](Nil, r :: Nil, Nil))
+                .getOrElse(new Triple[SimpleMemory]())
           case Fork(fb) =>
             val at =
               fb.foldLeft(Triple.startFrom[SimpleMemory](state))((acc, hd) => {
                 val a1 = execute(If(hd, Forward("tt"), Forward("ff")),
                                  acc.continue.head,
                                  verbose)
-                val (gff, gtt) = a1.success
-                  .map(r => r.copy(history = r.history.tail))
-                  .partition(_.location == "ff")
+                val (gf, gt) = a1.success.partition(_.location == "ff")
+                val (gff, gtt) = (gf.map(r => r.copy(history = r.history.tail)),
+                                  gt.map(r => r.copy(history = r.history.tail)))
                 acc + a1.copy(success = gtt, continue = gff)
               })
-            (execute(
-              thenWhat,
-              at.success.head.copy(history = at.success.head.history.tail),
-              verbose) + execute(elseWhat, at.continue.head, verbose))
-              .copy(failed = at.failed)
+            SimpleMemory
+              .mergeConditions(at.success, state)
+              .map(
+                execute(thenWhat, _, verbose)
+              )
+              .getOrElse(new Triple[SimpleMemory]()) + at.continue.headOption
+              .map(
+                execute(elseWhat, _, verbose)
+              )
+              .getOrElse(new Triple[SimpleMemory]()) +
+              SimpleMemory
+                .mergeConditions(at.failed, state)
+                .map(r => new Triple[SimpleMemory](Nil, r :: Nil, Nil))
+                .getOrElse(new Triple[SimpleMemory]())
           case ConstrainNamedSymbol(id, dc, _) =>
             execute(
               If(ConstrainFloatingExpression(:@(id), dc), thenWhat, elseWhat),
@@ -405,4 +433,47 @@ class SimpleMemoryInterpreter
         execute(ConstrainFloatingExpression(:@(id), dc), state, verbose)
       case _ => ???
     }
+}
+object TrivialSimpleMemoryInterpreter extends SimpleMemoryInterpreter
+
+object SimpleMemory {
+
+  def mergeConditions(states: Iterable[SimpleMemory],
+                      base: SimpleMemory): Option[SimpleMemory] = {
+    if (states.isEmpty)
+      None
+    else {
+      Some(
+        base.addCondition(
+          FOR(
+            states
+              .map(r => {
+                FAND(r.pathConditions)
+              })
+              .toList)))
+    }
+  }
+
+  def apply(state: State): SimpleMemory = {
+    new SimpleMemory(
+      errorCause = state.errorCause,
+      history = state.history,
+      symbols = state.memory.symbols
+        .filter(h => {
+          h._2.value.nonEmpty
+        })
+        .mapValues(h => {
+          SimpleMemoryObject(h.value.get.e, h.size)
+        }),
+      rawObjects = state.memory.rawObjects
+        .filter(h => {
+          h._2.value.nonEmpty
+        })
+        .mapValues(h => {
+          SimpleMemoryObject(h.value.get.e, h.size)
+        }),
+      memTags = state.memory.memTags,
+      pathConditions = state.memory.pathConditions
+    )
+  }
 }

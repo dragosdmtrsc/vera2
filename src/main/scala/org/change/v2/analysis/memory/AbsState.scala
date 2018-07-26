@@ -143,7 +143,7 @@ object AbsState {
         r =>
           r -> (state.memory
             .symbols(r)
-            .expression
+            .value.get.e
             .asInstanceOf[ConstantValue]
             .value == 1))
       .toMap
