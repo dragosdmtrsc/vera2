@@ -241,19 +241,6 @@ class FullTableWithInstances[T<:ISwitchInstance](tableName : String,
           }
         case _ => ???
       }
-//      if (k.getMatchKind == MatchKind.Valid) {
-//        assignments.last ++= ib._1.instructions
-//        constraints.last ++= ib._2.instructions
-//        lastValid = true
-//      } else {
-//        if (lastValid) {
-//          assignments += ListBuffer[Instruction]()
-//          constraints += ListBuffer[Instruction]()
-//        }
-//        assignments.last ++= ib._1.instructions
-//        constraints.last ++= ib._2.instructions
-//        lastValid = false
-//      }
       assignments.last ++= ib._1.instructions
       constraints.last ++= ib._2.instructions
     }

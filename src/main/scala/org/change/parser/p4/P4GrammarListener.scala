@@ -916,39 +916,9 @@ class P4GrammarListener extends P4GrammarBaseListener {
             ctx.instruction = Constrain(x,:>=:(exp2))
           case _ => println("Unknown relop "+ctx.rel_op.getText);
         }
-//
-//      case Address(x) =>
-//        ctx.rel_op.getText match {
-//          case "==" =>
-//            ctx.instruction = Constrain(x,:==:(exp2))
-//            constraints.put(ctx, :==:(exp2))
-//            blocks.get(ctx).append(Constrain(x,:==:(exp2)))
-//          case "!=" =>
-//            ctx.instruction = Constrain(x,:~:(:==:(exp2)))
-//            constraints.put(ctx, :~:(:==:(exp2)))
-//            blocks.get(ctx).append(Constrain(x,:~:(:==:(exp2))))
-//          case "<" =>
-//            constraints.put(ctx, :<:(exp2))
-//            blocks.get(ctx).append(Constrain(x,:<:(exp2)))
-//            ctx.instruction = Constrain(x,:<:(exp2))
-//          case "<=" =>
-//            constraints.put(ctx, :<:(exp2))
-//            blocks.get(ctx).append(Constrain(x,:<=:(exp2)))
-//            ctx.instruction = Constrain(x,:<=:(exp2))
-//          case ">" =>
-//            constraints.put(ctx, :>:(exp2))
-//            blocks.get(ctx).append(Constrain(x,:>:(exp2)))
-//            ctx.instruction = Constrain(x,:>:(exp2))
-//          case ">=" =>
-//            constraints.put(ctx, :>:(exp2))
-//            blocks.get(ctx).append(Constrain(x,:>=:(exp2)))
-//            ctx.instruction = Constrain(x,:>=:(exp2))
-//          case _ => println("Unknown relop "+ctx.rel_op.getText);
-//        }
       case _ =>
         assert(exp1 != null, s"Cannot translate ${ctx.exp(0).getText}")
-        ctx.alsoAdd = Assign(s"tmp-$tmp", exp1)
-        ctx.instruction = Constrain(s"tmp-$tmp", ctx.rel_op.getText match {
+        ctx.instruction = ConstrainFloatingExpression(exp1, ctx.rel_op.getText match {
           case "==" => :==:(exp2)
           case "!=" => :~:(:==:(exp2))
           case "<" => :<:(exp2)

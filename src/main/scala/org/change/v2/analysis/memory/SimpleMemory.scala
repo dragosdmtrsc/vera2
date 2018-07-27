@@ -1,5 +1,7 @@
 package org.change.v2.analysis.memory
 
+import java.util.UUID
+
 import org.change.v2.analysis.constraint._
 import org.change.v2.analysis.executor.Mapper
 import org.change.v2.analysis.expression.abst.{Expression, FloatingExpression}
@@ -15,6 +17,10 @@ import org.change.v2.analysis.processingmodels.instructions._
 import org.change.v2.analysis.types.NumericType
 import org.change.v2.interval.IntervalOps
 import org.change.v2.analysis.memory.TagExp._
+import z3.scala.{Z3Config, Z3Context}
+
+import scala.collection.immutable
+import scala.util.Random
 
 case class SimpleMemoryObject(expression: Expression = ConstantValue(0),
                               size: Int = 64)
@@ -26,7 +32,10 @@ case class SimpleMemory(errorCause: Option[String] = None,
                         memTags: Map[String, Int] = Map.empty,
                         intersections: List[State] = Nil,
                         differences: List[State] = Nil,
-                        pathConditions: List[Condition] = Nil) {
+                        pathConditions: List[Condition] = Nil,
+                        myId: Long = 0,
+                        parentId: Long = -1) {
+  def setId(l: Long): SimpleMemory = copy(parentId = myId, myId = l)
   def eval(tag: Intable): Option[Int] = tag match {
     case v: IntImprovements => Some(v.value)
     case Tag(name)          => memTags.get(name)
@@ -94,6 +103,8 @@ case class SimpleMemory(errorCause: Option[String] = None,
       None
     }
 
+  def declareSymbol(name: String, size: Int) = SymbolicValue(name)
+
   def assignNewValue(id: String, exp: Expression): Option[SimpleMemory] =
     Some(
       symbols
@@ -159,16 +170,18 @@ class SimpleMemoryInterpreter
 
   def instantiate(fc: FloatingConstraint,
                   simpleMemory: SimpleMemory): Option[Constraint] = fc match {
-    case :|:(a, b) => instantiate(a, simpleMemory).flatMap(ca => {
-      instantiate(b, simpleMemory).map(cb => {
-        OR(ca :: cb :: Nil)
+    case :|:(a, b) =>
+      instantiate(a, simpleMemory).flatMap(ca => {
+        instantiate(b, simpleMemory).map(cb => {
+          OR(ca :: cb :: Nil)
+        })
       })
-    })
-    case :&:(a, b) => instantiate(a, simpleMemory).flatMap(ca => {
-      instantiate(b, simpleMemory).map(cb => {
-        AND(ca :: cb :: Nil)
+    case :&:(a, b) =>
+      instantiate(a, simpleMemory).flatMap(ca => {
+        instantiate(b, simpleMemory).map(cb => {
+          AND(ca :: cb :: Nil)
+        })
       })
-    })
     case Yes()     => Some(Truth())
     case :~:(c)    => instantiate(c, simpleMemory).map(NOT)
     case :==:(exp) => instantiate(exp, simpleMemory).map(EQ_E)
@@ -223,14 +236,19 @@ class SimpleMemoryInterpreter
                        verbose: Boolean): Triple[SimpleMemory] =
     instruction match {
       case Fork(forkBlocks) =>
-        forkBlocks
-          .map(r => {
-            execute(r, state, verbose)
+        forkBlocks.zipWithIndex
+          .map(p => {
+            val (r, idx) = p
+            if (idx != 0) {
+              val myId = Random.nextLong()
+              execute(r, state.setId(myId), verbose)
+            } else {
+              execute(r, state, verbose)
+            }
           })
           .foldLeft(new Triple[SimpleMemory]())((acc, r) => {
             acc + r
           })
-
       case InstructionBlock(instructions) =>
         instructions.foldLeft(Triple.startFrom[SimpleMemory](state))(
           (acc, i) => {
@@ -270,6 +288,15 @@ class SimpleMemoryInterpreter
                                   gf.map(r => r.copy(history = r.history.tail)))
                 acc + a1.copy(success = gff, continue = gtt)
               })
+            val distinctFailures = at.failed
+              .groupBy(_.error)
+              .map(h => {
+                SimpleMemory.mergeConditions(h._2, state).map(r => r.fail(h._1))
+              })
+              .collect {
+                case Some(s) => s
+              }
+              .toList
             SimpleMemory
               .mergeConditions(at.success, state)
               .map(
@@ -280,10 +307,7 @@ class SimpleMemoryInterpreter
                 execute(thenWhat, _, verbose)
               )
               .getOrElse(new Triple[SimpleMemory]()) +
-              SimpleMemory
-                .mergeConditions(at.failed, state)
-                .map(r => new Triple[SimpleMemory](Nil, r :: Nil, Nil))
-                .getOrElse(new Triple[SimpleMemory]())
+              new Triple[SimpleMemory](Nil, distinctFailures, Nil)
           case Fork(fb) =>
             val at =
               fb.foldLeft(Triple.startFrom[SimpleMemory](state))((acc, hd) => {
@@ -295,6 +319,15 @@ class SimpleMemoryInterpreter
                                   gt.map(r => r.copy(history = r.history.tail)))
                 acc + a1.copy(success = gtt, continue = gff)
               })
+            val distinctFailures = at.failed
+              .groupBy(_.error)
+              .map(h => {
+                SimpleMemory.mergeConditions(h._2, state).map(r => r.fail(h._1))
+              })
+              .collect {
+                case Some(s) => s
+              }
+              .toList
             SimpleMemory
               .mergeConditions(at.success, state)
               .map(
@@ -305,10 +338,7 @@ class SimpleMemoryInterpreter
                 execute(elseWhat, _, verbose)
               )
               .getOrElse(new Triple[SimpleMemory]()) +
-              SimpleMemory
-                .mergeConditions(at.failed, state)
-                .map(r => new Triple[SimpleMemory](Nil, r :: Nil, Nil))
-                .getOrElse(new Triple[SimpleMemory]())
+              new Triple[SimpleMemory](Nil, distinctFailures, Nil)
           case ConstrainNamedSymbol(id, dc, _) =>
             execute(
               If(ConstrainFloatingExpression(:@(id), dc), thenWhat, elseWhat),
@@ -453,6 +483,114 @@ object SimpleMemory {
               .toList)))
     }
   }
+  type NaturalKey = (Map[String, Int], Set[Int], Set[String])
+
+  def naturalGroup(h: SimpleMemory): NaturalKey =
+    (h.memTags, h.rawObjects.keySet, h.symbols.keySet)
+  def naturalMerge(k: NaturalKey, v: Iterable[SimpleMemory]): SimpleMemory = {
+    assert(v.nonEmpty)
+    if (v.size == 1)
+      v.head
+    else {
+      val hd = v.head
+      val raws = k._2.map(r => {
+        val tentative = hd.rawObjects(r)
+        if (v.tail.forall(p => p.rawObjects(r).equals(tentative))) {
+          r -> Some(tentative)
+        } else {
+          r -> None
+        }
+      })
+      val syms = k._3.map(r => {
+        val tentative = hd.symbols(r)
+        if (v.tail.forall(p => p.symbols(r).equals(tentative))) {
+          r -> Some(tentative)
+        } else {
+          r -> None
+        }
+      })
+      val id = UUID.randomUUID().toString
+      val withSyms = syms
+        .collect {
+          case (sym, None) => sym
+        }
+        .foldLeft(v.map(h => (h, h.pathConditions)))((acc, st) => {
+          val sbname = SymbolicValue(s"meta$st$id")
+          acc.map(
+            r =>
+              r._1 -> (OP(r._1.symbols(st).expression,
+                          EQ_E(sbname),
+                          r._1.symbols(st).size) :: r._2))
+        })
+
+      val withRaws = raws
+        .collect {
+          case (raw, None) => raw
+        }
+        .foldLeft(withSyms)((acc, raw) => {
+          val sbname = SymbolicValue(s"header$raw$id")
+          acc.map(
+            r =>
+              r._1 -> (OP(r._1.rawObjects(raw).expression,
+                          EQ_E(sbname),
+                          r._1.rawObjects(raw).size) :: r._2))
+        })
+      val sm = SimpleMemory(
+        history = hd.history.head :: Nil,
+        memTags = k._1,
+        rawObjects = raws.collect {
+          case (raw, Some(t)) => raw -> t
+          case (raw, None) =>
+            raw -> SimpleMemoryObject(SymbolicValue(s"header$raw$id"),
+                                      hd.rawObjects(raw).size)
+        }.toMap,
+        symbols = syms.collect {
+          case (sym, Some(t)) => sym -> t
+          case (sym, None) =>
+            sym -> SimpleMemoryObject(SymbolicValue(s"meta$sym$id"),
+                                      hd.symbols(sym).size)
+        }.toMap
+      )
+      val byPid = v.groupBy(x => (x.parentId, x.myId))
+      if (byPid.size == 1) {
+        val cd = FOR(withRaws.map(h => FAND(h._2)).toList)
+        sm.copy(myId = byPid.head._1._1, parentId = byPid.head._1._2)
+          .addCondition(cd)
+      } else {
+        val cd = FOR(
+          withRaws
+            .map(
+              h =>
+                FAND(
+                  if (h._1.parentId == -5 && h._1.myId == -5)
+                    h._2
+                  else
+                    OP(SymbolicValue("my_id"),
+                       EQ_E(ConstantValue(h._1.myId)),
+                       64) ::
+                      OP(SymbolicValue("parent_id"),
+                         EQ_E(ConstantValue(h._1.parentId)),
+                         64) ::
+                      h._2
+              ))
+            .toList)
+        sm.copy(myId = -5, parentId = -5).addCondition(cd)
+      }
+    }
+  }
+
+  def hitMe(states: Iterable[SimpleMemory]): Iterable[SimpleMemory] = {
+    merge(states)(naturalGroup)(naturalMerge)
+  }
+
+  def group[T](states: Iterable[SimpleMemory])(
+      fun: SimpleMemory => T): Map[T, Iterable[SimpleMemory]] =
+    states.groupBy(fun)
+
+  def merge[T](states: Iterable[SimpleMemory])(fun: SimpleMemory => T)(
+      merge: (T, Iterable[SimpleMemory]) => SimpleMemory)
+    : Iterable[SimpleMemory] =
+    group(states)(fun).map(f => merge(f._1, f._2))
 
   def apply(state: State): SimpleMemory = {
     new SimpleMemory(

@@ -9,24 +9,19 @@ import org.change.parser.p4.tables.SymbolicSwitchInstance
 import org.change.utils.prettifier.JsonUtil
 import org.change.v2.analysis.constraint._
 import org.change.v2.analysis.executor.solvers.Z3BVSolver
-import org.change.v2.analysis.executor.{
-  CodeAwareInstructionExecutor,
-  TripleInstructionExecutor,
-  TrivialTripleInstructionExecutor
-}
+import org.change.v2.analysis.executor.{CodeAwareInstructionExecutor, TrivialTripleInstructionExecutor}
 import org.change.v2.analysis.expression.concrete.{ConstantValue, SymbolicValue}
+import org.change.v2.analysis.memory.SimpleMemory.{group, naturalGroup}
 import org.change.v2.analysis.memory._
 import org.change.v2.analysis.processingmodels.instructions._
 import org.change.v2.analysis.{ControlFlowGraph, Topology}
 import org.change.v2.p4.model.Switch
 import org.scalatest.FunSuite
-import scodec.bits.BitVector
-import spray.json.{JsArray, JsNumber, JsObject, JsString, JsonWriter}
 
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 
-class FullBlownSwitch6 extends FunSuite {
+class FullBlownSwitch7 extends FunSuite {
   test("SWITCH - L3VxlanTunnelTest full symbolic 3") {
 
     val dir = "inputs/big-switch"
@@ -146,129 +141,80 @@ class FullBlownSwitch6 extends FunSuite {
                waitingQueue.head)) {
         lst += waitingQueue.dequeue()
       }
+      println(s"now executing at $loc (${cfg.levels(loc)} / ${cfg.levels.size})")
       if (prog.contains(loc)) {
-        val redStart = System.currentTimeMillis()
-        if (loc == s"${symbolicSwitchInstance.getName}.control.ingress" && crt.isLeft) {
-          waitingQueue.enqueue(lst.map(h => {
-            Right(SimpleMemory(h.left.get))
-          }): _*)
-        } else {
-          if (crt.isLeft) {
+        if (crt.isLeft) {
+          if (loc == s"${symbolicSwitchInstance.getName}.control.ingress") {
+            waitingQueue.enqueue(lst.map(h => {
+              Right(SimpleMemory(h.left.get))
+            }): _*)
+          } else {
             val execStart = System.currentTimeMillis()
             lst.foreach(ss => {
               val (s, f, c) =
                 TrivialTripleInstructionExecutor.execute(prog(loc),
-                                                         ss.left.get,
-                                                         false)
+                  ss.left.get,
+                  false)
               waitingQueue.enqueue(s.map(Left(_)): _*)
             })
             val execEnd = System.currentTimeMillis()
             println(s"left executing at $loc time ${execEnd - execStart}")
-          } else {
-            if (lst.size > mergeThreshhold) {
-              val lvl = cfg.levels(loc)
-              val rw = alllevels(lvl).diff(globalRNW)
-              val id = UUID.randomUUID().toString
-              val grpStart = System.currentTimeMillis()
-              val grouped = lst
-                .map(_.right.get)
-                .groupBy(
-                  h =>
-                    (h.memTags,
-                     h.rawObjects.keySet,
-                     h.symbols.keySet
-                       .filter(h => !h.endsWith("IsValid") && h != "IsClone")
-                       .intersect(rw),
-                     h.symbols.filter(r =>
-                       r._1 == "IsClone" || r._1
-                         .endsWith("IsValid") || globalRNW.contains(r._1)),
-                     h.myId))
-              val grpEnd = System.currentTimeMillis()
-              println(s"grouping at $loc = (${cfg
-                .levels(loc)} / ${cfg.levels.size}) with ${rw.size} threshold $mergeThreshhold ${grouped.size} vs ${lst.size} time ${grpEnd - grpStart}")
-              if (grouped.size > mergeThreshhold) {
-                mergeThreshhold = grouped.size + grouped.size / 2
-                val execStart = System.currentTimeMillis()
-                lst.foreach(st => {
-                  val trp = TrivialSimpleMemoryInterpreter.execute(prog(loc),
-                                                                   st.right.get,
-                                                                   false)
-                  waitingQueue.enqueue(trp.success.map(Right(_)): _*)
-                })
-                val execEnd = System.currentTimeMillis()
-                println(
-                  s"increased threshhold to $mergeThreshhold right executing at $loc time ${execEnd - execStart}")
-              } else {
-                mergeThreshhold = grouped.size + grouped.size / 2
-                val merged = grouped.map(chi => {
-                  val ms = SimpleMemory(
-                    history = loc :: Nil,
-                    memTags = chi._1._1,
-                    symbols = chi._1._4 ++ chi._1._3
-                      .map(meta => {
-                        meta -> SimpleMemoryObject(
-                          SymbolicValue(s"meta$meta$id"),
-                          chi._2.head.symbols(meta).size)
-                      })
-                      .toMap,
-                    rawObjects = chi._1._2
-                      .map(offset => {
-                        offset -> SimpleMemoryObject(
-                          SymbolicValue(s"offset$offset$id"),
-                          chi._2.head.rawObjects(offset).size)
-                      })
-                      .toMap
-                  )
-                  val cdLst =
-                    FOR(chi._2.foldLeft(List.empty[Condition])((acc, st) => {
-                      val mms = st
-                      val pcForSyms =
-                        chi._1._3.foldLeft(mms.pathConditions)((acc, meta) => {
-                          val symName = s"meta$meta$id"
-                          val toBeAdded = OP(SymbolicValue(symName),
-                                             EQ_E(mms.symbols(meta).expression),
-                                             mms.symbols(meta).size)
-                          toBeAdded :: acc
-                        })
-                      val pcForRaws =
-                        chi._1._2.foldLeft(pcForSyms)((acc, offset) => {
-                          val symName = s"offset$offset$id"
-                          val toBeAdded =
-                            OP(SymbolicValue(symName),
-                               EQ_E(mms.rawObjects(offset).expression),
-                               mms.rawObjects(offset).size)
-                          toBeAdded :: acc
-                        })
-                      FAND(pcForRaws) :: acc
-                    }))
-                  ms.addCondition(cdLst)
-                })
-                val mergeEnd = System.currentTimeMillis()
-                println(s"merging at $loc time ${mergeEnd - grpEnd}")
-                merged.foreach(st => {
-                  val trp =
-                    TrivialSimpleMemoryInterpreter.execute(prog(loc), st, false)
-                  waitingQueue.enqueue(trp.success.map(Right(_)): _*)
-                  failed ++= trp.failed
-                  success ++= trp.continue
-                })
-                val execEnd = System.currentTimeMillis()
-                println(s"executing at $loc time ${execEnd - mergeEnd}")
-              }
-            } else {
-              val execStart = System.currentTimeMillis()
+          }
+        } else {
+          if (lst.size > mergeThreshhold) {
+            val lvl = cfg.levels(loc)
+            val rw = alllevels(lvl).diff(globalRNW)
+            val id = UUID.randomUUID().toString
+            val grpStart = System.currentTimeMillis()
+            val grouped = SimpleMemory.hitMe(lst.map(_.right.get))
+            mergeThreshhold = grouped.size + grouped.size / 2
+            val grpEnd = System.currentTimeMillis()
+            println(s"merging at $loc time ${grpEnd - grpStart}ms ${grouped.size} vs ${lst.size}")
+
+            val execStart = System.currentTimeMillis()
+//            if (grouped.size >= 18) {
+//              val merged = group(lst.map(_.right.get))(naturalGroup)
+//              val ps = new PrintStream("ceva.txt")
+//              for (m <- merged.zipWithIndex)
+//                for (m2 <- merged.drop(m._2))
+//                  ps.println(m._1._1._3.diff(m2._1._3))
+//              ps.close()
+//              System.exit(0)
+//            }
+
+            if (grouped.size == lst.size) {
               lst.foreach(st => {
                 val trp = TrivialSimpleMemoryInterpreter.execute(prog(loc),
-                                                                 st.right.get,
-                                                                 false)
+                  st.right.get,
+                  false)
                 waitingQueue.enqueue(trp.success.map(Right(_)): _*)
                 failed ++= trp.failed
                 success ++= trp.continue
               })
-              val execEnd = System.currentTimeMillis()
-              println(
-                s"right executing at $loc ${waitingQueue.size} time ${execEnd - execStart}")
+            } else {
+              grouped.foreach(st => {
+                val trp =
+                  TrivialSimpleMemoryInterpreter.execute(prog(loc), st, false)
+                waitingQueue.enqueue(trp.success.map(Right(_)): _*)
+                failed ++= trp.failed
+                success ++= trp.continue
+              })
             }
+            val execEnd = System.currentTimeMillis()
+            println(s"executing at $loc time ${execEnd - execStart}ms")
+          } else {
+            val execStart = System.currentTimeMillis()
+            lst.foreach(st => {
+              val trp = TrivialSimpleMemoryInterpreter.execute(prog(loc),
+                st.right.get,
+                false)
+              waitingQueue.enqueue(trp.success.map(Right(_)): _*)
+              failed ++= trp.failed
+              success ++= trp.continue
+            })
+            val execEnd = System.currentTimeMillis()
+            println(
+              s"right executing at $loc ${waitingQueue.size} time ${execEnd - execStart}")
           }
         }
       } else {
