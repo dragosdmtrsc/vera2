@@ -103,6 +103,12 @@ public class Switch {
             return this.matches.get(perTable);
         return null;
     }
+    public Field getField(String matchKey) {
+        String []spl = matchKey.split("\\.");
+        String hdr = spl[0];
+        HeaderInstance instance = getInstance(hdr);
+        return instance.getLayout().getField(spl[1]);
+    }
 
     public int getSize(String value) {
         String[] split = value.split("\\.");

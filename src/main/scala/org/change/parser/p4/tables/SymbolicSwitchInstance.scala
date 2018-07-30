@@ -20,7 +20,7 @@ case class SymbolicSwitchInstance(name: String,
                                   cloneSpec: Map[Int, Int],
                                   switch: Switch,
                                   tableDefinitions: Map[String, P4TableDefinition],
-                                  symbolicTableParams: Set[String]) extends ISwitchInstance {
+                                  symbolicTableParams: Map[String, Int]) extends ISwitchInstance {
   override lazy val getCloneSpec2EgressSpec: util.Map[Integer, Integer] = cloneSpec.map(r => {
     new Integer(r._1) -> new Integer(r._2)
   }).asJava
@@ -50,8 +50,9 @@ object SymbolicSwitchInstance {
                    switch: Switch): SymbolicSwitchInstance = {
     import scala.collection.JavaConversions._
     import scala.collection.mutable.{Set => MSet}
+    import scala.collection.mutable.{Map => MMap}
 
-    val introducedSymbolicTableParams = MSet[String]()
+    val introducedSymbolicTableParams = MMap[String, Int]()
 
     val tables = switch.getDeclaredTables.map(tableName => {
       val allowedActions = switch.getAllowedActions(tableName)
@@ -73,38 +74,42 @@ object SymbolicSwitchInstance {
           actionDef.getParameterList.
             map(x => {
               val actionParmName = prefix + ".action_parm." + x.getParamName
-              introducedSymbolicTableParams += (actionParmName)
+              introducedSymbolicTableParams += (actionParmName -> 64)
               x.getParamName -> :@(actionParmName)
             }).toMap
         )
         val keys = parms.map(r => r.getMatchKind match {
           case MatchKind.Exact =>
-            introducedSymbolicTableParams += (prefix + ".match.exact." + r.getKey)
+            val fld = switch.getField(r.getKey)
+            introducedSymbolicTableParams += (prefix + ".match.exact." + r.getKey -> fld.getLength)
             r.getKey -> Equal(:@(prefix + ".match.exact." + r.getKey))
           case MatchKind.Ternary =>
-            introducedSymbolicTableParams += (prefix + ".match.ternary." + r.getKey)
-            introducedSymbolicTableParams += (prefix + ".match.ternary.mask." + r.getKey)
+            val fld = switch.getField(r.getKey)
+            introducedSymbolicTableParams += (prefix + ".match.ternary." + r.getKey -> fld.getLength)
+            introducedSymbolicTableParams += (prefix + ".match.ternary.mask." + r.getKey -> fld.getLength)
             r.getKey -> TernaryMatch(:@(prefix + ".match.ternary." + r.getKey),
               :@(prefix + ".match.ternary.mask." + r.getKey))
           case MatchKind.Lpm =>
-            introducedSymbolicTableParams += (prefix + ".match.lpm." + r.getKey)
-            introducedSymbolicTableParams += (prefix + ".match.lpm.mask." + r.getKey)
+            val fld = switch.getField(r.getKey)
+            introducedSymbolicTableParams += (prefix + ".match.lpm." + r.getKey -> fld.getLength)
+            introducedSymbolicTableParams += (prefix + ".match.lpm.mask." + r.getKey -> 64)
             r.getKey -> LPMMatch(:@(prefix + ".match.lpm." + r.getKey),
               :@(prefix + ".match.lpm.mask." + r.getKey))
           case MatchKind.Range =>
-            introducedSymbolicTableParams += (prefix + ".match.range.min." + r.getKey)
-            introducedSymbolicTableParams += (prefix + ".match.range.max." + r.getKey)
+            val fld = switch.getField(r.getKey)
+            introducedSymbolicTableParams += (prefix + ".match.range.min." + r.getKey -> fld.getLength)
+            introducedSymbolicTableParams += (prefix + ".match.range.max." + r.getKey -> fld.getLength)
             r.getKey -> RangeMatch(:@(prefix + ".match.range.min." + r.getKey),
               :@(prefix + ".match.range.max." + r.getKey))
           case MatchKind.Valid =>
-            introducedSymbolicTableParams += (prefix + ".match.valid." + r.getKey)
+            introducedSymbolicTableParams += (prefix + ".match.valid." + r.getKey -> 64)
             r.getKey -> ValidMatch(:@(prefix + ".match.valid." + r.getKey))
         })
         P4FlowInstance(keys.toMap, actionDefinition)
       })
       tableName -> P4TableDefinition(finstances.toList, ActionDefinition("no_op", Map.empty))
     }).toMap
-    SymbolicSwitchInstance(name, ifaces, cloneSpec, switch, tables, introducedSymbolicTableParams.toSet)
+    SymbolicSwitchInstance(name, ifaces, cloneSpec, switch, tables, introducedSymbolicTableParams.toMap)
   }
 
   def fromFileWithSyms(name: String,
@@ -159,8 +164,8 @@ object SymbolicSwitchInstance {
             }).toMap, ActionDefinition(action = actionName, actionParams = actionParams))
       }).toList, fromActionCall(switchInstance.getDefaultAction(tableName)))
     }).toMap
-
-    SymbolicSwitchInstance(name, ifaces, cloneSpec, switch, tables, introducedSymbolicTableParams.toSet)
+    throw new NotImplementedError("please implement a proper width inference here")
+    SymbolicSwitchInstance(name, ifaces, cloneSpec, switch, tables, introducedSymbolicTableParams.map(h => h -> 64).toMap)
   }
 
   private def matchKindAndParamsToDef(

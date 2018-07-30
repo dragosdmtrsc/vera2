@@ -1,19 +1,26 @@
 package org.change.v2.analysis.memory
 
+import java.io.{FileOutputStream, PrintStream}
 import java.util.UUID
 
 import org.change.v2.analysis.constraint._
 import org.change.v2.analysis.executor.Mapper
 import org.change.v2.analysis.expression.abst.{Expression, FloatingExpression}
-import org.change.v2.analysis.expression.concrete.{ConstantBValue, ConstantStringValue, ConstantValue, SymbolicValue}
+import org.change.v2.analysis.expression.concrete.{
+  ConstantBValue,
+  ConstantStringValue,
+  ConstantValue,
+  SymbolicValue
+}
 import org.change.v2.analysis.expression.concrete.nonprimitive._
 import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.analysis.processingmodels.instructions._
 import org.change.v2.analysis.types.NumericType
 import org.change.v2.interval.IntervalOps
 import org.change.v2.analysis.memory.TagExp._
-import z3.scala.{Z3Config, Z3Context}
+import z3.scala.{Z3AST, Z3Config, Z3Context}
 
+import scala.annotation.tailrec
 import scala.collection.immutable
 import scala.collection.immutable.{SortedMap, SortedSet}
 import scala.util.Random
@@ -21,16 +28,17 @@ import scala.util.Random
 case class SimpleMemoryObject(expression: Expression = ConstantValue(0),
                               size: Int = 64)
 
-case class SimpleMemory(errorCause: Option[String] = None,
-                        history: List[String] = Nil,
-                        symbols: SortedMap[String, SimpleMemoryObject] = SortedMap.empty,
-                        rawObjects: SortedMap[Int, SimpleMemoryObject] = SortedMap.empty,
-                        memTags: SortedMap[String, Int] = SortedMap.empty,
-                        intersections: List[State] = Nil,
-                        differences: List[State] = Nil,
-                        pathConditions: List[Condition] = Nil,
-                        myId: Long = 0,
-                        parentId: Long = -1) {
+case class SimpleMemory(
+    errorCause: Option[String] = None,
+    history: List[String] = Nil,
+    symbols: SortedMap[String, SimpleMemoryObject] = SortedMap.empty,
+    rawObjects: SortedMap[Int, SimpleMemoryObject] = SortedMap.empty,
+    memTags: SortedMap[String, Int] = SortedMap.empty,
+    intersections: List[State] = Nil,
+    differences: List[State] = Nil,
+    pathConditions: List[Condition] = Nil,
+    myId: Long = 0,
+    parentId: Long = -1) {
   def setId(l: Long): SimpleMemory = copy(parentId = myId, myId = l)
   def eval(tag: Intable): Option[Int] = tag match {
     case v: IntImprovements => Some(v.value)
@@ -187,12 +195,43 @@ class SimpleMemoryInterpreter
     case :>=:(exp) => instantiate(exp, simpleMemory).map(GTE_E)
     case _         => ???
   }
+
+  def inferWidth(fexp: FloatingExpression,
+                 simpleMemory: SimpleMemory,
+                 width: Int = 0): Int = fexp match {
+    case :<<:(left, right) => inferWidth(left, simpleMemory, width)
+    case :!:(left)         => inferWidth(left, simpleMemory, width)
+    case Symbol(id)        => Math.max(simpleMemory.symbols(id).size, width)
+    case :^:(left, right) =>
+      inferWidth(right, simpleMemory, inferWidth(left, simpleMemory, width))
+    case :&&:(left, right) =>
+      inferWidth(right, simpleMemory, inferWidth(left, simpleMemory, width))
+    case :+:(left, right) =>
+      inferWidth(right, simpleMemory, inferWidth(left, simpleMemory, width))
+    case Address(a) =>
+      Math.max(simpleMemory.rawObjects(simpleMemory.eval(a).get).size, width)
+    case :-:(left, right) =>
+      inferWidth(right, simpleMemory, inferWidth(left, simpleMemory, width))
+    case cv: ConstantValue =>
+      val minWidth = Math.ceil(Math.log(cv.value) / Math.log(2)).intValue()
+      Math.max(minWidth, width)
+    case cbv: ConstantBValue => Math.max(width, cbv.size)
+    case csv: ConstantStringValue =>
+      val minWidth =
+        Math.ceil(Math.log(csv.value.hashCode) / Math.log(2)).intValue()
+      Math.max(minWidth, width)
+      Math.max(width, 64)
+    case sv: SymbolicValue => width
+    case _                 => ???
+  }
+
   def instantiate(fexp: FloatingExpression,
                   fc: FloatingConstraint,
                   simpleMemory: SimpleMemory): Option[Condition] =
     instantiate(fexp, simpleMemory).flatMap(exp => {
       instantiate(fc, simpleMemory).map(c => {
-        OP(exp, c, 64)
+        val width = inferWidth(fexp, simpleMemory)
+        OP(exp, c, width)
       })
     })
   def tryEval(condition: Condition): Option[Boolean] = condition match {
@@ -539,13 +578,13 @@ object SimpleMemory {
           case (raw, Some(t)) => raw -> t
           case (raw, None) =>
             raw -> SimpleMemoryObject(SymbolicValue(s"header$raw$id"),
-              hd.rawObjects(raw).size)
+                                      hd.rawObjects(raw).size)
         }.toMap,
         symbols = SortedMap.empty[String, SimpleMemoryObject] ++ syms.collect {
           case (sym, Some(t)) => sym -> t
           case (sym, None) =>
             sym -> SimpleMemoryObject(SymbolicValue(s"meta$sym$id"),
-              hd.symbols(sym).size)
+                                      hd.symbols(sym).size)
         }
       )
       val byPid = v.groupBy(x => (x.parentId, x.myId))
@@ -588,6 +627,184 @@ object SimpleMemory {
       merge: (T, Iterable[SimpleMemory]) => SimpleMemory)
     : Iterable[SimpleMemory] =
     group(states)(fun).map(f => merge(f._1, f._2))
+
+  def gatherSymbols(expression: Expression,
+                    sz: Int,
+                    crt: Map[String, Int]): Map[String, Int] =
+    expression match {
+      case LShift(a, b) => gatherSymbols(b.e, sz, gatherSymbols(a.e, sz, crt))
+      case sym: SymbolicValue =>
+        if (!crt.contains(sym.canonicalName()) || crt(sym.canonicalName()) == sz)
+          crt + (sym.canonicalName() -> sz)
+        else
+          crt + (sym.canonicalName() -> Math.max(sz, crt(sym.canonicalName())))
+      case Plus(a, b)   => gatherSymbols(b.e, sz, gatherSymbols(a.e, sz, crt))
+      case LNot(a)      => gatherSymbols(a.e, sz, crt)
+      case LAnd(a, b)   => gatherSymbols(b.e, sz, gatherSymbols(a.e, sz, crt))
+      case Lor(a, b)    => gatherSymbols(b.e, sz, gatherSymbols(a.e, sz, crt))
+      case LXor(a, b)   => gatherSymbols(b.e, sz, gatherSymbols(a.e, sz, crt))
+      case Minus(a, b)  => gatherSymbols(b.e, sz, gatherSymbols(a.e, sz, crt))
+      case PlusE(a, b)  => gatherSymbols(b, sz, gatherSymbols(a, sz, crt))
+      case MinusE(a, b) => gatherSymbols(b, sz, gatherSymbols(a, sz, crt))
+      case LogicalOr(a, b) =>
+        gatherSymbols(b.e, sz, gatherSymbols(a.e, sz, crt))
+      case _ => crt
+    }
+
+  @tailrec
+  def gatherSymbols(constraints: List[Constraint],
+                    sz: Int,
+                    crt: Map[String, Int]): Map[String, Int] = {
+    if (constraints.isEmpty)
+      crt
+    else {
+      val constraint = constraints.head
+      constraint match {
+        case LT_E(e)  => gatherSymbols(e, sz, crt)
+        case LTE_E(e) => gatherSymbols(e, sz, crt)
+        case GTE_E(e) => gatherSymbols(e, sz, crt)
+        case GT_E(e)  => gatherSymbols(e, sz, crt)
+        case EQ_E(e)  => gatherSymbols(e, sz, crt)
+        case OR(cs)   => gatherSymbols(constraints.tail ++ cs, sz, crt)
+        case AND(cs)  => gatherSymbols(constraints.tail ++ cs, sz, crt)
+        case NOT(c)   => gatherSymbols(c :: constraints.tail, sz, crt)
+        case _        => crt
+      }
+    }
+  }
+
+  def gatherSymbols(constraint: Constraint,
+                    sz: Int,
+                    crt: Map[String, Int]): Map[String, Int] =
+    gatherSymbols(constraint :: Nil, sz, crt)
+  @tailrec
+  def gatherSymbols(conditions: List[Condition],
+                    crt: Map[String, Int]): Map[String, Int] = {
+    if (conditions.isEmpty)
+      crt
+    else {
+      conditions.head match {
+        case OP(expression, constraint, size) =>
+          gatherSymbols(constraint, size, gatherSymbols(expression, size, crt))
+        case FAND(cs) => gatherSymbols(conditions.tail ++ cs, crt)
+        case FOR(cs)  => gatherSymbols(conditions.tail ++ cs, crt)
+        case FNOT(c)  => gatherSymbols(c :: conditions.tail, crt)
+        case _        => crt
+      }
+    }
+  }
+
+  def gatherSymbols(condition: Condition,
+                    crt: Map[String, Int]): Map[String, Int] =
+    gatherSymbols(condition :: Nil, crt)
+
+  def translateC(context: Z3Context,
+                 ast: Z3AST,
+                 table: Map[String, Z3AST],
+                 sz: Int)(constr: Constraint): Z3AST = {
+    val fun = translateC(context, ast, table, sz) _
+    val fune = translateE(context, table, sz) _
+    constr match {
+      case AND(constrs) => context.mkAnd(constrs.map(fun): _*)
+      case OR(constrs)  => context.mkOr(constrs.map(fun): _*)
+      case NOT(c)       => context.mkNot(fun(c))
+      case GT_E(e)      => context.mkBVUgt(ast, fune(e))
+      case LT_E(e)      => context.mkBVUlt(ast, fune(e))
+      case LTE_E(e)     => context.mkBVUle(ast, fune(e))
+      case GTE_E(e) =>
+        context.mkOr(context.mkBVUgt(ast, fune(e)), context.mkEq(ast, fune(e)))
+      case EQ_E(e) =>
+        context.mkEq(ast, fune(e))
+    }
+  }
+
+  def translateE(z3: Z3Context, table: Map[String, Z3AST], sz: Int)(
+      expression: Expression): Z3AST = {
+    val fun = translateE(z3, table, sz) _
+    expression match {
+      case LShift(a, b) => z3.mkBVLshr(fun(a.e), fun(b.e))
+      case sv: SymbolicValue =>
+        table.getOrElse(sv.canonicalName(),
+                        z3.mkConst(sv.canonicalName(), z3.mkBVSort(sz)))
+      case Plus(a, b) => z3.mkBVAdd(fun(a.e), fun(b.e))
+      case LNot(a)    => z3.mkNot(fun(a.e))
+      case LAnd(a, b) =>
+        z3.mkBVAnd(fun(a.e), fun(b.e))
+      case Lor(a, b)   => z3.mkBVAnd(fun(a.e), fun(b.e))
+      case LXor(a, b)  => z3.mkBVXor(fun(a.e), fun(b.e))
+      case Minus(a, b) => z3.mkBVSub(fun(a.e), fun(b.e))
+      case ConstantValue(value, isIp, isMac) =>
+        z3.mkNumeral(value.toString, z3.mkBVSort(sz))
+      case PlusE(a, b)     => z3.mkAdd(fun(a), fun(b))
+      case MinusE(a, b)    => z3.mkSub(fun(a), fun(b))
+      case LogicalOr(a, b) => z3.mkBVOr(fun(a.e), fun(b.e))
+      case ConstantBValue(v, size) =>
+        z3.mkNumeral(BigInt(v.substring(2), 16).toString, z3.mkBVSort(size))
+      case ConstantStringValue(v) =>
+        z3.mkNumeral(v.hashCode.toString, z3.mkBVSort(sz))
+      case _ => ???
+    }
+  }
+
+  def translateCd(z3: Z3Context, table: Map[String, Z3AST])(
+      cd: Condition): Z3AST = cd match {
+    case OP(expression, constraint, size) =>
+      translateC(z3, translateE(z3, table, size)(expression), table, size)(
+        constraint)
+    case FAND(conditions) =>
+      if (conditions.isEmpty)
+        z3.mkTrue()
+      else if (conditions.size == 1)
+        translateCd(z3, table)(conditions.head)
+      else
+        conditions.head match {
+          case fand: FAND =>
+            translateCd(z3, table)(FAND(fand.conditions ++ conditions.tail))
+          case _ => z3.mkAnd(conditions.map(translateCd(z3, table)): _*)
+        }
+    case FOR(conditions) =>
+      if (conditions.isEmpty)
+        z3.mkFalse()
+      else if (conditions.size == 1)
+        translateCd(z3, table)(conditions.head)
+      else
+        conditions.head match {
+          case value: FOR =>
+            translateCd(z3, table)(FOR(value.conditions ++ conditions.tail))
+          case _ =>
+            val rnd = Random.nextInt(conditions.size)
+            translateCd(z3, table)(conditions(rnd))
+        }
+    case FNOT(condition) => z3.mkNot(translateCd(z3, table)(condition))
+    case TRUE()          => z3.mkTrue()
+    case FALSE()         => z3.mkFalse()
+    case _               => ???
+  }
+
+  def isSat(simpleMemory: SimpleMemory, full: Boolean): Boolean = {
+    val startBuildup = System.currentTimeMillis()
+    val syms = Map.empty[String, Int]
+    val z3Context = new Z3Context(new Z3Config("MODEL" -> true))
+    val s2ast = syms.map(h => {
+      h._1 -> z3Context.mkConst(h._1, z3Context.mkBVSort(h._2))
+    })
+    val slv = z3Context.mkSolver()
+    simpleMemory.pathConditions
+      .foreach(pc => slv.assertCnstr(translateCd(z3Context, s2ast)(pc)))
+    val endBuildup = System.currentTimeMillis()
+    System.out.println(s"build-up done in ${endBuildup - startBuildup}ms")
+    val b = slv.check().get
+    System.out.println(
+      s"solving done in ${System.currentTimeMillis() - endBuildup}ms")
+    if (!b)
+      System.err.println(
+        "Hypothesis false for the moment, need to check myself other paths")
+    b
+  }
+
+  def isSat(simpleMemory: SimpleMemory): Boolean = {
+    isSat(simpleMemory, false)
+  }
 
   def apply(state: State): SimpleMemory = {
     new SimpleMemory(

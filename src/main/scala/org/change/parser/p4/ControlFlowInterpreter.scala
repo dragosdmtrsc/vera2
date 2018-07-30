@@ -287,7 +287,12 @@ object ControlFlowInterpreter {
     val initializerCode = { symbolicSwitchInstance: SymbolicSwitchInstance =>
       InstructionBlock(
         symbolicSwitchInstance.symbolicTableParams.toList
-          .map(AssignNamedSymbol(_, SymbolicValue()))
+          .flatMap(h => {
+            List(
+              Allocate(h._1, h._2),
+              AssignNamedSymbol(h._1, SymbolicValue(h._1))
+            )
+          })
       )
     }
 
@@ -327,7 +332,12 @@ object ControlFlowInterpreter {
     val initializerCode = { symbolicSwitchInstance: SymbolicSwitchInstance =>
       InstructionBlock(
         symbolicSwitchInstance.symbolicTableParams.toList
-          .map(AssignNamedSymbol(_, SymbolicValue())) ++ tabs ++ List(
+          .flatMap(h => {
+            List(
+              Allocate(h._1, h._2),
+              AssignNamedSymbol(h._1, SymbolicValue(h._1))
+            )
+          }) ++ tabs ++ List(
           Assign(s"${symbolicSwitchInstance.getName}.CloneCookie", ConstantValue(0))) ++ List(
           Assign("default.Fired", ConstantValue(0)))
       )

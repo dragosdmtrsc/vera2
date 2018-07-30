@@ -289,7 +289,7 @@ object StateExpander {
             val width = y.getLength
             (acc._1 ++ List[Instruction](
               Allocate(Tag("START") + acc._2, width),
-              Assign(Tag("START") + acc._2, SymbolicValue())
+              Assign(Tag("START") + acc._2, SymbolicValue(s"fld${acc._2}"))
             ), acc._2 + width)
           })._1
         })

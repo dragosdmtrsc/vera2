@@ -226,14 +226,28 @@ class FullBlownSwitch7 extends FunSuite {
         success ++= lst.map(_.right.get)
       }
     }
-    System.err.println(s"Done, ${failed.size}, ${success.size}")
+    val execStop = System.currentTimeMillis()
+    System.err.println(s"Done, ${failed.size}, ${success.size} in ${execStop - statEnd}ms")
     val br = new BufferedOutputStream(new FileOutputStream("failed.json"))
+
+    val satStart = System.currentTimeMillis()
+    val achievableFailures = failed.groupBy(h => (h.errorCause.getOrElse(""), h.location)).filter(r => {
+      val sth = r._2.exists(SimpleMemory.isSat)
+      if (!sth) {
+        System.err.println("Hypothesis globally false. Why?")
+      }
+      sth
+//      SimpleMemory.isSat(SimpleMemory(pathConditions = FOR(r._2.map(h => FAND(h.pathConditions)).toList) :: Nil))
+    }).keys
+    val satEnd = System.currentTimeMillis()
+    System.err.println(s"Done SAT solving in ${satEnd - satStart}ms")
+
     JsonUtil.toJson(
-      failed.groupBy(h => (h.errorCause.getOrElse(""), h.location)).keys,
+      achievableFailures,
       br)
     br.close()
     val bok = new BufferedOutputStream(new FileOutputStream("ok.json"))
-    JsonUtil.toJson(success.map(h => (h.location)), bok)
+    JsonUtil.toJson(success.map(h => h.location), bok)
     bok.close()
   }
 }
