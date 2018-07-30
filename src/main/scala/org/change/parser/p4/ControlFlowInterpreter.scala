@@ -328,7 +328,7 @@ object ControlFlowInterpreter {
       InstructionBlock(
         symbolicSwitchInstance.symbolicTableParams.toList
           .map(AssignNamedSymbol(_, SymbolicValue())) ++ tabs ++ List(
-          Assign("CloneCookie", ConstantValue(0))) ++ List(
+          Assign(s"${symbolicSwitchInstance.getName}.CloneCookie", ConstantValue(0))) ++ List(
           Assign("default.Fired", ConstantValue(0)))
       )
     }

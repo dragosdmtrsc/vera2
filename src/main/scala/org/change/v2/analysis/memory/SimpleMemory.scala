@@ -5,12 +5,7 @@ import java.util.UUID
 import org.change.v2.analysis.constraint._
 import org.change.v2.analysis.executor.Mapper
 import org.change.v2.analysis.expression.abst.{Expression, FloatingExpression}
-import org.change.v2.analysis.expression.concrete.{
-  ConstantBValue,
-  ConstantStringValue,
-  ConstantValue,
-  SymbolicValue
-}
+import org.change.v2.analysis.expression.concrete.{ConstantBValue, ConstantStringValue, ConstantValue, SymbolicValue}
 import org.change.v2.analysis.expression.concrete.nonprimitive._
 import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.analysis.processingmodels.instructions._
@@ -20,6 +15,7 @@ import org.change.v2.analysis.memory.TagExp._
 import z3.scala.{Z3Config, Z3Context}
 
 import scala.collection.immutable
+import scala.collection.immutable.{SortedMap, SortedSet}
 import scala.util.Random
 
 case class SimpleMemoryObject(expression: Expression = ConstantValue(0),
@@ -27,9 +23,9 @@ case class SimpleMemoryObject(expression: Expression = ConstantValue(0),
 
 case class SimpleMemory(errorCause: Option[String] = None,
                         history: List[String] = Nil,
-                        symbols: Map[String, SimpleMemoryObject] = Map.empty,
-                        rawObjects: Map[Int, SimpleMemoryObject] = Map.empty,
-                        memTags: Map[String, Int] = Map.empty,
+                        symbols: SortedMap[String, SimpleMemoryObject] = SortedMap.empty,
+                        rawObjects: SortedMap[Int, SimpleMemoryObject] = SortedMap.empty,
+                        memTags: SortedMap[String, Int] = SortedMap.empty,
                         intersections: List[State] = Nil,
                         differences: List[State] = Nil,
                         pathConditions: List[Condition] = Nil,
@@ -483,7 +479,7 @@ object SimpleMemory {
               .toList)))
     }
   }
-  type NaturalKey = (Map[String, Int], Set[Int], Set[String])
+  type NaturalKey = (SortedMap[String, Int], SortedSet[Int], SortedSet[String])
 
   def naturalGroup(h: SimpleMemory): NaturalKey =
     (h.memTags, h.rawObjects.keySet, h.symbols.keySet)
@@ -535,21 +531,22 @@ object SimpleMemory {
                           EQ_E(sbname),
                           r._1.rawObjects(raw).size) :: r._2))
         })
+
       val sm = SimpleMemory(
         history = hd.history.head :: Nil,
         memTags = k._1,
-        rawObjects = raws.collect {
+        rawObjects = SortedMap.empty[Int, SimpleMemoryObject] ++ raws.collect {
           case (raw, Some(t)) => raw -> t
           case (raw, None) =>
             raw -> SimpleMemoryObject(SymbolicValue(s"header$raw$id"),
-                                      hd.rawObjects(raw).size)
+              hd.rawObjects(raw).size)
         }.toMap,
-        symbols = syms.collect {
+        symbols = SortedMap.empty[String, SimpleMemoryObject] ++ syms.collect {
           case (sym, Some(t)) => sym -> t
           case (sym, None) =>
             sym -> SimpleMemoryObject(SymbolicValue(s"meta$sym$id"),
-                                      hd.symbols(sym).size)
-        }.toMap
+              hd.symbols(sym).size)
+        }
       )
       val byPid = v.groupBy(x => (x.parentId, x.myId))
       if (byPid.size == 1) {
@@ -596,21 +593,21 @@ object SimpleMemory {
     new SimpleMemory(
       errorCause = state.errorCause,
       history = state.history,
-      symbols = state.memory.symbols
+      symbols = SortedMap[String, SimpleMemoryObject]() ++ state.memory.symbols
         .filter(h => {
           h._2.value.nonEmpty
         })
         .mapValues(h => {
           SimpleMemoryObject(h.value.get.e, h.size)
         }),
-      rawObjects = state.memory.rawObjects
+      rawObjects = SortedMap[Int, SimpleMemoryObject]() ++ state.memory.rawObjects
         .filter(h => {
           h._2.value.nonEmpty
         })
         .mapValues(h => {
           SimpleMemoryObject(h.value.get.e, h.size)
         }),
-      memTags = state.memory.memTags,
+      memTags = SortedMap[String, Int]() ++ state.memory.memTags,
       pathConditions = state.memory.pathConditions
     )
   }

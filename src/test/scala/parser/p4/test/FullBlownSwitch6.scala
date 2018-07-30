@@ -9,11 +9,7 @@ import org.change.parser.p4.tables.SymbolicSwitchInstance
 import org.change.utils.prettifier.JsonUtil
 import org.change.v2.analysis.constraint._
 import org.change.v2.analysis.executor.solvers.Z3BVSolver
-import org.change.v2.analysis.executor.{
-  CodeAwareInstructionExecutor,
-  TripleInstructionExecutor,
-  TrivialTripleInstructionExecutor
-}
+import org.change.v2.analysis.executor.{CodeAwareInstructionExecutor, TripleInstructionExecutor, TrivialTripleInstructionExecutor}
 import org.change.v2.analysis.expression.concrete.{ConstantValue, SymbolicValue}
 import org.change.v2.analysis.memory._
 import org.change.v2.analysis.processingmodels.instructions._
@@ -23,6 +19,7 @@ import org.scalatest.FunSuite
 import scodec.bits.BitVector
 import spray.json.{JsArray, JsNumber, JsObject, JsString, JsonWriter}
 
+import scala.collection.immutable.SortedMap
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 
@@ -211,7 +208,7 @@ class FullBlownSwitch6 extends FunSuite {
                           chi._2.head.symbols(meta).size)
                       })
                       .toMap,
-                    rawObjects = chi._1._2
+                    rawObjects = SortedMap.empty[Int, SimpleMemoryObject] ++ chi._1._2
                       .map(offset => {
                         offset -> SimpleMemoryObject(
                           SymbolicValue(s"offset$offset$id"),

@@ -173,12 +173,16 @@ class FullBlownSwitch7 extends FunSuite {
 
             val execStart = System.currentTimeMillis()
 //            if (grouped.size >= 18) {
-//              val merged = group(lst.map(_.right.get))(naturalGroup)
+//              val merged = group(lst.map(_.right.get))(naturalGroup).toList
 //              val ps = new PrintStream("ceva.txt")
+//              val ps2 = new PrintStream("ceva2.txt")
 //              for (m <- merged.zipWithIndex)
-//                for (m2 <- merged.drop(m._2))
-//                  ps.println(m._1._1._3.diff(m2._1._3))
+//                for (m2 <- merged.zipWithIndex.drop(m._2 + 1))
+//                  ps2.println(m._2, m2._2, m2._1._1._3.diff(m._1._1._3), m._1._1._3.diff(m2._1._1._3))
+//              for (m <- merged.zipWithIndex)
+//                ps.println(m._2, m._1._1._3)
 //              ps.close()
+//              ps2.close()
 //              System.exit(0)
 //            }
 
