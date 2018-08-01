@@ -54,8 +54,8 @@ object ConditionInstantiator {
     case FAND(conditions) => FAND(conditions.map(apply(_, against)))
     case FOR(conditions) => FOR(conditions.map(apply(_, against)))
     case FNOT(condition) => FNOT(apply(condition, against))
-    case TRUE() => TRUE()
-    case FALSE() => FALSE()
+    case TRUE => TRUE
+    case FALSE => FALSE
   }
 
 }

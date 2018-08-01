@@ -98,8 +98,8 @@ case class MemorySpace(symbols: Map[String, MemoryObject] = Map.empty,
     case FAND(conditions) => conditions.flatMap(crawlCondition).toSet
     case FOR(conditions) => conditions.flatMap(crawlCondition).toSet
     case FNOT(condition) => crawlCondition(condition)
-    case TRUE() => Set.empty
-    case FALSE() => Set.empty
+    case TRUE => Set.empty
+    case FALSE => Set.empty
     case _ => Set.empty
   }
 

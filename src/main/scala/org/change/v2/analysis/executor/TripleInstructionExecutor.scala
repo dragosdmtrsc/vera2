@@ -113,8 +113,8 @@ class TripleInstructionExecutor(solver: Solver) extends Executor[(List[State], L
       case None => None
       case Some(t) => Some(!t)
     }
-    case TRUE() => Some(true)
-    case FALSE() => Some(false)
+    case TRUE => Some(true)
+    case FALSE => Some(false)
     case _ => ???
   }
 
@@ -154,7 +154,7 @@ class TripleInstructionExecutor(solver: Solver) extends Executor[(List[State], L
             val (offender, cds, left) = findKiller(instrs, Nil, instrs)
 //            System.err.println(s"Nasty case $m, $testInstr $left")
             offender match {
-              case None => executeIfCond(FAND(cds), thenWhat, elseWhat, s, v)
+              case None => executeIfCond(FAND.apply(cds), thenWhat, elseWhat, s, v)
               case Some(Fork(xs)) => if (cds.isEmpty) {
                 executeIf(Fork(xs),
                   if (left.nonEmpty) {
@@ -166,7 +166,7 @@ class TripleInstructionExecutor(solver: Solver) extends Executor[(List[State], L
                     thenWhat
                   }, elseWhat, s, v)
               } else {
-                executeIfCond(FAND(cds),
+                executeIfCond(FAND.makeFAND(cds),
                   If(Fork(xs),
                     if (left.isEmpty)
                       thenWhat
@@ -183,7 +183,7 @@ class TripleInstructionExecutor(solver: Solver) extends Executor[(List[State], L
               case _ => if (cds.isEmpty) {
                 execute(Fail(m), s, v)
               } else {
-                executeIfCond(FAND(cds),
+                executeIfCond(FAND.makeFAND(cds),
                   Fail(m),
                   elseWhat, s, v)
               }
@@ -227,33 +227,24 @@ class TripleInstructionExecutor(solver: Solver) extends Executor[(List[State], L
   }
 
   @tailrec
-  final def buildOr(s : State, lst : List[Instruction], or : FOR): Either[Condition, String] = lst match {
-    case Nil => Left(or)
+  final def buildCds(s : State, lst : List[Instruction], conditions : List[Condition]): Either[List[Condition], String] = lst match {
+    case Nil => Left(conditions)
     case h :: tail => buildCondition(s, h) match {
       case Right(err) => Right(err)
-      case Left(c) => buildOr(s, tail, or.copy(c :: or.conditions))
-    }
-  }
-
-  @tailrec
-  final def buildAnd(s : State, lst : List[Instruction], fand : FAND): Either[Condition, String] = lst match {
-    case Nil => Left(fand)
-    case h :: tail => buildCondition(s, h) match {
-      case Right(err) => Right(err)
-      case Left(c) => buildAnd(s, tail, fand.copy(c :: fand.conditions))
+      case Left(c) => buildCds(s, tail, c :: conditions)
     }
   }
 
   def buildCondition(s : State, testInstr : Instruction) : Either[Condition, String] = testInstr match {
-    case Fork(fb) if fb.isEmpty => Left(FALSE())
-    case Fork(fb) => buildCondition(s, fb.head) match {
+    case Fork(fb) if fb.isEmpty => Left(FALSE)
+    case Fork(fb) => buildCds(s, fb.toList, Nil) match {
       case Right(err) => Right(err)
-      case Left(c) => buildOr(s, fb.tail.toList, FOR(c :: Nil))
+      case Left(c) => Left(FOR.makeFOR(c))
     }
-    case InstructionBlock(i) if i.isEmpty => Left(TRUE())
-    case InstructionBlock(lst) => buildCondition(s, lst.head) match {
+    case InstructionBlock(i) if i.isEmpty => Left(TRUE)
+    case InstructionBlock(lst) => buildCds(s, lst.toList, Nil) match {
       case Right(err) => Right(err)
-      case Left(c) => buildAnd(s, lst.tail.toList, FAND(c :: Nil))
+      case Left(c) => Left(FAND.makeFAND(c))
     }
     case ConstrainNamedSymbol(what, withWhat, _) => instantiate(s, withWhat) match {
       case Left(c) if s.memory.symbolIsAssigned(what) =>
@@ -270,7 +261,7 @@ class TripleInstructionExecutor(solver: Solver) extends Executor[(List[State], L
         case Left(c) => Right(s"Symbol $what does not exist")
         case Right(msg) => Right(msg)
       }
-      case None => Left(FALSE())
+      case None => Left(FALSE)
     }
     case ConstrainFloatingExpression(what, withWhat) => instantiate(s, what) match {
       case Left(e) =>
@@ -446,7 +437,7 @@ class ReallySimpleInstructionExecutor extends TripleInstructionExecutor(AlwaysTr
       case None =>
         val cnstrd = s.memory.addCondition(c)
         val bt = this.execute(thenWhat, s.copy(memory = cnstrd), v)
-        val cnstrdf = s.memory.addCondition(FNOT(c))
+        val cnstrdf = s.memory.addCondition(FNOT.makeFNOT(c))
         val bf = this.execute(elseWhat, s.copy(memory = cnstrdf), v)
         (bt._1 ++ bf._1, bt._2 ++ bf._2, bt._3 ++ bf._3)
     }

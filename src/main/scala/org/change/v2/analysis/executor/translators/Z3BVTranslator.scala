@@ -24,8 +24,8 @@ class Z3BVTranslator(context: Z3Context) extends Translator[Z3Solver] {
       translateCd(r, slv)._1
     }):_*), slv)
     case FNOT(r) => (context.mkNot(translateCd(r, slv)._1), slv)
-    case TRUE() => (context.mkTrue(), slv)
-    case FALSE() => (context.mkFalse(), slv)
+    case TRUE => (context.mkTrue(), slv)
+    case FALSE => (context.mkFalse(), slv)
     case _ => ???
   }
 
