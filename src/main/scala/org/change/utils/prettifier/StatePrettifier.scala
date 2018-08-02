@@ -8,7 +8,7 @@ import com.fasterxml.jackson.databind.annotation.JsonDeserialize
 import com.fasterxml.jackson.databind.jsontype.NamedType
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.fasterxml.jackson.module.scala.experimental.ScalaObjectMapper
-import org.change.v2.analysis.constraint.{AND, Constraint, E, EQ_E, GT, GTE, GTE_E, GT_E, LT, LTE, LTE_E, LT_E, NOT, OR, Range}
+import org.change.v2.analysis.constraint.{AND, Condition, Constraint, E, EQ_E, FAND, FOR, GT, GTE, GTE_E, GT_E, LT, LTE, LTE_E, LT_E, NOT, OP, OR, Range}
 import org.change.v2.analysis.expression.abst.{Expression, FloatingExpression}
 import org.change.v2.analysis.expression.concrete.{ConstantStringValue, ConstantValue, SymbolicValue}
 import org.change.v2.analysis.expression.concrete.nonprimitive.{:+:, :-:, Address, Minus, Plus, Reference}
@@ -292,7 +292,10 @@ object JsonUtil {
     new NamedType(classOf[:>=:], "f_gte"),
     new NamedType(classOf[:<=:], "f_lte"),
     new NamedType(classOf[:>=:], "f_gte"),
-    new NamedType(classOf[:==:], "$colon$eq$eq$colon")
+    new NamedType(classOf[:==:], "$colon$eq$eq$colon"),
+    new NamedType(classOf[OP], "OP"),
+    new NamedType(classOf[FAND], "FAND"),
+    new NamedType(classOf[FOR], "FOR")
   )
 
   mapper.registerSubtypes(
@@ -303,6 +306,7 @@ object JsonUtil {
 
   mapper.addMixin[AssignRaw, ForgetTAssignRaw]()
   mapper.addMixin[Constraint, TypeMixin]();
+  mapper.addMixin[Condition, TypeMixin]();
   mapper.addMixin[NumericType, TypeMixin]()
   mapper.addMixin[Instruction, TypeMixin]();
   mapper.addMixin[Expression, TypeMixin]();

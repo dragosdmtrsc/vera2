@@ -42,7 +42,7 @@ class SwitchBasedParserGenerator(switch : Switch,
       CreateTag("START", 0),
       Fork(
         expd.filter(s => codeFilter.getOrElse((_ : String) => true)(s.seflPortName)).
-          map(x => extraCodeInternal(switchInstance.getName + "." + "generator." + x.seflPortName))
+          map(x => extraCode()(switchInstance.getName + "." + "generator." + x.seflPortName))
       )
     )
 }

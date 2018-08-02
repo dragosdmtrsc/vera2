@@ -217,15 +217,15 @@ class FullBlownSwitch6 extends FunSuite {
                       .toMap
                   )
                   val cdLst =
-                    FOR(chi._2.foldLeft(List.empty[Condition])((acc, st) => {
+                    chi._2.foldLeft(SimplePathCondition.orDefault())((acc, st) => {
                       val mms = st
                       val pcForSyms =
-                        chi._1._3.foldLeft(mms.pathConditions)((acc, meta) => {
+                        chi._1._3.foldLeft(mms.pathCondition)((acc, meta) => {
                           val symName = s"meta$meta$id"
                           val toBeAdded = OP(SymbolicValue(symName),
                                              EQ_E(mms.symbols(meta).expression),
                                              mms.symbols(meta).size)
-                          toBeAdded :: acc
+                          acc && toBeAdded
                         })
                       val pcForRaws =
                         chi._1._2.foldLeft(pcForSyms)((acc, offset) => {
@@ -234,10 +234,10 @@ class FullBlownSwitch6 extends FunSuite {
                             OP(SymbolicValue(symName),
                                EQ_E(mms.rawObjects(offset).expression),
                                mms.rawObjects(offset).size)
-                          toBeAdded :: acc
+                          acc && toBeAdded
                         })
-                      FAND(pcForRaws) :: acc
-                    }))
+                      acc || pcForRaws
+                    })
                   ms.addCondition(cdLst)
                 })
                 val mergeEnd = System.currentTimeMillis()

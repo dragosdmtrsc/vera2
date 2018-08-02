@@ -31,6 +31,7 @@ testFrameworks += new TestFramework("org.scalameter.ScalaMeterFramework")
 parallelExecution in Test := false
 exportJars := true
 unmanagedJars in Compile += file("lib/scalaz3_2.11-2.1.jar")
+unmanagedJars in Compile += file("lib/javabdd-1.0b2.jar")
 unmanagedResourceDirectories in Compile += baseDirectory.value / "lib"
 includeFilter in(Compile, unmanagedResourceDirectories) := ".dll,.so"
 

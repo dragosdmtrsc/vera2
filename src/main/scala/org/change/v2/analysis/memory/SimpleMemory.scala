@@ -1,8 +1,9 @@
 package org.change.v2.analysis.memory
 
-import java.io.{FileOutputStream, PrintStream}
+import java.io.{BufferedOutputStream, FileOutputStream, PrintStream}
 import java.util.UUID
 
+import org.change.utils.prettifier.JsonUtil
 import org.change.v2.analysis.constraint._
 import org.change.v2.analysis.executor.Mapper
 import org.change.v2.analysis.expression.abst.{Expression, FloatingExpression}
@@ -32,7 +33,7 @@ case class SimpleMemory(
     memTags: SortedMap[String, Int] = SortedMap.empty,
     intersections: List[State] = Nil,
     differences: List[State] = Nil,
-    pathConditions: List[Condition] = Nil,
+    pathCondition: SimplePathCondition = SimplePathCondition.apply(),
     myId: Long = 0,
     parentId: Long = -1) {
   def setId(l: Long): SimpleMemory = copy(parentId = myId, myId = l)
@@ -59,15 +60,8 @@ case class SimpleMemory(
   def location: String = history.head
   def forwardTo(place: String): SimpleMemory = copy(history = place :: history)
   def error: String = errorCause.get
-  def addCondition(condition: Condition): SimpleMemory = condition match {
-    case FAND(Nil)   => this
-    case FOR(Nil)    => copy(pathConditions = FALSE :: Nil)
-    case FNOT(TRUE)  => copy(pathConditions = FALSE :: Nil)
-    case FNOT(FALSE) => this
-    case TRUE        => this
-    case FALSE       => copy(pathConditions = FALSE :: Nil)
-    case _           => copy(pathConditions = condition :: pathConditions)
-  }
+  def addCondition(condition: Condition): SimpleMemory = copy(pathCondition = pathCondition && condition)
+  def addCondition(condition: SimplePathCondition): SimpleMemory = copy(pathCondition = pathCondition && condition)
 
   def Tag(name: String, value: Int): Option[SimpleMemory] =
     Some(copy(memTags = memTags + (name -> value)))
@@ -317,7 +311,7 @@ class SimpleMemoryInterpreter
             val at =
               is.foldLeft(
                 Triple.startFrom[SimpleMemory](
-                  state.copy(pathConditions = Nil)))((acc, hd) => {
+                  state.copy(pathCondition = SimplePathCondition.apply())))((acc, hd) => {
                 val a1 = execute(If(hd, Forward("tt"), Forward("ff")),
                                  acc.continue.head,
                                  verbose)
@@ -351,7 +345,7 @@ class SimpleMemoryInterpreter
             val at =
               fb.foldLeft(
                 Triple.startFrom[SimpleMemory](
-                  state.copy(pathConditions = Nil)))((acc, hd) => {
+                  state.copy(pathCondition = SimplePathCondition.apply())))((acc, hd) => {
                 val a1 = execute(If(hd, Forward("tt"), Forward("ff")),
                                  acc.continue.head,
                                  verbose)
@@ -518,19 +512,14 @@ object SimpleMemory {
     else {
       if (states.size == 1) {
         Some(
-          states.head.pathConditions.foldLeft(base)((acc, c) => {
-            acc.addCondition(c)
-          })
+          base.addCondition(states.head.pathCondition)
         )
       } else {
         Some(
-          base.addCondition(
-            FOR.makeFOR(
-              states
-                .map(r => {
-                  FAND.makeFAND(r.pathConditions)
-                })
-                .toList)))
+          base.addCondition(states.foldLeft(SimplePathCondition.orDefault())((acc, x) => {
+            acc || x.pathCondition
+          }))
+        )
       }
     }
   }
@@ -565,13 +554,13 @@ object SimpleMemory {
         .collect {
           case (sym, None) => sym
         }
-        .foldLeft(v.map(h => (h, h.pathConditions)))((acc, st) => {
+        .foldLeft(v.map(h => (h, h.pathCondition)))((acc, st) => {
           val sbname = SymbolicValue(s"meta$st$id")
           acc.map(
             r =>
-              r._1 -> (OP(r._1.symbols(st).expression,
+              r._1 -> (r._2 && OP(r._1.symbols(st).expression,
                           EQ_E(sbname),
-                          r._1.symbols(st).size) :: r._2))
+                          r._1.symbols(st).size)))
         })
 
       val withRaws = raws
@@ -582,9 +571,9 @@ object SimpleMemory {
           val sbname = SymbolicValue(s"header$raw$id")
           acc.map(
             r =>
-              r._1 -> (OP(r._1.rawObjects(raw).expression,
+              r._1 -> (r._2 && OP(r._1.rawObjects(raw).expression,
                           EQ_E(sbname),
-                          r._1.rawObjects(raw).size) :: r._2))
+                          r._1.rawObjects(raw).size)))
         })
 
       SimpleMemory(
@@ -602,7 +591,9 @@ object SimpleMemory {
             sym -> SimpleMemoryObject(SymbolicValue(s"meta$sym$id"),
                                       hd.symbols(sym).size)
         }
-      ).addCondition(FOR.makeFOR(withRaws.map(h => FAND.makeFAND(h._2)).toList))
+      ).addCondition(withRaws.foldLeft(SimplePathCondition.orDefault())((acc, h) => {
+        acc || h._2
+      }))
     }
   }
 
@@ -666,7 +657,7 @@ object SimpleMemory {
 
   }
 
-  class Translator(z3: Z3Context, slv : Z3Solver) {
+  class Translator(z3: Z3Context, slv: Z3Solver) {
 
     def translateC(ast: Z3AST, sz: Int, constr: Constraint): Z3AST =
       constr match {
@@ -727,16 +718,17 @@ object SimpleMemory {
             slv.push()
             val b = apply(h)
             if (!b)
-             slv.pop()
+              slv.pop()
             b
           })
       case FNOT(OP(expression, constraint, size)) =>
-        val ast = z3.mkNot(translateC(translateE(size, expression), size, constraint))
+        val ast =
+          z3.mkNot(translateC(translateE(size, expression), size, constraint))
         slv.assertCnstr(ast)
         slv.check().get
-      case TRUE            => true
-      case FALSE           => false
-      case _               => ???
+      case TRUE  => true
+      case FALSE => false
+      case _     => ???
     }
   }
 
@@ -748,13 +740,19 @@ object SimpleMemory {
     val trans = new Translator(z3Context, slv)
     val endBuildup = System.currentTimeMillis()
     System.out.println(s"build-up done in ${endBuildup - startBuildup}ms")
-    val b = simpleMemory.pathConditions.forall(trans.apply)
-    System.out.println(
-      s"solving done in ${System.currentTimeMillis() - endBuildup}ms")
-    if (!b)
-      System.err.println(
-        "Hypothesis false for the moment, need to check myself other paths")
-    b
+
+    val bos = new BufferedOutputStream(new FileOutputStream(s"pc.${UUID.randomUUID().toString}.json"))
+    JsonUtil.toJson((simpleMemory.pathCondition.size, simpleMemory.pathCondition.tracker), bos)
+    System.err.println("All ops = " + OP.st.size)
+    bos.close()
+//    val b = simpleMemory.pathConditions.forall(trans.apply)
+//    System.out.println(
+//      s"solving done in ${System.currentTimeMillis() - endBuildup}ms")
+//    if (!b)
+//      System.err.println(
+//        "Hypothesis false for the moment, need to check myself other paths")
+//    b
+    true
   }
 
   def isSat(simpleMemory: SimpleMemory): Boolean = {
@@ -780,7 +778,7 @@ object SimpleMemory {
           SimpleMemoryObject(h.value.get.e, h.size)
         }),
       memTags = SortedMap[String, Int]() ++ state.memory.memTags,
-      pathConditions = state.memory.pathConditions
+      pathCondition = SimplePathCondition(FAND.makeFAND(state.memory.pathConditions))
     )
   }
 }
