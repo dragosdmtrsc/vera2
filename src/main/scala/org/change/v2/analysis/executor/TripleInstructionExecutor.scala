@@ -132,7 +132,7 @@ class TripleInstructionExecutor(solver: Solver) extends Executor[(List[State], L
         (None, current, Nil)
       else
         buildCondition(s, instruction.head) match {
-          case Left(c) => findKiller(instruction.tail, current :+ c, instruction.tail)
+          case Left(c) => findKiller(instruction.tail, c :: current, instruction.tail)
           case Right(m) => (Some(instruction.head), current, instruction.tail)
         }
     }
@@ -154,7 +154,7 @@ class TripleInstructionExecutor(solver: Solver) extends Executor[(List[State], L
             val (offender, cds, left) = findKiller(instrs, Nil, instrs)
 //            System.err.println(s"Nasty case $m, $testInstr $left")
             offender match {
-              case None => executeIfCond(FAND.apply(cds), thenWhat, elseWhat, s, v)
+              case None => executeIfCond(FAND.makeFAND(cds), thenWhat, elseWhat, s, v)
               case Some(Fork(xs)) => if (cds.isEmpty) {
                 executeIf(Fork(xs),
                   if (left.nonEmpty) {

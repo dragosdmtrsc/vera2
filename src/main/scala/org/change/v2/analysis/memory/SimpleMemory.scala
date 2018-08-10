@@ -656,6 +656,7 @@ object SimpleMemory {
     }
 
   }
+  import z3.scala.dsl._
 
   class Translator(z3: Z3Context, slv: Z3Solver) {
 
@@ -700,32 +701,56 @@ object SimpleMemory {
         case _ => ???
       }
 
-    def apply(cd: Condition): Boolean = cd match {
+    final def apply(cd: Condition, continueWith : () => Boolean): Boolean = cd match {
       case OP(expression, constraint, size) =>
         val ast = translateC(translateE(size, expression), size, constraint)
-        slv.assertCnstr(ast)
-        slv.check().get
+        val bla = z3.mkFreshBoolConst("bla")
+        slv.assertCnstr(z3.mkImplies(bla, ast))
+        slv.assertCnstr(bla)
+        if (continueWith())
+          true
+        else {
+          false
+        }
       case FAND(conditions) =>
         if (conditions.isEmpty)
-          true
-        else
-          conditions.forall(apply)
+          false
+        else if (conditions.size == 1)
+          apply(conditions.head, continueWith)
+        else {
+          if (continueWith()) {
+            apply(conditions.head, () => {
+              apply(FAND(conditions.tail), continueWith)
+            })
+          } else {
+            false
+          }
+        }
       case FOR(conditions) =>
         if (conditions.isEmpty)
           false
-        else
-          conditions.exists(h => {
-            slv.push()
-            val b = apply(h)
-            if (!b)
-              slv.pop()
-            b
-          })
+        else if (conditions.size == 1) {
+          apply(conditions.head, continueWith)
+        } else {
+          slv.push()
+          if (apply(conditions.head, continueWith))
+            true
+          else {
+            slv.pop()
+            if (continueWith()) {
+              apply(FOR(conditions.tail), continueWith)
+            } else {
+              false
+            }
+          }
+        }
       case FNOT(OP(expression, constraint, size)) =>
         val ast =
           z3.mkNot(translateC(translateE(size, expression), size, constraint))
-        slv.assertCnstr(ast)
-        slv.check().get
+        val bla = z3.mkFreshBoolConst("bla")
+        slv.assertCnstr(z3.mkImplies(bla, ast))
+        slv.assertCnstr(bla)
+        continueWith()
       case TRUE  => true
       case FALSE => false
       case _     => ???
@@ -733,26 +758,26 @@ object SimpleMemory {
   }
 
   def isSat(simpleMemory: SimpleMemory, full: Boolean): Boolean = {
-    val visitStart = System.currentTimeMillis()
-    val startBuildup = System.currentTimeMillis()
     val z3Context = new Z3Context(new Z3Config("MODEL" -> true))
     val slv = z3Context.mkSolver()
     val trans = new Translator(z3Context, slv)
-    val endBuildup = System.currentTimeMillis()
-    System.out.println(s"build-up done in ${endBuildup - startBuildup}ms")
-
-    val bos = new BufferedOutputStream(new FileOutputStream(s"pc.${UUID.randomUUID().toString}.json"))
-    JsonUtil.toJson((simpleMemory.pathCondition.size, simpleMemory.pathCondition.tracker), bos)
-    System.err.println("All ops = " + OP.st.size)
-    bos.close()
-//    val b = simpleMemory.pathConditions.forall(trans.apply)
-//    System.out.println(
-//      s"solving done in ${System.currentTimeMillis() - endBuildup}ms")
-//    if (!b)
-//      System.err.println(
-//        "Hypothesis false for the moment, need to check myself other paths")
-//    b
-    true
+    System.err.println("All ops = " + (OP.st.size, simpleMemory.pathCondition.size, simpleMemory.pathCondition.tracker.size))
+    val start = System.currentTimeMillis()
+    val b = trans(simpleMemory.pathCondition.cd, () => {
+      val q = slv.check().get
+      if (!q) {
+        slv.checkAssumptions()
+        System.err.println(s"Path wrong, moving on ${slv.getUnsatCore().toList.mkString("\n")}")
+        System.exit(0)
+      }
+      q
+    })
+    System.out.println(
+      s"solving done in ${System.currentTimeMillis() - start}ms")
+    if (!b)
+      System.err.println(
+        "Hypothesis false for the moment, need to check myself other paths")
+    b
   }
 
   def isSat(simpleMemory: SimpleMemory): Boolean = {
@@ -778,7 +803,7 @@ object SimpleMemory {
           SimpleMemoryObject(h.value.get.e, h.size)
         }),
       memTags = SortedMap[String, Int]() ++ state.memory.memTags,
-      pathCondition = SimplePathCondition(FAND.makeFAND(state.memory.pathConditions))
-    )
+      pathCondition = SimplePathCondition.apply()
+    ).addCondition(FAND.makeFAND(state.memory.pathConditions))
   }
 }

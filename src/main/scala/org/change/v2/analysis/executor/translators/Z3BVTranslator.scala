@@ -19,10 +19,10 @@ class Z3BVTranslator(context: Z3Context) extends Translator[Z3Solver] {
       (c, slv)
     case FAND(conditions) => (context.mkAnd(conditions.map(r => {
       translateCd(r, slv)._1
-    }):_*), slv)
+    }).toList:_*), slv)
     case FOR(conditions) => (context.mkOr(conditions.map(r => {
       translateCd(r, slv)._1
-    }):_*), slv)
+    }).toList:_*), slv)
     case FNOT(r) => (context.mkNot(translateCd(r, slv)._1), slv)
     case TRUE => (context.mkTrue(), slv)
     case FALSE => (context.mkFalse(), slv)

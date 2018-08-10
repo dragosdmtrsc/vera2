@@ -462,7 +462,7 @@ abstract class AbstractInstructionExecutor extends InstructionExecutor {
           val (offender, cds, left) = findKiller(instrs, Nil, instrs)
           System.err.println(s"Nasty case $m, $testInstr $left")
           offender match {
-            case None => executeIfCond(FAND.apply(cds), thenWhat, elseWhat, s, v)
+            case None => executeIfCond(FAND.makeFAND(cds), thenWhat, elseWhat, s, v)
             case Some(Fork(xs)) => if (cds.isEmpty) {
               executeIf(Fork(xs),
                 if (left.isEmpty)
@@ -474,7 +474,7 @@ abstract class AbstractInstructionExecutor extends InstructionExecutor {
                   ),
                 elseWhat, s, v)
             } else {
-              executeIfCond(FAND.apply(cds),
+              executeIfCond(FAND.makeFAND(cds),
                 If(Fork(xs),
                   if (left.isEmpty)
                     thenWhat
@@ -556,12 +556,12 @@ abstract class AbstractInstructionExecutor extends InstructionExecutor {
     case Fork(fb) if fb.isEmpty => Left(FALSE)
     case Fork(fb) => buildCondition(s, fb.head) match {
       case Right(err) => Right(err)
-      case Left(c) => buildOr(s, fb.tail.toList, FOR(c :: Nil))
+      case Left(c) => buildOr(s, fb.tail.toList, FOR(List(c)))
     }
     case InstructionBlock(i) if i.isEmpty => Left(TRUE)
     case InstructionBlock(lst) => buildCondition(s, lst.head) match {
       case Right(err) => Right(err)
-      case Left(c) => buildAnd(s, lst.tail.toList, FAND.apply(c :: Nil))
+      case Left(c) => buildAnd(s, lst.tail.toList, FAND.apply(List(c)))
     }
     case ConstrainNamedSymbol(what, withWhat, _) => instantiate(s, withWhat) match {
       case Left(c) if s.memory.symbolIsAssigned(what) =>

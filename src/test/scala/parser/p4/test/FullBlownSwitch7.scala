@@ -3,6 +3,8 @@ package parser.p4.test
 import java.io.{BufferedOutputStream, FileOutputStream, PrintStream}
 import java.util.UUID
 
+import jdd.bdd.{BDD, BDDPrinter}
+import jdd.util.Dot
 import org.change.parser.p4.ControlFlowInterpreter
 import org.change.parser.p4.parser.SkipParserAndDeparser
 import org.change.parser.p4.tables.SymbolicSwitchInstance
@@ -23,6 +25,7 @@ import scala.collection.mutable.ListBuffer
 
 class FullBlownSwitch7 extends FunSuite {
   test("SWITCH - L3VxlanTunnelTest full symbolic 3") {
+    Dot.setRemoveDotFile(false)
 
     val dir = "inputs/big-switch"
     val p4 = s"$dir/switch-ppc-orig.p4"

@@ -23,7 +23,7 @@ case class MemorySpace(symbols: Map[String, MemoryObject] = Map.empty,
                        memTags: Map[String, Int] = Map.empty,
                        intersections : List[State] = Nil,
                        differences : List[State] = Nil,
-                       pathConditions : List[Condition] = Nil) {
+                       pathConditions : List[Condition] = List.empty) {
 
 
 
