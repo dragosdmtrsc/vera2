@@ -28,7 +28,7 @@ case class OP(expression: Expression, constraint: Constraint, size: Int)
     case LTE(v) => s"<=$v"
     case GT(v) =>  s">$v"
     case GTE(v) => s">=$v"
-    case E(v) => s"==$v"
+    case E(v) => s"===$v"
     case Truth() => s"1"
     case Range(v1, v2) => s"<=$v2 && >=$v1"
     case OR(constraints) =>  constraints.map(stringify).mkString("||")
@@ -57,17 +57,23 @@ case class OP(expression: Expression, constraint: Constraint, size: Int)
     case PlusE(a, b) => s"${stringify(a)}-${stringify(b)}"
     case MinusE(a, b) => s"${stringify(a)}-${stringify(b)}"
     case LogicalOr(a, b) => s"${stringify(a.e)}-${stringify(b.e)}"
-    case ConstantBValue(value, size) => s"$value"
+    case ConstantBValue(value, size) => s"0${size}b$value"
     case ConstantStringValue(value) => value
     case _ => ???
   }
 
   def stringify(op : OP): String =
-    stringify(op.expression) + stringify(op.constraint)
+    "(" + stringify(op.expression) + stringify(op.constraint) + s",$size)"
 
   private lazy val stringRepr = stringify(this)
   override def toString: String = stringRepr
   override lazy val hashCode: Int = stringRepr.hashCode
+
+  override def equals(o: scala.Any): Boolean = o match {
+    case op : OP => op.stringRepr == this.stringRepr
+    case _ => false
+  }
+
 }
 
 object OP {
@@ -87,7 +93,7 @@ trait PathCondition[T <: PathCondition[_]] {
   def &&(pathCondition: T): T
 }
 
-case class SimplePathCondition(cd: Condition, tracker: Set[OP], size: Int)
+case class SimplePathCondition(cd: Condition, tracker: Set[OP], size: Long)
     extends PathCondition[SimplePathCondition] {
   import SimplePathCondition._
 
@@ -190,8 +196,8 @@ case class SimplePathCondition(cd: Condition, tracker: Set[OP], size: Int)
 }
 
 object SimplePathCondition {
-  var max = 0
-  def updateMax(sz : Int) : Boolean = {
+  var max = 0l
+  def updateMax(sz : Long) : Boolean = {
     if (max < sz) {
       max = sz
       true

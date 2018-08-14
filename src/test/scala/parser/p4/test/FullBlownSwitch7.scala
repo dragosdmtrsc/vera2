@@ -178,9 +178,13 @@ class FullBlownSwitch7 extends FunSuite {
             if (grouped.size == lst.size) {
               lst.foreach(st => {
                 val trp = TrivialSimpleMemoryInterpreter.execute(prog(loc),
-                  st.right.get,
+                  st.right.get.copy(pathCondition = SimplePathCondition.apply()),
                   false)
-                waitingQueue.enqueue(trp.success.map(Right(_)): _*)
+                trp.success.groupBy(_.location).foreach(l => {
+                  val nv = SimpleMemory.hitMe(l._2).map(_.addCondition(st.right.get.pathCondition.cd))
+                  waitingQueue.enqueue(nv.map(Right(_)).toList: _*)
+                })
+//                waitingQueue.enqueue(trp.success.map(Right(_)):_*)
                 failed ++= trp.failed
                 success ++= trp.continue
               })
@@ -188,7 +192,10 @@ class FullBlownSwitch7 extends FunSuite {
               grouped.foreach(st => {
                 val trp =
                   TrivialSimpleMemoryInterpreter.execute(prog(loc), st, false)
-                waitingQueue.enqueue(trp.success.map(Right(_)): _*)
+//                trp.success.groupBy(_.location).foreach(l => {
+//                  waitingQueue.enqueue(SimpleMemory.hitMe(l._2).map(_.addCondition(st.pathCondition.cd)).map(Right(_)).toList: _*)
+//                })
+                waitingQueue.enqueue(trp.success.map(Right(_)):_*)
                 failed ++= trp.failed
                 success ++= trp.continue
               })
@@ -201,7 +208,11 @@ class FullBlownSwitch7 extends FunSuite {
               val trp = TrivialSimpleMemoryInterpreter.execute(prog(loc),
                 st.right.get,
                 false)
-              waitingQueue.enqueue(trp.success.map(Right(_)): _*)
+//              trp.success.groupBy(_.location).foreach(l => {
+//                val nv = SimpleMemory.hitMe(l._2).map(_.addCondition(st.right.get.pathCondition.cd))
+//                waitingQueue.enqueue(nv.map(Right(_)).toList: _*)
+//              })
+              waitingQueue.enqueue(trp.success.map(Right(_)):_*)
               failed ++= trp.failed
               success ++= trp.continue
             })
@@ -220,14 +231,16 @@ class FullBlownSwitch7 extends FunSuite {
     val br = new BufferedOutputStream(new FileOutputStream("failed.json"))
 
     val satStart = System.currentTimeMillis()
-    val achievableFailures = failed.groupBy(h => (h.errorCause.getOrElse(""), h.location)).filter(r => {
+    val achievableFailures = failed.groupBy(h => (h.errorCause.getOrElse(""), h.location)).toList.sortBy(f => {
+      (f._1._2, f._1._1)
+    }).filter(r => {
       val sth = r._2.exists(SimpleMemory.isSat)
       if (!sth) {
         System.err.println("Hypothesis globally false. Why?")
       }
       sth
 //      SimpleMemory.isSat(SimpleMemory(pathConditions = FOR(r._2.map(h => FAND(h.pathConditions)).toList) :: Nil))
-    }).keys
+    }).map(u => u._1)
     val satEnd = System.currentTimeMillis()
     System.err.println(s"Done SAT solving in ${satEnd - satStart}ms")
 

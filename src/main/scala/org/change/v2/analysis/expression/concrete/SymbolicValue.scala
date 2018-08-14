@@ -13,7 +13,7 @@ case class SymbolicValue(name: String = "") extends Expression with FloatingExpr
   def canonicalName(): String = if (name == "") s"sym$id" else name
 
   override def equals(o: scala.Any): Boolean = o match {
-    case sym : SymbolicValue => sym.id == id
+    case sym : SymbolicValue => (name != "" && sym.name == name) || sym.id == id
     case _ => false
   }
 

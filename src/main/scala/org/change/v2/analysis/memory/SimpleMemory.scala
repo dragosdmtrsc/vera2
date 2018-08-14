@@ -7,7 +7,12 @@ import org.change.utils.prettifier.JsonUtil
 import org.change.v2.analysis.constraint._
 import org.change.v2.analysis.executor.Mapper
 import org.change.v2.analysis.expression.abst.{Expression, FloatingExpression}
-import org.change.v2.analysis.expression.concrete.{ConstantBValue, ConstantStringValue, ConstantValue, SymbolicValue}
+import org.change.v2.analysis.expression.concrete.{
+  ConstantBValue,
+  ConstantStringValue,
+  ConstantValue,
+  SymbolicValue
+}
 import org.change.v2.analysis.expression.concrete.nonprimitive._
 import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.analysis.processingmodels.instructions._
@@ -59,9 +64,11 @@ case class SimpleMemory(
   def fail(because: String): SimpleMemory = copy(errorCause = Some(because))
   def location: String = history.head
   def forwardTo(place: String): SimpleMemory = copy(history = place :: history)
-  def error: String = errorCause.get
-  def addCondition(condition: Condition): SimpleMemory = copy(pathCondition = pathCondition && condition)
-  def addCondition(condition: SimplePathCondition): SimpleMemory = copy(pathCondition = pathCondition && condition)
+  def error: String = errorCause.getOrElse("")
+  def addCondition(condition: Condition): SimpleMemory =
+    copy(pathCondition = pathCondition && condition)
+  def addCondition(condition: SimplePathCondition): SimpleMemory =
+    copy(pathCondition = pathCondition && condition)
 
   def Tag(name: String, value: Int): Option[SimpleMemory] =
     Some(copy(memTags = memTags + (name -> value)))
@@ -231,6 +238,56 @@ class SimpleMemoryInterpreter
         OP(exp, c, width)
       })
     })
+
+  def tryEval(v: Long, constraint: Constraint): Option[Boolean] =
+    constraint match {
+      case LT_E(e)       => tryEval(e).map(v < _)
+      case LTE_E(e)      => tryEval(e).map(v <= _)
+      case GTE_E(e)      => tryEval(e).map(v >= _)
+      case GT_E(e)       => tryEval(e).map(v > _)
+      case EQ_E(e)       => tryEval(e).map(v == _)
+      case No            => Some(false)
+      case LT(v2)        => Some(v < v2)
+      case LTE(v2)       => Some(v <= v2)
+      case GT(v2)        => Some(v > v2)
+      case GTE(v2)       => Some(v >= v2)
+      case E(v2)         => Some(v == v2)
+      case Truth()       => Some(true)
+      case Range(v1, v2) => Some(v >= v1 && v <= v2)
+      case OR(cts) =>
+        val evald = cts.map(tryEval(v, _))
+        if (evald.exists(h => h.nonEmpty && h.get))
+          Some(true)
+        else if (evald.forall(h => h.nonEmpty && !h.get))
+          Some(false)
+        else
+          None
+      case AND(cts) =>
+        val evald = cts.map(tryEval(v, _))
+        if (evald.exists(h => h.nonEmpty && !h.get))
+          Some(false)
+        else if (evald.forall(h => h.nonEmpty && !h.get))
+          Some(true)
+        else
+          None
+      case NOT(c) => tryEval(v, c).map(!_)
+      case _      => None
+    }
+
+  def tryEval(expression: Expression): Option[Long] = expression match {
+    case LShift(a, b) =>
+      tryEval(a.e).flatMap(l => tryEval(b.e).map(r => l << r))
+    case Plus(a, b)                        => tryEval(a.e).flatMap(l => tryEval(b.e).map(r => r + l))
+    case LNot(a)                           => tryEval(a.e).map(~_)
+    case LAnd(a, b)                        => tryEval(a.e).flatMap(l => tryEval(b.e).map(r => l & r))
+    case Lor(a, b)                         => tryEval(a.e).flatMap(l => tryEval(b.e).map(r => l | r))
+    case LXor(a, b)                        => tryEval(a.e).flatMap(l => tryEval(b.e).map(r => r ^ l))
+    case Minus(a, b)                       => tryEval(a.e).flatMap(l => tryEval(b.e).map(r => l - r))
+    case ConstantValue(value, isIp, isMac) => Some(value)
+    case ConstantStringValue(value)        => Some(value.hashCode)
+    case _                                 => None
+  }
+
   def tryEval(condition: Condition): Option[Boolean] = condition match {
     case FAND(cts) =>
       val evald = cts.map(tryEval)
@@ -249,17 +306,8 @@ class SimpleMemoryInterpreter
       else
         None
     case FNOT(c) => tryEval(c).map(!_)
-    case OP(ConstantValue(x, _, _), ct, _) =>
-      ct match {
-        case LT_E(ConstantValue(y, _, _))  => Some(x < y)
-        case LTE_E(ConstantValue(y, _, _)) => Some(x <= y)
-        case GTE_E(ConstantValue(y, _, _)) => Some(x >= y)
-        case GT_E(ConstantValue(y, _, _))  => Some(x > y)
-        case EQ_E(ConstantValue(y, _, _))  => Some(x == y)
-        case No                            => Some(false)
-        case Truth()                       => Some(true)
-        case _                             => None
-      }
+    case OP(e, ct, sz) =>
+      tryEval(e).flatMap(v => tryEval(v, ct))
     case _ => None
   }
 
@@ -311,15 +359,17 @@ class SimpleMemoryInterpreter
             val at =
               is.foldLeft(
                 Triple.startFrom[SimpleMemory](
-                  state.copy(pathCondition = SimplePathCondition.apply())))((acc, hd) => {
-                val a1 = execute(If(hd, Forward("tt"), Forward("ff")),
-                                 acc.continue.head,
-                                 verbose)
-                val (gt, gf) = a1.success.partition(_.location == "tt")
-                val (gtt, gff) = (gt.map(r => r.copy(history = r.history.tail)),
-                                  gf.map(r => r.copy(history = r.history.tail)))
-                acc + a1.copy(success = gff, continue = gtt)
-              })
+                  state.copy(pathCondition = SimplePathCondition.apply())))(
+                (acc, hd) => {
+                  val a1 = execute(If(hd, Forward("tt"), Forward("ff")),
+                                   acc.continue.head,
+                                   verbose)
+                  val (gt, gf) = a1.success.partition(_.location == "tt")
+                  val (gtt, gff) =
+                    (gt.map(r => r.copy(history = r.history.tail)),
+                     gf.map(r => r.copy(history = r.history.tail)))
+                  acc + a1.copy(success = gff, continue = gtt)
+                })
             val distinctFailures = at.failed
               .groupBy(_.error)
               .map(h => {
@@ -345,15 +395,17 @@ class SimpleMemoryInterpreter
             val at =
               fb.foldLeft(
                 Triple.startFrom[SimpleMemory](
-                  state.copy(pathCondition = SimplePathCondition.apply())))((acc, hd) => {
-                val a1 = execute(If(hd, Forward("tt"), Forward("ff")),
-                                 acc.continue.head,
-                                 verbose)
-                val (gf, gt) = a1.success.partition(_.location == "ff")
-                val (gff, gtt) = (gf.map(r => r.copy(history = r.history.tail)),
-                                  gt.map(r => r.copy(history = r.history.tail)))
-                acc + a1.copy(success = gtt, continue = gff)
-              })
+                  state.copy(pathCondition = SimplePathCondition.apply())))(
+                (acc, hd) => {
+                  val a1 = execute(If(hd, Forward("tt"), Forward("ff")),
+                                   acc.continue.head,
+                                   verbose)
+                  val (gf, gt) = a1.success.partition(_.location == "ff")
+                  val (gff, gtt) =
+                    (gf.map(r => r.copy(history = r.history.tail)),
+                     gt.map(r => r.copy(history = r.history.tail)))
+                  acc + a1.copy(success = gtt, continue = gff)
+                })
             val distinctFailures = at.failed
               .groupBy(_.error)
               .map(h => {
@@ -504,6 +556,7 @@ class SimpleMemoryInterpreter
 object TrivialSimpleMemoryInterpreter extends SimpleMemoryInterpreter
 
 object SimpleMemory {
+  var statsPrinter = new PrintStream("stats.csv")
 
   def mergeConditions(states: Iterable[SimpleMemory],
                       base: SimpleMemory): Option[SimpleMemory] = {
@@ -516,40 +569,46 @@ object SimpleMemory {
         )
       } else {
         Some(
-          base.addCondition(states.foldLeft(SimplePathCondition.orDefault())((acc, x) => {
-            acc || x.pathCondition
-          }))
+          base.addCondition(
+            states.foldLeft(SimplePathCondition.orDefault())((acc, x) => {
+              acc || x.pathCondition
+            }))
         )
       }
     }
   }
   type NaturalKey = (SortedMap[String, Int], SortedSet[Int], SortedSet[String])
 
+  val rnd = new Random(13)
+
   def naturalGroup(h: SimpleMemory): NaturalKey =
     (h.memTags, h.rawObjects.keySet, h.symbols.keySet)
-  def naturalMerge(k: NaturalKey, v: Iterable[SimpleMemory]): SimpleMemory = {
-    assert(v.nonEmpty)
-    if (v.size == 1)
-      v.head
+  def naturalMerge(k: NaturalKey, chi: Iterable[SimpleMemory]): SimpleMemory = {
+    assert(chi.nonEmpty)
+    if (chi.size == 1)
+      chi.head
     else {
+      val v = chi.groupBy(r => {
+        k._3.map(f => r.symbols(f)).toList ++ k._2.map(f => r.rawObjects(f)).toList
+      }).values.map(_.head)
+
       val hd = v.head
       val raws = k._2.map(r => {
-        val tentative = hd.rawObjects(r)
-        if (v.tail.forall(p => p.rawObjects(r).equals(tentative))) {
-          r -> Some(tentative)
-        } else {
-          r -> None
-        }
+        val repr = hd.rawObjects(r)
+        r -> (if (v.tail.forall(h => h.rawObjects(r) == repr))
+          Some(repr)
+        else
+          None)
       })
       val syms = k._3.map(r => {
-        val tentative = hd.symbols(r)
-        if (v.tail.forall(p => p.symbols(r).equals(tentative))) {
-          r -> Some(tentative)
-        } else {
-          r -> None
-        }
+        val repr = hd.symbols(r)
+        r -> (if (v.tail.forall(h => h.symbols(r) == repr))
+          Some(repr)
+        else
+          None)
       })
-      val id = UUID.randomUUID().toString
+
+      val id = rnd.nextLong().toString
       val withSyms = syms
         .collect {
           case (sym, None) => sym
@@ -559,8 +618,8 @@ object SimpleMemory {
           acc.map(
             r =>
               r._1 -> (r._2 && OP(r._1.symbols(st).expression,
-                          EQ_E(sbname),
-                          r._1.symbols(st).size)))
+                                  EQ_E(sbname),
+                                  r._1.symbols(st).size)))
         })
 
       val withRaws = raws
@@ -572,8 +631,8 @@ object SimpleMemory {
           acc.map(
             r =>
               r._1 -> (r._2 && OP(r._1.rawObjects(raw).expression,
-                          EQ_E(sbname),
-                          r._1.rawObjects(raw).size)))
+                                  EQ_E(sbname),
+                                  r._1.rawObjects(raw).size)))
         })
 
       SimpleMemory(
@@ -591,9 +650,10 @@ object SimpleMemory {
             sym -> SimpleMemoryObject(SymbolicValue(s"meta$sym$id"),
                                       hd.symbols(sym).size)
         }
-      ).addCondition(withRaws.foldLeft(SimplePathCondition.orDefault())((acc, h) => {
-        acc || h._2
-      }))
+      ).addCondition(
+        withRaws.foldLeft(SimplePathCondition.orDefault())((acc, h) => {
+          acc || h._2
+        }))
     }
   }
 
@@ -685,7 +745,7 @@ object SimpleMemory {
         case LNot(a)    => z3.mkNot(translateE(sz, a.e))
         case LAnd(a, b) =>
           z3.mkBVAnd(translateE(sz, a.e), translateE(sz, b.e))
-        case Lor(a, b)   => z3.mkBVAnd(translateE(sz, a.e), translateE(sz, b.e))
+        case Lor(a, b)   => z3.mkBVOr(translateE(sz, a.e), translateE(sz, b.e))
         case LXor(a, b)  => z3.mkBVXor(translateE(sz, a.e), translateE(sz, b.e))
         case Minus(a, b) => z3.mkBVSub(translateE(sz, a.e), translateE(sz, b.e))
         case ConstantValue(value, isIp, isMac) =>
@@ -701,78 +761,302 @@ object SimpleMemory {
         case _ => ???
       }
 
-    final def apply(cd: Condition, continueWith : () => Boolean): Boolean = cd match {
-      case OP(expression, constraint, size) =>
-        val ast = translateC(translateE(size, expression), size, constraint)
-        val bla = z3.mkFreshBoolConst("bla")
-        slv.assertCnstr(z3.mkImplies(bla, ast))
-        slv.assertCnstr(bla)
-        if (continueWith())
-          true
-        else {
-          false
+    def filter(lst: ContextPackage): ContextPackage =
+      if (lst.canBe && solve(lst))
+        lst.copy(sureSat = true, canBe = true)
+      else
+        lst.copy(canBe = false)
+
+    def solve(lst: ContextPackage): Boolean = {
+      if (lst.sureSat)
+        true
+      else {
+        slv.push()
+        val mmap = mutable.Map[String, (Condition, Z3AST)]()
+        lst.asserted.foreach(h => {
+          val ast =
+            translateC(translateE(h.size, h.expression), h.size, h.constraint)
+          val uuid = UUID.randomUUID().toString
+          val bla = z3.mkBoolConst(s"bla$uuid")
+          slv.assertCnstr(z3.mkImplies(bla, ast))
+          mmap.put(s"bla$uuid", (h, bla))
+        })
+
+        lst.negd.foreach(h => {
+          val ast =
+            z3.mkNot(
+              translateC(translateE(h.size, h.expression),
+                         h.size,
+                         h.constraint))
+          val uuid = UUID.randomUUID().toString
+          val bla = z3.mkBoolConst(s"bla$uuid")
+          slv.assertCnstr(z3.mkImplies(bla, ast))
+          mmap.put(s"bla$uuid", (FNOT(h), bla))
+        })
+        val start = System.currentTimeMillis()
+        val q = slv.checkAssumptions(mmap.map(h => h._2._2).toList: _*).get
+        val full = System.currentTimeMillis() - start
+        if (!q) {
+          val unsatCore = slv.getUnsatCore().toList
+          System.err.println(
+            s"Path wrong because\n${mmap.filter(r => unsatCore.contains(r._2._2)).map(r => r._2._1).mkString("\n")}")
         }
-      case FAND(conditions) =>
-        if (conditions.isEmpty)
-          false
-        else if (conditions.size == 1)
-          apply(conditions.head, continueWith)
-        else {
-          if (continueWith()) {
-            apply(conditions.head, () => {
-              apply(FAND(conditions.tail), continueWith)
-            })
-          } else {
-            false
+        statsPrinter.println(s"solved,$q,$full,${lst.size}")
+        slv.pop()
+        q
+      }
+    }
+
+    case class ContextPackage(asserted: Set[OP] = Set.empty,
+                              negd: Set[OP] = Set.empty,
+                              hardcode: Map[SymbolicValue, Long] = Map.empty,
+                              canBe: Boolean = true,
+                              sureSat: Boolean = false) {
+      def size: Int = asserted.size + negd.size
+      def &(op: OP): ContextPackage = {
+        if (!canBe)
+          this
+        else
+          op.constraint match {
+            case NOT(r) =>
+              val newop = OP(op.expression, r, op.size)
+              this ~ newop
+            case _ =>
+              val ct = asserted.contains(op)
+              if (ct)
+                this
+              else {
+                op match {
+                  case OP(sv: SymbolicValue, EQ_E(cv: ConstantValue), _) =>
+                    val hct = hardcode.contains(sv)
+                    if (hct && hardcode(sv) != cv.value)
+                      copy(canBe = false, sureSat = false)
+                    else if (hct) {
+                      this
+                    } else {
+                      copy(asserted = asserted + op,
+                           hardcode = hardcode + (sv -> cv.value),
+                           canBe = !negd.contains(op),
+                           sureSat = false)
+                    }
+                  case OP(cv: ConstantValue, EQ_E(sv: SymbolicValue), size) =>
+                    val hct = hardcode.contains(sv)
+                    if (hct && hardcode(sv) != cv.value)
+                      copy(canBe = false, sureSat = false)
+                    else if (hct) {
+                      this
+                    } else {
+                      val nop = OP(sv, EQ_E(cv), size)
+                      copy(asserted = asserted + nop,
+                           hardcode = hardcode + (sv -> cv.value),
+                           canBe = !negd.contains(nop),
+                           sureSat = false)
+                    }
+                  case _ =>
+                    copy(asserted = asserted + op,
+                         canBe = !negd.contains(op),
+                         sureSat = false)
+                }
+              }
           }
+      }
+      def ~(op: OP): ContextPackage = {
+        if (!canBe)
+          this
+        else
+          op.constraint match {
+            case NOT(r) =>
+              val newop = OP(op.expression, r, op.size)
+              this & newop
+            case _ =>
+              op match {
+                case OP(sv: SymbolicValue, EQ_E(cv: ConstantValue), _) =>
+                  val hct = hardcode.contains(sv)
+                  if (hct && hardcode(sv) == cv.value)
+                    copy(canBe = false, sureSat = false)
+                  else {
+                    copy(negd = negd + op,
+                         canBe = !asserted.contains(op),
+                         sureSat = false)
+                  }
+                case OP(cv: ConstantValue, EQ_E(sv: SymbolicValue), _) =>
+                  val hct = hardcode.contains(sv)
+                  if (hct && hardcode(sv) == cv.value)
+                    copy(canBe = false, sureSat = false)
+                  else {
+                    val nop = OP(sv, EQ_E(cv), size)
+                    copy(negd = negd + nop,
+                         canBe = !asserted.contains(nop),
+                         sureSat = false)
+                  }
+                case _ =>
+                  copy(negd = negd + op,
+                       canBe = !asserted.contains(op),
+                       sureSat = false)
+              }
+          }
+      }
+    }
+
+    def hlSolve(ctx: ContextPackage): Boolean = {
+      val v = solve(ctx)
+      System.err.println(s"high level reached $v")
+      v
+    }
+
+    def go(cd: Condition): Boolean =
+      go(cd, ContextPackage(), hlSolve)
+
+    def go(cd: Condition,
+           crt: ContextPackage,
+           continueWith: ContextPackage => Boolean): Boolean = {
+      if (!crt.canBe)
+        false
+      else {
+        cd match {
+          case op: OP =>
+            val newCd = crt & op
+            if (newCd.canBe) {
+              if (crt.size % 20 == 0) {
+                val ns = filter(newCd)
+                if (!ns.canBe) {
+                  false
+                } else {
+                  continueWith(ns)
+                }
+              } else {
+                continueWith(newCd)
+              }
+            } else {
+              false
+            }
+          case FAND(conditions) =>
+            if (conditions.isEmpty)
+              true
+            else if (conditions.size == 1)
+              go(conditions.head, crt, continueWith)
+            else {
+              val sorted = conditions.partition {
+                case o : FOR => false
+                case _ => true
+              }
+              val full = sorted._1 ++ sorted._2
+              go(full.head, crt, lst => {
+                go(FAND(full.tail), lst, continueWith)
+              })
+            }
+          case FOR(conditions) =>
+            if (conditions.isEmpty)
+              false
+            else {
+              val ns = filter(crt)
+              if (ns.canBe) {
+                val sorted = conditions
+                if (go(sorted.head, ns, continueWith))
+                  true
+                else {
+                  go(FOR(sorted.tail), ns, continueWith)
+                }
+              } else false
+            }
+          case FNOT(o: OP) =>
+            val newCd = crt ~ o
+            if (newCd.canBe) {
+              if (crt.size % 20 == 0) {
+                System.err.println("ordered by tick")
+                val ns = filter(newCd)
+                if (!ns.canBe) {
+                  false
+                } else {
+                  continueWith(ns)
+                }
+              } else {
+                continueWith(newCd)
+              }
+            } else {
+              false
+            }
+          case TRUE  => true
+          case FALSE => false
+          case _     => ???
         }
-      case FOR(conditions) =>
-        if (conditions.isEmpty)
-          false
-        else if (conditions.size == 1) {
-          apply(conditions.head, continueWith)
-        } else {
-          slv.push()
-          if (apply(conditions.head, continueWith))
-            true
+      }
+    }
+
+    final def apply(cd: Condition, continueWith: () => Boolean): Boolean =
+      cd match {
+        case OP(expression, constraint, size) =>
+          val ast = translateC(translateE(size, expression), size, constraint)
+          slv.assertCnstr(ast)
+          continueWith()
+        case FAND(conditions) =>
+          if (conditions.isEmpty)
+            false
+          else if (conditions.size == 1)
+            apply(conditions.head, continueWith)
           else {
-            slv.pop()
             if (continueWith()) {
-              apply(FOR(conditions.tail), continueWith)
+              apply(conditions.head, () => {
+                apply(FAND(conditions.tail), continueWith)
+              })
             } else {
               false
             }
           }
-        }
-      case FNOT(OP(expression, constraint, size)) =>
-        val ast =
-          z3.mkNot(translateC(translateE(size, expression), size, constraint))
-        val bla = z3.mkFreshBoolConst("bla")
-        slv.assertCnstr(z3.mkImplies(bla, ast))
-        slv.assertCnstr(bla)
-        continueWith()
-      case TRUE  => true
-      case FALSE => false
-      case _     => ???
-    }
+        case FOR(conditions) =>
+          if (conditions.isEmpty)
+            false
+          else if (conditions.size == 1) {
+            apply(conditions.head, continueWith)
+          } else {
+            slv.push()
+            if (apply(conditions.head, continueWith))
+              true
+            else {
+              slv.pop()
+              if (continueWith()) {
+                apply(FOR(conditions.tail), continueWith)
+              } else {
+                false
+              }
+            }
+          }
+        case FNOT(OP(expression, constraint, size)) =>
+          val ast =
+            z3.mkNot(translateC(translateE(size, expression), size, constraint))
+          slv.assertCnstr(ast)
+          continueWith()
+        case TRUE  => true
+        case FALSE => false
+        case _     => ???
+      }
   }
 
   def isSat(simpleMemory: SimpleMemory, full: Boolean): Boolean = {
     val z3Context = new Z3Context(new Z3Config("MODEL" -> true))
     val slv = z3Context.mkSolver()
     val trans = new Translator(z3Context, slv)
-    System.err.println("All ops = " + (OP.st.size, simpleMemory.pathCondition.size, simpleMemory.pathCondition.tracker.size))
+
+    slv.push()
+    val ast = trans.translateC(
+      trans.translateE(16,
+                       LAnd(Value(ConstantValue(0)), Value(ConstantValue(8)))),
+      16,
+      EQ_E(ConstantValue(0)))
+    slv.assertCnstr(ast)
+    assert(slv.check().get)
+    slv.pop()
+
+    System.err.println(
+      s"@${simpleMemory.location}/${simpleMemory.error} all ops = " + (OP.st.size, simpleMemory.pathCondition.size, simpleMemory.pathCondition.tracker.size))
     val start = System.currentTimeMillis()
-    val b = trans(simpleMemory.pathCondition.cd, () => {
-      val q = slv.check().get
-      if (!q) {
-        slv.checkAssumptions()
-        System.err.println(s"Path wrong, moving on ${slv.getUnsatCore().toList.mkString("\n")}")
-        System.exit(0)
-      }
-      q
-    })
-    System.out.println(
+    val b = trans.go(simpleMemory.pathCondition.cd)
+    val total = System.currentTimeMillis() - start
+
+    statsPrinter.println(
+      s"${simpleMemory.location},${simpleMemory.error},${simpleMemory.pathCondition.size},${simpleMemory.pathCondition.tracker.size},$total")
+    statsPrinter.flush()
+    System.err.println(
       s"solving done in ${System.currentTimeMillis() - start}ms")
     if (!b)
       System.err.println(
