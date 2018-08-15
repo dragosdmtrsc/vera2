@@ -508,7 +508,6 @@ class P4GrammarListener extends P4GrammarBaseListener {
   private val blocksLast:ParseTreeProperty[ListBuffer[Instruction]] = new ParseTreeProperty[ListBuffer[Instruction]]()
 
   override def enterControl_function_declaration(ctx:Control_function_declarationContext){
-    println("Enter control function "+ ctx.control_fn_name.getText)
     ctx.controlFunctionName = ctx.control_fn_name().NAME().getText
     ctx.control_block().parent = s"control.${ctx.controlFunctionName}"
   }
@@ -535,6 +534,8 @@ class P4GrammarListener extends P4GrammarBaseListener {
 
   val instructions: MutableMap[String, Instruction] = mutable.Map[String, Instruction]()
   val links: MutableMap[String, String] = mutable.Map[String, String]()
+  val tableSelectors: MutableMap[(String, String), java.lang.Boolean] = mutable.Map[(String, String), java.lang.Boolean]()
+
   override def exitControl_block(ctx:Control_blockContext){
     var  i = 0
     if (ctx.control_statement() != null && ctx.control_statement().size() > 0)
@@ -582,13 +583,12 @@ class P4GrammarListener extends P4GrammarBaseListener {
     }
   }
 
+
   override def exitApply_table_call(ctx:Apply_table_callContext){
     val execId = UUID.randomUUID().toString
-    val portName = s"table.${ctx.table_name().getText}.in.$execId"
-    println("Apply matched " + ctx.table_name.getText)
-
     ctx.instruction = Forward(s"table.${ctx.table_name().getText}.in.$execId")
     this.links.put(s"table.${ctx.table_name().getText}.out.$execId", ctx.parent + ".out")
+    this.tableSelectors((ctx.table_name().getText, execId)) = false
   }
 
   /*
@@ -601,7 +601,6 @@ class P4GrammarListener extends P4GrammarBaseListener {
    hit_or_miss : 'hit' | 'miss' ;
   */
   override def enterApply_and_select_block(ctx:Apply_and_select_blockContext){
-    val portName = s"table.${ctx.table_name().getText}.in.${UUID.randomUUID().toString}"
     ctx.case_list().parent = ctx.parent
     //here we should call Radu's action parsing code instead
     //currentInstructions.head.append(Forward(ctx.table_name.getText()+"_output"));
@@ -609,13 +608,10 @@ class P4GrammarListener extends P4GrammarBaseListener {
 
 
   override def exitApply_and_select_block(ctx:Apply_and_select_blockContext){
-    println("Apply and select bmatched " + ctx.table_name.getText)
-    //adding fork if there are multiple forward instructions
-    // TODO: Wire it up
     val execId = UUID.randomUUID().toString
     this.instructions.put(ctx.parent, Forward(s"table.${ctx.table_name().getText}.in.$execId"))
     this.links.put(s"table.${ctx.table_name().getText}.out.$execId", s"${ctx.parent}.select")
-
+    this.tableSelectors((ctx.table_name().getText, execId)) = true
     val defaultEntry = ctx.case_list().instructions.collect({
       case v @ If(ConstrainNamedSymbol(what, _, _), b, _) if what == "default.Fired" => b
     }).headOption.getOrElse(Forward(s"${ctx.parent}.out"))
@@ -696,7 +692,6 @@ class P4GrammarListener extends P4GrammarBaseListener {
     ctx.instruction = If (Constrain(currentTableName.head + ".Hit", :==:(ConstantValue(if (ctx.hit_or_miss().getText == "hit") 1 else 0))),
       Forward(ctx.parent + "[0]")
     )
-    //currentInstructions.head.append(Forward(portName));
     ports(currentTableName.head).append(Forward(portName))
 
     ctx.hit_or_miss.getText match {
@@ -707,7 +702,6 @@ class P4GrammarListener extends P4GrammarBaseListener {
     }
 
     blocksLast.get(ctx.control_block).append(Forward(currentTableName.head+"_output"))
-    //currentInstructions.head.append(Forward(currentTableName.head+"_output"))
   }
 
   override def enterAction_case(ctx:Action_caseContext){

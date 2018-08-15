@@ -214,7 +214,7 @@ object SimplePathCondition {
     case _                => Set.empty
   }
 
-  def sz(cd: Condition): Int = cd match {
+  def sz(cd: Condition): Long = cd match {
     case o: OP            => 1
     case FAND(conditions) => conditions.map(c => sz(c)).sum
     case FOR(conditions)  => conditions.map(c => sz(c)).sum

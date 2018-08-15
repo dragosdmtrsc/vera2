@@ -1,5 +1,6 @@
 package org.change.parser.p4.tables
 
+import java.lang
 import java.util.UUID
 
 import org.change.parser.p4._
@@ -27,6 +28,8 @@ abstract class FullTableGeneric[T<:ISwitchInstance](tableName : String,
                                            switchInstance: T,
                                            switch: Switch) {
   private val matchKeys = switch.getTableMatches(tableName)
+  private val isSelected: Boolean = switch.getTableSelectors()((tableName, id))
+
   def numberOfFlows() : Int
 
   protected def generateConstraintsInternal(index : Int) : List[Instruction] = Nil
@@ -76,12 +79,16 @@ abstract class FullTableGeneric[T<:ISwitchInstance](tableName : String,
   )
   protected def initializeTable() : Instruction = {
     InstructionBlock(
-      switch.getAllowedActions(tableName).map(x => {
-        Assign(s"$x.Fired", ConstantValue(0))
-      }) ++ List[Instruction](
-        Assign("default.Fired", ConstantValue(0)),
-        Assign(s"$tableName.Hit", ConstantValue(0))
-      ) ++ List[Instruction](
+      if (isSelected) {
+        Nil
+      } else {
+        switch.getAllowedActions(tableName).map(x => {
+          Assign(s"$x.Fired", ConstantValue(0))
+        }) ++ List[Instruction](
+          Assign("default.Fired", ConstantValue(0)),
+          Assign(s"$tableName.Hit", ConstantValue(0))
+        )
+      } ++ List[Instruction](
         Allocate("IsClone", 1),
         Assign("IsClone", ConstantValue(0))
       )
@@ -97,16 +104,24 @@ abstract class FullTableGeneric[T<:ISwitchInstance](tableName : String,
             InstructionBlock(
               y._2,
               If (y._1,
-                InstructionBlock(
-                  acc2,
-                  Assign(s"${actionDef(x)}.Fired", ConstantValue(1)),
-                  Assign(s"$tableName.Hit", ConstantValue(1))
-                ),
-                InstructionBlock(
-                  Assign(s"${actionDef(x)}.Fired", ConstantValue(0)),
-                  Assign(s"$tableName.Hit", ConstantValue(0)),
+                if (isSelected) {
+                  InstructionBlock(
+                    acc2,
+                    Assign(s"${actionDef(x)}.Fired", ConstantValue(1)),
+                    Assign(s"$tableName.Hit", ConstantValue(1))
+                  )
+                } else {
+                  acc2
+                },
+                if (isSelected) {
+                  InstructionBlock(
+                    Assign(s"${actionDef(x)}.Fired", ConstantValue(0)),
+                    Assign(s"$tableName.Hit", ConstantValue(0)),
+                    acc
+                  )
+                } else {
                   acc
-                )
+                }
               )
             )
           )

@@ -1,6 +1,7 @@
 package org.change.v2.p4.model;
 
 import org.change.v2.p4.model.actions.P4ActionProfile;
+import scala.Tuple2;
 import scala.collection.JavaConversions;
 import generated.parse.p4.P4GrammarLexer;
 import generated.parse.p4.P4GrammarParser;
@@ -31,6 +32,7 @@ public class Switch {
     private Map<String, RegisterSpecification> registerSpecificationMap = null;
     private ActionRegistrar actionRegistrar = null;
     private Map<String, FieldList> fieldListMap = null;
+    private Map<scala.Tuple2<String, String>, Boolean> tableSelectors = null;
     public Map<String, RegisterSpecification> getRegisterSpecificationMap() {
         return registerSpecificationMap;
     }
@@ -93,6 +95,14 @@ public class Switch {
         return allowedActions.get(perTable);
     }
 
+    public Map<Tuple2<String, String>, Boolean> getTableSelectors() {
+        return tableSelectors;
+    }
+
+    public Switch setTableSelectors(Map<Tuple2<String, String>, Boolean> tableSelectors) {
+        this.tableSelectors = tableSelectors;
+        return this;
+    }
     public Switch setRegisterSpecificationMap(Map<String, RegisterSpecification> registerSpecificationMap) {
         this.registerSpecificationMap = registerSpecificationMap;
         return this;
@@ -206,7 +216,8 @@ public class Switch {
         Switch sw = new Switch().
                 setActionRegistrar(listener.actionRegistrar()).
                 setFieldListMap(listener.fieldLists()).
-                setRegisterSpecificationMap(listener.registerMap());
+                setRegisterSpecificationMap(listener.registerMap()).
+                setTableSelectors(JavaConversions.mapAsJavaMap(listener.tableSelectors()));
         for (String table : listener.tables())
             sw = sw.createTable(table);
         sw.matches = listener.tableDeclarations();

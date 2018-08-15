@@ -592,6 +592,11 @@ object SimpleMemory {
         k._3.map(f => r.symbols(f)).toList ++ k._2.map(f => r.rawObjects(f)).toList
       }).values.map(_.head)
 
+      val uq = k._3.map(r => {
+        r -> v.groupBy(_.symbols(r)).size
+      }).filter(_._2 > 1).toMap
+      System.err.println(s"distinct symbols $uq")
+
       val hd = v.head
       val raws = k._2.map(r => {
         val repr = hd.rawObjects(r)
