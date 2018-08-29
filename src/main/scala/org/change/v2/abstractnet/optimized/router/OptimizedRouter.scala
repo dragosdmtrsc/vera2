@@ -187,7 +187,7 @@ object OptimizedRouter {
             }))
         }).groupBy(_._1).map( kv =>
           InstructionBlock(
-            Assert(IPDst, OR(kv._2.map(_._2).toList)),
+            Constrain(IPDst, OR(kv._2.map(_._2).toList)),
             Forward(prefix+kv._1))
         ))) ++
         table.map(i => prefix+i._2 -> Forward(prefix+i._2+"_EXIT").asInstanceOf[Instruction]).toMap ++

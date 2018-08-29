@@ -5,7 +5,6 @@ import org.change.v2.analysis.expression.concrete.nonprimitive._
 import org.change.v2.analysis.processingmodels.instructions._
 import org.change.v2.analysis.processingmodels.{
   Instruction,
-  Let,
   SuperFork,
   Unfail
 }

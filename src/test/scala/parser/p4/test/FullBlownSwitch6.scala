@@ -178,8 +178,7 @@ class FullBlownSwitch6 extends FunSuite {
                        .intersect(rw),
                      h.symbols.filter(r =>
                        r._1 == "IsClone" || r._1
-                         .endsWith("IsValid") || globalRNW.contains(r._1)),
-                     h.myId))
+                         .endsWith("IsValid") || globalRNW.contains(r._1))))
               val grpEnd = System.currentTimeMillis()
               println(s"grouping at $loc = (${cfg
                 .levels(loc)} / ${cfg.levels.size}) with ${rw.size} threshold $mergeThreshhold ${grouped.size} vs ${lst.size} time ${grpEnd - grpStart}")

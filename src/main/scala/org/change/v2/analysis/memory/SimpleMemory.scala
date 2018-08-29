@@ -6,6 +6,7 @@ import java.util.UUID
 import org.change.utils.prettifier.JsonUtil
 import org.change.v2.analysis.constraint._
 import org.change.v2.analysis.executor.Mapper
+import org.change.v2.analysis.executor.solvers.Solver
 import org.change.v2.analysis.expression.abst.{Expression, FloatingExpression}
 import org.change.v2.analysis.expression.concrete.{
   ConstantBValue,
@@ -30,18 +31,25 @@ import scala.util.Random
 case class SimpleMemoryObject(expression: Expression = ConstantValue(0),
                               size: Int = 64)
 
+trait BranchC {
+  val id: Long
+}
+case class IfB(override val id: Long = Random.nextLong()) extends BranchC
+case class ForkB(override val id: Long = Random.nextLong()) extends BranchC
+
 case class SimpleMemory(
     errorCause: Option[String] = None,
     history: List[String] = Nil,
     symbols: SortedMap[String, SimpleMemoryObject] = SortedMap.empty,
     rawObjects: SortedMap[Int, SimpleMemoryObject] = SortedMap.empty,
     memTags: SortedMap[String, Int] = SortedMap.empty,
-    intersections: List[State] = Nil,
-    differences: List[State] = Nil,
     pathCondition: SimplePathCondition = SimplePathCondition.apply(),
-    myId: Long = 0,
-    parentId: Long = -1) {
-  def setId(l: Long): SimpleMemory = copy(parentId = myId, myId = l)
+    branchHistory: List[BranchC] = Nil) {
+
+  def addBranch(b: BranchC): SimpleMemory =
+    copy(branchHistory = b :: branchHistory)
+  def rmBranch(): SimpleMemory = copy(branchHistory = branchHistory.tail)
+
   def eval(tag: Intable): Option[Int] = tag match {
     case v: IntImprovements => Some(v.value)
     case Tag(name)          => memTags.get(name)
@@ -62,7 +70,7 @@ case class SimpleMemory(
   def canRead(t: Int): Boolean = rawObjects.contains(t)
 
   def fail(because: String): SimpleMemory = copy(errorCause = Some(because))
-  def location: String = history.head
+  def location: String = history.headOption.getOrElse("")
   def forwardTo(place: String): SimpleMemory = copy(history = place :: history)
   def error: String = errorCause.getOrElse("")
   def addCondition(condition: Condition): SimpleMemory =
@@ -173,7 +181,6 @@ class SimpleMemoryInterpreter
     case cbv: ConstantBValue      => Some(cbv)
     case csv: ConstantStringValue => Some(csv)
     case sv: SymbolicValue        => Some(sv)
-    case _                        => ???
   }
 
   def instantiate(fc: FloatingConstraint,
@@ -197,7 +204,8 @@ class SimpleMemoryInterpreter
     case :<=:(exp) => instantiate(exp, simpleMemory).map(LTE_E)
     case :>:(exp)  => instantiate(exp, simpleMemory).map(GT_E)
     case :>=:(exp) => instantiate(exp, simpleMemory).map(GTE_E)
-    case _         => ???
+    case or : OR => Some(or)
+    case an : AND => Some(an)
   }
 
   def inferWidth(fexp: FloatingExpression,
@@ -316,16 +324,10 @@ class SimpleMemoryInterpreter
                        verbose: Boolean): Triple[SimpleMemory] =
     instruction match {
       case Fork(forkBlocks) =>
-        forkBlocks.zipWithIndex
-          .map(p => {
-            val (r, idx) = p
-            if (idx != 0) {
-              val myId = Random.nextLong()
-              execute(r, state.setId(myId), verbose)
-            } else {
-              execute(r, state, verbose)
-            }
-          })
+        val fb = ForkB()
+        val withH = state.addBranch(fb)
+        forkBlocks
+          .map(execute(_, withH, verbose))
           .foldLeft(new Triple[SimpleMemory]())((acc, r) => {
             acc + r
           })
@@ -354,6 +356,7 @@ class SimpleMemoryInterpreter
                                  state.fail(s"can't deallocate $id") :: Nil,
                                  Nil))
       case If(testInstr, thenWhat, elseWhat) =>
+        val ifb = IfB()
         testInstr match {
           case InstructionBlock(is) =>
             val at =
@@ -363,7 +366,7 @@ class SimpleMemoryInterpreter
                 (acc, hd) => {
                   val a1 = execute(If(hd, Forward("tt"), Forward("ff")),
                                    acc.continue.head,
-                                   verbose)
+                                   verbose).map(_.rmBranch())
                   val (gt, gf) = a1.success.partition(_.location == "tt")
                   val (gtt, gff) =
                     (gt.map(r => r.copy(history = r.history.tail)),
@@ -376,19 +379,15 @@ class SimpleMemoryInterpreter
                 SimpleMemory.mergeConditions(h._2, state).map(r => r.fail(h._1))
               })
               .collect {
-                case Some(s) => s
+                case Some(s) => s.addBranch(ifb)
               }
               .toList
             SimpleMemory
               .mergeConditions(at.success, state)
-              .map(
-                execute(elseWhat, _, verbose)
-              )
+              .map(s => execute(elseWhat, s.addBranch(ifb), verbose))
               .getOrElse(new Triple[SimpleMemory]()) + SimpleMemory
               .mergeConditions(at.continue, state)
-              .map(
-                execute(thenWhat, _, verbose)
-              )
+              .map(s => execute(thenWhat, s.addBranch(ifb), verbose))
               .getOrElse(new Triple[SimpleMemory]()) +
               new Triple[SimpleMemory](Nil, distinctFailures, Nil)
           case Fork(fb) =>
@@ -399,7 +398,7 @@ class SimpleMemoryInterpreter
                 (acc, hd) => {
                   val a1 = execute(If(hd, Forward("tt"), Forward("ff")),
                                    acc.continue.head,
-                                   verbose)
+                                   verbose).map(_.rmBranch())
                   val (gf, gt) = a1.success.partition(_.location == "ff")
                   val (gff, gtt) =
                     (gf.map(r => r.copy(history = r.history.tail)),
@@ -412,20 +411,16 @@ class SimpleMemoryInterpreter
                 SimpleMemory.mergeConditions(h._2, state).map(r => r.fail(h._1))
               })
               .collect {
-                case Some(s) => s
+                case Some(s) => s.addBranch(ifb)
               }
               .toList
             SimpleMemory
               .mergeConditions(at.success, state)
-              .map(
-                execute(thenWhat, _, verbose)
-              )
+              .map(s => execute(thenWhat, s.addBranch(ifb), verbose))
               .getOrElse(new Triple[SimpleMemory]()) +
               SimpleMemory
                 .mergeConditions(at.continue, state)
-                .map(
-                  execute(elseWhat, _, verbose)
-                )
+                .map(s => execute(elseWhat, s.addBranch(ifb), verbose))
                 .getOrElse(new Triple[SimpleMemory]()) +
               new Triple[SimpleMemory](Nil, distinctFailures, Nil)
           case ConstrainNamedSymbol(id, dc, _) =>
@@ -440,15 +435,17 @@ class SimpleMemoryInterpreter
                 tryEval(r)
                   .map(h => {
                     if (h) {
-                      execute(thenWhat, state, verbose)
+                      execute(thenWhat, state.addBranch(ifb), verbose)
                     } else {
-                      execute(elseWhat, state, verbose)
+                      execute(elseWhat, state.addBranch(ifb), verbose)
                     }
                   })
                   .getOrElse(
-                    execute(thenWhat, state.addCondition(r), verbose) + execute(
+                    execute(thenWhat,
+                            state.addBranch(ifb).addCondition(r),
+                            verbose) + execute(
                       elseWhat,
-                      state.addCondition(FNOT.makeFNOT(r)),
+                      state.addBranch(ifb).addCondition(FNOT.makeFNOT(r)),
                       verbose))
               })
               .getOrElse(Triple[SimpleMemory](
@@ -588,23 +585,28 @@ object SimpleMemory {
     if (chi.size == 1)
       chi.head
     else {
-      val v = chi.groupBy(r => {
-        k._3.map(f => r.symbols(f)).toList ++ k._2.map(f => r.rawObjects(f)).toList
-      }).values.map(_.head)
+      val v = chi
+        .groupBy(r => {
+          k._3
+            .map(f => r.symbols(f))
+            .toList ++ k._2.map(f => r.rawObjects(f)).toList
+        })
+        .values
+        .map(_.head)
       val hd = v.head
       val raws = k._2.map(r => {
         val repr = hd.rawObjects(r)
         r -> (if (v.tail.forall(h => h.rawObjects(r) == repr))
-          Some(repr)
-        else
-          None)
+                Some(repr)
+              else
+                None)
       })
       val syms = k._3.map(r => {
         val repr = hd.symbols(r)
         r -> (if (v.tail.forall(h => h.symbols(r) == repr))
-          Some(repr)
-        else
-          None)
+                Some(repr)
+              else
+                None)
       })
 
       val id = rnd.nextLong().toString
@@ -717,7 +719,7 @@ object SimpleMemory {
   }
   import z3.scala.dsl._
 
-  class Translator(z3: Z3Context, slv: Z3Solver) {
+  class Translator(z3: Z3Context, slv: Z3Solver, checkParam : Int = -1) {
 
     def translateC(ast: Z3AST, sz: Int, constr: Constraint): Z3AST =
       constr match {
@@ -899,7 +901,7 @@ object SimpleMemory {
 
     def hlSolve(ctx: ContextPackage): Boolean = {
       val v = solve(ctx)
-      System.err.println(s"high level reached $v")
+//      System.err.println(s"high level reached $v")
       v
     }
 
@@ -916,7 +918,7 @@ object SimpleMemory {
           case op: OP =>
             val newCd = crt & op
             if (newCd.canBe) {
-              if (crt.size % 20 == 0) {
+              if (checkParam > 0 && crt.size % checkParam == 0) {
                 val ns = filter(newCd)
                 if (!ns.canBe) {
                   false
@@ -936,8 +938,8 @@ object SimpleMemory {
               go(conditions.head, crt, continueWith)
             else {
               val sorted = conditions.partition {
-                case o : FOR => false
-                case _ => true
+                case o: FOR => false
+                case _      => true
               }
               val full = sorted._1 ++ sorted._2
               go(full.head, crt, lst => {
@@ -961,8 +963,7 @@ object SimpleMemory {
           case FNOT(o: OP) =>
             val newCd = crt ~ o
             if (newCd.canBe) {
-              if (crt.size % 20 == 0) {
-                System.err.println("ordered by tick")
+              if (checkParam > 0 && crt.size % checkParam == 0) {
                 val ns = filter(newCd)
                 if (!ns.canBe) {
                   false
@@ -1035,19 +1036,8 @@ object SimpleMemory {
     val z3Context = new Z3Context(new Z3Config("MODEL" -> true))
     val slv = z3Context.mkSolver()
     val trans = new Translator(z3Context, slv)
-
-    slv.push()
-    val ast = trans.translateC(
-      trans.translateE(16,
-                       LAnd(Value(ConstantValue(0)), Value(ConstantValue(8)))),
-      16,
-      EQ_E(ConstantValue(0)))
-    slv.assertCnstr(ast)
-    assert(slv.check().get)
-    slv.pop()
-
-    System.err.println(
-      s"@${simpleMemory.location}/${simpleMemory.error} all ops = " + (OP.st.size, simpleMemory.pathCondition.size, simpleMemory.pathCondition.tracker.size))
+//    System.err.println(
+//      s"@${simpleMemory.location}/${simpleMemory.error} all ops = " + (OP.st.size, simpleMemory.pathCondition.size, simpleMemory.pathCondition.tracker.size))
     val start = System.currentTimeMillis()
     val b = trans.go(simpleMemory.pathCondition.cd)
     val total = System.currentTimeMillis() - start
@@ -1056,10 +1046,10 @@ object SimpleMemory {
       s"${simpleMemory.location},${simpleMemory.error},${simpleMemory.pathCondition.size},${simpleMemory.pathCondition.tracker.size},$total")
     statsPrinter.flush()
     System.err.println(
-      s"solving done in ${System.currentTimeMillis() - start}ms")
-    if (!b)
-      System.err.println(
-        "Hypothesis false for the moment, need to check myself other paths")
+      s"solving done in $total ms")
+//    if (!b)
+//      System.err.println(
+//        "Hypothesis false for the moment, need to check myself other paths")
     b
   }
 
@@ -1088,5 +1078,115 @@ object SimpleMemory {
       memTags = SortedMap[String, Int]() ++ state.memory.memTags,
       pathCondition = SimplePathCondition.apply()
     ).addCondition(FAND.makeFAND(state.memory.pathConditions))
+  }
+}
+
+class ToTheEndExecutor(tripleExecutor: SimpleMemoryInterpreter,
+                       program: Map[String, Instruction]) {
+  private val q: mutable.Queue[SimpleMemory] = mutable.Queue[SimpleMemory]()
+
+  def executeFrom(start: String,
+                  simpleMemory: SimpleMemory,
+                  someSolver: Option[Solver] = None): Triple[SimpleMemory] = {
+    var crtResult = new Triple[SimpleMemory]()
+    q.enqueue(simpleMemory.forwardTo(start))
+    while (q.nonEmpty) {
+      val crt = q.dequeue()
+      if (program.contains(crt.location)) {
+        val prog = program(crt.location)
+        val trip = tripleExecutor.execute(prog, crt, true)
+        val filtered = if (someSolver.nonEmpty) {
+          trip.filter(SimpleMemory.isSat)
+        } else {
+          trip
+        }
+        crtResult = crtResult + filtered.copy(success = filtered.continue,
+                                              continue = Nil)
+        q.enqueue(filtered.success: _*)
+      } else {
+        crtResult = crtResult + new Triple[SimpleMemory](
+          success = crt :: Nil,
+          failed = Nil,
+          continue = Nil)
+      }
+    }
+    assert(crtResult.continue.isEmpty)
+    crtResult
+  }
+
+  def gcd(bh1: List[BranchC], bh2: List[BranchC]): Option[BranchC] = {
+    if (bh1.isEmpty)
+      None
+    else {
+
+      if (bh2.contains(bh1.head))
+        Some(bh1.head)
+      else {
+        gcd(bh1.tail, bh2)
+      }
+    }
+  }
+
+  def gcd(state1: SimpleMemory, state2: SimpleMemory): Option[BranchC] = {
+    val bh1 = state1.branchHistory
+    val bh2 = state2.branchHistory
+    gcd(bh1, bh2)
+  }
+
+  @tailrec
+  final def refine(candidates: Iterable[(Condition, Iterable[SimpleMemory])])
+    : Iterable[(Condition, Iterable[SimpleMemory])] = {
+    var anyMerge = false
+    var newCandidates = mutable.Buffer[(Condition, Iterable[SimpleMemory])]()
+
+    for {
+      xi <- candidates.zipWithIndex
+      if !anyMerge
+    } {
+      val x = xi._1
+      for {
+        y <- candidates.drop(xi._2 + 1)
+        if !anyMerge
+      } {
+        val hd = x._2.head
+        val pc1pc2 = FAND.makeFAND(x._1 :: y._1 :: Nil)
+
+        val canBeMerged = SimpleMemory.isSat(
+          hd.copy(pathCondition = SimplePathCondition(pc1pc2)))
+        anyMerge |= canBeMerged
+        if (canBeMerged) {
+          val npc1pc2 = FAND.makeFAND(FNOT.makeFNOT(x._1) :: y._1 :: Nil)
+          val pc1npc2 = FAND.makeFAND(FNOT.makeFNOT(y._1) :: x._1 :: Nil)
+          newCandidates += ((pc1pc2, x._2 ++ y._2))
+          val canPc2 = SimpleMemory.isSat(
+            hd.copy(
+              pathCondition = new SimplePathCondition(npc1pc2, Set.empty, 0)))
+          val canPc1 = SimpleMemory.isSat(
+            hd.copy(
+              pathCondition = new SimplePathCondition(pc1npc2, Set.empty, 0)))
+          if (canPc2)
+            newCandidates += ((npc1pc2, y._2))
+          if (canPc1) {
+            newCandidates += ((pc1npc2, x._2))
+          }
+          anyMerge = true
+        }
+      }
+      if (!anyMerge) {
+        newCandidates += x
+      }
+    }
+    if (!anyMerge) {
+      newCandidates
+    } else {
+      refine(newCandidates)
+    }
+  }
+
+  def sieve(states: List[SimpleMemory]): Iterable[(Condition, Iterable[SimpleMemory])] = {
+    refine(states.map(r => (r.pathCondition.cd, r :: Nil)))
+  }
+  def noSieve(states: List[SimpleMemory]): Iterable[(Condition, Iterable[SimpleMemory])] = {
+    states.map(r => (r.pathCondition.cd, r :: Nil))
   }
 }

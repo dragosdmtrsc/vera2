@@ -143,7 +143,9 @@ object AbsState {
         r =>
           r -> (state.memory
             .symbols(r)
-            .value.get.e
+            .value
+            .get
+            .e
             .asInstanceOf[ConstantValue]
             .value == 1))
       .toMap
@@ -195,6 +197,16 @@ case class Triple[T](success: List[T], failed: List[T], continue: List[T]) {
                   failed = failed ++ n.failed,
                   continue = continue ++ n.continue)
   def finals() = new Triple[T](success, failed, Nil)
+
+  def map(fun: (T => T)): Triple[T] =
+    copy(success = success.map(fun),
+         failed = failed.map(fun),
+         continue = continue.map(fun))
+  def filter(fun : T => Boolean) : Triple[T] =
+    copy(success = success.filter(fun), continue = continue.filter(fun), failed = failed.filter(fun))
+
+  def flat() : List[T] = success ++ failed
+
 }
 
 object Triple {

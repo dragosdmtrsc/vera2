@@ -15,7 +15,7 @@ import org.change.v2.analysis.expression.abst.FloatingExpression
 import org.change.v2.analysis.expression.concrete.nonprimitive._
 import org.change.v2.analysis.expression.concrete.{ConstantBValue, ConstantStringValue, ConstantValue, SymbolicValue}
 import org.change.v2.analysis.memory.{ConditionInstantiator, InstructionCrawler, MemorySpace, State}
-import org.change.v2.analysis.processingmodels.{Instruction, Let, SuperFork, Unfail}
+import org.change.v2.analysis.processingmodels.{Instruction, SuperFork, Unfail}
 import org.change.v2.analysis.processingmodels.instructions._
 import org.change.v2.analysis.processingmodels.networkproc._
 import org.change.v2.p4.model.Switch

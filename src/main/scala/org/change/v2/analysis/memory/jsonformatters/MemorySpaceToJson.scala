@@ -12,11 +12,17 @@ object MemorySpaceToJson extends DefaultJsonProtocol {
     override def read(json: JsValue): MemorySpace = deserializationError("One way protocol")
 
     import org.change.v2.analysis.memory.jsonformatters.MemoryObjectToJson._
+    import org.change.v2.analysis.memory.jsonformatters.StateToJson._
 
     override def write(obj: MemorySpace): JsValue = JsObject(
       "tags" -> JsObject(obj.memTags.map(tv => tv._1 -> JsNumber(tv._2))),
       "meta_symbols" -> JsObject(obj.symbols.map(tv => tv._1 ->  tv._2.toJson)),
-      "header_fields" -> JsObject(obj.rawObjects.map(tv => tv._1.toString -> tv._2.toJson))
+      "header_fields" -> JsObject(obj.rawObjects.map(tv => tv._1.toString -> tv._2.toJson)),
+      "intersections" -> JsArray(obj.intersections.map(_.toJson).toVector),
+      "diffs" -> JsArray(obj.differences.map(_.toJson).toVector)//,
+//      "saved" -> JsObject(obj.saved.map(s => {
+//        s._1 -> JsArray(s._2.map(_.toJson).toVector)
+//      }))
     )
   }
 

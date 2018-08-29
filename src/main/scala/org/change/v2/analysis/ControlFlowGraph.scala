@@ -4,7 +4,7 @@ import org.change.parser.p4.parser.NewParserStrategy
 import org.change.parser.p4.parser.StateExpander.{DeparserInstruction, ParsePacket}
 import org.change.v2.analysis.processingmodels.instructions._
 import org.change.v2.analysis.processingmodels.networkproc._
-import org.change.v2.analysis.processingmodels.{Instruction, Let, SuperFork, Unfail}
+import org.change.v2.analysis.processingmodels.{Instruction, Unfail}
 
 import scala.annotation.tailrec
 
