@@ -3,6 +3,7 @@ package parser.p4.test
 import java.io.{BufferedOutputStream, FileOutputStream, PrintStream}
 import java.util.UUID
 
+import com.microsoft.z3.Context
 import jdd.bdd.{BDD, BDDPrinter}
 import jdd.util.Dot
 import org.change.parser.p4.ControlFlowInterpreter
@@ -19,6 +20,7 @@ import org.change.v2.analysis.processingmodels.instructions._
 import org.change.v2.analysis.{ControlFlowGraph, Topology}
 import org.change.v2.p4.model.Switch
 import org.scalatest.FunSuite
+import z3.scala.Z3Context
 
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
@@ -173,7 +175,8 @@ class FullBlownSwitch7 extends FunSuite {
             mergeThreshhold = grouped.size + grouped.size / 2
             val grpEnd = System.currentTimeMillis()
             println(s"merging at $loc time ${grpEnd - grpStart}ms ${grouped.size} vs ${lst.size}")
-
+            val ctx = new Context()
+            new Context()
             val execStart = System.currentTimeMillis()
             if (grouped.size == lst.size) {
               lst.foreach(st => {

@@ -1,6 +1,6 @@
 organization  := "org.change"
 version       := "0.2.1-SNAPSHOT"
-scalaVersion  := "2.11.1"
+scalaVersion  := "2.12.1"
 
 name := "symnet"
 
@@ -14,16 +14,17 @@ resolvers += "Sonatype OSS Snapshots" at
 libraryDependencies ++= {
   Seq(
     "org.antlr" % "antlr4" % "4.7",
-    "org.scalatest" % "scalatest_2.11" % "2.2.4" % "test",
+    "org.scalatest" %% "scalatest" % "3.0.5" % "test",
     "io.spray" %% "spray-json" % "1.3.2",
     "org.apache.commons" % "commons-lang3" % "3.5",
-    "com.fasterxml.jackson.core" % "jackson-databind" % "2.8.3",
-    "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.8.3",
-    "com.fasterxml.jackson.dataformat" % "jackson-dataformat-yaml" % "2.8.3",
-    "com.regblanc" %% "scala-smtlib" % "0.2",
+    "com.fasterxml.jackson.core" % "jackson-databind" % "2.8.11",
+    "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.8.11",
+    "com.fasterxml.jackson.dataformat" % "jackson-dataformat-yaml" % "2.8.11",
+    "com.regblanc" %% "scala-smtlib" % "0.2.2-7-g00a9686",
     "junit" % "junit" % "4.12",
     "com.storm-enroute" %% "scalameter" % "0.8.2",
-    "org.scodec" %% "scodec-bits" % "1.1.6"
+    "org.scodec" %% "scodec-bits" % "1.1.6",
+    "de.uni-ulm" %% "scadd" % "1.14"
   )
 }
 
@@ -31,7 +32,8 @@ testFrameworks += new TestFramework("org.scalameter.ScalaMeterFramework")
 parallelExecution in Test := false
 exportJars := true
 unmanagedJars in Compile += file("lib/scalaz3_2.11-2.1.jar")
-unmanagedJars in Compile += file("lib/javabdd-1.0b2.jar")
+unmanagedJars in Compile += file("lib/jdd_105.jar")
+unmanagedJars in Compile += file("lib/com.microsoft.z3.jar")
 unmanagedResourceDirectories in Compile += baseDirectory.value / "lib"
 includeFilter in(Compile, unmanagedResourceDirectories) := ".dll,.so"
 
