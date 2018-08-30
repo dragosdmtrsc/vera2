@@ -9,10 +9,14 @@ import org.change.v2.analysis.processingmodels._
 import org.change.v2.analysis.processingmodels.instructions._
 import org.change.v2.util.canonicalnames._
 import java.io.File
+
+import org.change.v2.analysis.expression.concrete.nonprimitive.{:&&:, :@}
+
 import scala.io.Source
 import scala.util.matching.Regex
 import org.change.v2.util.regexes._
 import org.change.v2.util.conversion.RepresentationConversion
+import org.change.v2.util.conversion.RepresentationConversion.ipToNumber
 
 /**
  * A small gift from radu to symnetic.
@@ -82,6 +86,31 @@ object OptimizedRouter {
         },
         forwardingPort
         )).toSeq.sortBy(i => i._1._2 - i._1._1)
+  }
+
+  def getRoutingEntriesForBV(file : File) : Seq[((Long, Long), String)] = {
+    (for {
+      line <- scala.io.Source.fromFile(file).getLines()
+      tokens = line.split("\\s+")
+      if tokens.length >= 3
+      if tokens(0) != ""
+      hopType = tokens(1)
+      if hopType != "receive" && hopType != "connected"
+      matchPattern = tokens(0)
+      forwardingPort = tokens(2)
+    } yield (
+      matchPattern match {
+        case ipv4netmaskRegex() => {
+          val netMaskTokens = matchPattern.split("/")
+          val netAddr = netMaskTokens(0)
+          val mask = netMaskTokens(1)
+          val m = (1l << (32 - Integer.parseInt(mask)) - 1) & 0xFFFFFFFFl
+          val ip = ipToNumber(netAddr)
+          (ip, m)
+        }
+      },
+      forwardingPort
+    )).toSeq.sortBy(i => -i._1._2)
   }
 
   def getTrivialRoutingEntries(file: File): Seq[((Long, Long), String)] = {

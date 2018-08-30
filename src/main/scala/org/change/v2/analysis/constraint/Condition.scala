@@ -150,47 +150,49 @@ case class SimplePathCondition(cd: Condition, tracker: Set[OP], size: Long)
   }
 
   override def &&(c: Condition): SimplePathCondition = {
-    val pc = copy(cd = FAND.makeFAND(c :: cd :: Nil),
-         size = size + sz(c),
-         tracker = tracker ++ track(c))
-    if (print && SimplePathCondition.updateMax(pc.size)) {
-      val rnd = "%06d".format(cachedefs.next())
-      val f = new File(s"dots/${rnd}_andc/")
-      f.mkdir()
-      val ps = new PrintStream(s"dots/${rnd}_andc/full.dot")
-      ps.println(pc.toDot)
-      ps.close()
-    }
+    val pc = copy(cd = FAND.makeFAND(c :: cd :: Nil)
+//      ,
+//         size = size + sz(c),
+//         tracker = tracker ++ track(c)
+    )
+//    if (print && SimplePathCondition.updateMax(pc.size)) {
+//      val rnd = "%06d".format(cachedefs.next())
+//      val f = new File(s"dots/${rnd}_andc/")
+//      f.mkdir()
+//      val ps = new PrintStream(s"dots/${rnd}_andc/full.dot")
+//      ps.println(pc.toDot)
+//      ps.close()
+//    }
     pc
   }
 
   override def ||(pathCondition: SimplePathCondition): SimplePathCondition = {
-    val pc = copy(cd = FOR.makeFOR(pathCondition.cd :: cd :: Nil),
+    val pc = copy(cd = FOR.makeFOR(pathCondition.cd :: cd :: Nil)/*,
          tracker = tracker ++ pathCondition.tracker,
-         size = size + pathCondition.size)
-    if (print && SimplePathCondition.updateMax(pc.size)) {
-      val rnd = "%06d".format(cachedefs.next())
-      val f = new File(s"dots/${rnd}_or/")
-      f.mkdir()
-      val ps = new PrintStream(s"dots/${rnd}_or/full.dot")
-      ps.println(pc.toDot)
-      ps.close()
-    }
+         size = size + pathCondition.size*/)
+//    if (print && SimplePathCondition.updateMax(pc.size)) {
+//      val rnd = "%06d".format(cachedefs.next())
+//      val f = new File(s"dots/${rnd}_or/")
+//      f.mkdir()
+//      val ps = new PrintStream(s"dots/${rnd}_or/full.dot")
+//      ps.println(pc.toDot)
+//      ps.close()
+//    }
     pc
   }
 
   override def &&(pathCondition: SimplePathCondition): SimplePathCondition = {
-    val pc = copy(cd = FAND.makeFAND(pathCondition.cd :: cd :: Nil),
+    val pc = copy(cd = FAND.makeFAND(pathCondition.cd :: cd :: Nil)/*,
          tracker = tracker ++ pathCondition.tracker,
-         size = size + pathCondition.size)
-    if (print && SimplePathCondition.updateMax(pc.size)) {
-      val rnd = "%06d".format(cachedefs.next())
-      val f = new File(s"dots/${rnd}_and/")
-      f.mkdir()
-      val ps = new PrintStream(s"dots/${rnd}_and/full.dot")
-      ps.println(pc.toDot)
-      ps.close()
-    }
+         size = size + pathCondition.size*/)
+//    if (print && SimplePathCondition.updateMax(pc.size)) {
+//      val rnd = "%06d".format(cachedefs.next())
+//      val f = new File(s"dots/${rnd}_and/")
+//      f.mkdir()
+//      val ps = new PrintStream(s"dots/${rnd}_and/full.dot")
+//      ps.println(pc.toDot)
+//      ps.close()
+//    }
     pc
   }
 }

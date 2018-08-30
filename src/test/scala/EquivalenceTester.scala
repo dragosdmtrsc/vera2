@@ -6,7 +6,7 @@ import org.change.v2.analysis.executor.solvers.Z3BVSolver
 import org.change.v2.analysis.executor.{CodeAwareInstructionExecutor, OVSExecutor}
 import org.change.v2.analysis.expression.concrete.ConstantValue
 import org.change.v2.analysis.memory.State._
-import org.change.v2.analysis.processingmodels.instructions.{Assign, InstructionBlock}
+import org.change.v2.analysis.processingmodels.instructions.{Assign, Forward, InstructionBlock}
 import org.scalatest.FunSuite
 import org.change.v2.analysis.memory._
 import spray.json.JsArray
@@ -44,17 +44,16 @@ class EquivalenceTester extends FunSuite{
     println(s"Equivalence testing took ${System.currentTimeMillis()-time}ms")
 
     assert(f.isEmpty)
-    import org.change.v2.analysis.memory.jsonformatters.StateToJson._
-    val buf = new PrintStream("bad-states.json")
-    buf.println(
-      JsArray(f.map(r => r.toJson).toVector).prettyPrint
-    )
-    buf.close()
-    val buf2 = new PrintStream("ok-states.json")
-    buf2.println(
-      JsArray(s.map(r => r.toJson).toVector).prettyPrint
-    )
-    buf2.close()
+//    val buf = new PrintStream("bad-states.json")
+//    buf.println(
+//      JsArray(f.map(r => r.toJson).toVector).prettyPrint
+//    )
+//    buf.close()
+//    val buf2 = new PrintStream("ok-states.json")
+//    buf2.println(
+//      JsArray(s.map(r => r.toJson).toVector).prettyPrint
+//    )
+//    buf2.close()
 
   }
 

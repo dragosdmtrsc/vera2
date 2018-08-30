@@ -141,7 +141,8 @@ case class SimpleMemory(
       None
 }
 
-class SimpleMemoryInterpreter
+class SimpleMemoryInterpreter(
+    quickTrimStrategy: (Condition, Condition) => Boolean = (_, _) => true)
     extends Mapper[SimpleMemory, Triple[SimpleMemory]] {
   def instantiate(fexp: FloatingExpression,
                   simpleMemory: SimpleMemory): Option[Expression] = fexp match {
@@ -204,8 +205,8 @@ class SimpleMemoryInterpreter
     case :<=:(exp) => instantiate(exp, simpleMemory).map(LTE_E)
     case :>:(exp)  => instantiate(exp, simpleMemory).map(GT_E)
     case :>=:(exp) => instantiate(exp, simpleMemory).map(GTE_E)
-    case or : OR => Some(or)
-    case an : AND => Some(an)
+    case or: OR    => Some(or)
+    case an: AND   => Some(an)
   }
 
   def inferWidth(fexp: FloatingExpression,
@@ -441,12 +442,21 @@ class SimpleMemoryInterpreter
                     }
                   })
                   .getOrElse(
-                    execute(thenWhat,
-                            state.addBranch(ifb).addCondition(r),
-                            verbose) + execute(
-                      elseWhat,
-                      state.addBranch(ifb).addCondition(FNOT.makeFNOT(r)),
-                      verbose))
+                    (if (quickTrimStrategy(state.pathCondition.cd, r)) {
+                       execute(thenWhat,
+                               state.addBranch(ifb).addCondition(r),
+                               verbose)
+                     } else {
+                       new Triple[SimpleMemory]()
+                     }) + (if (quickTrimStrategy(state.pathCondition.cd, FNOT.makeFNOT(r))) {
+                             execute(elseWhat,
+                                     state
+                                       .addBranch(ifb)
+                                       .addCondition(FNOT.makeFNOT(r)),
+                                     verbose)
+                           } else {
+                             new Triple[SimpleMemory]()
+                           }))
               })
               .getOrElse(Triple[SimpleMemory](
                 Nil,
@@ -478,7 +488,10 @@ class SimpleMemoryInterpreter
       case ConstrainFloatingExpression(floatingExpression, dc) =>
         instantiate(floatingExpression, dc, state)
           .map(r => {
-            Triple.startFrom[SimpleMemory](state.addCondition(r))
+            if (quickTrimStrategy(state.pathCondition.cd, r))
+              Triple.startFrom[SimpleMemory](state.addCondition(r))
+            else
+              new Triple[SimpleMemory]()
           })
           .getOrElse(Triple[SimpleMemory](
             Nil,
@@ -719,7 +732,24 @@ object SimpleMemory {
   }
   import z3.scala.dsl._
 
-  class Translator(z3: Z3Context, slv: Z3Solver, checkParam : Int = -1) {
+  class Translator(z3: Z3Context, slv: Z3Solver, checkParam: Int = -1) {
+    def createAST(condition: Condition): Z3AST = condition match {
+      case OP(expression, constraint, size) =>
+        translateC(translateE(size, expression), size, constraint)
+      case FAND(conditions) => z3.mkAnd(conditions.map(createAST): _*)
+      case FOR(conditions)  => z3.mkOr(conditions.map(createAST): _*)
+      case FNOT(condition)  => z3.mkNot(createAST(condition))
+      case TRUE             => z3.mkTrue()
+      case FALSE            => z3.mkFalse()
+    }
+
+    def solve(condition: Condition): Boolean = {
+      val normal = createAST(condition)
+//      System.err.println(s"normal ${normal.toString}")
+//      System.err.println(s"simplified ${simplified.toString}")
+      slv.assertCnstr(normal)
+      slv.check().getOrElse(false)
+    }
 
     def translateC(ast: Z3AST, sz: Int, constr: Constraint): Z3AST =
       constr match {
@@ -730,8 +760,7 @@ object SimpleMemory {
         case LT_E(e)      => z3.mkBVUlt(ast, translateE(sz, e))
         case LTE_E(e)     => z3.mkBVUle(ast, translateE(sz, e))
         case GTE_E(e) =>
-          z3.mkOr(z3.mkBVUgt(ast, translateE(sz, e)),
-                  z3.mkEq(ast, translateE(sz, e)))
+          z3.mkBVUge(ast, translateE(sz, e))
         case EQ_E(e) =>
           z3.mkEq(ast, translateE(sz, e))
       }
@@ -1045,13 +1074,20 @@ object SimpleMemory {
     statsPrinter.println(
       s"${simpleMemory.location},${simpleMemory.error},${simpleMemory.pathCondition.size},${simpleMemory.pathCondition.tracker.size},$total")
     statsPrinter.flush()
-    System.err.println(
-      s"solving done in $total ms")
+    System.err.println(s"solving done in $total ms")
 //    if (!b)
 //      System.err.println(
 //        "Hypothesis false for the moment, need to check myself other paths")
     b
   }
+  def isSatS(cd: Condition): Boolean = {
+    val z3Context = new Z3Context(new Z3Config("MODEL" -> true))
+    val slv = z3Context.mkSolver()
+    val trans = new Translator(z3Context, slv)
+    val ast = trans.createAST(cd)
+    trans.solve(cd)
+  }
+  def isSatS(simpleMemory: SimpleMemory): Boolean = isSatS(simpleMemory.pathCondition.cd)
 
   def isSat(simpleMemory: SimpleMemory): Boolean = {
     isSat(simpleMemory, false)
@@ -1096,7 +1132,7 @@ class ToTheEndExecutor(tripleExecutor: SimpleMemoryInterpreter,
         val prog = program(crt.location)
         val trip = tripleExecutor.execute(prog, crt, true)
         val filtered = if (someSolver.nonEmpty) {
-          trip.filter(SimpleMemory.isSat)
+          trip.filter(SimpleMemory.isSatS)
         } else {
           trip
         }
@@ -1104,10 +1140,9 @@ class ToTheEndExecutor(tripleExecutor: SimpleMemoryInterpreter,
                                               continue = Nil)
         q.enqueue(filtered.success: _*)
       } else {
-        crtResult = crtResult + new Triple[SimpleMemory](
-          success = crt :: Nil,
-          failed = Nil,
-          continue = Nil)
+        crtResult = crtResult + new Triple[SimpleMemory](success = crt :: Nil,
+                                                         failed = Nil,
+                                                         continue = Nil)
       }
     }
     assert(crtResult.continue.isEmpty)
@@ -1151,19 +1186,17 @@ class ToTheEndExecutor(tripleExecutor: SimpleMemoryInterpreter,
         val hd = x._2.head
         val pc1pc2 = FAND.makeFAND(x._1 :: y._1 :: Nil)
 
-        val canBeMerged = SimpleMemory.isSat(
+        val canBeMerged = SimpleMemory.isSatS(
           hd.copy(pathCondition = SimplePathCondition(pc1pc2)))
         anyMerge |= canBeMerged
         if (canBeMerged) {
           val npc1pc2 = FAND.makeFAND(FNOT.makeFNOT(x._1) :: y._1 :: Nil)
           val pc1npc2 = FAND.makeFAND(FNOT.makeFNOT(y._1) :: x._1 :: Nil)
           newCandidates += ((pc1pc2, x._2 ++ y._2))
-          val canPc2 = SimpleMemory.isSat(
-            hd.copy(
-              pathCondition = new SimplePathCondition(npc1pc2, Set.empty, 0)))
-          val canPc1 = SimpleMemory.isSat(
-            hd.copy(
-              pathCondition = new SimplePathCondition(pc1npc2, Set.empty, 0)))
+          val canPc2 = SimpleMemory.isSatS(
+            hd.copy(pathCondition = SimplePathCondition(npc1pc2)))
+          val canPc1 = SimpleMemory.isSatS(
+            hd.copy(pathCondition = SimplePathCondition(pc1npc2)))
           if (canPc2)
             newCandidates += ((npc1pc2, y._2))
           if (canPc1) {
@@ -1183,10 +1216,12 @@ class ToTheEndExecutor(tripleExecutor: SimpleMemoryInterpreter,
     }
   }
 
-  def sieve(states: List[SimpleMemory]): Iterable[(Condition, Iterable[SimpleMemory])] = {
+  def sieve(states: List[SimpleMemory])
+    : Iterable[(Condition, Iterable[SimpleMemory])] = {
     refine(states.map(r => (r.pathCondition.cd, r :: Nil)))
   }
-  def noSieve(states: List[SimpleMemory]): Iterable[(Condition, Iterable[SimpleMemory])] = {
+  def noSieve(states: List[SimpleMemory])
+    : Iterable[(Condition, Iterable[SimpleMemory])] = {
     states.map(r => (r.pathCondition.cd, r :: Nil))
   }
 }
