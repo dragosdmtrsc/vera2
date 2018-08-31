@@ -15,6 +15,7 @@ import org.change.v2.analysis.expression.concrete.{
   SymbolicValue
 }
 import org.change.v2.analysis.expression.concrete.nonprimitive._
+import org.change.v2.analysis.memory.SimpleMemory.NaturalKey
 import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.analysis.processingmodels.instructions._
 import org.change.v2.analysis.types.NumericType
@@ -45,6 +46,8 @@ case class SimpleMemory(
     memTags: SortedMap[String, Int] = SortedMap.empty,
     pathCondition: SimplePathCondition = SimplePathCondition.apply(),
     branchHistory: List[BranchC] = Nil) {
+  def createTag(name: String, value: Int): SimpleMemory =
+    copy(memTags = memTags + (name -> value))
 
   def addBranch(b: BranchC): SimpleMemory =
     copy(branchHistory = b :: branchHistory)
@@ -347,7 +350,17 @@ class SimpleMemoryInterpreter(
       case ExistsRaw(a) => Triple.startFrom[SimpleMemory](state)
       case AllocateSymbol(id, size) =>
         Triple.startFrom[SimpleMemory](state.Allocate(id, size))
-      case CreateTag(name, value) => Triple.startFrom[SimpleMemory](state)
+      case CreateTag(name, value) =>
+        state
+          .eval(value)
+          .map(v => {
+            Triple.startFrom[SimpleMemory](state.createTag(name, v))
+          })
+          .getOrElse(
+            new Triple[SimpleMemory](
+              success = Nil,
+              continue = Nil,
+              failed = state.fail(TagExp.brokenTagExpErrorMessage) :: Nil))
       case DeallocateNamedSymbol(id) =>
         state
           .deallocate(id)
@@ -358,121 +371,88 @@ class SimpleMemoryInterpreter(
                                  Nil))
       case If(testInstr, thenWhat, elseWhat) =>
         val ifb = IfB()
-        testInstr match {
+
+        def generateConditions(instr : Instruction, state: SimpleMemory) : (Condition, Condition, Condition) = instr match {
           case InstructionBlock(is) =>
-            val at =
-              is.foldLeft(
-                Triple.startFrom[SimpleMemory](
-                  state.copy(pathCondition = SimplePathCondition.apply())))(
-                (acc, hd) => {
-                  val a1 = execute(If(hd, Forward("tt"), Forward("ff")),
-                                   acc.continue.head,
-                                   verbose).map(_.rmBranch())
-                  val (gt, gf) = a1.success.partition(_.location == "tt")
-                  val (gtt, gff) =
-                    (gt.map(r => r.copy(history = r.history.tail)),
-                     gf.map(r => r.copy(history = r.history.tail)))
-                  acc + a1.copy(success = gff, continue = gtt)
-                })
-            val distinctFailures = at.failed
-              .groupBy(_.error)
-              .map(h => {
-                SimpleMemory.mergeConditions(h._2, state).map(r => r.fail(h._1))
-              })
-              .collect {
-                case Some(s) => s.addBranch(ifb)
-              }
-              .toList
-            SimpleMemory
-              .mergeConditions(at.success, state)
-              .map(s => execute(elseWhat, s.addBranch(ifb), verbose))
-              .getOrElse(new Triple[SimpleMemory]()) + SimpleMemory
-              .mergeConditions(at.continue, state)
-              .map(s => execute(thenWhat, s.addBranch(ifb), verbose))
-              .getOrElse(new Triple[SimpleMemory]()) +
-              new Triple[SimpleMemory](Nil, distinctFailures, Nil)
-          case Fork(fb) =>
-            val at =
-              fb.foldLeft(
-                Triple.startFrom[SimpleMemory](
-                  state.copy(pathCondition = SimplePathCondition.apply())))(
-                (acc, hd) => {
-                  val a1 = execute(If(hd, Forward("tt"), Forward("ff")),
-                                   acc.continue.head,
-                                   verbose).map(_.rmBranch())
-                  val (gf, gt) = a1.success.partition(_.location == "ff")
-                  val (gff, gtt) =
-                    (gf.map(r => r.copy(history = r.history.tail)),
-                     gt.map(r => r.copy(history = r.history.tail)))
-                  acc + a1.copy(success = gtt, continue = gff)
-                })
-            val distinctFailures = at.failed
-              .groupBy(_.error)
-              .map(h => {
-                SimpleMemory.mergeConditions(h._2, state).map(r => r.fail(h._1))
-              })
-              .collect {
-                case Some(s) => s.addBranch(ifb)
-              }
-              .toList
-            SimpleMemory
-              .mergeConditions(at.success, state)
-              .map(s => execute(thenWhat, s.addBranch(ifb), verbose))
-              .getOrElse(new Triple[SimpleMemory]()) +
-              SimpleMemory
-                .mergeConditions(at.continue, state)
-                .map(s => execute(elseWhat, s.addBranch(ifb), verbose))
-                .getOrElse(new Triple[SimpleMemory]()) +
-              new Triple[SimpleMemory](Nil, distinctFailures, Nil)
-          case ConstrainNamedSymbol(id, dc, _) =>
-            execute(
-              If(ConstrainFloatingExpression(:@(id), dc), thenWhat, elseWhat),
-              state,
-              verbose)
-          case ConstrainFloatingExpression(floatingExpression,
-                                           floatingConstraint) =>
-            instantiate(floatingExpression, floatingConstraint, state)
-              .map(r => {
-                tryEval(r)
-                  .map(h => {
-                    if (h) {
-                      execute(thenWhat, state.addBranch(ifb), verbose)
-                    } else {
-                      execute(elseWhat, state.addBranch(ifb), verbose)
-                    }
-                  })
-                  .getOrElse(
-                    (if (quickTrimStrategy(state.pathCondition.cd, r)) {
-                       execute(thenWhat,
-                               state.addBranch(ifb).addCondition(r),
-                               verbose)
-                     } else {
-                       new Triple[SimpleMemory]()
-                     }) + (if (quickTrimStrategy(state.pathCondition.cd, FNOT.makeFNOT(r))) {
-                             execute(elseWhat,
-                                     state
-                                       .addBranch(ifb)
-                                       .addCondition(FNOT.makeFNOT(r)),
-                                     verbose)
-                           } else {
-                             new Triple[SimpleMemory]()
-                           }))
-              })
-              .getOrElse(Triple[SimpleMemory](
-                Nil,
-                state.fail(
-                  s"cannot instantiate $floatingExpression $floatingConstraint") :: Nil,
-                Nil))
-          case ConstrainRaw(a, dc, _) =>
-            execute(
-              If(ConstrainFloatingExpression(:@(a), dc), thenWhat, elseWhat),
-              state,
-              verbose)
+            if (is.isEmpty)
+              (TRUE, FALSE, FALSE)
+            else {
+              val ch = generateConditions(is.head, state)
+              val rest = generateConditions(InstructionBlock(is.tail), state)
+              (FAND.makeFAND(ch._1 :: rest._1 :: Nil), FOR.makeFOR(
+                ch._2 :: FAND.makeFAND(ch._1 :: rest._2 :: Nil) :: Nil
+              ), FOR.makeFOR(
+                ch._3 :: FAND.makeFAND(ch._1 :: rest._3 :: Nil) :: Nil
+              ))
+            }
+          case Fork(is) =>
+            if (is.isEmpty) {
+              (FALSE, TRUE, FALSE)
+            } else {
+              val ch = generateConditions(is.head, state)
+              val rest = generateConditions(Fork(is.tail), state)
+              (FOR.makeFOR(
+                ch._1 :: FAND(ch._2 :: rest._1 :: Nil) :: Nil
+              ), FAND.makeFAND(
+                ch._2 :: rest._2 :: Nil
+              ), FOR.makeFOR(
+                ch._3 :: FAND.makeFAND(ch._2 :: rest._3 :: Nil) :: Nil
+              ))
+            }
+          case ConstrainFloatingExpression(fe, dc) => instantiate(fe, dc, state).map(r => {
+            tryEval(r).map(u => {
+              if (u) (TRUE, FALSE, FALSE) else (FALSE, TRUE, FALSE : Condition)
+            }).getOrElse((r, FNOT.makeFNOT(r), FALSE))
+          }).getOrElse((FALSE, FALSE, TRUE))
+          case ConstrainNamedSymbol(id, fc, _) => generateConditions(ConstrainFloatingExpression(:@(id), fc), state)
+          case ConstrainRaw(a, fc, _) => generateConditions(ConstrainFloatingExpression(:@(a), fc), state)
         }
+
+        val cds = generateConditions(testInstr, state)
+
+        def takeBAndTakeC = {
+          val takeB = if (cds._1 != FALSE) {
+            execute(thenWhat, state.addBranch(ifb).copy(pathCondition = SimplePathCondition(cds._1)), verbose)
+          } else {
+            new Triple[SimpleMemory]()
+          }
+          val takeC = if (cds._2 != FALSE) {
+            execute(elseWhat, state.addBranch(ifb).copy(pathCondition = SimplePathCondition(cds._2)), verbose)
+          } else {
+            new Triple[SimpleMemory]()
+          }
+          (takeB, takeC)
+        }
+
+        (if (cds._3 != FALSE) {
+          System.err.println(s"found segfault condition $testInstr == ${cds._3}")
+          val takeF = new Triple[SimpleMemory](
+            continue = Nil, success = Nil,
+            failed = state.addCondition(cds._3).fail(s"segfault at $testInstr") :: Nil)
+          val (takeB, takeC) = takeBAndTakeC
+          takeB + takeC + takeF
+        } else {
+          if (cds._1 != FALSE && cds._2 != FALSE) {
+              execute(thenWhat, state.addBranch(ifb).copy(pathCondition = SimplePathCondition(cds._1)), verbose) +
+                execute(elseWhat, state.addBranch(ifb).copy(pathCondition = SimplePathCondition(cds._2)), verbose)
+          } else {
+            val (takeB, takeC) = takeBAndTakeC
+            takeB + takeC
+          }
+        }).map(_.addCondition(state.pathCondition.cd))
+
       case AssignNamedSymbol(id, exp, t) =>
         instantiate(exp, state)
           .flatMap(e => {
-            state.assignNewValue(id, e).map(Triple.startFrom[SimpleMemory])
+            tryEval(e)
+              .map(f => {
+                state
+                  .assignNewValue(id, ConstantValue(f))
+                  .map(Triple.startFrom[SimpleMemory])
+              })
+              .getOrElse(
+                state.assignNewValue(id, e).map(Triple.startFrom[SimpleMemory])
+              )
           })
           .getOrElse(
             Triple[SimpleMemory](Nil,
@@ -536,20 +516,22 @@ class SimpleMemoryInterpreter(
           case Some(i) =>
             instantiate(exp, state)
               .map(e => {
-                state
-                  .assignNewValue(i, e)
+                tryEval(e)
+                  .map(v => {
+                    ConstantValue(v)
+                  })
+                  .map(state.assignNewValue(i, _))
+                  .getOrElse(state.assignNewValue(i, e))
                   .map(Triple.startFrom[SimpleMemory])
-                  .getOrElse(
-                    Triple[SimpleMemory](
-                      Nil,
-                      state.fail(s"can't assign $a <- exp") :: Nil,
-                      Nil))
+                  .getOrElse(Triple[SimpleMemory](
+                    Nil,
+                    state.fail(s"can't assign $a <- exp") :: Nil,
+                    Nil))
               })
-              .getOrElse(
-                Triple[SimpleMemory](
-                  Nil,
-                  state.fail(s"can't assign $a <- $exp") :: Nil,
-                  Nil))
+              .getOrElse(Triple[SimpleMemory](
+                Nil,
+                state.fail(s"can't assign $a <- $exp") :: Nil,
+                Nil))
           case None =>
             Triple[SimpleMemory](
               Nil,
@@ -599,13 +581,15 @@ object SimpleMemory {
       chi.head
     else {
       val v = chi
-        .groupBy(r => {
-          k._3
-            .map(f => r.symbols(f))
-            .toList ++ k._2.map(f => r.rawObjects(f)).toList
-        })
-        .values
-        .map(_.head)
+//        .groupBy(r => {
+//          k._3
+//            .map(f => r.symbols(f))
+//            .toList ++ k._2.map(f => r.rawObjects(f)).toList
+//        })
+//        .values
+//        .map(vv => {
+//          vv.head.copy(pathCondition = SimplePathCondition.apply(FOR.makeFOR(vv.map(r => r.pathCondition.cd).toList)))
+//        })
       val hd = v.head
       val raws = k._2.map(r => {
         val repr = hd.rawObjects(r)
@@ -627,7 +611,7 @@ object SimpleMemory {
         .collect {
           case (sym, None) => sym
         }
-        .foldLeft(v.map(h => (h, h.pathCondition)))((acc, st) => {
+        .foldLeft(chi.map(h => (h, h.pathCondition)))((acc, st) => {
           val sbname = SymbolicValue(s"meta$st$id")
           acc.map(
             r =>
@@ -734,11 +718,12 @@ object SimpleMemory {
 
   class Translator(z3: Z3Context, slv: Z3Solver, checkParam: Int = -1) {
     def createAST(condition: Condition): Z3AST = condition match {
-      case OP(expression, constraint, size) =>
+      case OP(expression, constraint, size) => //z3.mkFreshBoolConst("abc")
         translateC(translateE(size, expression), size, constraint)
       case FAND(conditions) => z3.mkAnd(conditions.map(createAST): _*)
       case FOR(conditions)  => z3.mkOr(conditions.map(createAST): _*)
       case FNOT(condition)  => z3.mkNot(createAST(condition))
+      case Placeholder(_, id)  => z3.mkBoolConst(id)
       case TRUE             => z3.mkTrue()
       case FALSE            => z3.mkFalse()
     }
@@ -1065,19 +1050,9 @@ object SimpleMemory {
     val z3Context = new Z3Context(new Z3Config("MODEL" -> true))
     val slv = z3Context.mkSolver()
     val trans = new Translator(z3Context, slv)
-//    System.err.println(
-//      s"@${simpleMemory.location}/${simpleMemory.error} all ops = " + (OP.st.size, simpleMemory.pathCondition.size, simpleMemory.pathCondition.tracker.size))
     val start = System.currentTimeMillis()
     val b = trans.go(simpleMemory.pathCondition.cd)
     val total = System.currentTimeMillis() - start
-
-    statsPrinter.println(
-      s"${simpleMemory.location},${simpleMemory.error},${simpleMemory.pathCondition.size},${simpleMemory.pathCondition.tracker.size},$total")
-    statsPrinter.flush()
-    System.err.println(s"solving done in $total ms")
-//    if (!b)
-//      System.err.println(
-//        "Hypothesis false for the moment, need to check myself other paths")
     b
   }
   def isSatS(cd: Condition): Boolean = {
@@ -1087,7 +1062,8 @@ object SimpleMemory {
     val ast = trans.createAST(cd)
     trans.solve(cd)
   }
-  def isSatS(simpleMemory: SimpleMemory): Boolean = isSatS(simpleMemory.pathCondition.cd)
+  def isSatS(simpleMemory: SimpleMemory): Boolean =
+    isSatS(simpleMemory.pathCondition.cd)
 
   def isSat(simpleMemory: SimpleMemory): Boolean = {
     isSat(simpleMemory, false)

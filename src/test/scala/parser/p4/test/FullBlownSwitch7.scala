@@ -175,8 +175,6 @@ class FullBlownSwitch7 extends FunSuite {
             mergeThreshhold = grouped.size + grouped.size / 2
             val grpEnd = System.currentTimeMillis()
             println(s"merging at $loc time ${grpEnd - grpStart}ms ${grouped.size} vs ${lst.size}")
-            val ctx = new Context()
-            new Context()
             val execStart = System.currentTimeMillis()
             if (grouped.size == lst.size) {
               lst.foreach(st => {
@@ -237,7 +235,7 @@ class FullBlownSwitch7 extends FunSuite {
     val achievableFailures = failed.groupBy(h => (h.errorCause.getOrElse(""), h.location)).toList.sortBy(f => {
       (f._1._2, f._1._1)
     }).filter(r => {
-      val sth = r._2.exists(SimpleMemory.isSat)
+      val sth = r._2.exists(SimpleMemory.isSatS)
       if (!sth) {
         System.err.println("Hypothesis globally false. Why?")
       }

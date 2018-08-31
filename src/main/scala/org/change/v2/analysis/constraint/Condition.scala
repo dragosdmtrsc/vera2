@@ -76,6 +76,8 @@ case class OP(expression: Expression, constraint: Constraint, size: Int)
 
 }
 
+case class Placeholder(condition: Condition, id : String) extends Condition
+
 object OP {
   val st = mutable.Set.empty[OP]
   def add(o : OP): Unit = st += o
@@ -270,7 +272,6 @@ object FNOT {
 
   def makeFNOT(condition: Condition): Condition = condition match {
     case OP(e, NOT(constraint), sz) => OP(e, constraint, sz)
-    case o: OP                      => new FNOT(o)
 //    case and : FAND           => new FNOT(and)
     case FAND(conditions)           => FOR.apply(conditions.map(makeFNOT))
 //    case or : FOR            => new FNOT(or)
@@ -278,6 +279,6 @@ object FNOT {
     case FNOT(condition)            => condition
     case TRUE                       => FALSE
     case FALSE                      => TRUE
-    case _                          => ???
+    case _                          => new FNOT(condition)
   }
 }
