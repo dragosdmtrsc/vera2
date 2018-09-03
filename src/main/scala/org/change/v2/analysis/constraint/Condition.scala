@@ -80,7 +80,7 @@ case class Placeholder(condition: Condition, id : String) extends Condition
 
 object OP {
   val st = mutable.Set.empty[OP]
-  def add(o : OP): Unit = st += o
+  def add(o : OP): Unit = {} /*st += o*/
 }
 
 case class FAND(conditions: List[Condition]) extends Condition

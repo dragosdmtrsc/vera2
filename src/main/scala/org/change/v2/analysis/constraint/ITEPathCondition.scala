@@ -3,7 +3,6 @@ package org.change.v2.analysis.constraint
 import java.io.{Closeable, File, PrintStream}
 import java.util.UUID
 
-import jdd.bdd.{BDD, BDDPrinter}
 import org.change.v2.util.ToDot
 
 import scala.collection.mutable

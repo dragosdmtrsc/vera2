@@ -323,6 +323,43 @@ class SimpleMemoryInterpreter(
     case _ => None
   }
 
+  def generateConditions(instr : Instruction, state: SimpleMemory) : (Condition, Condition, Condition) = instr match {
+    case InstructionBlock(is) =>
+      if (is.isEmpty)
+        (TRUE, FALSE, FALSE)
+      else {
+        val ch = generateConditions(is.head, state)
+        val rest = generateConditions(InstructionBlock(is.tail), state)
+        (FAND.makeFAND(ch._1 :: rest._1 :: Nil), FOR.makeFOR(
+          ch._2 :: FAND.makeFAND(ch._1 :: rest._2 :: Nil) :: Nil
+        ), FOR.makeFOR(
+          ch._3 :: FAND.makeFAND(ch._1 :: rest._3 :: Nil) :: Nil
+        ))
+      }
+    case Fork(is) =>
+      if (is.isEmpty) {
+        (FALSE, TRUE, FALSE)
+      } else {
+        val ch = generateConditions(is.head, state)
+        val rest = generateConditions(Fork(is.tail), state)
+        (FOR.makeFOR(
+          ch._1 :: FAND(ch._2 :: rest._1 :: Nil) :: Nil
+        ), FAND.makeFAND(
+          ch._2 :: rest._2 :: Nil
+        ), FOR.makeFOR(
+          ch._3 :: FAND.makeFAND(ch._2 :: rest._3 :: Nil) :: Nil
+        ))
+      }
+    case ConstrainFloatingExpression(fe, dc) => instantiate(fe, dc, state).map(r => {
+      tryEval(r).map(u => {
+        if (u) (TRUE, FALSE, FALSE) else (FALSE, TRUE, FALSE : Condition)
+      }).getOrElse((r, FNOT.makeFNOT(r), FALSE))
+    }).getOrElse((FALSE, FALSE, TRUE))
+    case ConstrainNamedSymbol(id, fc, _) => generateConditions(ConstrainFloatingExpression(:@(id), fc), state)
+    case ConstrainRaw(a, fc, _) => generateConditions(ConstrainFloatingExpression(:@(a), fc), state)
+  }
+
+
   override def execute(instruction: Instruction,
                        state: SimpleMemory,
                        verbose: Boolean): Triple[SimpleMemory] =
@@ -371,60 +408,40 @@ class SimpleMemoryInterpreter(
                                  Nil))
       case If(testInstr, thenWhat, elseWhat) =>
         val ifb = IfB()
-
-        def generateConditions(instr : Instruction, state: SimpleMemory) : (Condition, Condition, Condition) = instr match {
-          case InstructionBlock(is) =>
-            if (is.isEmpty)
-              (TRUE, FALSE, FALSE)
-            else {
-              val ch = generateConditions(is.head, state)
-              val rest = generateConditions(InstructionBlock(is.tail), state)
-              (FAND.makeFAND(ch._1 :: rest._1 :: Nil), FOR.makeFOR(
-                ch._2 :: FAND.makeFAND(ch._1 :: rest._2 :: Nil) :: Nil
-              ), FOR.makeFOR(
-                ch._3 :: FAND.makeFAND(ch._1 :: rest._3 :: Nil) :: Nil
-              ))
-            }
-          case Fork(is) =>
-            if (is.isEmpty) {
-              (FALSE, TRUE, FALSE)
-            } else {
-              val ch = generateConditions(is.head, state)
-              val rest = generateConditions(Fork(is.tail), state)
-              (FOR.makeFOR(
-                ch._1 :: FAND(ch._2 :: rest._1 :: Nil) :: Nil
-              ), FAND.makeFAND(
-                ch._2 :: rest._2 :: Nil
-              ), FOR.makeFOR(
-                ch._3 :: FAND.makeFAND(ch._2 :: rest._3 :: Nil) :: Nil
-              ))
-            }
-          case ConstrainFloatingExpression(fe, dc) => instantiate(fe, dc, state).map(r => {
-            tryEval(r).map(u => {
-              if (u) (TRUE, FALSE, FALSE) else (FALSE, TRUE, FALSE : Condition)
-            }).getOrElse((r, FNOT.makeFNOT(r), FALSE))
-          }).getOrElse((FALSE, FALSE, TRUE))
-          case ConstrainNamedSymbol(id, fc, _) => generateConditions(ConstrainFloatingExpression(:@(id), fc), state)
-          case ConstrainRaw(a, fc, _) => generateConditions(ConstrainFloatingExpression(:@(a), fc), state)
+        def validate(cds : (Condition, Condition, Condition)) = {
+          val takeB = if (cds._1 != FALSE && quickTrimStrategy(state.pathCondition.cd, cds._1)) {
+            cds._1
+          } else {
+            FALSE
+          }
+          val takeC = if (cds._2 != FALSE && quickTrimStrategy(state.pathCondition.cd, cds._2)) {
+            cds._2
+          } else {
+            FALSE
+          }
+          val takeF = if (cds._3 != FALSE && quickTrimStrategy(state.pathCondition.cd, cds._3)) {
+            cds._3
+          } else {
+            FALSE
+          }
+          (takeB, takeC, takeF)
         }
-
-        val cds = generateConditions(testInstr, state)
-
+        val cds = validate(generateConditions(testInstr, state))
         def takeBAndTakeC = {
           val takeB = if (cds._1 != FALSE) {
-            execute(thenWhat, state.addBranch(ifb).copy(pathCondition = SimplePathCondition(cds._1)), verbose)
+            execute(thenWhat, state.addBranch(ifb).addCondition(cds._1), verbose)
           } else {
             new Triple[SimpleMemory]()
           }
           val takeC = if (cds._2 != FALSE) {
-            execute(elseWhat, state.addBranch(ifb).copy(pathCondition = SimplePathCondition(cds._2)), verbose)
+            execute(elseWhat, state.addBranch(ifb).addCondition(cds._2), verbose)
           } else {
             new Triple[SimpleMemory]()
           }
           (takeB, takeC)
         }
 
-        (if (cds._3 != FALSE) {
+        if (cds._3 != FALSE) {
           System.err.println(s"found segfault condition $testInstr == ${cds._3}")
           val takeF = new Triple[SimpleMemory](
             continue = Nil, success = Nil,
@@ -433,13 +450,26 @@ class SimpleMemoryInterpreter(
           takeB + takeC + takeF
         } else {
           if (cds._1 != FALSE && cds._2 != FALSE) {
-              execute(thenWhat, state.addBranch(ifb).copy(pathCondition = SimplePathCondition(cds._1)), verbose) +
-                execute(elseWhat, state.addBranch(ifb).copy(pathCondition = SimplePathCondition(cds._2)), verbose)
+              execute(thenWhat, state.addBranch(ifb).addCondition(cds._1), verbose) +
+                execute(elseWhat, state.addBranch(ifb).addCondition(cds._2), verbose)
           } else {
             val (takeB, takeC) = takeBAndTakeC
             takeB + takeC
           }
-        }).map(_.addCondition(state.pathCondition.cd))
+        }
+      case Assume(i) =>
+        val cds = generateConditions(i, state)
+        val fld = if (cds._3 != FALSE && quickTrimStrategy(state.pathCondition.cd, cds._3)) {
+          state.addCondition(cds._3).fail(s"segfault in $i") :: Nil
+        } else {
+          Nil
+        }
+        val cont = if (cds._1 != FALSE && quickTrimStrategy(state.pathCondition.cd, cds._1)) {
+          state.addCondition(cds._1) :: Nil
+        } else {
+          Nil
+        }
+        new Triple[SimpleMemory](continue = cont, success = Nil, failed = fld)
 
       case AssignNamedSymbol(id, exp, t) =>
         instantiate(exp, state)

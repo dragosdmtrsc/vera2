@@ -18,8 +18,8 @@ class EquivalenceTester extends FunSuite{
     var links  = Map[String, String]()
     val routerFile = "routing_tables/tiny.txt"
 
-    var optimizedRouter = OptimizedRouter.makeOptimizedRouter_Costin(new File(routerFile), "OPT_")
-    var basicRouter = OptimizedRouter.makeNaiveRouter(new File(routerFile))
+    var optimizedRouter = OptimizedRouter.makeOptimizedRouterForBV_d(new File(routerFile), "OPT_")
+    var basicRouter = OptimizedRouter.makeOptimizedRouterForBV(new File(routerFile), "")
 
     val outputDict = basicRouter.instructions.map(i => i._1 -> ("OPT_" + i._1))
     def portOutput(x1 : String, y1 : String) = {

@@ -62,9 +62,12 @@ class Equivalence(val instructions1 : Map[String, Instruction],
       val portMismatch = mutable.Buffer[(Condition, String, String)]()
 
       for ((l1, l2) <- initialLocations) {
+        val start = java.lang.System.currentTimeMillis()
         val res1 = toTheEndExecutor.executeFrom(l1, input.head)
+        val end = java.lang.System.currentTimeMillis()
+        println(s"executed $l1 for ${res1.success.size} in ${end - start}ms")
         i = i + 1
-        val all = toTheEndExecutor.sieve(res1.flat())
+        val all = toTheEndExecutor.noSieve(res1.flat())
         println(s"${all.size} total number of res1 pcs vs ${res1.success.size + res1.failed.size}")
         all.foreach(h => {
           val res2 = toTheEndExecutor2.executeFrom(l2, input.head.copy(pathCondition = SimplePathCondition(h._1)))

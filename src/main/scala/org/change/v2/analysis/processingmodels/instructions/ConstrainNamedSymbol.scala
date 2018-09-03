@@ -38,6 +38,10 @@ case class ConstrainFloatingExpression(floatingExpression: FloatingExpression,
   override def apply(s: State, verbose: Boolean): (List[State], List[State]) = ???
 }
 
+case class Assume(instruction: Instruction) extends Instruction {
+  override def apply(s: State, verbose: Boolean): (List[State], List[State]) = ???
+}
+
 case class ConstrainRaw (a: Intable, dc: FloatingConstraint, c: Option[Constraint] = None) extends Instruction {
   override def apply(s: State, v: Boolean): (List[State], List[State]) = a(s) match {
     case Some(int) => c match {
