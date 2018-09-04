@@ -129,6 +129,7 @@ class OVSExecutor(solver: Solver) extends DecoratedInstructionExecutor(solver) {
   (List[State], List[State]) = {
     instruction match {
       case translatable: Translatable => this.execute(translatable.generateInstruction(), s, v)
+      case Assume(i) => execute(i, s, v)
       case destroy : DestroyPacket => destroy(s, verbose = true)
       case AssignNamedSymbolWithLength(id, exp, width) => AssignNamedSymbolWithLength(id, exp, width)(s, v)
 //      case Call(i) => executeForward(Forward(i), s, v)

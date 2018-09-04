@@ -210,6 +210,7 @@ class CodeAwareInstructionExecutor(val program : Map[String, Instruction],
 
   override def executeExoticInstruction(instruction: Instruction, s: State, v: Boolean): (List[State], List[State]) = {
     instruction match {
+      case sf : SuperFork => this.execute(Fork(sf.instructions.toList), s, v)
       case t : Translatable => this.execute(t.generateInstruction(), s, v)
       case Call(fun) => this.execute(program(fun), s, v)
 //      case sf : SuperFork => executeSuperFork(sf, s, v)
