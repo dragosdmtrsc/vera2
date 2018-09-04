@@ -8,15 +8,10 @@ import org.change.v2.analysis.constraint._
 import org.change.v2.analysis.executor.Mapper
 import org.change.v2.analysis.executor.solvers.Solver
 import org.change.v2.analysis.expression.abst.{Expression, FloatingExpression}
-import org.change.v2.analysis.expression.concrete.{
-  ConstantBValue,
-  ConstantStringValue,
-  ConstantValue,
-  SymbolicValue
-}
+import org.change.v2.analysis.expression.concrete.{ConstantBValue, ConstantStringValue, ConstantValue, SymbolicValue}
 import org.change.v2.analysis.expression.concrete.nonprimitive._
 import org.change.v2.analysis.memory.SimpleMemory.NaturalKey
-import org.change.v2.analysis.processingmodels.Instruction
+import org.change.v2.analysis.processingmodels.{Instruction, SuperFork}
 import org.change.v2.analysis.processingmodels.instructions._
 import org.change.v2.analysis.types.NumericType
 import org.change.v2.interval.IntervalOps
@@ -365,6 +360,14 @@ class SimpleMemoryInterpreter(
                        verbose: Boolean): Triple[SimpleMemory] =
     instruction match {
       case Fork(forkBlocks) =>
+        val fb = ForkB()
+        val withH = state.addBranch(fb)
+        forkBlocks
+          .map(execute(_, withH, verbose))
+          .foldLeft(new Triple[SimpleMemory]())((acc, r) => {
+            acc + r
+          })
+      case SuperFork(forkBlocks) =>
         val fb = ForkB()
         val withH = state.addBranch(fb)
         forkBlocks
