@@ -40,10 +40,9 @@ class EquivalenceTester extends FunSuite{
         tcpOptions), State.clean, true
     )
     var time = System.currentTimeMillis()
-    val (s, f) = equiv.show(SimpleMemory.apply(init._1.head) :: Nil, List[(String, String)](("0", "OPT_0")), portOutput, (_, _, _) => true)
+    val (a, b, c) = equiv.show(SimpleMemory.apply(init._1.head) :: Nil, List[(String, String)](("0", "OPT_0")), portOutput, (_, _, _) => true)
     println(s"Equivalence testing took ${System.currentTimeMillis()-time}ms")
 
-    assert(f.isEmpty)
 //    val buf = new PrintStream("bad-states.json")
 //    buf.println(
 //      JsArray(f.map(r => r.toJson).toVector).prettyPrint

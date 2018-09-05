@@ -1092,8 +1092,16 @@ object SimpleMemory {
     val z3Context = new Z3Context(new Z3Config("MODEL" -> true))
     val slv = z3Context.mkSolver()
     val trans = new Translator(z3Context, slv)
-    val ast = trans.createAST(cd)
-    trans.solve(cd)
+
+    cd match {
+      case FAND(r) =>  r.foreach(u => {
+        val ast = trans.createAST(u)
+        slv.assertCnstr(ast)
+      })
+      case _ =>
+        slv.assertCnstr(trans.createAST(cd))
+    }
+    slv.check().get
   }
   def isSatS(simpleMemory: SimpleMemory): Boolean =
     isSatS(simpleMemory.pathCondition.cd)
