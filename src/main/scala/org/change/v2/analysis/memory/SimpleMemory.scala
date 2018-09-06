@@ -524,7 +524,7 @@ class SimpleMemoryInterpreter(
           case None =>
             Triple[SimpleMemory](
               Nil,
-              state.fail(TagExp.brokenTagExpErrorMessage) :: Nil,
+              state.fail(TagExp.brokenTagExpErrorMessage + s" in deallocate $a") :: Nil,
               Nil)
         }
 
@@ -541,7 +541,7 @@ class SimpleMemoryInterpreter(
           case None =>
             Triple[SimpleMemory](
               Nil,
-              state.fail(TagExp.brokenTagExpErrorMessage) :: Nil,
+              state.fail(TagExp.brokenTagExpErrorMessage + s"in allocate $a") :: Nil,
               Nil)
         }
       case AssignRaw(a, exp, t) =>
@@ -568,7 +568,7 @@ class SimpleMemoryInterpreter(
           case None =>
             Triple[SimpleMemory](
               Nil,
-              state.fail(TagExp.brokenTagExpErrorMessage) :: Nil,
+              state.fail(TagExp.brokenTagExpErrorMessage + s" in assign $a") :: Nil,
               Nil)
         }
       case ConstrainRaw(a, dc, c) =>

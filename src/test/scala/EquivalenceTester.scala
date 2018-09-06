@@ -1,6 +1,7 @@
 import java.io.{File, PrintStream}
 
 import org.change.v2.abstractnet.optimized.router.OptimizedRouter
+import org.change.v2.analysis.constraint._
 import org.change.v2.analysis.equivalence.Equivalence
 import org.change.v2.analysis.executor.solvers.Z3BVSolver
 import org.change.v2.analysis.executor.{CodeAwareInstructionExecutor, OVSExecutor}
@@ -11,6 +12,7 @@ import org.scalatest.FunSuite
 import org.change.v2.analysis.memory._
 import spray.json.JsArray
 import spray.json._
+import z3.scala.Z3Solver
 
 class EquivalenceTester extends FunSuite{
 
@@ -39,8 +41,32 @@ class EquivalenceTester extends FunSuite{
         end,
         tcpOptions), State.clean, true
     )
+    import org.change.v2.util.canonicalnames._
     var time = System.currentTimeMillis()
-    val (a, b, c) = equiv.show(SimpleMemory.apply(init._1.head) :: Nil, List[(String, String)](("0", "OPT_0")), portOutput, (_, _, _) => true)
+    def outputEquivalence(slv : Z3Solver, s1 : SimpleMemory, s2 : SimpleMemory) : Boolean = {
+      val layoutEquiv = s1.memTags == s2.memTags && s1.rawObjects.keySet == s2.rawObjects.keySet
+      if (layoutEquiv) {
+        val mustBeEqual = List(
+          IPDst, IPSrc, Proto, EtherDst, EtherSrc, EtherType
+        )
+        val or = FOR.makeFOR(mustBeEqual.map(r => {
+          s1.eval(r).map(h => {
+            FNOT.makeFNOT(OP(s1.rawObjects(h).expression, EQ_E(s2.rawObjects(h).expression), s1.rawObjects(h).size))
+          }).getOrElse(FALSE)
+        }))
+        if (or == FALSE) {
+          // sounds stupid, but it means that no expression was correctly evaluated
+          true
+        } else {
+          val cd = FAND.makeFAND(s2.pathCondition.cd :: or :: Nil)
+          SimpleMemory.isSatS(cd)
+        }
+      } else {
+        false
+      }
+    }
+
+    val (a, b, c) = equiv.show(SimpleMemory.apply(init._1.head) :: Nil, List[(String, String)](("0", "OPT_0")), portOutput, outputEquivalence)
     println(s"Equivalence testing took ${System.currentTimeMillis()-time}ms")
 
 //    val buf = new PrintStream("bad-states.json")
