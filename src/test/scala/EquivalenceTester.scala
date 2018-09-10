@@ -1,5 +1,6 @@
-import java.io.{File, PrintStream}
+import java.io.{BufferedOutputStream, File, FileOutputStream, PrintStream}
 
+import org.change.utils.prettifier.JsonUtil
 import org.change.v2.abstractnet.optimized.router.OptimizedRouter
 import org.change.v2.analysis.constraint._
 import org.change.v2.analysis.equivalence.Equivalence
@@ -69,17 +70,15 @@ class EquivalenceTester extends FunSuite{
     val (a, b, c) = equiv.show(SimpleMemory.apply(init._1.head) :: Nil, List[(String, String)](("0", "OPT_0")), portOutput, outputEquivalence)
     println(s"Equivalence testing took ${System.currentTimeMillis()-time}ms")
 
-//    val buf = new PrintStream("bad-states.json")
-//    buf.println(
-//      JsArray(f.map(r => r.toJson).toVector).prettyPrint
-//    )
-//    buf.close()
-//    val buf2 = new PrintStream("ok-states.json")
-//    buf2.println(
-//      JsArray(s.map(r => r.toJson).toVector).prettyPrint
-//    )
-//    buf2.close()
-
+    val osarity = new BufferedOutputStream(new FileOutputStream("wrongarity.json"))
+    JsonUtil.toJson(a, osarity)
+    osarity.close()
+    val osport = new BufferedOutputStream(new FileOutputStream("wrongport.json"))
+    JsonUtil.toJson(a, osport)
+    osport.close()
+    val osoutput = new BufferedOutputStream(new FileOutputStream("outputequivalence.json"))
+    JsonUtil.toJson(a, osoutput)
+    osoutput.close()
   }
 
 }

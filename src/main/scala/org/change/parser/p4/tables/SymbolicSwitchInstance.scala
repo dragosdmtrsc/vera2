@@ -164,7 +164,6 @@ object SymbolicSwitchInstance {
             }).toMap, ActionDefinition(action = actionName, actionParams = actionParams))
       }).toList, fromActionCall(switchInstance.getDefaultAction(tableName)))
     }).toMap
-    throw new NotImplementedError("please implement a proper width inference here")
     SymbolicSwitchInstance(name, ifaces, cloneSpec, switch, tables, introducedSymbolicTableParams.map(h => h -> 64).toMap)
   }
 
