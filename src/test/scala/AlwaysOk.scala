@@ -1,5 +1,5 @@
 import org.scalatest.{FlatSpec, Matchers}
-import z3.scala.{Z3Config, Z3Context}
+import z3.scala.{Z3Context}
 
 /**
   * Author: Radu Stoenescu
@@ -19,8 +19,7 @@ class AlwaysOk extends FlatSpec with Matchers {
 
     val totSecs = 200
 
-    val cfg = new Z3Config("MODEL" -> true) // required if you plan to query models of satisfiable constraints
-    val z3 = new Z3Context(cfg)
+    val z3 = new Z3Context("MODEL" -> true)
 
     // prepares the integer sort and three constants (the "unknowns")
     val i = z3.mkIntSort

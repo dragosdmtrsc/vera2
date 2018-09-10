@@ -23,8 +23,7 @@ libraryDependencies ++= {
     "com.regblanc" %% "scala-smtlib" % "0.2.2-7-g00a9686",
     "junit" % "junit" % "4.12",
     "com.storm-enroute" %% "scalameter" % "0.8.2",
-    "org.scodec" %% "scodec-bits" % "1.1.6",
-    "de.uni-ulm" %% "scadd" % "1.14"
+    "org.scodec" %% "scodec-bits" % "1.1.6"
   )
 }
 
