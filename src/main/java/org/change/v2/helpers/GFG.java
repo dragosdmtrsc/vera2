@@ -1,9 +1,14 @@
 package org.change.v2.helpers;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class GFG
 {
+    public static class EmbeddedResult {
+        public int bpm;
+        public Iterable<Integer> notMatched;
+    }
     // N is cardinality of the
     // sets currently being matched
     int N;
@@ -76,5 +81,42 @@ public class GFG
                 result++;
         }
         return result;
+    }
+    public EmbeddedResult maxBPMWithExplanation(Iterable<Integer>[] bpGraph)
+    {
+        // An array to keep track of the
+        // applicants assigned to jobs.
+        // The value of matchR[i] is the
+        // applicant number assigned to job i,
+        // the value -1 indicates nobody is assigned.
+        int matchR[] = new int[N];
+
+        // Initially all jobs are available
+        for(int i = 0; i < N; ++i)
+            matchR[i] = -1;
+
+        // Count of jobs assigned to applicants
+        int result = 0;
+        int u = 0;
+        EmbeddedResult res = new EmbeddedResult();
+        List<Integer> nonMatched = new ArrayList<>();
+        for (; u < bpGraph.length; u++)
+        {
+            // Mark all jobs as not seen
+            // for next applicant.
+            boolean seen[] =new boolean[N] ;
+            for(int i = 0; i < N; ++i)
+                seen[i] = false;
+
+            // Find if the applicant 'u' can get a job
+            if (bpm(bpGraph, u, seen, matchR))
+                result++;
+            else
+                nonMatched.add(u);
+        }
+        if (!nonMatched.isEmpty())
+            res.notMatched = nonMatched;
+        res.bpm = result;
+        return res;
     }
 }

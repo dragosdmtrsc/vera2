@@ -48,7 +48,8 @@ object EqPrinter {
 class Equivalence(val instructions1: Map[String, Instruction],
                   val instructions2: Map[String, Instruction]) {
 
-  type MagicTuple = (Condition, (Iterable[SimpleMemory], Iterable[SimpleMemory]))
+  type MagicTuple =
+    (Condition, (Iterable[SimpleMemory], Iterable[SimpleMemory]))
 
   def show(input: List[SimpleMemory],
            initialLocations: Iterable[(String, String)],
@@ -56,9 +57,7 @@ class Equivalence(val instructions1: Map[String, Instruction],
            outputEquivalenceHook: ((Z3Solver,
                                     SimpleMemory,
                                     SimpleMemory) => Boolean))
-    : (Iterable[MagicTuple],
-       Iterable[MagicTuple],
-       Iterable[MagicTuple]) = {
+    : (Iterable[MagicTuple], Iterable[MagicTuple], Iterable[MagicTuple]) = {
 
     def simpleSatStrategy(condition: Condition,
                           newCondition: Condition): Boolean =
@@ -101,66 +100,85 @@ class Equivalence(val instructions1: Map[String, Instruction],
             val succ2 = r._2.filter(_.error == "")
             if (succ1.size != succ2.size) {
               wrongArity += ((r._1,
-                (succ1.map(_.copy(pathCondition = SimplePathCondition.apply())), succ2.map(_.copy(pathCondition = SimplePathCondition.apply())))
-              ))
+                              (succ1.map(_.copy(
+                                 pathCondition = SimplePathCondition.apply())),
+                               succ2.map(
+                                 _.copy(pathCondition =
+                                   SimplePathCondition.apply())))))
             } else {
               if (succ1.size == 1) {
                 if (!outputPortCorrespondence(succ1.head.location,
                                               succ2.head.location)) {
                   portMismatch += ((r._1,
-                    (succ1.map(_.copy(pathCondition = SimplePathCondition.apply())), succ2.map(_.copy(pathCondition = SimplePathCondition.apply())))
-                  ))
+                                    (succ1.map(
+                                       _.copy(pathCondition =
+                                         SimplePathCondition.apply())),
+                                     succ2.map(
+                                       _.copy(pathCondition =
+                                         SimplePathCondition.apply())))))
                 } else {
                   val ctx = new Z3Context()
                   val slv = ctx.mkSolver()
                   if (!outputEquivalenceHook(slv, succ1.head, succ2.head)) {
                     outputMismatch += ((r._1,
-                      (succ1.map(_.copy(pathCondition = SimplePathCondition.apply())), succ2.map(_.copy(pathCondition = SimplePathCondition.apply())))
-                    ))
+                                        (succ1.map(
+                                           _.copy(pathCondition =
+                                             SimplePathCondition.apply())),
+                                         succ2.map(
+                                           _.copy(pathCondition =
+                                             SimplePathCondition.apply())))))
                   }
                 }
               } else {
                 val firstGraph = succ1
                   .map(u => {
-                    succ2
-                      .map(v => {
-                        val ctx = new Z3Context()
-                        val slv = ctx.mkSolver()
-                        if (outputPortCorrespondence(u.location, v.location))
-                          new Integer(1)
-                        else
-                          new Integer(0)
-                      })
+                    succ2.zipWithIndex.filter(p => outputPortCorrespondence(u.location, p._1.location))
+                      .map(v => new Integer(v._2))
                       .asJava
                   })
                   .toArray
+
                 val gfg = new GFG(succ1.size)
-                val bpm1 = gfg.maxBPM(firstGraph)
-                if (bpm1 != succ1.size) {
+                val bpm1 = gfg.maxBPMWithExplanation(firstGraph)
+                if (bpm1.bpm != succ1.size) {
+                  val aslist = succ1.toList
+                  val nonMatched = bpm1.notMatched.asScala
+                    .map(h => {
+                      aslist(h.intValue()).location
+                    })
+                    .mkString(",")
+                  java.lang.System.err.println(
+                    s"PORT mismatch because the following were not matched $nonMatched")
                   portMismatch += ((r._1,
-                    (succ1.map(_.copy(pathCondition = SimplePathCondition.apply())), succ2.map(_.copy(pathCondition = SimplePathCondition.apply())))
-                  ))
+                                    (succ1.map(
+                                       _.copy(pathCondition =
+                                         SimplePathCondition.apply())),
+                                     succ2.map(
+                                       _.copy(pathCondition =
+                                         SimplePathCondition.apply())))))
                 } else {
                   val o1o2Rel = succ1
                     .map(u => {
-                      succ2
-                        .map(v => {
-                          val ctx = new Z3Context()
-                          val slv = ctx.mkSolver()
-                          if (outputPortCorrespondence(u.location, v.location) && outputEquivalenceHook(
-                                slv,
-                                u,
-                                v)) new Integer(1)
-                          else new Integer(0)
-                        })
+                      succ2.zipWithIndex.filter(p => {
+                        val ctx = new Z3Context()
+                        val slv = ctx.mkSolver()
+                        outputPortCorrespondence(u.location, p._1.location) && outputEquivalenceHook(
+                          slv,
+                          u,
+                          p._1)
+                      }).map(r => new Integer(r._2))
                         .asJava
                     })
                     .toArray
                   val bpm2 = gfg.maxBPM(o1o2Rel)
                   if (bpm2 != succ1.size) {
                     outputMismatch += ((r._1,
-                      (succ1.map(_.copy(pathCondition = SimplePathCondition.apply())), succ2.map(_.copy(pathCondition = SimplePathCondition.apply())))
-                    ))
+                                        (succ1.map(
+                                           _.copy(pathCondition =
+                                             SimplePathCondition.apply())),
+                                         succ2.map(
+                                           _.copy(pathCondition =
+                                             SimplePathCondition.apply())))))
                   }
                 }
               }
