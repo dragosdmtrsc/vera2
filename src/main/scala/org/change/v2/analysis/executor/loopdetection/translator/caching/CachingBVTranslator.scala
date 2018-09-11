@@ -5,12 +5,12 @@ import org.change.v2.analysis.expression.abst.Expression
 import org.change.v2.analysis.expression.concrete.{ConstantStringValue, ConstantValue, SymbolicValue}
 import org.change.v2.analysis.expression.concrete.nonprimitive._
 import org.change.v2.analysis.memory.{MemoryObject, MemorySpace, Value}
-import z3.scala.{Z3AST, Z3Config, Z3Context, Z3Solver}
+import z3.scala.{Z3AST, Z3Context, Z3Solver}
 
 object CachingBVTranslator {
 
   def emptyContext: TranslationResult = {
-    val context = new Z3Context(new Z3Config("MODEL" -> true))
+    val context = new Z3Context("MODEL" -> true)
     (context, context.mkSolver(), Map.empty)
   }
 

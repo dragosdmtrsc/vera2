@@ -16,7 +16,7 @@ import org.change.v2.analysis.processingmodels.instructions._
 import org.change.v2.analysis.types.NumericType
 import org.change.v2.interval.IntervalOps
 import org.change.v2.analysis.memory.TagExp._
-import z3.scala.{Z3AST, Z3Config, Z3Context, Z3Solver}
+import z3.scala.{Z3AST, Z3Context, Z3Solver}
 
 import scala.annotation.tailrec
 import scala.collection.{immutable, mutable}
@@ -1080,7 +1080,7 @@ object SimpleMemory {
   }
 
   def isSat(simpleMemory: SimpleMemory, full: Boolean): Boolean = {
-    val z3Context = new Z3Context(new Z3Config("MODEL" -> true))
+    val z3Context = new Z3Context("MODEL" -> true)
     val slv = z3Context.mkSolver()
     val trans = new Translator(z3Context, slv)
     val start = System.currentTimeMillis()
@@ -1089,7 +1089,7 @@ object SimpleMemory {
     b
   }
   def isSatS(cd: Condition): Boolean = {
-    val z3Context = new Z3Context(new Z3Config("MODEL" -> true))
+    val z3Context = new Z3Context("MODEL" -> true)
     val slv = z3Context.mkSolver()
     val trans = new Translator(z3Context, slv)
 
