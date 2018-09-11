@@ -1101,7 +1101,9 @@ object SimpleMemory {
       case _ =>
         slv.assertCnstr(trans.createAST(cd))
     }
-    slv.check().get
+    val b = slv.check().get
+    z3Context.delete()
+    b
   }
   def isSatS(simpleMemory: SimpleMemory): Boolean =
     isSatS(simpleMemory.pathCondition.cd)
@@ -1185,52 +1187,52 @@ class ToTheEndExecutor(tripleExecutor: SimpleMemoryInterpreter,
     gcd(bh1, bh2)
   }
 
-  @tailrec
-  final def refine(candidates: Iterable[(Condition, Iterable[SimpleMemory])])
-    : Iterable[(Condition, Iterable[SimpleMemory])] = {
-    var anyMerge = false
-    var newCandidates = mutable.Buffer[(Condition, Iterable[SimpleMemory])]()
+  case class PartitionHolder(iterable: List[(Condition, List[SimpleMemory])]) {
 
-    for {
-      xi <- candidates.zipWithIndex
-      if !anyMerge
-    } {
-      val x = xi._1
-      for {
-        y <- candidates.drop(xi._2 + 1)
-        if !anyMerge
-      } {
-        val hd = x._2.head
-        val pc1pc2 = FAND.makeFAND(x._1 :: y._1 :: Nil)
-
-        val canBeMerged = SimpleMemory.isSatS(
-          hd.copy(pathCondition = SimplePathCondition(pc1pc2)))
-        anyMerge |= canBeMerged
-        if (canBeMerged) {
-          val npc1pc2 = FAND.makeFAND(FNOT.makeFNOT(x._1) :: y._1 :: Nil)
-          val pc1npc2 = FAND.makeFAND(FNOT.makeFNOT(y._1) :: x._1 :: Nil)
-          newCandidates += ((pc1pc2, x._2 ++ y._2))
-          val canPc2 = SimpleMemory.isSatS(
-            hd.copy(pathCondition = SimplePathCondition(npc1pc2)))
-          val canPc1 = SimpleMemory.isSatS(
-            hd.copy(pathCondition = SimplePathCondition(pc1npc2)))
-          if (canPc2)
-            newCandidates += ((npc1pc2, y._2))
-          if (canPc1) {
-            newCandidates += ((pc1npc2, x._2))
+    @tailrec
+    private def add(cd : (Condition, List[SimpleMemory]),
+                  crt : List[(Condition, List[SimpleMemory])],
+                  remaining : List[(Condition, List[SimpleMemory])]) : List[(Condition, List[SimpleMemory])] = {
+      if (remaining.isEmpty) {
+        crt  :+ cd
+      } else {
+        val (hd :: tail) = remaining
+        val ac = FAND.makeFAND(hd._1 :: cd._1 :: Nil)
+        if (SimpleMemory.isSatS(ac)) {
+          val newCrt = crt :+ (ac, hd._2 ++ cd._2)
+          val ncrtHd = FAND.makeFAND(FNOT.makeFNOT(cd._1) :: hd._1 :: Nil)
+          val rem = if (SimpleMemory.isSatS(ncrtHd)) {
+            newCrt :+ (ncrtHd, hd._2)
+          } else {
+            newCrt
           }
-          anyMerge = true
+          val nhdCrt = FAND.makeFAND(FNOT.makeFNOT(hd._1) :: cd._1 :: Nil)
+          if (SimpleMemory.isSatS(nhdCrt)) {
+            add((nhdCrt, cd._2), rem, tail)
+          } else {
+            if (rem.eq(newCrt)) {
+              (crt :+ (hd._1, hd._2 ++ cd._2)) ++ tail
+            } else {
+              rem ++ tail
+            }
+          }
+        } else {
+          add(cd, hd :: crt, tail)
         }
       }
-      if (!anyMerge) {
-        newCandidates += x
-      }
     }
-    if (!anyMerge) {
-      newCandidates
-    } else {
-      refine(newCandidates)
+
+    def add(cd : (Condition, List[SimpleMemory])): PartitionHolder = {
+      copy(add(cd, Nil, iterable))
     }
+  }
+
+  final def refine(candidates: Iterable[(Condition, Iterable[SimpleMemory])])
+    : Iterable[(Condition, Iterable[SimpleMemory])] = {
+    val partitionHolder = new PartitionHolder(Nil)
+    candidates.foldLeft(partitionHolder)((acc, x) => {
+      acc.add((x._1, x._2.toList))
+    }).iterable
   }
 
   def sieve(states: List[SimpleMemory])

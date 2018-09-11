@@ -48,7 +48,7 @@ object EqPrinter {
 class Equivalence(val instructions1: Map[String, Instruction],
                   val instructions2: Map[String, Instruction]) {
 
-  type MagicTuple = (Condition, Iterable[SimpleMemory])
+  type MagicTuple = (Condition, (Iterable[SimpleMemory], Iterable[SimpleMemory]))
 
   def show(input: List[SimpleMemory],
            initialLocations: Iterable[(String, String)],
@@ -56,9 +56,9 @@ class Equivalence(val instructions1: Map[String, Instruction],
            outputEquivalenceHook: ((Z3Solver,
                                     SimpleMemory,
                                     SimpleMemory) => Boolean))
-    : (Iterable[(MagicTuple, MagicTuple)],
-       Iterable[(MagicTuple, MagicTuple)],
-       Iterable[(MagicTuple, MagicTuple)]) = {
+    : (Iterable[MagicTuple],
+       Iterable[MagicTuple],
+       Iterable[MagicTuple]) = {
 
     def simpleSatStrategy(condition: Condition,
                           newCondition: Condition): Boolean =
@@ -75,9 +75,9 @@ class Equivalence(val instructions1: Map[String, Instruction],
     val toTheEndExecutor2 =
       new ToTheEndExecutor(simpleMemoryInterpreter, instructions2)
     var i = 0
-    val wrongArity = mutable.Buffer.empty[(MagicTuple, MagicTuple)]
-    val portMismatch = mutable.Buffer[(MagicTuple, MagicTuple)]()
-    val outputMismatch = mutable.Buffer[(MagicTuple, MagicTuple)]()
+    val wrongArity = mutable.Buffer.empty[MagicTuple]
+    val portMismatch = mutable.Buffer[MagicTuple]()
+    val outputMismatch = mutable.Buffer[MagicTuple]()
 
     for (in <- input) {
       for ((l1, l2) <- initialLocations) {
@@ -100,17 +100,23 @@ class Equivalence(val instructions1: Map[String, Instruction],
           all2.foreach(r => {
             val succ2 = r._2.filter(_.error == "")
             if (succ1.size != succ2.size) {
-              wrongArity += ((h, r))
+              wrongArity += ((r._1,
+                (succ1.map(_.copy(pathCondition = SimplePathCondition.apply())), succ2.map(_.copy(pathCondition = SimplePathCondition.apply())))
+              ))
             } else {
               if (succ1.size == 1) {
                 if (!outputPortCorrespondence(succ1.head.location,
                                               succ2.head.location)) {
-                  portMismatch += ((h, r))
+                  portMismatch += ((r._1,
+                    (succ1.map(_.copy(pathCondition = SimplePathCondition.apply())), succ2.map(_.copy(pathCondition = SimplePathCondition.apply())))
+                  ))
                 } else {
                   val ctx = new Z3Context()
                   val slv = ctx.mkSolver()
                   if (!outputEquivalenceHook(slv, succ1.head, succ2.head)) {
-                    outputMismatch += ((h, r))
+                    outputMismatch += ((r._1,
+                      (succ1.map(_.copy(pathCondition = SimplePathCondition.apply())), succ2.map(_.copy(pathCondition = SimplePathCondition.apply())))
+                    ))
                   }
                 }
               } else {
@@ -131,7 +137,9 @@ class Equivalence(val instructions1: Map[String, Instruction],
                 val gfg = new GFG(succ1.size)
                 val bpm1 = gfg.maxBPM(firstGraph)
                 if (bpm1 != succ1.size) {
-                  portMismatch += ((h, r))
+                  portMismatch += ((r._1,
+                    (succ1.map(_.copy(pathCondition = SimplePathCondition.apply())), succ2.map(_.copy(pathCondition = SimplePathCondition.apply())))
+                  ))
                 } else {
                   val o1o2Rel = succ1
                     .map(u => {
@@ -150,7 +158,9 @@ class Equivalence(val instructions1: Map[String, Instruction],
                     .toArray
                   val bpm2 = gfg.maxBPM(o1o2Rel)
                   if (bpm2 != succ1.size) {
-                    outputMismatch += ((h, r))
+                    outputMismatch += ((r._1,
+                      (succ1.map(_.copy(pathCondition = SimplePathCondition.apply())), succ2.map(_.copy(pathCondition = SimplePathCondition.apply())))
+                    ))
                   }
                 }
               }
