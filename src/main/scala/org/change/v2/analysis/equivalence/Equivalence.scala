@@ -98,9 +98,9 @@ class Equivalence(val instructions1: Map[String, Instruction],
             val succ2 = r._2.filter(_.error == "")
             if (succ1.size != succ2.size) {
               wrongArity += ((r._1,
-                              (succ1.map(_.copy(
+                              (h._2.map(_.copy(
                                  pathCondition = SimplePathCondition.apply())),
-                               succ2.map(
+                                r._2.map(
                                  _.copy(pathCondition =
                                    SimplePathCondition.apply())))))
             } else {
