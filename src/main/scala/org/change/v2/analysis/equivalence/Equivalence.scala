@@ -50,7 +50,20 @@ class Equivalence(val instructions1: Map[String, Instruction],
 
   type MagicTuple =
     (Condition, (Iterable[SimpleMemory], Iterable[SimpleMemory]))
+  def simpleSatStrategy(condition: Condition,
+                        newCondition: Condition): Boolean =
+    newCondition match {
+      case TRUE  => true
+      case FALSE => false
+      case _ =>
+        SimpleMemory.isSatS(FAND.makeFAND(condition :: newCondition :: Nil))
+    }
 
+  val simpleMemoryInterpreter = new SimpleMemoryInterpreter(simpleSatStrategy)
+  val toTheEndExecutor =
+    new ToTheEndExecutor(simpleMemoryInterpreter, instructions1)
+  val toTheEndExecutor2 =
+    new ToTheEndExecutor(simpleMemoryInterpreter, instructions2)
   def show(input: List[SimpleMemory],
            initialLocations: Iterable[(String, String)],
            outputPortCorrespondence: ((String, String) => Boolean),
@@ -58,21 +71,6 @@ class Equivalence(val instructions1: Map[String, Instruction],
                                     SimpleMemory,
                                     SimpleMemory) => Boolean))
     : (Iterable[MagicTuple], Iterable[MagicTuple], Iterable[MagicTuple]) = {
-
-    def simpleSatStrategy(condition: Condition,
-                          newCondition: Condition): Boolean =
-      newCondition match {
-        case TRUE  => true
-        case FALSE => false
-        case _ =>
-          SimpleMemory.isSatS(FAND.makeFAND(condition :: newCondition :: Nil))
-      }
-
-    val simpleMemoryInterpreter = new SimpleMemoryInterpreter(simpleSatStrategy)
-    val toTheEndExecutor =
-      new ToTheEndExecutor(simpleMemoryInterpreter, instructions1)
-    val toTheEndExecutor2 =
-      new ToTheEndExecutor(simpleMemoryInterpreter, instructions2)
     var i = 0
     val wrongArity = mutable.Buffer.empty[MagicTuple]
     val portMismatch = mutable.Buffer[MagicTuple]()
