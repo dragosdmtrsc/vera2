@@ -83,9 +83,19 @@ object OP {
   def add(o : OP): Unit = {} /*st += o*/
 }
 
-case class FAND(conditions: List[Condition]) extends Condition
-case class FOR(conditions: List[Condition]) extends Condition
-case class FNOT(condition: Condition) extends Condition
+case class FAND(conditions: List[Condition]) extends Condition {
+  override def toString: String = {
+    "(" + conditions.map(_.toString).mkString(" && ") + ")"
+  }
+}
+case class FOR(conditions: List[Condition]) extends Condition {
+  override def toString: String = {
+    "(" + conditions.map(_.toString).mkString(" || ") + ")"
+  }
+}
+case class FNOT(condition: Condition) extends Condition {
+  override def toString = "(!" + condition.toString + ")"
+}
 object TRUE extends Condition
 object FALSE extends Condition
 

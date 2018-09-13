@@ -338,7 +338,7 @@ class SimpleMemoryInterpreter(
         val ch = generateConditions(is.head, state)
         val rest = generateConditions(Fork(is.tail), state)
         (FOR.makeFOR(
-          ch._1 :: FAND(ch._2 :: rest._1 :: Nil) :: Nil
+          ch._1 :: FAND.makeFAND(ch._2 :: rest._1 :: Nil) :: Nil
         ), FAND.makeFAND(
           ch._2 :: rest._2 :: Nil
         ), FOR.makeFOR(
