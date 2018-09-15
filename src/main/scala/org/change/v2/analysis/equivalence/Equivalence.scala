@@ -64,12 +64,24 @@ class Equivalence(val instructions1: Map[String, Instruction],
     new ToTheEndExecutor(simpleMemoryInterpreter, instructions1)
   val toTheEndExecutor2 =
     new ToTheEndExecutor(simpleMemoryInterpreter, instructions2)
+
+  def sieve(outcomes : List[SimpleMemory],
+            sieveStrategy : Option[
+              List[SimpleMemory] => Iterable[(Condition, Iterable[SimpleMemory])]
+              ] = None) = {
+    sieveStrategy.getOrElse(toTheEndExecutor.sieve _)(outcomes)
+  }
+
   def show(input: List[SimpleMemory],
            initialLocations: Iterable[(String, String)],
            outputPortCorrespondence: ((String, String) => Boolean),
            outputEquivalenceHook: ((Z3Solver,
                                     SimpleMemory,
-                                    SimpleMemory) => Boolean))
+                                    SimpleMemory) => Boolean),
+           sieveStrategy : Option[
+             List[SimpleMemory] => Iterable[(Condition, Iterable[SimpleMemory])]
+             ] = None
+           )
     : (Iterable[MagicTuple], Iterable[MagicTuple], Iterable[MagicTuple]) = {
     var i = 0
     val wrongArity = mutable.Buffer.empty[MagicTuple]
@@ -83,7 +95,7 @@ class Equivalence(val instructions1: Map[String, Instruction],
         val end = java.lang.System.currentTimeMillis()
         println(s"executed $l1 for ${res1.success.size} in ${end - start}ms")
         i = i + 1
-        val all = toTheEndExecutor.sieve(res1.flat())
+        val all = sieve(res1.flat(), sieveStrategy)
         println(
           s"${all.size} total number of res1 pcs vs ${res1.success.size + res1.failed.size}")
         all.foreach(h => {
@@ -92,7 +104,7 @@ class Equivalence(val instructions1: Map[String, Instruction],
           i = i + 1
           // compare h._2 to res2
           // 1: arity
-          val all2 = toTheEndExecutor2.sieve(res2.flat())
+          val all2 = sieve(res2.flat(), sieveStrategy)
           val succ1 = h._2.filter(_.error == "")
           all2.foreach(r => {
             val succ2 = r._2.filter(_.error == "")

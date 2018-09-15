@@ -325,11 +325,17 @@ class SimpleMemoryInterpreter(
       else {
         val ch = generateConditions(is.head, state)
         val rest = generateConditions(InstructionBlock(is.tail), state)
-        (FAND.makeFAND(ch._1 :: rest._1 :: Nil), FOR.makeFOR(
-          ch._2 :: FAND.makeFAND(ch._1 :: rest._2 :: Nil) :: Nil
-        ), FOR.makeFOR(
-          ch._3 :: FAND.makeFAND(ch._1 :: rest._3 :: Nil) :: Nil
-        ))
+        if (ch._3 == FALSE) {
+          (FAND.makeFAND(ch._1 :: rest._1 :: Nil), FOR.makeFOR(
+            ch._2 :: rest._2 :: Nil
+          ), FAND.makeFAND(ch._1 :: rest._3 :: Nil))
+        } else {
+          (FAND.makeFAND(ch._1 :: rest._1 :: Nil), FOR.makeFOR(
+            ch._2 :: FAND.makeFAND(ch._1 :: rest._2 :: Nil) :: Nil
+          ), FOR.makeFOR(
+            ch._3 :: FAND.makeFAND(ch._1 :: rest._3 :: Nil) :: Nil
+          ))
+        }
       }
     case Fork(is) =>
       if (is.isEmpty) {
@@ -337,13 +343,21 @@ class SimpleMemoryInterpreter(
       } else {
         val ch = generateConditions(is.head, state)
         val rest = generateConditions(Fork(is.tail), state)
-        (FOR.makeFOR(
-          ch._1 :: FAND.makeFAND(ch._2 :: rest._1 :: Nil) :: Nil
-        ), FAND.makeFAND(
-          ch._2 :: rest._2 :: Nil
-        ), FOR.makeFOR(
-          ch._3 :: FAND.makeFAND(ch._2 :: rest._3 :: Nil) :: Nil
-        ))
+        if (ch._3 == FALSE) {
+          (FOR.makeFOR(
+            ch._1 :: rest._1 :: Nil
+          ), FAND.makeFAND(
+            ch._2 :: rest._2 :: Nil
+          ), FAND.makeFAND(ch._2 :: rest._3 :: Nil))
+        } else {
+          (FOR.makeFOR(
+            ch._1 :: FAND.makeFAND(ch._2 :: rest._1 :: Nil) :: Nil
+          ), FAND.makeFAND(
+            ch._2 :: rest._2 :: Nil
+          ), FOR.makeFOR(
+            ch._3 :: FAND.makeFAND(ch._2 :: rest._3 :: Nil) :: Nil
+          ))
+        }
       }
     case ConstrainFloatingExpression(fe, dc) => instantiate(fe, dc, state).map(r => {
       tryEval(r).map(u => {
@@ -430,35 +444,52 @@ class SimpleMemoryInterpreter(
           (takeB, takeC, takeF)
         }
         val cds = validate(generateConditions(testInstr, state))
-        def takeBAndTakeC = {
-          val takeB = if (cds._1 != FALSE) {
-            execute(thenWhat, state.addBranch(ifb).addCondition(cds._1), verbose)
-          } else {
-            new Triple[SimpleMemory]()
-          }
-          val takeC = if (cds._2 != FALSE) {
-            execute(elseWhat, state.addBranch(ifb).addCondition(cds._2), verbose)
-          } else {
-            new Triple[SimpleMemory]()
-          }
-          (takeB, takeC)
-        }
 
         if (cds._3 != FALSE) {
           System.err.println(s"found segfault condition $testInstr == ${cds._3}")
           val takeF = new Triple[SimpleMemory](
             continue = Nil, success = Nil,
             failed = state.addCondition(cds._3).fail(s"segfault at $testInstr") :: Nil)
-          val (takeB, takeC) = takeBAndTakeC
+          val n3 = state.addCondition(FNOT.makeFNOT(cds._3))
+          val takeB = if (cds._1 != FALSE) {
+            if (cds._2 == FALSE) {
+              execute(thenWhat, n3.addBranch(ifb), verbose)
+            } else {
+              execute(thenWhat, state.addBranch(ifb).addCondition(cds._1), verbose)
+            }
+          } else {
+            new Triple[SimpleMemory]()
+          }
+          val takeC = if (cds._2 != FALSE) {
+            if (cds._1 == FALSE) {
+              execute(elseWhat, n3.addBranch(ifb), verbose)
+            } else {
+              execute(elseWhat, state.addBranch(ifb).addCondition(cds._2), verbose)
+            }
+          } else {
+            new Triple[SimpleMemory]()
+          }
           takeB + takeC + takeF
         } else {
-          if (cds._1 != FALSE && cds._2 != FALSE) {
-              execute(thenWhat, state.addBranch(ifb).addCondition(cds._1), verbose) +
-                execute(elseWhat, state.addBranch(ifb).addCondition(cds._2), verbose)
+          val takeB = if (cds._1 != FALSE) {
+            if (cds._2 == FALSE) {
+              execute(thenWhat, state.addBranch(ifb), verbose)
+            } else {
+              execute(thenWhat, state.addBranch(ifb).addCondition(cds._1), verbose)
+            }
           } else {
-            val (takeB, takeC) = takeBAndTakeC
-            takeB + takeC
+            new Triple[SimpleMemory]()
           }
+          val takeC = if (cds._2 != FALSE) {
+            if (cds._1 == FALSE) {
+              execute(elseWhat, state.addBranch(ifb), verbose)
+            } else {
+              execute(elseWhat, state.addBranch(ifb).addCondition(cds._2), verbose)
+            }
+          } else {
+            new Triple[SimpleMemory]()
+          }
+          takeB + takeC
         }
       case Assume(i) =>
         val cds = generateConditions(i, state)
