@@ -49,7 +49,7 @@ class Equivalence(val instructions1: Map[String, Instruction],
                   val instructions2: Map[String, Instruction]) {
 
   type MagicTuple =
-    (Condition, (Iterable[SimpleMemory], Iterable[SimpleMemory]))
+    (Condition, (Iterable[SimpleMemory], Iterable[SimpleMemory]), SimpleMemory, (String, String))
   def simpleSatStrategy(condition: Condition,
                         newCondition: Condition): Boolean =
     newCondition match {
@@ -114,7 +114,7 @@ class Equivalence(val instructions1: Map[String, Instruction],
                                  pathCondition = SimplePathCondition.apply())),
                                 r._2.map(
                                  _.copy(pathCondition =
-                                   SimplePathCondition.apply())))))
+                                   SimplePathCondition.apply()))), in, (l1, l2)))
             } else {
               if (succ1.size == 1) {
                 if (!outputPortCorrespondence(succ1.head.location,
@@ -125,7 +125,7 @@ class Equivalence(val instructions1: Map[String, Instruction],
                                          SimplePathCondition.apply())),
                                      succ2.map(
                                        _.copy(pathCondition =
-                                         SimplePathCondition.apply())))))
+                                         SimplePathCondition.apply()))), in, (l1, l2)))
                 } else {
                   val ctx = new Z3Context()
                   val slv = ctx.mkSolver()
@@ -136,7 +136,7 @@ class Equivalence(val instructions1: Map[String, Instruction],
                                              SimplePathCondition.apply())),
                                          succ2.map(
                                            _.copy(pathCondition =
-                                             SimplePathCondition.apply())))))
+                                             SimplePathCondition.apply()))), in, (l1, l2)))
                   }
                 }
               } else {
@@ -165,7 +165,7 @@ class Equivalence(val instructions1: Map[String, Instruction],
                                          SimplePathCondition.apply())),
                                      succ2.map(
                                        _.copy(pathCondition =
-                                         SimplePathCondition.apply())))))
+                                         SimplePathCondition.apply()))), in, (l1, l2)))
                 } else {
                   val o1o2Rel = succ1
                     .map(u => {
@@ -188,7 +188,7 @@ class Equivalence(val instructions1: Map[String, Instruction],
                                              SimplePathCondition.apply())),
                                          succ2.map(
                                            _.copy(pathCondition =
-                                             SimplePathCondition.apply())))))
+                                             SimplePathCondition.apply()))), in, (l1, l2)))
                   }
                 }
               }

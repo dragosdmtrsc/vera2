@@ -1119,6 +1119,63 @@ object SimpleMemory {
     val total = System.currentTimeMillis() - start
     b
   }
+
+  def getExample(simpleMemory: SimpleMemory) : Option[SimpleMemory] = {
+    val cd  = simpleMemory.pathCondition.cd
+    val z3Context = new Z3Context("MODEL" -> true)
+    val slv = z3Context.mkSolver()
+    val trans = new Translator(z3Context, slv)
+
+    cd match {
+      case FAND(r) =>  r.foreach(u => {
+        val ast = trans.createAST(u)
+        slv.assertCnstr(ast)
+      })
+      case _ =>
+        slv.assertCnstr(trans.createAST(cd))
+    }
+    val b = slv.check().get
+    if (b) {
+      val model = slv.getModel()
+      val raws = simpleMemory.rawObjects.mapValues(r => r.expression match {
+        case cv : ConstantValue => r
+        case cv : ConstantStringValue => r
+        case cv : ConstantBValue => r
+        case _ => val evald = model.eval(trans.translateE(r.size, r.expression))
+          try {
+            evald.map(ev => {
+              val dec = java.lang.Long.decode(ev.toString.replace('#', '0'))
+              r.copy(expression = ConstantValue(dec))
+            }).getOrElse(r)
+          } catch {
+            case e : Exception =>
+              System.err.println(s"at ${r.expression} $e")
+              r
+          }
+      })
+      val syms = simpleMemory.symbols.mapValues(r => r.expression match {
+        case cv : ConstantValue => r
+        case cv : ConstantStringValue => r
+        case cv : ConstantBValue => r
+        case _ => val evald = model.eval(trans.translateE(r.size, r.expression))
+          try {
+            evald.map(ev => {
+              val dec = java.lang.Long.decode(ev.toString.replace('#', '0'))
+              r.copy(expression = ConstantValue(dec))
+            }).getOrElse(r)
+          } catch {
+            case e : Exception =>
+              System.err.println(s"at ${r.expression} $e")
+              r
+          }
+      })
+      val sm = Some(simpleMemory.copy(symbols = syms, rawObjects = raws))
+      sm
+    } else {
+      None
+    }
+  }
+
   def isSatS(cd: Condition): Boolean = {
     val z3Context = new Z3Context("MODEL" -> true)
     val slv = z3Context.mkSolver()
