@@ -31,3 +31,7 @@ case class SymbolicValue(name: String = "") extends Expression with FloatingExpr
 
   override def toString = if (name == "") s"[Symbolic #$id]" else "[Symbolic " + name + "]"
 }
+
+case class Havoc(prefix : String) extends FloatingExpression {
+  override def instantiate(s: State): Either[Expression, String] = ???
+}

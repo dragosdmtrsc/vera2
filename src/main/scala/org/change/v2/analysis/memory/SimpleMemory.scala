@@ -8,7 +8,7 @@ import org.change.v2.analysis.constraint._
 import org.change.v2.analysis.executor.Mapper
 import org.change.v2.analysis.executor.solvers.Solver
 import org.change.v2.analysis.expression.abst.{Expression, FloatingExpression}
-import org.change.v2.analysis.expression.concrete.{ConstantBValue, ConstantStringValue, ConstantValue, SymbolicValue}
+import org.change.v2.analysis.expression.concrete._
 import org.change.v2.analysis.expression.concrete.nonprimitive._
 import org.change.v2.analysis.memory.SimpleMemory.NaturalKey
 import org.change.v2.analysis.processingmodels.{Instruction, SuperFork}
@@ -144,6 +144,7 @@ class SimpleMemoryInterpreter(
     extends Mapper[SimpleMemory, Triple[SimpleMemory]] {
   def instantiate(fexp: FloatingExpression,
                   simpleMemory: SimpleMemory): Option[Expression] = fexp match {
+    case Havoc(prefix) => Some(SymbolicValue(prefix + s"${UUID.randomUUID().toString}"))
     case :<<:(left, right) =>
       instantiate(left, simpleMemory).flatMap(r1 => {
         instantiate(right, simpleMemory).map(r2 => LShift(Value(r1), Value(r2)))
@@ -606,7 +607,8 @@ class SimpleMemoryInterpreter(
         execute(ConstrainFloatingExpression(:@(a), dc), state, verbose)
       case ConstrainNamedSymbol(id, dc, c) =>
         execute(ConstrainFloatingExpression(:@(id), dc), state, verbose)
-      case _ => ???
+      case mp : Mapper[SimpleMemory, Triple[SimpleMemory]] =>
+        mp.execute(instruction, state, verbose)
     }
 }
 object TrivialSimpleMemoryInterpreter extends SimpleMemoryInterpreter
