@@ -92,10 +92,11 @@ class Equivalence(val instructions1: Map[String, Instruction],
       for ((l1, l2) <- initialLocations) {
         val start = java.lang.System.currentTimeMillis()
         val res1 = toTheEndExecutor.executeFrom(l1, in)
-        val end = java.lang.System.currentTimeMillis()
-        println(s"executed $l1 for ${res1.success.size} in ${end - start}ms")
+        val endExec = java.lang.System.currentTimeMillis()
         i = i + 1
         val all = sieve(res1.flat(), sieveStrategy)
+        val end = java.lang.System.currentTimeMillis()
+        println(s"executed $l1 for ${res1.success.size} in ${endExec - start}ms, sieving in ${end - endExec}ms")
         println(
           s"${all.size} total number of res1 pcs vs ${res1.success.size + res1.failed.size}")
         all.foreach(h => {
@@ -138,6 +139,7 @@ class Equivalence(val instructions1: Map[String, Instruction],
                                            _.copy(pathCondition =
                                              SimplePathCondition.apply()))), in, (l1, l2)))
                   }
+                  ctx.delete()
                 }
               } else {
                 val firstGraph = succ1

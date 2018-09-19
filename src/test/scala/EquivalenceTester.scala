@@ -7,6 +7,8 @@ import org.change.v2.analysis.equivalence.Equivalence
 import org.change.v2.analysis.executor.solvers.Z3BVSolver
 import org.change.v2.analysis.executor.{CodeAwareInstructionExecutor, OVSExecutor}
 import org.change.v2.analysis.expression.concrete.ConstantValue
+import org.change.v2.analysis.expression.concrete.nonprimitive.{:-:, :@}
+import org.change.v2.analysis.memory
 import org.change.v2.analysis.memory.State._
 import org.change.v2.analysis.processingmodels.instructions.{Assign, Forward, InstructionBlock}
 import org.scalatest.FunSuite
@@ -14,12 +16,14 @@ import org.change.v2.analysis.memory._
 import spray.json.JsArray
 import spray.json._
 import z3.scala.Z3Solver
+import org.change.v2.util.canonicalnames._
+
 
 class EquivalenceTester extends FunSuite{
 
   test("basic vs optimized take 1") {
     var links  = Map[String, String]()
-    val routerFile = "routing_tables/tiny.txt"
+    val routerFile = "routing_tables/medium.txt"
 
     var optimizedRouter = OptimizedRouter.makeOptimizedRouterForBV_d(new File(routerFile), "OPT_")
     var basicRouter = OptimizedRouter.makeOptimizedRouterForBV(new File(routerFile), "")
@@ -31,7 +35,12 @@ class EquivalenceTester extends FunSuite{
     def portInput(x : String, y : String) = {
       x == "0" && y == "OPT_0"
     }
-    val equiv = new Equivalence(basicRouter.instructions, optimizedRouter.instructions)
+    val equiv = new Equivalence(basicRouter.instructions, optimizedRouter.instructions + (
+      "OPT_0" -> InstructionBlock(
+          Assign(TTL, :-:(:@(TTL), ConstantValue(1))),
+          optimizedRouter.instructions("OPT_0")
+      )
+    ))
     val init = new OVSExecutor(new Z3BVSolver()).execute(
       InstructionBlock(
         Assign("Pid", ConstantValue(0)),
@@ -44,11 +53,20 @@ class EquivalenceTester extends FunSuite{
     )
     import org.change.v2.util.canonicalnames._
     var time = System.currentTimeMillis()
+    var outputEqTime = 0l
     def outputEquivalence(slv : Z3Solver, s1 : SimpleMemory, s2 : SimpleMemory) : Boolean = {
+      val start = System.currentTimeMillis()
+      val trans = new memory.SimpleMemory.Translator(slv.context, slv)
+      s2.pathCondition.cd match {
+        case FAND(cds) =>
+          cds.foreach(r => slv.assertCnstr(trans.createAST(r)))
+        case _ => slv.assertCnstr(trans.createAST(s2.pathCondition.cd))
+      }
+
       val layoutEquiv = s1.memTags == s2.memTags && s1.rawObjects.keySet == s2.rawObjects.keySet
-      if (layoutEquiv) {
+      val eq = if (layoutEquiv) {
         val mustBeEqual = List(
-          IPDst, IPSrc, Proto, EtherDst, EtherSrc, EtherType
+          IPDst, IPSrc, Proto, EtherDst, EtherSrc, EtherType, TTL
         )
         val or = FOR.makeFOR(mustBeEqual.map(r => {
           s1.eval(r).map(h => {
@@ -59,16 +77,19 @@ class EquivalenceTester extends FunSuite{
           // sounds stupid, but it means that no expression was correctly evaluated
           true
         } else {
-          val cd = FAND.makeFAND(s2.pathCondition.cd :: or :: Nil)
-          SimpleMemory.isSatS(cd)
+          slv.assertCnstr(trans.createAST(or))
+          !slv.check().get
         }
       } else {
         false
       }
+      val end = System.currentTimeMillis()
+      outputEqTime += (end - start)
+      eq
     }
 
     val (a, b, c) = equiv.show(SimpleMemory.apply(init._1.head) :: Nil, List[(String, String)](("0", "OPT_0")), portOutput, outputEquivalence)
-    println(s"Equivalence testing took ${System.currentTimeMillis()-time}ms")
+    println(s"Equivalence testing took ${System.currentTimeMillis()-time} for ${(a.size, b.size, c.size)}ms, output: ${outputEqTime}ms")
 
     val osarity = new BufferedOutputStream(new FileOutputStream("wrongarity.json"))
     JsonUtil.toJson(a, osarity)
