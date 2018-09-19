@@ -113,7 +113,8 @@ object OptimizedRouter {
             val netMaskTokens = matchPattern.split("/")
             val netAddr = netMaskTokens(0)
             val mask = netMaskTokens(1)
-            val m = (~(1l << (32 - Integer.parseInt(mask)) - 1)) & 0xFFFFFFFFl
+            val binary = ("1" * mask.toInt) + "0" * (32 - mask.toInt)
+            val m = java.lang.Long.parseLong(binary, 2)
             val ip = ipToNumber(netAddr)
             (ip, m)
           }
