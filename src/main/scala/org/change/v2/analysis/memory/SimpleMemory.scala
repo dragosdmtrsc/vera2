@@ -144,7 +144,8 @@ class SimpleMemoryInterpreter(
     extends Mapper[SimpleMemory, Triple[SimpleMemory]] {
   def instantiate(fexp: FloatingExpression,
                   simpleMemory: SimpleMemory): Option[Expression] = fexp match {
-    case Havoc(prefix) => Some(SymbolicValue(prefix + s"${UUID.randomUUID().toString}"))
+    case Havoc(prefix) =>
+      Some(SymbolicValue(prefix + s"${UUID.randomUUID().toString}"))
     case :<<:(left, right) =>
       instantiate(left, simpleMemory).flatMap(r1 => {
         instantiate(right, simpleMemory).map(r2 => LShift(Value(r1), Value(r2)))
@@ -319,56 +320,91 @@ class SimpleMemoryInterpreter(
     case _ => None
   }
 
-  def generateConditions(instr : Instruction, state: SimpleMemory) : (Condition, Condition, Condition) = instr match {
-    case InstructionBlock(is) =>
-      if (is.isEmpty)
-        (TRUE, FALSE, FALSE)
-      else {
-        val ch = generateConditions(is.head, state)
-        val rest = generateConditions(InstructionBlock(is.tail), state)
-        if (ch._3 == FALSE) {
-          (FAND.makeFAND(ch._1 :: rest._1 :: Nil), FOR.makeFOR(
-            ch._2 :: rest._2 :: Nil
-          ), FAND.makeFAND(ch._1 :: rest._3 :: Nil))
-        } else {
-          (FAND.makeFAND(ch._1 :: rest._1 :: Nil), FOR.makeFOR(
-            ch._2 :: FAND.makeFAND(ch._1 :: rest._2 :: Nil) :: Nil
-          ), FOR.makeFOR(
-            ch._3 :: FAND.makeFAND(ch._1 :: rest._3 :: Nil) :: Nil
-          ))
-        }
-      }
-    case Fork(is) =>
-      if (is.isEmpty) {
-        (FALSE, TRUE, FALSE)
-      } else {
-        val ch = generateConditions(is.head, state)
-        val rest = generateConditions(Fork(is.tail), state)
-        if (ch._3 == FALSE) {
-          (FOR.makeFOR(
-            ch._1 :: rest._1 :: Nil
-          ), FAND.makeFAND(
-            ch._2 :: rest._2 :: Nil
-          ), FAND.makeFAND(ch._2 :: rest._3 :: Nil))
-        } else {
-          (FOR.makeFOR(
-            ch._1 :: FAND.makeFAND(ch._2 :: rest._1 :: Nil) :: Nil
-          ), FAND.makeFAND(
-            ch._2 :: rest._2 :: Nil
-          ), FOR.makeFOR(
-            ch._3 :: FAND.makeFAND(ch._2 :: rest._3 :: Nil) :: Nil
-          ))
-        }
-      }
-    case ConstrainFloatingExpression(fe, dc) => instantiate(fe, dc, state).map(r => {
-      tryEval(r).map(u => {
-        if (u) (TRUE, FALSE, FALSE) else (FALSE, TRUE, FALSE : Condition)
-      }).getOrElse((r, FNOT.makeFNOT(r), FALSE))
-    }).getOrElse((FALSE, FALSE, TRUE))
-    case ConstrainNamedSymbol(id, fc, _) => generateConditions(ConstrainFloatingExpression(:@(id), fc), state)
-    case ConstrainRaw(a, fc, _) => generateConditions(ConstrainFloatingExpression(:@(a), fc), state)
-  }
+  var nrCallsGenerate = 0
+  var totalGenerate = 0l
 
+  def generateConditions(
+      instr: Instruction,
+      state: SimpleMemory): (Condition, Condition, Condition) = {
+    val c = instr match {
+      case InstructionBlock(is) =>
+        is.map(generateConditions(_, state)).foldLeft(
+          (TRUE, FALSE, FALSE): (Condition, Condition, Condition)
+        )(
+          (rest, ch) => {
+            if (ch._3 == FALSE) {
+              (FAND.makeFAND(ch._1 :: rest._1 :: Nil),
+               FOR.makeFOR(
+                 ch._2 :: rest._2 :: Nil
+               ), if (rest._3 == FALSE) {
+                  FALSE
+                } else {
+                  FAND.makeFAND(ch._1 :: rest._3 :: Nil)
+                })
+            } else {
+              (FAND.makeFAND(ch._1 :: rest._1 :: Nil),
+               FOR.makeFOR(
+                 ch._2 :: FAND.makeFAND(ch._1 :: rest._2 :: Nil) :: Nil
+               ),
+               if (rest._3 == FALSE) {
+                 ch._3
+               } else {
+                 FOR.makeFOR(
+                   ch._3 :: FAND.makeFAND(ch._1 :: rest._3 :: Nil) :: Nil
+                 )
+               })
+            }
+          })
+      case Fork(is) =>
+        is.map(generateConditions(_, state)).foldLeft(
+          (FALSE, TRUE, FALSE): (Condition, Condition, Condition)
+        )(
+          (rest, ch) => {
+            if (ch._3 == FALSE) {
+              (FOR.makeFOR(
+                ch._1 :: rest._1 :: Nil
+              ),
+                FAND.makeFAND(
+                  ch._2 :: rest._2 :: Nil
+                ),
+                if (rest._3 == FALSE) {
+                  FALSE
+                } else {
+                  FAND.makeFAND(ch._2 :: rest._3 :: Nil)
+                })
+            } else {
+              (FOR.makeFOR(
+                ch._1 :: FAND.makeFAND(ch._2 :: rest._1 :: Nil) :: Nil
+              ),
+                FAND.makeFAND(
+                  ch._2 :: rest._2 :: Nil
+                ),
+                if (rest._3 == FALSE) {
+                  ch._3
+                } else {
+                  FOR.makeFOR(
+                    ch._3 :: FAND.makeFAND(ch._2 :: rest._3 :: Nil) :: Nil
+                  )
+                })
+            }
+          })
+      case ConstrainFloatingExpression(fe, dc) =>
+        instantiate(fe, dc, state)
+          .map(r => {
+            tryEval(r)
+              .map(u => {
+                if (u) (TRUE, FALSE, FALSE) else (FALSE, TRUE, FALSE: Condition)
+              })
+              .getOrElse((r, FNOT.makeFNOT(r), FALSE))
+          })
+          .getOrElse((FALSE, FALSE, TRUE))
+      case ConstrainNamedSymbol(id, fc, _) =>
+        generateConditions(ConstrainFloatingExpression(:@(id), fc), state)
+      case ConstrainRaw(a, fc, _) =>
+        generateConditions(ConstrainFloatingExpression(:@(a), fc), state)
+    }
+    c
+  }
 
   override def execute(instruction: Instruction,
                        state: SimpleMemory,
@@ -426,37 +462,53 @@ class SimpleMemoryInterpreter(
                                  Nil))
       case If(testInstr, thenWhat, elseWhat) =>
         val ifb = IfB()
-        def validate(cds : (Condition, Condition, Condition)) = {
-          val takeB = if (cds._1 != FALSE && quickTrimStrategy(state.pathCondition.cd, cds._1)) {
-            cds._1
-          } else {
-            FALSE
-          }
-          val takeC = if (cds._2 != FALSE && quickTrimStrategy(state.pathCondition.cd, cds._2)) {
-            cds._2
-          } else {
-            FALSE
-          }
-          val takeF = if (cds._3 != FALSE && quickTrimStrategy(state.pathCondition.cd, cds._3)) {
-            cds._3
-          } else {
-            FALSE
-          }
+        def validate(cds: (Condition, Condition, Condition)) = {
+          val takeB =
+            if (cds._1 != FALSE && quickTrimStrategy(state.pathCondition.cd,
+                                                     cds._1)) {
+              cds._1
+            } else {
+              FALSE
+            }
+          val takeC =
+            if (cds._2 != FALSE && quickTrimStrategy(state.pathCondition.cd,
+                                                     cds._2)) {
+              cds._2
+            } else {
+              FALSE
+            }
+          val takeF =
+            if (cds._3 != FALSE && quickTrimStrategy(state.pathCondition.cd,
+                                                     cds._3)) {
+              cds._3
+            } else {
+              FALSE
+            }
           (takeB, takeC, takeF)
         }
-        val cds = validate(generateConditions(testInstr, state))
-
+        val start = System.currentTimeMillis()
+        val c = generateConditions(testInstr, state)
+        val end = System.currentTimeMillis()
+        totalGenerate += (end - start)
+        nrCallsGenerate += 1
+        val cds = validate(c)
         if (cds._3 != FALSE) {
-          System.err.println(s"found segfault condition $testInstr == ${cds._3}")
+          System.err.println(
+            s"found segfault condition $testInstr == ${cds._3}")
           val takeF = new Triple[SimpleMemory](
-            continue = Nil, success = Nil,
-            failed = state.addCondition(cds._3).fail(s"segfault at $testInstr") :: Nil)
+            continue = Nil,
+            success = Nil,
+            failed = state
+              .addCondition(cds._3)
+              .fail(s"segfault at $testInstr") :: Nil)
           val n3 = state.addCondition(FNOT.makeFNOT(cds._3))
           val takeB = if (cds._1 != FALSE) {
             if (cds._2 == FALSE) {
               execute(thenWhat, n3.addBranch(ifb), verbose)
             } else {
-              execute(thenWhat, state.addBranch(ifb).addCondition(cds._1), verbose)
+              execute(thenWhat,
+                      state.addBranch(ifb).addCondition(cds._1),
+                      verbose)
             }
           } else {
             new Triple[SimpleMemory]()
@@ -465,7 +517,9 @@ class SimpleMemoryInterpreter(
             if (cds._1 == FALSE) {
               execute(elseWhat, n3.addBranch(ifb), verbose)
             } else {
-              execute(elseWhat, state.addBranch(ifb).addCondition(cds._2), verbose)
+              execute(elseWhat,
+                      state.addBranch(ifb).addCondition(cds._2),
+                      verbose)
             }
           } else {
             new Triple[SimpleMemory]()
@@ -476,7 +530,9 @@ class SimpleMemoryInterpreter(
             if (cds._2 == FALSE) {
               execute(thenWhat, state.addBranch(ifb), verbose)
             } else {
-              execute(thenWhat, state.addBranch(ifb).addCondition(cds._1), verbose)
+              execute(thenWhat,
+                      state.addBranch(ifb).addCondition(cds._1),
+                      verbose)
             }
           } else {
             new Triple[SimpleMemory]()
@@ -485,7 +541,9 @@ class SimpleMemoryInterpreter(
             if (cds._1 == FALSE) {
               execute(elseWhat, state.addBranch(ifb), verbose)
             } else {
-              execute(elseWhat, state.addBranch(ifb).addCondition(cds._2), verbose)
+              execute(elseWhat,
+                      state.addBranch(ifb).addCondition(cds._2),
+                      verbose)
             }
           } else {
             new Triple[SimpleMemory]()
@@ -493,17 +551,25 @@ class SimpleMemoryInterpreter(
           takeB + takeC
         }
       case Assume(i) =>
+        val start = System.currentTimeMillis()
         val cds = generateConditions(i, state)
-        val fld = if (cds._3 != FALSE && quickTrimStrategy(state.pathCondition.cd, cds._3)) {
-          state.addCondition(cds._3).fail(s"segfault in $i") :: Nil
-        } else {
-          Nil
-        }
-        val cont = if (cds._1 != FALSE && quickTrimStrategy(state.pathCondition.cd, cds._1)) {
-          state.addCondition(cds._1) :: Nil
-        } else {
-          Nil
-        }
+        val end = System.currentTimeMillis()
+        totalGenerate += (end - start)
+        nrCallsGenerate += 1
+        val fld =
+          if (cds._3 != FALSE && quickTrimStrategy(state.pathCondition.cd,
+                                                   cds._3)) {
+            state.addCondition(cds._3).fail(s"segfault in $i") :: Nil
+          } else {
+            Nil
+          }
+        val cont =
+          if (cds._1 != FALSE && quickTrimStrategy(state.pathCondition.cd,
+                                                   cds._1)) {
+            state.addCondition(cds._1) :: Nil
+          } else {
+            Nil
+          }
         new Triple[SimpleMemory](continue = cont, success = Nil, failed = fld)
 
       case AssignNamedSymbol(id, exp, t) =>
@@ -556,7 +622,8 @@ class SimpleMemoryInterpreter(
           case None =>
             Triple[SimpleMemory](
               Nil,
-              state.fail(TagExp.brokenTagExpErrorMessage + s" in deallocate $a") :: Nil,
+              state
+                .fail(TagExp.brokenTagExpErrorMessage + s" in deallocate $a") :: Nil,
               Nil)
         }
 
@@ -573,7 +640,8 @@ class SimpleMemoryInterpreter(
           case None =>
             Triple[SimpleMemory](
               Nil,
-              state.fail(TagExp.brokenTagExpErrorMessage + s"in allocate $a") :: Nil,
+              state
+                .fail(TagExp.brokenTagExpErrorMessage + s"in allocate $a") :: Nil,
               Nil)
         }
       case AssignRaw(a, exp, t) =>
@@ -588,10 +656,11 @@ class SimpleMemoryInterpreter(
                   .map(state.assignNewValue(i, _))
                   .getOrElse(state.assignNewValue(i, e))
                   .map(Triple.startFrom[SimpleMemory])
-                  .getOrElse(Triple[SimpleMemory](
-                    Nil,
-                    state.fail(s"can't assign $a <- exp") :: Nil,
-                    Nil))
+                  .getOrElse(
+                    Triple[SimpleMemory](
+                      Nil,
+                      state.fail(s"can't assign $a <- exp") :: Nil,
+                      Nil))
               })
               .getOrElse(Triple[SimpleMemory](
                 Nil,
@@ -600,14 +669,15 @@ class SimpleMemoryInterpreter(
           case None =>
             Triple[SimpleMemory](
               Nil,
-              state.fail(TagExp.brokenTagExpErrorMessage + s" in assign $a") :: Nil,
+              state
+                .fail(TagExp.brokenTagExpErrorMessage + s" in assign $a") :: Nil,
               Nil)
         }
       case ConstrainRaw(a, dc, c) =>
         execute(ConstrainFloatingExpression(:@(a), dc), state, verbose)
       case ConstrainNamedSymbol(id, dc, c) =>
         execute(ConstrainFloatingExpression(:@(id), dc), state, verbose)
-      case mp : Mapper[SimpleMemory, Triple[SimpleMemory]] =>
+      case mp: Mapper[SimpleMemory, Triple[SimpleMemory]] =>
         mp.execute(instruction, state, verbose)
     }
 }
@@ -786,12 +856,12 @@ object SimpleMemory {
     def createAST(condition: Condition): Z3AST = condition match {
       case OP(expression, constraint, size) => //z3.mkFreshBoolConst("abc")
         translateC(translateE(size, expression), size, constraint)
-      case FAND(conditions) => z3.mkAnd(conditions.map(createAST): _*)
-      case FOR(conditions)  => z3.mkOr(conditions.map(createAST): _*)
-      case FNOT(condition)  => z3.mkNot(createAST(condition))
-      case Placeholder(_, id)  => z3.mkBoolConst(id)
-      case TRUE             => z3.mkTrue()
-      case FALSE            => z3.mkFalse()
+      case FAND(conditions)   => z3.mkAnd(conditions.map(createAST): _*)
+      case FOR(conditions)    => z3.mkOr(conditions.map(createAST): _*)
+      case FNOT(condition)    => z3.mkNot(createAST(condition))
+      case Placeholder(_, id) => z3.mkBoolConst(id)
+      case TRUE               => z3.mkTrue()
+      case FALSE              => z3.mkFalse()
     }
 
     def solve(condition: Condition): Boolean = {
@@ -1122,54 +1192,63 @@ object SimpleMemory {
     b
   }
 
-  def getExample(simpleMemory: SimpleMemory) : Option[SimpleMemory] = {
-    val cd  = simpleMemory.pathCondition.cd
+  def getExample(simpleMemory: SimpleMemory): Option[SimpleMemory] = {
+    val cd = simpleMemory.pathCondition.cd
     val z3Context = new Z3Context("MODEL" -> true)
     val slv = z3Context.mkSolver()
     val trans = new Translator(z3Context, slv)
 
     cd match {
-      case FAND(r) =>  r.foreach(u => {
-        val ast = trans.createAST(u)
-        slv.assertCnstr(ast)
-      })
+      case FAND(r) =>
+        r.foreach(u => {
+          val ast = trans.createAST(u)
+          slv.assertCnstr(ast)
+        })
       case _ =>
         slv.assertCnstr(trans.createAST(cd))
     }
     val b = slv.check().get
     if (b) {
       val model = slv.getModel()
-      val raws = simpleMemory.rawObjects.mapValues(r => r.expression match {
-        case cv : ConstantValue => r
-        case cv : ConstantStringValue => r
-        case cv : ConstantBValue => r
-        case _ => val evald = model.eval(trans.translateE(r.size, r.expression))
-          try {
-            evald.map(ev => {
-              val dec = java.lang.Long.decode(ev.toString.replace('#', '0'))
-              r.copy(expression = ConstantValue(dec))
-            }).getOrElse(r)
-          } catch {
-            case e : Exception =>
-              System.err.println(s"at ${r.expression} $e")
-              r
-          }
+      val raws = simpleMemory.rawObjects.mapValues(r =>
+        r.expression match {
+          case cv: ConstantValue       => r
+          case cv: ConstantStringValue => r
+          case cv: ConstantBValue      => r
+          case _ =>
+            val evald = model.eval(trans.translateE(r.size, r.expression))
+            try {
+              evald
+                .map(ev => {
+                  val dec = java.lang.Long.decode(ev.toString.replace('#', '0'))
+                  r.copy(expression = ConstantValue(dec))
+                })
+                .getOrElse(r)
+            } catch {
+              case e: Exception =>
+                System.err.println(s"at ${r.expression} $e")
+                r
+            }
       })
-      val syms = simpleMemory.symbols.mapValues(r => r.expression match {
-        case cv : ConstantValue => r
-        case cv : ConstantStringValue => r
-        case cv : ConstantBValue => r
-        case _ => val evald = model.eval(trans.translateE(r.size, r.expression))
-          try {
-            evald.map(ev => {
-              val dec = java.lang.Long.decode(ev.toString.replace('#', '0'))
-              r.copy(expression = ConstantValue(dec))
-            }).getOrElse(r)
-          } catch {
-            case e : Exception =>
-              System.err.println(s"at ${r.expression} $e")
-              r
-          }
+      val syms = simpleMemory.symbols.mapValues(r =>
+        r.expression match {
+          case cv: ConstantValue       => r
+          case cv: ConstantStringValue => r
+          case cv: ConstantBValue      => r
+          case _ =>
+            val evald = model.eval(trans.translateE(r.size, r.expression))
+            try {
+              evald
+                .map(ev => {
+                  val dec = java.lang.Long.decode(ev.toString.replace('#', '0'))
+                  r.copy(expression = ConstantValue(dec))
+                })
+                .getOrElse(r)
+            } catch {
+              case e: Exception =>
+                System.err.println(s"at ${r.expression} $e")
+                r
+            }
       })
       val sm = Some(simpleMemory.copy(symbols = syms, rawObjects = raws))
       sm
@@ -1184,10 +1263,11 @@ object SimpleMemory {
     val trans = new Translator(z3Context, slv)
 
     cd match {
-      case FAND(r) =>  r.foreach(u => {
-        val ast = trans.createAST(u)
-        slv.assertCnstr(ast)
-      })
+      case FAND(r) =>
+        r.foreach(u => {
+          val ast = trans.createAST(u)
+          slv.assertCnstr(ast)
+        })
       case _ =>
         slv.assertCnstr(trans.createAST(cd))
     }
@@ -1226,7 +1306,7 @@ object SimpleMemory {
   }
 }
 
-class ToTheEndExecutor(tripleExecutor: SimpleMemoryInterpreter,
+class ToTheEndExecutor(val tripleExecutor: SimpleMemoryInterpreter,
                        program: Map[String, Instruction]) {
   private val q: mutable.Queue[SimpleMemory] = mutable.Queue[SimpleMemory]()
 
@@ -1280,11 +1360,12 @@ class ToTheEndExecutor(tripleExecutor: SimpleMemoryInterpreter,
   case class PartitionHolder(iterable: List[(Condition, List[SimpleMemory])]) {
 
     @tailrec
-    private def add(cd : (Condition, List[SimpleMemory]),
-                  crt : List[(Condition, List[SimpleMemory])],
-                  remaining : List[(Condition, List[SimpleMemory])]) : List[(Condition, List[SimpleMemory])] = {
+    private def add(cd: (Condition, List[SimpleMemory]),
+                    crt: List[(Condition, List[SimpleMemory])],
+                    remaining: List[(Condition, List[SimpleMemory])])
+      : List[(Condition, List[SimpleMemory])] = {
       if (remaining.isEmpty) {
-        crt  :+ cd
+        crt :+ cd
       } else {
         val (hd :: tail) = remaining
         val ac = FAND.makeFAND(hd._1 :: cd._1 :: Nil)
@@ -1312,7 +1393,7 @@ class ToTheEndExecutor(tripleExecutor: SimpleMemoryInterpreter,
       }
     }
 
-    def add(cd : (Condition, List[SimpleMemory])): PartitionHolder = {
+    def add(cd: (Condition, List[SimpleMemory])): PartitionHolder = {
       copy(add(cd, Nil, iterable))
     }
   }
@@ -1320,9 +1401,11 @@ class ToTheEndExecutor(tripleExecutor: SimpleMemoryInterpreter,
   final def refine(candidates: Iterable[(Condition, Iterable[SimpleMemory])])
     : Iterable[(Condition, Iterable[SimpleMemory])] = {
     val partitionHolder = new PartitionHolder(Nil)
-    candidates.foldLeft(partitionHolder)((acc, x) => {
-      acc.add((x._1, x._2.toList))
-    }).iterable
+    candidates
+      .foldLeft(partitionHolder)((acc, x) => {
+        acc.add((x._1, x._2.toList))
+      })
+      .iterable
   }
 
   def sieve(states: List[SimpleMemory])

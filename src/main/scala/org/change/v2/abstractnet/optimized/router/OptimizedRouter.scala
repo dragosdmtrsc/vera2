@@ -96,9 +96,14 @@ object OptimizedRouter {
       )).toSeq.sortBy(i => i._1._2 - i._1._1)
   }
 
-  def getRoutingEntriesForBV(file: File): Iterable[((Long, Long), String)] = {
+  def getRoutingEntriesForBV(file: File, take : Int = -1): Iterable[((Long, Long), String)] = {
+    val it = if (take > 0) {
+      scala.io.Source.fromFile(file).getLines().take(take)
+    } else {
+      scala.io.Source.fromFile(file).getLines()
+    }
     (for {
-      line <- scala.io.Source.fromFile(file).getLines()
+      line <- it
       tokens = line.split("\\s+")
       if tokens.length >= 3
       if tokens(0) != ""
@@ -218,8 +223,7 @@ object OptimizedRouter {
     }
   }
 
-  def makeOptimizedRouterForBV_d(f : File, prefix : String) : OptimizedRouter = {
-    val table = getRoutingEntriesForBV(f)
+  def generateConditionsPerPort(table : Iterable[((Long, Long), String)]) = {
     val portEntries = mutable.Map.empty[String, List[Instruction]]
     val ipList = mutable.Buffer.empty[(Long, Long)]
     for (((ip, mask), port) <- table) {
@@ -227,6 +231,7 @@ object OptimizedRouter {
       val pcs = ipList.filter(r => {
         r._2 > mask && (r._1 & mask) == masked
       })
+
       val asserted = ConstrainFloatingExpression(:&&:(:@(IPDst), ConstantValue(mask)),
         :==:(ConstantValue(ip & mask)))
       val constrain =
@@ -241,6 +246,12 @@ object OptimizedRouter {
       portEntries.put(port, constrain :: crt)
       ipList.append((ip, mask))
     }
+    portEntries
+  }
+
+  def makeOptimizedRouterForBV_d(f : File, prefix : String) : OptimizedRouter = {
+    val table = getRoutingEntriesForBV(f)
+    val portEntries = generateConditionsPerPort(table)
     new OptimizedRouter(prefix, "Router", Nil, Nil, Nil) {
       override def instructions: Map[LocationId, Instruction] = Map(
         s"${prefix}0" -> Fork(portEntries.map(r => {

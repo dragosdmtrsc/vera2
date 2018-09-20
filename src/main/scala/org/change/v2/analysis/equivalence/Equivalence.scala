@@ -47,17 +47,24 @@ object EqPrinter {
 
 class Equivalence(val instructions1: Map[String, Instruction],
                   val instructions2: Map[String, Instruction]) {
-
+  var totalSolverTime = 0l
+  var nrSolverCalls = 0l
   type MagicTuple =
     (Condition, (Iterable[SimpleMemory], Iterable[SimpleMemory]), SimpleMemory, (String, String))
   def simpleSatStrategy(condition: Condition,
-                        newCondition: Condition): Boolean =
-    newCondition match {
-      case TRUE  => true
+                        newCondition: Condition): Boolean = {
+    val start = java.lang.System.currentTimeMillis()
+    val b = newCondition match {
+      case TRUE => true
       case FALSE => false
       case _ =>
         SimpleMemory.isSatS(FAND.makeFAND(condition :: newCondition :: Nil))
     }
+    val end = java.lang.System.currentTimeMillis()
+    totalSolverTime += (end - start)
+    nrSolverCalls += 1
+    b
+  }
 
   val simpleMemoryInterpreter = new SimpleMemoryInterpreter(simpleSatStrategy)
   val toTheEndExecutor =
@@ -96,16 +103,21 @@ class Equivalence(val instructions1: Map[String, Instruction],
         i = i + 1
         val all = sieve(res1.flat(), sieveStrategy)
         val end = java.lang.System.currentTimeMillis()
-        println(s"executed $l1 for ${res1.success.size} in ${endExec - start}ms, sieving in ${end - endExec}ms")
+        println(s"executed $l1 for ${res1.success.size} in ${endExec - start}ms, " +
+          s"sieving in ${end - endExec}ms and solver time ${totalSolverTime}/${nrSolverCalls}," +
+          s"${toTheEndExecutor.tripleExecutor.totalGenerate}/${toTheEndExecutor.tripleExecutor.nrCallsGenerate}")
         println(
           s"${all.size} total number of res1 pcs vs ${res1.success.size + res1.failed.size}")
         all.foreach(h => {
+          val s2 = java.lang.System.currentTimeMillis()
           val res2 = toTheEndExecutor2
             .executeFrom(l2, in.copy(pathCondition = SimplePathCondition(h._1)))
+          val e2 = java.lang.System.currentTimeMillis()
           i = i + 1
           // compare h._2 to res2
           // 1: arity
           val all2 = sieve(res2.flat(), sieveStrategy)
+          val es2 = java.lang.System.currentTimeMillis()
           val succ1 = h._2.filter(_.error == "")
           all2.foreach(r => {
             val succ2 = r._2.filter(_.error == "")
@@ -196,6 +208,9 @@ class Equivalence(val instructions1: Map[String, Instruction],
               }
             }
           })
+          val bijCheck = java.lang.System.currentTimeMillis()
+          println(s"step 2 processing symbex: ${e2 - s2}, sieve: ${es2 - e2}, " +
+            s"bij: ${bijCheck - es2}")
         })
       }
     }
