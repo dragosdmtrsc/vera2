@@ -1357,13 +1357,17 @@ class ToTheEndExecutor(val tripleExecutor: SimpleMemoryInterpreter,
     gcd(bh1, bh2)
   }
 
+}
+
+object ToTheEndExecutor {
+
   case class PartitionHolder(iterable: List[(Condition, List[SimpleMemory])]) {
 
     @tailrec
     private def add(cd: (Condition, List[SimpleMemory]),
                     crt: List[(Condition, List[SimpleMemory])],
                     remaining: List[(Condition, List[SimpleMemory])])
-      : List[(Condition, List[SimpleMemory])] = {
+    : List[(Condition, List[SimpleMemory])] = {
       if (remaining.isEmpty) {
         crt :+ cd
       } else {
@@ -1399,7 +1403,7 @@ class ToTheEndExecutor(val tripleExecutor: SimpleMemoryInterpreter,
   }
 
   final def refine(candidates: Iterable[(Condition, Iterable[SimpleMemory])])
-    : Iterable[(Condition, Iterable[SimpleMemory])] = {
+  : Iterable[(Condition, Iterable[SimpleMemory])] = {
     val partitionHolder = new PartitionHolder(Nil)
     candidates
       .foldLeft(partitionHolder)((acc, x) => {
@@ -1409,11 +1413,11 @@ class ToTheEndExecutor(val tripleExecutor: SimpleMemoryInterpreter,
   }
 
   def sieve(states: List[SimpleMemory])
-    : Iterable[(Condition, Iterable[SimpleMemory])] = {
+  : Iterable[(Condition, Iterable[SimpleMemory])] = {
     refine(states.map(r => (r.pathCondition.cd, r :: Nil)))
   }
   def noSieve(states: List[SimpleMemory])
-    : Iterable[(Condition, Iterable[SimpleMemory])] = {
+  : Iterable[(Condition, Iterable[SimpleMemory])] = {
     states.map(r => (r.pathCondition.cd, r :: Nil))
   }
 }

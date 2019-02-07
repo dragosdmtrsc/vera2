@@ -2,17 +2,16 @@ package org.change.v2.analysis.equivalence
 
 import java.io.PrintStream
 
-import org.change.v2.analysis
 import org.change.v2.analysis.constraint._
-import org.change.v2.analysis.memory
 import org.change.v2.analysis.memory._
 import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.helpers.GFG
 import org.change.v2.util.ToDot
-import z3.scala.{Z3AST, Z3Context, Z3Solver}
+import z3.scala.{Z3Context, Z3Solver}
 
+import scala.collection.JavaConverters._
 import scala.collection.mutable
-import collection.JavaConverters._
+
 
 object EqPrinter {
   def printme(res1: List[SimpleMemory], ps1: PrintStream): Unit = {
@@ -49,8 +48,7 @@ class Equivalence(val instructions1: Map[String, Instruction],
                   val instructions2: Map[String, Instruction]) {
   var totalSolverTime = 0l
   var nrSolverCalls = 0l
-  type MagicTuple =
-    (Condition, (Iterable[SimpleMemory], Iterable[SimpleMemory]), SimpleMemory, (String, String))
+
   def simpleSatStrategy(condition: Condition,
                         newCondition: Condition): Boolean = {
     val start = java.lang.System.currentTimeMillis()
@@ -76,7 +74,7 @@ class Equivalence(val instructions1: Map[String, Instruction],
             sieveStrategy : Option[
               List[SimpleMemory] => Iterable[(Condition, Iterable[SimpleMemory])]
               ] = None) = {
-    sieveStrategy.getOrElse(toTheEndExecutor.sieve _)(outcomes)
+    sieveStrategy.getOrElse(ToTheEndExecutor.sieve _)(outcomes)
   }
 
   def show(input: List[SimpleMemory],

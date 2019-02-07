@@ -364,7 +364,6 @@ class EquivalenceTester extends FunSuite {
   }
 
   test("basic vs optimized take 2") {
-    var links  = Map[String, String]()
     val routerFile = "routing_tables/medium2.txt"
     var optimizedRouter = OptimizedRouter.makeOptimizedRouterForBV_d(new File(routerFile), "OPT_")
     var basicRouter = OptimizedRouter.makeOptimizedRouterForBV_d(new File(routerFile), "")

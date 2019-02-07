@@ -1,3 +1,5 @@
+import java.io.PrintWriter
+
 organization  := "org.change"
 version       := "0.2.1-SNAPSHOT"
 scalaVersion  := "2.12.1"
@@ -23,7 +25,8 @@ libraryDependencies ++= {
     "com.regblanc" %% "scala-smtlib" % "0.2.2-7-g00a9686",
     "junit" % "junit" % "4.12",
     "com.storm-enroute" %% "scalameter" % "0.8.2",
-    "org.scodec" %% "scodec-bits" % "1.1.6"
+    "org.scodec" %% "scodec-bits" % "1.1.6",
+    "com.beust" % "jcommander" % "1.72"
   )
 }
 
@@ -105,3 +108,24 @@ fullRunTask(p4, Compile, "org.change.v2.verification.P4Tester")
 lazy val printer = taskKey[Unit]("printer")
 fullRunTask(printer, Compile, "org.change.v2.verification.Printer")
 // seq(Revolver.settings: _*)
+
+
+val MkUnixlauncher = config("mkunixlauncher") extend(Compile)
+val mkunixlauncher = taskKey[Unit]("mkunixlauncher")
+mkunixlauncher <<= (target, fullClasspath in Runtime) map { (target, cp) =>
+  def writeFile(file: File, str: String) {
+    val writer = new PrintWriter(file)
+    writer.println(str)
+    writer.close()
+  }
+  val cpString = cp.map(_.data).mkString(System.getProperty("path.separator"))
+  System.out.println(cpString)
+  val runtime_entrypoint = "org.change.v2.Vera"
+  val launchString = """
+CLASSPATH="%s"
+java -Djava.class.path="${CLASSPATH}" %s "$@"
+                     """.format(cpString, runtime_entrypoint)
+  val targetFile = (target / "vera.sh").asFile
+  writeFile(targetFile, launchString)
+  targetFile.setExecutable(true)
+}
