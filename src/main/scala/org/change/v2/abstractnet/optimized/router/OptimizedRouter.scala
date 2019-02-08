@@ -10,7 +10,8 @@ import org.change.v2.analysis.processingmodels.instructions._
 import org.change.v2.util.canonicalnames._
 import java.io.File
 
-import org.change.v2.analysis.expression.concrete.nonprimitive.{:&&:, :@}
+import org.change.v2.analysis.expression.concrete.nonprimitive.{:&&:, :-:, :@}
+import org.change.v2.util.Neg
 
 import scala.io.Source
 import scala.util.matching.Regex
@@ -249,23 +250,22 @@ object OptimizedRouter {
     portEntries
   }
 
-  def makeOptimizedRouterForBV_d(f : File, prefix : String) : OptimizedRouter = {
+  def makeOptimizedRouterForBV_d(f : File, prefix : String, withTtl : Boolean = false) : OptimizedRouter = {
     val table = getRoutingEntriesForBV(f)
     val portEntries = generateConditionsPerPort(table)
-    new OptimizedRouter(prefix, "Router", Nil, Nil, Nil) {
+    val gatherNeg = Neg(Fork(portEntries.flatMap(h => {
+      h._2
+    })))
+    new OptimizedRouter(prefix + "-" + prefix, "Router", Nil, Nil, Nil) {
       override def instructions: Map[LocationId, Instruction] = Map(
-        s"${prefix}0" -> Fork(portEntries.map(r => {
-          InstructionBlock(Assume(Fork(r._2)), Forward(prefix + r._1))
-        }))
-      ) ++ table
-        .map(
-          i =>
-            prefix + i._2 -> Forward(prefix + i._2 + "_EXIT")
-              .asInstanceOf[Instruction])
-        .toMap ++
-        table
-          .map(i => prefix + i._2 + "_EXIT" -> NoOp.asInstanceOf[Instruction])
-          .toMap
+        inputPortName("table") -> InstructionBlock(
+          If (Constrain(TTL, :==:(ConstantValue(0))), Fail("dropping packet with 0 ttl")),
+          Fork(portEntries.map(r => {
+          InstructionBlock(Assume(Fork(r._2)), Forward(outputPortName(r._1)))
+        }) ++ (InstructionBlock(Assume(gatherNeg), Fail("no routing entry")) :: Nil)),
+          Assign(TTL, :-:(:@(TTL), ConstantValue(1)))
+        )
+      )
     }
   }
 
@@ -494,6 +494,13 @@ object OptimizedRouter {
     NetworkConfig(Some(f.getName.trim.stripSuffix(".rt")),
                   Map((elem.getName) -> elem),
                   Nil)
+  }
+
+  def bvRouterNetworkConfig(f : File, withTtl : Boolean = false) : NetworkConfig = {
+    val elem = makeOptimizedRouterForBV_d(f, f.getName.trim.stripSuffix(".rt"), withTtl)
+    NetworkConfig(Some(f.getName.trim.stripSuffix(".rt")),
+      Map((elem.getName) -> elem),
+      Nil)
   }
 
   def trivialRouterNetwrokConfig(f: File): NetworkConfig = {

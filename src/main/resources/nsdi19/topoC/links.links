@@ -1,0 +1,7 @@
+A:A:out0 -> B:B:table
+A:A:out1 -> C1:C1:table
+C1:C1:out0 -> C2:C2:table
+C2:C2:out0 -> D:D:table
+B:B:out0 -> D:D:table
+D:D:out0 -> S:in:0
+client:out:0 -> A:A:table

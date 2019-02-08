@@ -10,43 +10,50 @@ import scala.collection.mutable
 
 object ToDot {
   def normalize(str : String): String = "\"" + str + "\""
+
+  def gatherForwards(instruction: Instruction) : Set[String] = instruction match {
+    case Forward(a) => Set(a)
+    case InstructionBlock(is) => is.flatMap(gatherForwards).toSet
+    case Fork(is) => is.flatMap(gatherForwards).toSet
+    case If (a, b, c) => gatherForwards(b) ++ gatherForwards(c)
+    case SuperFork(is) => is.flatMap(gatherForwards).toSet
+    case _ => Set.empty
+  }
+
+  def dfs(instructions : Map[String, Instruction],
+          port : String, edges : Map[String, Set[String]],
+          nodes : Set[String]) : (Map[String, Set[String]], Set[String]) = {
+    if (nodes contains port)
+      (edges, nodes)
+    else {
+      val newnodes = nodes + port
+      if (!instructions.contains(port)) {
+        (edges, newnodes)
+      } else {
+        val extras = gatherForwards(instructions(port))
+        val init = (
+          if (extras.nonEmpty)
+            edges + (port -> extras)
+          else
+            edges, newnodes)
+        extras.foldLeft(init)((acc, dst) => {
+          dfs(instructions, dst, acc._1, acc._2)
+        })
+      }
+    }
+  }
+
+  def mkIPCG(instructions : Map[String, Instruction],
+             startingFrom : Set[String] = Set.empty) : (Map[String, Set[String]], Set[String]) = {
+    startingFrom.foldLeft((Map.empty[String, Set[String]], Set.empty[String]))((acc, port) => {
+      dfs(instructions, port, acc._1, acc._2)
+    })
+  }
+
   def apply(name : String, instructions : Map[String, Instruction],
             startingFrom : Set[String] = Set.empty,
             outputStream : PrintWriter): Unit = {
-    def gatherForwards(instruction: Instruction) : Set[String] = instruction match {
-      case Forward(a) => Set(a)
-      case InstructionBlock(is) => is.flatMap(gatherForwards).toSet
-      case Fork(is) => is.flatMap(gatherForwards).toSet
-      case If (a, b, c) => gatherForwards(b) ++ gatherForwards(c)
-      case SuperFork(is) => is.flatMap(gatherForwards).toSet
-      case _ => Set.empty
-    }
-
-    def dfs(port : String, edges : Map[String, Set[String]],
-            nodes : Set[String]) : (Map[String, Set[String]], Set[String]) = {
-      if (nodes contains port)
-        (edges, nodes)
-      else {
-        val newnodes = nodes + port
-        if (!instructions.contains(port)) {
-          (edges, newnodes)
-        } else {
-          val extras = gatherForwards(instructions(port))
-          val init = (
-            if (extras.nonEmpty)
-              edges + (port -> extras)
-            else
-              edges, newnodes)
-          extras.foldLeft(init)((acc, dst) => {
-            dfs(dst, acc._1, acc._2)
-          })
-        }
-      }
-    }
-
-    val (eds, ns) = startingFrom.foldLeft((Map.empty[String, Set[String]], Set.empty[String]))((acc, port) => {
-      dfs(port, acc._1, acc._2)
-    })
+    val (eds, ns) = mkIPCG(instructions, startingFrom)
     outputStream.println(s"digraph $name {")
     for (x <- ns) {
       val sb = new mutable.StringBuilder()
