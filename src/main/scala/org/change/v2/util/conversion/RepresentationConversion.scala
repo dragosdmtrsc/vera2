@@ -6,8 +6,28 @@ object RepresentationConversion {
     ip.split("\\.").map(Integer.parseInt(_)).foldLeft(0L)((a: Long, g: Int) => a * 256 + g)
   }
 
+  def ciscoMac(mac : String) : Option[Long] = {
+    val rex = "([0-9a-fA-F]+)\\.([0-9a-fA-F]+)\\.([0-9a-fA-F]+)".r
+    rex.findFirstMatchIn(mac).map(u => {
+      val nr1 = java.lang.Long.parseLong(u.group(1), 16)
+      val nr2 = java.lang.Long.parseLong(u.group(2), 16)
+      val nr3 = java.lang.Long.parseLong(u.group(2), 16)
+      (nr1 << 32) | (nr2 << 16) | nr3
+    })
+  }
+
+  def regularMac(mac : String) : Option[Long] = {
+    val rex = "([0-9a-fA-F]+):([0-9a-fA-F]+):([0-9a-fA-F]+):([0-9a-fA-F]+):([0-9a-fA-F]+):([0-9a-fA-F]+)".r
+    rex.findFirstMatchIn(mac).map(u => {
+      (0 until u.groupCount).foldLeft(0L)((acc, i) => {
+        val g = u.group(i)
+        (acc << 8) | java.lang.Integer.parseInt(g, 16)
+      })
+    })
+  }
+
   def macToNumber(mac: String): Long = {
-    mac.toLowerCase.split(":").map(Integer.parseInt(_, 16)).foldLeft(0L)((a: Long, g: Int) => a * 256 + g)
+    regularMac(mac).getOrElse(ciscoMac(mac).get)
   }
 
   /**

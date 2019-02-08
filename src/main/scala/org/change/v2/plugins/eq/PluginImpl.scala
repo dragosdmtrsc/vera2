@@ -32,6 +32,26 @@ class PluginImpl(
     JsonUtil.toJson(portMismatch, pm)
     val om = new BufferedOutputStream(new FileOutputStream(fom))
     JsonUtil.toJson(outputMismatch, om)
+    if (wrongArity.isEmpty && portMismatch.isEmpty && outputMismatch.isEmpty) {
+      println("result: equivalent")
+    } else {
+      println("result: non-equivalent")
+    }
+    if (wrongArity.nonEmpty) {
+      for (x <- wrongArity) {
+        println("wrong arity: " + x._2._1.head.history.head + ": " + x._2._1.size + " vs " +
+          x._2._2.head.history.head + ":" + x._2._2.size)
+      }
+    }
+    if (outputMismatch.nonEmpty) {
+      println("output mismatch: " + outputMismatch.size)
+    }
+    if (portMismatch.nonEmpty) {
+      for (x <- portMismatch) {
+        println("port mismatch: " + "(" + x._2._1.map(_.history.head).mkString(",") + ")" + " vs " +
+          "(" + x._2._2.map(_.history.head).mkString(",") + ")")
+      }
+    }
   }
 }
 object PluginImpl {

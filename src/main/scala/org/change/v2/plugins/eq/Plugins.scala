@@ -24,6 +24,11 @@ trait PacketPlugin {
 
 trait TopologyPlugin {
   def apply() : Map[String, Instruction]
+  def startNodes() : scala.collection.Set[String]
+}
+
+abstract class AbsTopologyPlugin extends TopologyPlugin {
+  override def startNodes(): scala.collection.Set[String] = apply().keySet
 }
 
 trait SievePlugin {

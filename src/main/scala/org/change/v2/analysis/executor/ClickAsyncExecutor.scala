@@ -7,8 +7,8 @@ import org.change.v2.analysis.memory.State
 import org.change.v2.analysis.processingmodels.{Instruction, _}
 
 class ClickAsyncExecutor(
-                          instructions: Map[LocationId, Instruction],
-                          links: Map[LocationId, LocationId],
+                          val instructions: Map[LocationId, Instruction],
+                          val links: Map[LocationId, LocationId],
                           maxLevel: Int = 1000,
                           executor: InstructionExecutor = InstructionExecutor(),
                           nr: Int = 4,
@@ -39,14 +39,10 @@ object ClickAsyncExecutor {
     }
   }
 
-  def buildAggregated(
-                       configs: Iterable[NetworkConfig],
-                       interClickLinks: Iterable[(String, String, String, String, String, String)],
-                       startElems: Option[Iterable[(String, String, String)]] = None,
-                       nrThreads: Int = 1,
-                       instrExec: InstructionExecutor = InstructionExecutor()):
-  (ClickAsyncExecutor, List[State]) = {
-    // Create a context for every network config.
+  def buildTopo(configs: Iterable[NetworkConfig],
+                interClickLinks: Iterable[(String, String, String, String, String, String)],
+                oconfigMap : Option[Map[String, NetworkConfig]] = None):
+  (Map[String, Instruction], Map[String, String]) = {
     val ctxes = configs.map(networkModel => networkModel.elements.values.
       foldLeft(Map[LocationId, Instruction]())(_ ++ _.instructions))
     val intraLinks = configs.map(networkModel => {
@@ -57,7 +53,8 @@ object ClickAsyncExecutor {
       })).toMap
     }).foldLeft(Map[String, String]())(_ ++ _)
     // Keep the configs for name resolution.
-    val configMap: Map[String, NetworkConfig] = configs.map(c => c.id.get -> c).toMap
+    val configMap: Map[String, NetworkConfig] =
+      oconfigMap.getOrElse(configs.map(c => c.id.get -> c).toMap)
     // Add forwarding links between click files.
     val links = interClickLinks.map(l => {
       val ela = l._1 + "-" + l._2
@@ -65,18 +62,42 @@ object ClickAsyncExecutor {
       configMap(l._1).elements(ela).outputPortName(l._3) -> configMap(l._4).elements(elb).inputPortName(l._6)
     }).toMap ++ intraLinks
     // Create initial states
+    val instrs = ctxes.foldLeft(Map[String, Instruction]())(_ ++ _)
+    (instrs, links)
+  }
+  def getStartPoints(configs: Iterable[NetworkConfig],
+                     startElems: Option[Iterable[(String, String, String)]],
+                     oconfigMap : Option[Map[String, NetworkConfig]] = None): Iterable[String] = {
+    val configMap: Map[String, NetworkConfig] =
+      oconfigMap.getOrElse(configs.map(c => c.id.get -> c).toMap)
+    startElems match {
+      case Some(initialPoints) => initialPoints.map(ip => {
+        configMap(ip._1).elements(ip._1 + "-" + ip._2).inputPortName(ip._3)
+      })
+      case None =>
+        configs.head.entryLocationId :: Nil
+    }
+  }
+
+  def buildAggregated(
+                       configs: Iterable[NetworkConfig],
+                       interClickLinks: Iterable[(String, String, String, String, String, String)],
+                       startElems: Option[Iterable[(String, String, String)]] = None,
+                       nrThreads: Int = 1,
+                       instrExec: InstructionExecutor = InstructionExecutor()):
+  (ClickAsyncExecutor, List[State]) = {
+    // Create a context for every network config.
+    val configMap: Map[String, NetworkConfig] = configs.map(c => c.id.get -> c).toMap
+    val (instrs, links) = buildTopo(configs, interClickLinks, Some(configMap))
     val startStates = startElems match {
       case Some(initialPoints) => initialPoints.map(ip => {
         val st = State.bigBang()
         st.copy(history = configMap(ip._1).elements(ip._1 + "-" + ip._2).inputPortName(ip._3) :: st.history)
       })
-      case None => {
+      case None =>
         val st = State.bigBang()
         List(st.copy(history = configs.head.entryLocationId :: st.history))
-      }
     }
-    val instrs = ctxes.foldLeft(Map[String, Instruction]())(_ ++ _)
-
     val executor = new ClickAsyncExecutor(instrs, links, executor = instrExec, nr = nrThreads)
     (executor, startStates.toList)
   }

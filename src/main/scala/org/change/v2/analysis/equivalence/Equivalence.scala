@@ -1,6 +1,7 @@
 package org.change.v2.analysis.equivalence
 
 import java.io.PrintStream
+import java.util.logging.{Level, Logger}
 
 import org.change.v2.analysis.constraint._
 import org.change.v2.analysis.memory._
@@ -101,11 +102,13 @@ class Equivalence(val instructions1: Map[String, Instruction],
         i = i + 1
         val all = sieve(res1.flat(), sieveStrategy)
         val end = java.lang.System.currentTimeMillis()
-        println(s"executed $l1 for ${res1.success.size} in ${endExec - start}ms, " +
+        Logger.getLogger(classOf[Equivalence].getName).
+          log(Level.INFO, s"executed $l1 for ${res1.success.size} in ${endExec - start}ms, " +
           s"sieving in ${end - endExec}ms and solver time ${totalSolverTime}/${nrSolverCalls}," +
           s"${toTheEndExecutor.tripleExecutor.totalGenerate}/${toTheEndExecutor.tripleExecutor.nrCallsGenerate}")
-        println(
-          s"${all.size} total number of res1 pcs vs ${res1.success.size + res1.failed.size}")
+        Logger.getLogger(classOf[Equivalence].getName).
+          log(Level.WARNING,
+            s"${all.size} total number of res1 pcs vs ${res1.success.size + res1.failed.size}")
         all.foreach(h => {
           val s2 = java.lang.System.currentTimeMillis()
           val res2 = toTheEndExecutor2
@@ -169,8 +172,8 @@ class Equivalence(val instructions1: Map[String, Instruction],
                       aslist(h.intValue()).location
                     })
                     .mkString(",")
-                  java.lang.System.err.println(
-                    s"PORT mismatch because the following were not matched $nonMatched")
+                  Logger.getLogger(classOf[Equivalence].getName).
+                    log(Level.WARNING, s"PORT mismatch because the following were not matched $nonMatched")
                   portMismatch += ((r._1,
                                     (succ1.map(
                                        _.copy(pathCondition =
@@ -207,7 +210,8 @@ class Equivalence(val instructions1: Map[String, Instruction],
             }
           })
           val bijCheck = java.lang.System.currentTimeMillis()
-          println(s"step 2 processing symbex: ${e2 - s2}, sieve: ${es2 - e2}, " +
+          Logger.getLogger(classOf[Equivalence].getName).
+            log(Level.INFO, s"step 2 processing symbex: ${e2 - s2}, sieve: ${es2 - e2}, " +
             s"bij: ${bijCheck - es2}")
         })
       }

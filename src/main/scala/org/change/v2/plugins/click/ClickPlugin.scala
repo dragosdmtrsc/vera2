@@ -1,0 +1,45 @@
+package org.change.v2.plugins.click
+
+import java.io.{File, FilenameFilter}
+
+import org.change.parser.clickfile.ClickToAbstractNetwork
+import org.change.parser.interclicklinks.InterClickLinksParser
+import org.change.parser.startpoints.StartPointParser
+import org.change.v2.analysis.executor.{ClickAsyncExecutor, CodeAwareInstructionExecutor, DecoratedInstructionExecutor, TrivialTripleInstructionExecutor}
+import org.change.v2.analysis.processingmodels.Instruction
+import org.change.v2.plugins.eq.{PluginBuilder, TopologyPlugin}
+
+class ClickPlugin(folder : String) extends TopologyPlugin {
+  private val clicksFolder = new File(folder)
+  private val clicks = clicksFolder.list(new FilenameFilter {
+    override def accept(dir: File, name: String): Boolean = name.endsWith(".click")
+  }).sorted.map(clicksFolder.getPath + File.separatorChar + _)
+
+  private val rawLinks = InterClickLinksParser.parseLinks(s"$folder/links.links")
+  private val startElems: Option[Iterable[(String, String, String)]] = Some(StartPointParser.parseStarts
+  (s"$folder/start.start"))
+  private lazy val configs = clicks.map(ClickToAbstractNetwork.buildConfig(_, prefixedElements = true))
+  private lazy val (instrs, links) = ClickAsyncExecutor.buildTopo(
+    configs,
+    rawLinks)
+  private lazy val instructions = CodeAwareInstructionExecutor.flattenProgram(instrs, links)
+
+  private lazy val starts = ClickAsyncExecutor.getStartPoints(configs, startElems).toSet
+
+  override def apply(): collection.Map[String, Instruction] = instructions
+
+  override def startNodes(): collection.Set[String] = starts
+}
+
+object ClickPlugin {
+  class Builder extends PluginBuilder[ClickPlugin] {
+    var folder : String = ""
+    override def set(parm: String, value: String): PluginBuilder[ClickPlugin] = parm match {
+      case "dir" => folder = value
+        this
+      case _ => throw new IllegalArgumentException(parm + " unknown argument, expecting dir")
+    }
+
+    override def build(): ClickPlugin = new ClickPlugin(folder)
+  }
+}
