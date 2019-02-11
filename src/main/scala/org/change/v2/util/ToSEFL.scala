@@ -37,9 +37,10 @@ object ToSEFL {
       case If(a, b, c) => "if (" + handleCondition(a) + ")\n" + visit(b) + "\nelse\n" + visit(c)
       case NoOp => "nop"
       case c : ConstrainFloatingExpression => handle(c)
-      case ConstrainNamedSymbol(x, c, _) => visit(ConstrainFloatingExpression(:@(x), c))
-      case ConstrainRaw(x, c, _) => visit(ConstrainFloatingExpression(:@(x), c))
+      case ConstrainNamedSymbol(x, c, _) => visit(Assume(ConstrainFloatingExpression(:@(x), c)))
+      case ConstrainRaw(x, c, _) => visit(Assume(ConstrainFloatingExpression(:@(x), c)))
       case Assume(x) => "assume(" + handleCondition(x) + ")"
+      case Fail(x) => s"fail($x)"
       case Forward(loc) =>
         if (!visited.contains(loc))
           stack.append(loc)
