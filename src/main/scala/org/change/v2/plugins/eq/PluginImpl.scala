@@ -39,10 +39,16 @@ class PluginImpl(
     }
     if (wrongArity.nonEmpty) {
       for (x <- wrongArity) {
-        println("wrong arity: " + x._2._1.head.history.head + ": " + x._2._1.size + " vs " +
-          x._2._2.head.history.head + ":" + x._2._2.size)
+        val h1 = "[" + x._2._1.map(x => {
+          x.errorCause.map(f => s"$f@").getOrElse("") + x.history.head
+        }).mkString(";") + "]"
+        val h2 = "[" + x._2._2.map(x => {
+          x.errorCause.map(f => s"$f@").getOrElse("") + x.history.head
+        }).mkString(";") + "]"
+        println("wrong arity: " + h1 + " vs " + h2)
       }
     }
+
     if (outputMismatch.nonEmpty) {
       println("output mismatch: " + outputMismatch.size)
     }
@@ -77,13 +83,13 @@ object PluginImpl {
   }
 }
 
-class TCPPacketPluginImpl extends InputPacketPlugin {
+class TCPPacketPluginImpl(symTtl : Boolean) extends InputPacketPlugin {
   override def apply(): List[SimpleMemory] = new OVSExecutor(new Z3BVSolver()).execute(
     InstructionBlock(
       Assign("Pid", ConstantValue(0)),
       start,
       ehervlan,
-      ipSymb,
+      ipSymb(symTtl),
       transport,
       end,
       tcpOptions), State.clean, true
@@ -91,8 +97,12 @@ class TCPPacketPluginImpl extends InputPacketPlugin {
 }
 object TCPPacketPluginImpl {
   class Builder extends PluginBuilder[TCPPacketPluginImpl] {
-    override def set(parm: String, value: String): PluginBuilder[TCPPacketPluginImpl] = this
-    override def build(): TCPPacketPluginImpl = new TCPPacketPluginImpl()
+    var symTtl : Boolean = false
+    override def set(parm: String, value: String): PluginBuilder[TCPPacketPluginImpl] = parm match {
+      case "symttl" => symTtl = value.toBoolean; this
+      case _ => throw new IllegalArgumentException(s"$parm unknown, only know symttl")
+    }
+    override def build(): TCPPacketPluginImpl = new TCPPacketPluginImpl(symTtl)
   }
 }
 

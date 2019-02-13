@@ -261,9 +261,13 @@ object OptimizedRouter {
         inputPortName("table") -> InstructionBlock(
           If (Constrain(TTL, :==:(ConstantValue(0))), Fail("dropping packet with 0 ttl")),
           Fork(portEntries.map(r => {
-          InstructionBlock(Assume(Fork(r._2)), Forward(outputPortName(r._1)))
-        }) ++ (InstructionBlock(Assume(gatherNeg), Fail("no routing entry")) :: Nil)),
-          Assign(TTL, :-:(:@(TTL), ConstantValue(1)))
+              InstructionBlock(
+                Assume(Fork(r._2)),
+                Assign(TTL, :-:(:@(TTL), ConstantValue(1))),
+                Forward(outputPortName(r._1))
+              )
+            }).toList :+ InstructionBlock(Assume(gatherNeg), Fail("no routing entry"))
+          )
         )
       )
     }

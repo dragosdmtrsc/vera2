@@ -160,30 +160,20 @@ object State {
    Assign(IPID, SymbolicValue())
  )
 
-  val ipSymb = InstructionBlock(
+  def ipSymb(ttlSymbolic : Boolean) : Instruction = InstructionBlock(
     CreateTag("L3", StartTag + 0),
-
     Allocate(IPVersion, 4),
     Assign(IPVersion, SymbolicValue()),
-
     Allocate(Proto, 8),
     Assign(Proto, SymbolicValue()),
-
     Allocate(IPSrc, 32),
-//    Assign(IPSrc, ConstantValue(ipToNumber("172.16.2.240"))),
-//    Assign(IPSrc, ConstantValue(ipToNumber("8.8.8.8"))),
     Assign(IPSrc, SymbolicValue()),
-//  {
-//    val (l, u) = ipAndMaskToInterval("172.16.2.0", "24")
-//    Constrain(IPSrc, :&:(:>=:(ConstantValue(l)), :<=:(ConstantValue(u))))
-//  },
     Allocate(IPDst, 32),
     Assign(IPDst, SymbolicValue()),
-//    Assign(IPDst, ConstantValue(ipToNumber("141.85.5.125"))),
-
     Allocate(TTL, 8),
-    Assign(TTL, ConstantValue(255)),
-
+    Assign(TTL, if (!ttlSymbolic)
+      ConstantValue(255)
+    else SymbolicValue("ttl")),
     Allocate(IPLength, 16),
     Assign(IPLength, SymbolicValue()),
 
@@ -196,7 +186,7 @@ object State {
     Allocate(IPID, 16),
     Assign(IPID, SymbolicValue())
   )
-
+  def ipSymb(): Instruction = ipSymb(false)
    val transport = InstructionBlock(
     CreateTag("L4", L3Tag + 160),
 
