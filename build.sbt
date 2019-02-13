@@ -34,7 +34,6 @@ testFrameworks += new TestFramework("org.scalameter.ScalaMeterFramework")
 parallelExecution in Test := false
 exportJars := true
 unmanagedJars in Compile += file("lib/scalaz3_2.11-2.1.jar")
-unmanagedJars in Compile += file("lib/jdd_105.jar")
 unmanagedJars in Compile += file("lib/com.microsoft.z3.jar")
 unmanagedResourceDirectories in Compile += baseDirectory.value / "lib"
 includeFilter in(Compile, unmanagedResourceDirectories) := ".dll,.so"
