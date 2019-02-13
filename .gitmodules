@@ -1,3 +1,0 @@
-[submodule "symnet"]
-	path = symnet
-	url = git@github.com:radustoenescu/symnet.git
