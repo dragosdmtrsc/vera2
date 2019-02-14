@@ -34,6 +34,7 @@ class DefaultExecutorImpl extends ExecutorPlugin {
         toTheEndExecutor.executeFromWithConsumer(x, u, consumer.apply)
       })
     })
+    consumer.flush()
   }
 }
 

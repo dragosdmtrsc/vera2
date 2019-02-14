@@ -41,6 +41,7 @@ trait InputPacketPlugin {
 
 trait ExecutorConsumer {
   def apply(x : SimpleMemory) : Unit
+  def flush() : Unit
 }
 
 trait ExecutorPlugin {

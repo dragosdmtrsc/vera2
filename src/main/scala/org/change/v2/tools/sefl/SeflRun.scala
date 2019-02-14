@@ -8,11 +8,11 @@ import org.change.v2.plugins.eq._
 case class SeflRunArgs(topoClass : String = "",
                    topoParms : Map[String, String] = Map.empty,
                    startFrom : String = ".*",
-                   consumerPlugin : String = "",
+                   consumerPlugin : String = "org.change.v2.plugins.runner.ToFileConsumer",
                    consumerParms : Map[String, String] = Map.empty,
-                   inputPacketPlugin : String = "",
+                   inputPacketPlugin : String = "org.change.v2.plugins.eq.TCPPacketPluginImpl",
                    inputPacketParms : Map[String, String] = Map.empty,
-                   runnerPlugin : String = "",
+                   runnerPlugin : String = "org.change.v2.plugins.runner.DefaultExecutorImpl",
                    runnerParms : Map[String, String] = Map.empty)
 
 object SeflRun {
@@ -30,7 +30,7 @@ object SeflRun {
   """
 
   def main(args: Array[String]) {
-    if (args.length < 8) {
+    if (args.length < 2) {
       System.err.println(usage)
       System.exit(1)
     }
