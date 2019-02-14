@@ -7,13 +7,15 @@ import org.change.v2.util.ToDot
 
 case class ToSEFLArgs(topoClass : String = "",
                    topoParms : Map[String, String] = Map.empty,
-                   startFrom : String = ".*", outFile : String = "")
+                   startFrom : String = ".*",
+                   outFile : String = "",
+                   startFile : String = "")
 
 object ToSEFL {
   val usage =
     """--topology-plugin <plugin_class>
 [--topology-parm <parm_name> <parm_value>]*
-[--start-from <regex>]?
+[--start-file <file_name>]
 --out-file <file_name>
     """.stripMargin
 
@@ -29,8 +31,6 @@ object ToSEFL {
         case "--topology-plugin" :: value :: tail => nextOption(eqParams.copy(topoClass = value), tail)
         case "--topology-parm" :: name :: value :: tail =>
           nextOption(eqParams.copy(topoParms = eqParams.topoParms + (name -> value)), tail)
-        case "--start-from" :: regex :: tail =>
-          nextOption(eqParams.copy(startFrom = regex), tail)
         case "--out-file" :: file :: tail =>
           nextOption(eqParams.copy(outFile = file), tail)
       }
@@ -45,5 +45,11 @@ object ToSEFL {
     val os = new PrintWriter(new BufferedOutputStream(new FileOutputStream(options.outFile)))
     org.change.v2.util.ToSEFL.apply(topo().toMap, topo.startNodes().toSet, os)
     os.close()
+    if (options.startFile.nonEmpty) {
+      val sf = new PrintWriter(new BufferedOutputStream(new FileOutputStream(options.startFile)))
+      for (x <- topo.startNodes())
+        sf.println(x)
+      sf.close()
+    }
   }
 }

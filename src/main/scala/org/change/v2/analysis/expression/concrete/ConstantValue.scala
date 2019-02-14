@@ -38,6 +38,12 @@ case class ConstantValue(value: Long, isIp: Boolean = false, isMac: Boolean = fa
     */
   override def instantiate(s: State): Either[Expression, String] = Left(this)
 
+  def canonical : String = if (isMac)
+    numberToMac(value)
+  else if (!isIp)
+    value.toString
+  else
+    numberToIp(value)
   override def toString = {
     if (isMac)
       "[" + numberToMac(value) + "]"
