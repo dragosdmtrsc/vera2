@@ -1310,6 +1310,30 @@ class ToTheEndExecutor(val tripleExecutor: SimpleMemoryInterpreter,
                        program: Map[String, Instruction]) {
   private val q: mutable.Queue[SimpleMemory] = mutable.Queue[SimpleMemory]()
 
+  def executeFromWithConsumer(start: String,
+                  simpleMemory: SimpleMemory,
+                  consumer : SimpleMemory => Unit,
+                  someSolver: Option[Solver] = None): Unit = {
+    q.enqueue(simpleMemory.forwardTo(start))
+    while (q.nonEmpty) {
+      val crt = q.dequeue()
+      if (program.contains(crt.location)) {
+        val prog = program(crt.location)
+        val trip = tripleExecutor.execute(prog, crt, true)
+        val filtered = if (someSolver.nonEmpty) {
+          trip.filter(SimpleMemory.isSatS)
+        } else {
+          trip
+        }
+        filtered.continue.foreach(consumer)
+        filtered.failed.foreach(consumer)
+        q.enqueue(filtered.success: _*)
+      } else {
+        consumer(crt)
+      }
+    }
+  }
+
   def executeFrom(start: String,
                   simpleMemory: SimpleMemory,
                   someSolver: Option[Solver] = None): Triple[SimpleMemory] = {

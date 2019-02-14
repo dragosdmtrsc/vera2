@@ -38,6 +38,18 @@ trait SievePlugin {
 trait InputPacketPlugin {
   def apply() : List[SimpleMemory]
 }
+
+trait ExecutorConsumer {
+  def apply(x : SimpleMemory) : Unit
+}
+
+trait ExecutorPlugin {
+  def apply(topology : Map[String, Instruction],
+            startNodes : Set[String],
+            initials : List[SimpleMemory],
+            consumer: ExecutorConsumer)
+}
+
 trait OutputPlugin {
   def apply(wrongArity : Iterable[MagicTuple],
             portMismatch : Iterable[MagicTuple],

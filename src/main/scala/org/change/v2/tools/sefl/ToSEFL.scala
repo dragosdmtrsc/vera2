@@ -43,8 +43,7 @@ object ToSEFL {
     val topo = PluginHolder.instantiate[TopologyPlugin](options.topoClass, options.topoParms)
     val g = topo()
     val os = new PrintWriter(new BufferedOutputStream(new FileOutputStream(options.outFile)))
-    ToDot.apply("topology", g.toMap, topo.startNodes().filter(_.matches(options.startFrom)).toSet, os)
+    org.change.v2.util.ToSEFL.apply(topo().toMap, topo.startNodes().toSet, os)
     os.close()
   }
-
 }
