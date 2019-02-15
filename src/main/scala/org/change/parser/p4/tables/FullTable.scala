@@ -222,7 +222,6 @@ class TableTernaryMatcher(tableMatch: TableMatch, useBv : Boolean = true) extend
         Constrain(s"tmp$crtrnd", :==:(ConstantValue(mask & value)))
       )
     }
-
   }
 
   override def instantiate(arg: String, prio: Int): Constrainable = {
@@ -274,7 +273,6 @@ class TableExactMatcher(tableMatch: TableMatch) extends Constrainable {
       Constrain(s"$hdr.IsValid", :==:(ConstantValue(prioToExact(which))))
     )
   }
-
 
   override def constraint(switchInstance: SwitchInstance, which : Int): Instruction = {
     tableMatch.getMatchKind match {

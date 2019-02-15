@@ -3,15 +3,9 @@ package org.change.parser.p4
 import java.util
 
 import org.change.parser.p4.buffer.{BufferMechanism, OutputMechanism}
-import org.change.parser.p4.factories.{
-  FullTableFactory,
-  GlobalInitFactory,
-  InitCodeFactory,
-  InstanceBasedInitFactory
-}
-import org.change.parser.p4.tables.SymbolicSwitchInstance
+import org.change.parser.p4.factories.{FullTableFactory, GlobalInitFactory, InitCodeFactory, InstanceBasedInitFactory}
+import org.change.parser.p4.tables.{FullTable, FullTableWithInstances, SymbolicSwitchInstance}
 import org.change.parser.p4.parser.{ParserGenerator, SwitchBasedParserGenerator}
-import org.change.parser.p4.tables.FullTable
 import org.change.v2.analysis.executor.InstructionExecutor
 import org.change.v2.analysis.expression.concrete.{ConstantValue, SymbolicValue}
 import org.change.v2.analysis.memory.State
@@ -156,6 +150,9 @@ class ControlFlowInterpreter[T <: ISwitchInstance](
     Fork(switchInstance.getIfaceSpec.keys.map(x => {
       Forward(s"${switchInstance.getName}.input.$x")
     }))
+  def startingPoints() : Set[String] = switchInstance.getIfaceSpec.keys.map(x => {
+    s"${switchInstance.getName}.input.$x"
+  }).toSet
 
   def initialize(port: Int): Instruction =
     initializeCode.switchInitializePacketEnter(port)
@@ -234,10 +231,8 @@ object ControlFlowInterpreter {
   })
   FullTableFactory.register(
     classof = classOf[SwitchInstance],
-    (switchInstance: ISwitchInstance, tabName: String, id: String) => {
-      new FullTable(tabName, switchInstance.asInstanceOf[SwitchInstance], id)
-        .fullAction()
-    }
+    (switchInstance: SwitchInstance, tabName: String, id: String) =>
+      new FullTable(tabName, switchInstance, id).fullAction()
   )
 
   def apply(
