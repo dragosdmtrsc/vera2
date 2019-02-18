@@ -1028,10 +1028,10 @@ class P4GrammarListener extends P4GrammarBaseListener {
   }
 
   override def exitValue_list(ctx: Value_listContext): Unit = {
-    if (ctx.value_or_masked() != null)
+    if (ctx.value_or_masked() != null && !ctx.value_or_masked().isEmpty)
       ctx.values = ctx.value_or_masked().map(x => x.v)
     else
-      ctx.values = util.Arrays.asList(new Value().setValue(0).setMask(0))
+      ctx.values = null
   }
 
   override def exitCase_entry(ctx: Case_entryContext): Unit = {
@@ -1041,8 +1041,14 @@ class P4GrammarListener extends P4GrammarBaseListener {
     } else  {
       new ReturnStatement(ctx.case_return_value_type().getText)
     }
-    ctx.caseEntry = ctx.value_list().values.foldLeft(new CaseEntry())((acc, x) => {
-      acc.addValue(x)
+    ctx.caseEntry = (if (ctx.value_list().values == null) {
+      // default
+      new CaseEntry().setDefault()
+    } else {
+      // useful
+      ctx.value_list().values.foldLeft(new CaseEntry())((acc, x) => {
+        acc.addValue(x)
+      })
     }).setReturnStatement(retst)
   }
 

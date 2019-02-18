@@ -2,7 +2,7 @@ package org.change.v2.analysis.processingmodels.instructions
 
 import org.change.v2.analysis.expression.abst.{Expression, FloatingExpression}
 import org.change.v2.analysis.expression.concrete.ConstantValue
-import org.change.v2.analysis.expression.concrete.nonprimitive.{Address, Concat}
+import org.change.v2.analysis.expression.concrete.nonprimitive.{:+:, :@, Address, Concat}
 import org.change.v2.analysis.memory.{Intable, MemoryObject, State, TagExp}
 import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.analysis.types.{IP4Type, LongType, NumericType}
@@ -127,4 +127,8 @@ object Assign {
 
   def apply(id: String, ip: String): Instruction =
     apply(id, ConstantValue(ipToNumber(ip)), IP4Type)
+}
+object Increment {
+  def apply(id : String) : Instruction = Assign(id, :+:(:@(id), ConstantValue(1)))
+  def apply(a : Intable) : Instruction = Assign(a, :+:(:@(a), ConstantValue(1)))
 }

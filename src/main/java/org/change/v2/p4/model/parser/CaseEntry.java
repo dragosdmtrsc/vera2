@@ -7,6 +7,7 @@ import java.util.List;
  * Created by dragos on 12.09.2017.
  */
 public class CaseEntry extends Statement {
+    private boolean def = false;
     private List<Expression> expressions = new ArrayList<Expression>();
     private ReturnStatement returnStatement;
     private List<Value> values = new ArrayList<Value>();
@@ -15,6 +16,8 @@ public class CaseEntry extends Statement {
         this.expressions.add(expression);
         return this;
     }
+    public CaseEntry setDefault() { def = true; return this; }
+    public boolean isDefault() { return def; }
 
     public List<Expression> getExpressions() {
         return expressions;

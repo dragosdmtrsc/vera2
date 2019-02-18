@@ -9,7 +9,7 @@ import org.change.v2.analysis.memory.{Intable, Tag, TagExp}
 import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.analysis.processingmodels.instructions._
 import org.change.v2.util.ToDot.{mkIPCG, normalize}
-
+import org.change.v2.analysis.memory.TagExp.IntImprovements
 import scala.collection.mutable
 
 object ToSEFL {
@@ -20,8 +20,11 @@ object ToSEFL {
                   outputStream : PrintWriter) : Unit = {
     def handleIntable(a : Intable) : String = a match {
       case Tag(name) => "tag(" + name + ")"
-      case TagExp(plusTags, minusTags, rest) => plusTags.map(handleIntable).mkString("+") + " - " +
-        minusTags.map(handleIntable).mkString("-") + rest.toString
+      case x : IntImprovements => x.value.toString
+      case TagExp(plusTags, minusTags, rest) => plusTags.map(handleIntable).mkString("+") +
+        (if (minusTags.nonEmpty)
+          " - " + minusTags.map(handleIntable).mkString("-")
+        else "") + " + " + rest.toString
     }
 
     def handleFexp(floatingExpression: FloatingExpression) : String = floatingExpression match {
@@ -37,6 +40,10 @@ object ToSEFL {
       case Havoc(prefix) => s"havoc($prefix)"
       case Address(a) => s"packet[${handleIntable(a)}]"
       case :-:(left, right) => handleFexp(left) + " - " + handleFexp(right)
+      case Take(lv, from, width) => lv match {
+        case Left(id) => id + s"[$from:${from + width}]"
+        case Right(intable) => s"packet[${handleIntable(intable)}+$from:${handleIntable(intable)}+${from + width}]"
+      }
       case ConstantBValue(value, size) => value
       case ConstantStringValue(value) => "string(" + value.toString + ")"
     }
@@ -80,8 +87,8 @@ object ToSEFL {
       case ConstrainRaw(x, c, _) => visit(Assume(ConstrainFloatingExpression(:@(x), c)))
       case Assume(x) => "assume(" + handleCondition(x) + ")"
       case Fail(x) => s"fail($x)"
-      case AllocateRaw(x, u) => "allocate(" + handleIntable(x) + ")"
-      case AllocateSymbol(x, u) => "allocate(" + x + ")"
+      case AllocateRaw(x, u) => "allocate(" + handleIntable(x) + s", $u)"
+      case AllocateSymbol(x, u) => "allocate(" + x + s",$u)"
       case DeallocateRaw(x, u) => "deallocate(" + handleIntable(x) + ")"
       case DeallocateNamedSymbol(x) => "deallocate(" + x + ")"
       case Forward(loc) =>

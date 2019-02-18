@@ -238,6 +238,13 @@ object StateExpander {
     explosion.close()
   }
 
+  def getGenPorts(expd: List[DFSState], sw: Switch,
+                  name: String,
+                  wayFilter: Option[Function1[String,
+                    Boolean]] = None) : Set[String] =
+    expd.filter(s => wayFilter.getOrElse((r: String) => true)(s
+      .seflPortName)).map(x => name + "generator." + x.seflPortName).toSet
+
   def generateAllPossiblePackets(
                                   expd: List[DFSState], sw: Switch,
                                   name: String,

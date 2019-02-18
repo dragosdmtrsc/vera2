@@ -1,7 +1,7 @@
 package org.change.v2.analysis.expression.concrete
 
 import org.change.v2.analysis.expression.abst.{Expression, FloatingExpression}
-import org.change.v2.analysis.memory.State
+import org.change.v2.analysis.memory.{Intable, State}
 import org.change.v2.analysis.z3.Z3Util
 import z3.scala.{Z3AST, Z3Solver}
 
@@ -33,5 +33,8 @@ case class SymbolicValue(name: String = "") extends Expression with FloatingExpr
 }
 
 case class Havoc(prefix : String) extends FloatingExpression {
+  override def instantiate(s: State): Either[Expression, String] = ???
+}
+case class Take(lv : Either[String, Intable], from : Long, width : Long) extends FloatingExpression {
   override def instantiate(s: State): Either[Expression, String] = ???
 }
