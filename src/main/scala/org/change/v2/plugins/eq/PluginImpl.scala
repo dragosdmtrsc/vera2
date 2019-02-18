@@ -12,9 +12,10 @@ import org.change.v2.analysis.expression.concrete.ConstantValue
 import org.change.v2.analysis.memory
 import org.change.v2.analysis.memory.State._
 import org.change.v2.analysis.memory.{SimpleMemory, State, ToTheEndExecutor}
-import org.change.v2.analysis.processingmodels.instructions.{Assign, InstructionBlock}
+import org.change.v2.analysis.processingmodels.instructions.{Assign, CreateTag, InstructionBlock}
 import org.change.v2.util.canonicalnames._
 import z3.scala.Z3Context
+import org.change.v2.analysis.memory.TagExp._
 
 import scala.collection.mutable
 
@@ -82,6 +83,18 @@ object PluginImpl {
     }
   }
 }
+
+
+class NoPacketPlugin extends InputPacketPlugin {
+  override def apply(): List[SimpleMemory] = CreateTag("START", 0)(State.clean)._1.map(SimpleMemory.apply)
+}
+object NoPacketPlugin {
+  class Builder extends PluginBuilder[NoPacketPlugin] {
+    override def set(parm: String, value: String): PluginBuilder[NoPacketPlugin] = this
+    override def build(): NoPacketPlugin = new NoPacketPlugin()
+  }
+}
+
 
 class TCPPacketPluginImpl(symTtl : Boolean) extends InputPacketPlugin {
   override def apply(): List[SimpleMemory] = new OVSExecutor(new Z3BVSolver()).execute(

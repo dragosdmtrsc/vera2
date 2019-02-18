@@ -158,7 +158,14 @@ class P4GrammarListener extends P4GrammarBaseListener {
 
   // Section 4
   override def exitHeader_extract_ref(ctx: P4GrammarParser.Header_extract_refContext): Unit = {
+    ctx.expression = (if (ctx.header_extract_index() != null)
+      new IndexedHeaderRef().setIndex(ctx.header_extract_index().expression.intValue())
+    else new HeaderRef()).setPath(ctx.instance_name().getText)
   }
+
+  override def exitHeader_extract_index(ctx: Header_extract_indexContext): Unit =
+    if (ctx.const_value() != null) ctx.expression = ctx.const_value().constValue.intValue()
+    else ctx.expression = -1
 
   val declaredFunctions: MutableMap[String, ParserFunctionDeclaration] = MutableMap()
 
@@ -191,20 +198,22 @@ class P4GrammarListener extends P4GrammarBaseListener {
     ctx.extractStatement = ExtractHeader(ctx.header_extract_ref().headerInstance)
   }
 
+  override def exitIndex(ctx: IndexContext): Unit = {
+    if (ctx.const_value() == null) ctx.idx = -1
+    else ctx.idx = ctx.const_value().constValue.intValue()
+  }
   override def exitHeader_ref(ctx: P4GrammarParser.Header_refContext): Unit = {
-    ctx.headerInstanceId = if (ctx.index() != null)
-        if (! (ctx.index().getText == "last"))
-          ctx.instance_name().getText + ctx.index().getText
-        else throw new UnsupportedOperationException("'last' not yet supported")
-      else
-        ctx.instance_name().getText
-
+    if (ctx.index() != null)
+      ctx.expression = new IndexedHeaderRef().setIndex(ctx.index().idx).setPath(ctx.instance_name().getText)
+    else
+      ctx.expression = new HeaderRef().setPath(ctx.instance_name().getText)
   }
 
   override def exitField_ref(ctx: P4GrammarParser.Field_refContext): Unit = {
     if (complexAction != null && actionFieldRef) {
       actionFieldRef = false
     }
+    ctx.expression = new FieldRef().setHeaderRef(ctx.header_ref().expression).setField(ctx.field_name().getText)
   }
 
   val actionRegistrar = new ActionRegistrar()
@@ -957,15 +966,14 @@ class P4GrammarListener extends P4GrammarBaseListener {
   }
 
   override def exitExtract_statement(ctx: Extract_statementContext): Unit = {
-    val extractWhere = ctx.header_extract_ref().getText
-    ctx.statement = new ExtractStatement(ParserInterpreter.parseExpression(extractWhere))
+    val extractWhere = ctx.header_extract_ref().expression
+    ctx.statement = new ExtractStatement(extractWhere)
   }
 
   override def exitSet_statement(ctx: Set_statementContext): Unit = {
-    val dst = ctx.field_ref().getText
+    val dst = ctx.field_ref().expression
     val src = ctx.metadata_expr().expression
-    ctx.statement = new SetStatement(ParserInterpreter.parseExpression(dst),
-      src)
+    ctx.statement = new SetStatement(dst, src)
   }
 
   override def exitMetadata_expr(ctx: Metadata_exprContext): Unit = {
@@ -991,8 +999,27 @@ class P4GrammarListener extends P4GrammarBaseListener {
   override def exitMinus_metadata_expr(ctx: Minus_metadata_exprContext): Unit = {
     ctx.expression = new CompoundExpression(false, ctx.simple_metadata_expr().expression, ctx.compound().expression)
   }
+
+  override def exitLatest_field_ref(ctx: Latest_field_refContext): Unit =
+    ctx.expression = new LatestRef(ctx.field_name().getText)
+
+  override def exitData_ref(ctx: Data_refContext): Unit = {
+    ctx.expression = new DataRef(ctx.const_value(0).constValue, ctx.const_value(1).constValue)
+  }
+  override def exitField_or_data_ref(ctx: Field_or_data_refContext): Unit = {
+    ctx.expression = if (ctx.data_ref() != null) ctx.data_ref().expression
+    else if (ctx.field_ref() != null) ctx.field_ref().expression
+    else if (ctx.latest_field_ref() != null) ctx.latest_field_ref().expression
+    else { assert(false); null }
+  }
   override def exitSimple_metadata_expr(ctx: Simple_metadata_exprContext): Unit = {
-    ctx.expression = ParserInterpreter.parseExpression(ctx.getText)
+    if (ctx.field_value() != null) {
+      ctx.expression = new ConstantExpression(java.lang.Long.decode(ctx.field_value.getText))
+    } else if (ctx.field_or_data_ref() != null) {
+      ctx.expression = ctx.field_or_data_ref().expression
+    } else {
+      assert(false)
+    }
   }
 
 
@@ -1051,10 +1078,6 @@ class P4GrammarListener extends P4GrammarBaseListener {
       })
     }).setReturnStatement(retst)
   }
-
-  override def exitSelect_exp(ctx: Select_expContext): Unit = {
-    ctx.expressions = ctx.field_or_data_ref().map(x => ParserInterpreter.parseExpression(x.getText))
-  }
-
+  override def exitSelect_exp(ctx: Select_expContext): Unit = ctx.expressions = ctx.field_or_data_ref().map(x => x.expression)
   def buildNetworkConfig() = new NetworkConfig(None, elements.map(element => (element.name, element)).toMap, foundPaths.toList)
 }

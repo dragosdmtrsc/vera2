@@ -35,6 +35,12 @@ case class SymbolicValue(name: String = "") extends Expression with FloatingExpr
 case class Havoc(prefix : String) extends FloatingExpression {
   override def instantiate(s: State): Either[Expression, String] = ???
 }
-case class Take(lv : Either[String, Intable], from : Long, width : Long) extends FloatingExpression {
+case class Take(lv : Either[String, Intable], from : Int, width : Int) extends FloatingExpression {
   override def instantiate(s: State): Either[Expression, String] = ???
+}
+case class Extract(e : Expression, from : Int, len : Int) extends Expression {
+  override def toZ3(solver: Option[Z3Solver]): (Z3AST, Option[Z3Solver]) = ???
+}
+case class Concat(exprs : Iterable[Expression]) extends Expression {
+  override def toZ3(solver: Option[Z3Solver]): (Z3AST, Option[Z3Solver]) = ???
 }

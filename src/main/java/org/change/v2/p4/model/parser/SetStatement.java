@@ -4,9 +4,10 @@ package org.change.v2.p4.model.parser;
  * Created by dragos on 12.09.2017.
  */
 public class SetStatement extends Statement {
-    private Expression left, right;
+    private FieldRef left;
+    private Expression right;
 
-    public Expression getLeft() {
+    public FieldRef getLeft() {
         return left;
     }
 
@@ -14,7 +15,7 @@ public class SetStatement extends Statement {
         return right;
     }
 
-    public SetStatement(Expression left, Expression right) {
+    public SetStatement(FieldRef left, Expression right) {
         this.left = left;
         this.right = right;
     }

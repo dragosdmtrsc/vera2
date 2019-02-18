@@ -4,7 +4,7 @@ package org.change.v2.p4.model.parser;
  * Created by dragos on 12.09.2017.
  */
 public class ExtractStatement extends Statement {
-    private Expression expression;
+    private HeaderRef expression;
     private int crt, width;
     public ExtractStatement setLocation(int crt, int width) {
         ExtractStatement es = new ExtractStatement(expression);
@@ -21,21 +21,16 @@ public class ExtractStatement extends Statement {
         return width;
     }
 
-    public ExtractStatement setCrt(int crt) {
-        this.crt = crt;
-        return this;
-    }
-
-    public ExtractStatement setWidth(int width) {
-        this.width = width;
-        return this;
-    }
-
-    public Expression getExpression() {
+    public HeaderRef getExpression() {
         return expression;
     }
 
-    public ExtractStatement(Expression expression) {
+    public ExtractStatement(HeaderRef expression) {
         this.expression = expression;
+    }
+
+    @Override
+    public String toString() {
+        return "extract(" + expression.getPath() + ")";
     }
 }

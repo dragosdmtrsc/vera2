@@ -88,11 +88,13 @@ metadata_instance returns [org.change.parser.p4.MetadataInstance instance]:
 metadata_initializer returns [scala.collection.Map<String, Integer> inits]:
    '{' ( field_name ':' field_value ';' )+ '}' ;
 
-header_ref returns [org.change.v2.analysis.memory.TagExp tagReference, String headerInstanceId] :
+header_ref returns [org.change.v2.analysis.memory.TagExp tagReference, String headerInstanceId,
+org.change.v2.p4.model.parser.HeaderRef expression] :
     instance_name | instance_name '[' index ']' ;
 // TODO: Add support for `last`
-index   :   const_value | 'last' ;
-field_ref   returns [org.change.v2.analysis.memory.TagExp reference]:   header_ref '.' field_name ;
+index  returns [java.lang.Integer idx] :   const_value | 'last' ;
+field_ref   returns [org.change.v2.analysis.memory.TagExp reference,
+org.change.v2.p4.model.parser.FieldRef expression]:   header_ref '.' field_name ;
 
 //TODO: All the field etc stuff.
 field_list_declaration returns [java.util.List<String> entryList] :   'field_list' field_list_name '{' ( field_list_entry ';')+ '}' ;
@@ -135,9 +137,9 @@ org.change.v2.p4.model.parser.Statement statement] :
 extract_statement  returns [org.change.parser.p4.ExtractHeader extractStatement,
     org.change.v2.p4.model.parser.ExtractStatement statement] :
     'extract' '(' header_extract_ref ')' ';' ;
-header_extract_ref returns [org.change.parser.p4.HeaderInstance headerInstance] :
+header_extract_ref returns [org.change.parser.p4.HeaderInstance headerInstance, org.change.v2.p4.model.parser.HeaderRef expression] :
     instance_name | instance_name '[' header_extract_index ']' ;
-header_extract_index    : const_value | 'next' ;
+header_extract_index returns [java.lang.Integer expression]   : const_value | 'next' ;
 set_statement returns [org.change.v2.p4.model.parser.SetStatement statement]  :
     'set_metadata' '(' field_ref',' metadata_expr ')' ';' ;
 simple_metadata_expr returns [org.change.v2.p4.model.parser.Expression expression] : field_value | field_or_data_ref;
@@ -168,7 +170,11 @@ value_or_masked returns [org.change.v2.p4.model.parser.Value v]:
 
 select_exp  returns [java.util.List<org.change.v2.p4.model.parser.Expression> expressions]:
     field_or_data_ref (',' field_or_data_ref)* ;
-field_or_data_ref   :   field_ref | 'latest.'field_name | 'current' '(' const_value ',' const_value ')' ;
+
+latest_field_ref returns [org.change.v2.p4.model.parser.LatestRef expression] : 'latest' '.' field_name;
+data_ref  returns [org.change.v2.p4.model.parser.DataRef expression] : 'current' '(' const_value ',' const_value ')';
+field_or_data_ref  returns [org.change.v2.p4.model.parser.Expression expression]  :
+    field_ref | latest_field_ref | data_ref;
 parser_exception_declaration    :   'parser_exception' parser_exception_name '{'
     set_statement*
     return_or_drop ';'

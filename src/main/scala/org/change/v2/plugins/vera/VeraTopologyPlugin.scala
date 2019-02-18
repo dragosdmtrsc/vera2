@@ -39,11 +39,13 @@ object VeraTopologyPlugin {
     var switchName = "switch"
     var ninterfaces = 0
     var generator = false
+    var noInputPacket = false
     override def set(parm: String, value: String): PluginBuilder[VeraTopologyPlugin] = {
       val pat = "interface(\\d+)".r
       val clonespec = "clonespec(\\d+)".r
       parm match {
         case "generator" => generator = value.toBoolean; this
+        case "noinputpacket" => noInputPacket = value.toBoolean; this
         case "commands" => commandsTxt = value; this
         case "p4" => p4file = value; this
         case "layoutfilter" => layoutFilter = value; this
@@ -58,7 +60,7 @@ object VeraTopologyPlugin {
       val sw = Switch.fromFile(p4file)
       if (ifaces.isEmpty) {
         if (ninterfaces == 0)
-          throw new IllegalArgumentException("specify parms: interfaceX NAME or ninterfaces")
+          throw new IllegalArgumentException("specify parms: interfaceX NAME or ninterfaces NR")
         (0 until ninterfaces).foreach(h => {
           ifaces.put(h, s"eth$h")
         })
@@ -66,7 +68,7 @@ object VeraTopologyPlugin {
       val switchInstance = SymbolicSwitchInstance.fromFileWithSyms(switchName,
         ifaces.toMap, cloneSpec.toMap,
         sw, commandsTxt, false)
-      val parserGenerator = new LightParserGenerator(sw, switchInstance)
+      val parserGenerator = new LightParserGenerator(sw, switchInstance, noInputPacket)
       new VeraTopologyPlugin(switchName, sw, switchInstance, ifaces.toMap, cloneSpec.toMap, parserGenerator, generator)
     }
   }

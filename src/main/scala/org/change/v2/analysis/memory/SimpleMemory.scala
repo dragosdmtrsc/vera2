@@ -182,6 +182,29 @@ class SimpleMemoryInterpreter(
     case cbv: ConstantBValue      => Some(cbv)
     case csv: ConstantStringValue => Some(csv)
     case sv: SymbolicValue        => Some(sv)
+    case Take(Right(i), offset, length) =>
+      simpleMemory.eval(i) match {
+        case Some(x) =>
+          val withOffset = x + offset
+          val myLast = withOffset + length - 1
+          val first = simpleMemory.rawObjects.filter(x => {
+            val first = x._1
+            val last = x._1 + x._2.size - 1
+            first >= withOffset && last >= myLast
+          }).foldLeft((length, withOffset, List.empty[Expression]))((acc, x) => {
+            val takeAtMost = Math.max(acc._1, x._2.size)
+            val remaining = acc._1 - takeAtMost
+            if (takeAtMost == x._2.size && acc._2 == x._1) {
+              // means: take the whole bit-vector
+              (acc._1 - takeAtMost, acc._2 + takeAtMost, x._2.expression :: acc._3)
+            } else {
+              (acc._1 - takeAtMost, acc._2 + takeAtMost,
+                Extract(x._2.expression, acc._2 - x._1, takeAtMost) :: acc._3)
+            }
+          })
+          Some(org.change.v2.analysis.expression.concrete.Concat(first._3))
+        case None => None
+      }
   }
 
   def instantiate(fc: FloatingConstraint,
@@ -235,6 +258,7 @@ class SimpleMemoryInterpreter(
       Math.max(minWidth, width)
       Math.max(width, 64)
     case sv: SymbolicValue => width
+    case Take(_, _, len) => len
     case _                 => ???
   }
 
@@ -909,7 +933,14 @@ object SimpleMemory {
           z3.mkNumeral(BigInt(v.substring(2), 16).toString, z3.mkBVSort(size))
         case ConstantStringValue(v) =>
           z3.mkNumeral(v.hashCode.toString, z3.mkBVSort(sz))
-        case _ => ???
+        case org.change.v2.analysis.expression.concrete.Concat(vs) =>
+          val asts = vs.map(translateE(sz, _))
+          val init = asts.head
+          asts.tail.foldLeft(init)((acc, x) => {
+            z3.mkConcat(acc, x)
+          })
+        case Extract(x, from, width) =>
+          z3.mkExtract(from, from + width - 1, translateE(sz, x))
       }
 
     def filter(lst: ContextPackage): ContextPackage =

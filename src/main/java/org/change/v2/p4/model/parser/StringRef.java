@@ -15,25 +15,19 @@ public class StringRef extends Expression {
         this.arrayIndex = arrayIndex;
         return this;
     }
-
     public boolean isArray() {
         return arrayIndex >= -1 ;
     }
-
     public boolean isNext() {
         return arrayIndex == -1;
     }
-
     public StringRef setNext() {
         this.arrayIndex = -1;
         return this;
     }
-
-
     public String getRef() {
         return ref;
     }
-
     public StringRef(String ref) {
         this.ref = ref;
     }

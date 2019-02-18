@@ -1,19 +1,20 @@
 package org.change.parser.p4.parser
 
-import org.change.parser.p4.HeaderInstance
+import java.util.UUID
+
+import org.change.utils.FreshnessManager
 import org.change.v2.analysis.expression.abst.FloatingExpression
-import org.change.v2.analysis.expression.concrete.nonprimitive.{:&&:, :+:, :-:, :@}
 import org.change.v2.analysis.expression.concrete._
-import org.change.v2.analysis.memory.{State, Tag}
+import org.change.v2.analysis.expression.concrete.nonprimitive.{:&&:, :+:, :-:, :@}
+import org.change.v2.analysis.memory.Tag
+import org.change.v2.analysis.memory.TagExp.IntImprovements
 import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.analysis.processingmodels.instructions._
-import org.change.v2.p4.model.{ArrayInstance, ISwitchInstance, Switch}
-import org.change.v2.analysis.memory.TagExp.IntImprovements
 import org.change.v2.p4.model.parser._
+import org.change.v2.p4.model.{ArrayInstance, Field, ISwitchInstance, Switch}
 
 import scala.collection.JavaConversions._
 import scala.collection.mutable
-import scala.collection.mutable.ListBuffer
 
 trait ParserGenerator {
   def parserCode() : Instruction
@@ -25,18 +26,10 @@ trait ParserGenerator {
 }
 
 class LightParserGenerator(switch: Switch,
-                           switchInstance: ISwitchInstance) extends ParserGenerator {
+                           switchInstance: ISwitchInstance,
+                           noInputPackets : Boolean = false) extends ParserGenerator {
   private lazy val startState = switch.getParserState("start")
   private val name = switchInstance.getName
-  def translateExpression(expression: Expression) : FloatingExpression = expression match {
-    case dr : DataRef => Take(Right(Tag("CRT")), dr.getStart, dr.getEnd)
-    case ce : CompoundExpression => if (ce.isPlus)
-      :+:(translateExpression(ce.getLeft), translateExpression(ce.getRight))
-      else :-:(translateExpression(ce.getLeft), translateExpression(ce.getRight))
-    case constant : ConstantExpression => ConstantValue(constant.getValue)
-    case lr : LatestRef => ???
-    case sr : StringRef => :@(sr.getRef)
-  }
 
   def refersLatest(e : Expression) : Boolean = e match {
     case ce : CompoundExpression =>
@@ -81,90 +74,195 @@ class LightParserGenerator(switch: Switch,
             propagateExtract(switch.getParserState(ce.getReturnStatement.getWhere), visited,
               crtBlock._2, crtBlock._1)
           }).toMap
-        case rs : ReturnStatement => propagateExtract(switch.getParserState(rs.getWhere), visited,
-          crtBlock._2, crtBlock._1)
+        case rs : ReturnStatement =>
+          if (!rs.isError && switch.getParserState(rs.getWhere) != null)
+            propagateExtract(switch.getParserState(rs.getWhere), visited,
+            crtBlock._2, crtBlock._1)
+          else crtBlock._2
       }
     }
   }
 
   def translateValue(value : Value) : ConstantValue = ConstantValue(value.getValue & value.getMask)
+  def handleArray(headerRef: IndexedHeaderRef, fun : (Int) => Instruction) = {
+    if (headerRef.isLast) {
+      val ainstance = switch.getInstance(headerRef.getPath).asInstanceOf[ArrayInstance]
+      val nxtname = headerRef.getPath + ".next"
+      (0 until ainstance.getLength).foldRight(Fail(s"out of bounds for ${headerRef.getPath}") : Instruction)((x, acc) => {
+        If (Constrain(nxtname, :==:(ConstantValue(x))),
+          fun(x), acc
+        )
+      })
+    } else {
+      fun(headerRef.getIndex)
+    }
+  }
+
+  def nextState(ret : ReturnStatement) : List[org.change.v2.p4.model.parser.State] = {
+    if (!ret.isError && switch.getParserState(ret.getWhere) != null)
+      switch.getParserState(ret.getWhere) :: Nil
+    else Nil
+  }
+  def nextStates(ret : ReturnSelectStatement) : List[org.change.v2.p4.model.parser.State] =
+    ret.getCaseEntryList.flatMap(ce => nextState(ce.getReturnStatement)).toList
+  def buildCFG() : org.change.utils.graph.Graph[Statement] = {
+    val adjList = mutable.Map.empty[Statement, List[Statement]]
+    val visited = mutable.Set.empty[org.change.v2.p4.model.parser.State]
+    def doBuild(st : org.change.v2.p4.model.parser.State,
+                outstanding : Option[Statement]): Unit = {
+      val last = st.getStatements.foldLeft(outstanding)((acc, x) => {
+        acc.foreach(o => {
+          val crt = adjList.getOrElse(o, Nil)
+          adjList.put(o, x :: crt)
+        })
+        Some(x)
+      })
+      if (!visited.contains(st)) {
+        visited.add(st)
+        val nxt = st.getStatements.last match {
+          case rss : ReturnSelectStatement => nextStates(rss)
+          case rs : ReturnStatement => nextState(rs)
+        }
+        nxt.foreach(x => doBuild(x, last))
+      }
+    }
+    doBuild(switch.getParserState("start"), None)
+    new org.change.utils.graph.Graph(adjList.toMap)
+  }
 
   def handleStatement(mes : Map[Statement, Option[ExtractStatement]])
                      (statement: Statement,
                       visited : mutable.Set[String],
-                      stack : mutable.ListBuffer[String]) : Instruction = statement match {
-    case ss : SetStatement =>
-      val lv = ss.getLeft.asInstanceOf[StringRef]
-      def translateCref(expression: Expression): FloatingExpression =
-        expression match {
-          case ct: ConstantExpression => ConstantValue(ct.getValue)
-          case ce: CompoundExpression if ce.isPlus => :+:(translateCref(ce
-            .getLeft), translateCref(ce.getRight))
-          case ce: CompoundExpression if !ce.isPlus => :-:(translateCref(ce
-            .getLeft), translateCref(ce.getRight))
-          case expr: StringRef => :@(expr.getRef)
-          case lr : LatestRef => translateCref(mes(statement).get.getExpression)
-          case _ => throw new NotImplementedError(expression.toString)
-        }
+                      stack : mutable.ListBuffer[String]) : Instruction = {
 
-      val dstref = ss.getLeft.asInstanceOf[StringRef].getRef
-      val srcref = translateCref(ss.getRight)
-      Assign(dstref, srcref)
-    case es : ExtractStatement =>
-      val hi = es.getExpression.asInstanceOf[StringRef]
-      val instance = switch.getInstance(hi.getRef)
-      if (hi.isNext) {
-        val ainstance = instance.asInstanceOf[ArrayInstance]
-        val len = ainstance.getLength
-        (0 until len).foldRight(Fail("out of bounds") : Instruction)((x, acc) => {
-          val sref = new StringRef(hi.getRef).setArrayIndex(x)
-          val extractStatement = new ExtractStatement(sref)
-          If (Constrain(hi.getRef + ".next", :==:(ConstantValue(x))),
-            InstructionBlock(
-              handleStatement(mes)(extractStatement, visited, stack),
-              Increment(hi.getRef + ".next")
-            ), acc
-          )
-        })
-      } else {
-        val base = if (hi.isArray) hi.getRef + s"[${hi.getArrayIndex}]"
-        else hi.getRef
-        InstructionBlock(
-          Assign(base + ".IsValid", ConstantValue(1)) ::
-          instance.getLayout.getFields.flatMap(fld => {
-            val fname = s"$base.${fld.getName}"
-            List(
-              Allocate(fname, fld.getLength),
-              Assign(fname, :@(Tag("CRT"))),
-              CreateTag("CRT", Tag("CRT") + fld.getLength)
-            )
-          }).toList
-        )
-      }
-    case rss : ReturnSelectStatement =>
-      val exprs = rss.getCaseEntryList.head.getExpressions
-      val defaultEntry = rss.getCaseEntryList.find(_.isDefault).map(_.getReturnStatement).
-        getOrElse(new ReturnStatement("").setError(true).setMessage("reject"))
-      rss.getCaseEntryList.filter(!_.isDefault).foldRight(
-          handleStatement(mes)(defaultEntry, visited, stack))((x, acc) => {
-        val cd = InstructionBlock(exprs.map(translateExpression).zip(x.getValues.toList).map(u => {
-          if (u._2.getMask != -1)
-            ConstrainFloatingExpression(:&&:(ConstantValue(u._2.getMask), u._1),
-              :==:(translateValue(u._2)))
+    def translateRv(expression: Expression): (FloatingExpression, Option[Instruction]) =
+      expression match {
+        case ct: ConstantExpression => (ConstantValue(ct.getValue), None)
+        case ce: CompoundExpression =>
+          val lft = translateRv(ce.getLeft)
+          val rgt = translateRv(ce.getRight)
+          val instr = (lft._2, rgt._2) match {
+            case (None, None) => None
+            case (Some(i1), Some(i2)) => Some(InstructionBlock(i1, i2))
+            case (None, Some(i1)) => Some(i1)
+            case (Some(i1), None) => Some(i1)
+          }
+          (if (ce.isPlus)
+            :+:(lft._1, rgt._1)
           else
-            ConstrainFloatingExpression(u._1, :==:(translateValue(u._2)))
-        }))
-        If (cd, handleStatement(mes)(x.getReturnStatement, visited, stack), acc)
-      })
-    case rs : ReturnStatement => if (rs.isError) {
-      Fail(rs.getMessage)
-    } else {
-      if (switch.getParserState(rs.getWhere) != null) {
-        if (!visited.contains(rs.getWhere))
-          stack.append(rs.getWhere)
-        Forward(name + ".parser." + rs.getWhere)
+            :-:(lft._1, rgt._1), instr)
+        case expr: StringRef => ???
+        case lr : LatestRef =>
+          val fieldRef = new FieldRef().setField(lr.getFieldName).
+            setHeaderRef(mes(statement).get.getExpression)
+          translateRv(fieldRef)
+        case fr : FieldRef =>
+          val hdr = fr.getHeaderRef
+          val instance = switch.getInstance(hdr.getPath)
+          if (hdr.isArray) {
+            val ainstance = hdr.asInstanceOf[IndexedHeaderRef]
+            val tmp = s"${FreshnessManager.next()}.${fr.getField}"
+            (:@(tmp), Some(InstructionBlock(
+              Allocate(tmp, instance.getLayout.getField(fr.getField).getLength),
+              handleArray(ainstance, (x : Int) => {
+                Assign(tmp, :@(s"${hdr.getPath}[$x].${fr.getField}"))
+              })
+            )))
+          } else {
+            (:@(s"${hdr.getPath}.${fr.getField}"), None)
+          }
+        case dr : DataRef =>
+          if (!noInputPackets)
+            (Take(Right(Tag("CRT")), dr.getStart.intValue(), dr.getEnd.intValue()), None)
+          else {
+            val t = s"${FreshnessManager.next()}"
+            (:@(t), Some(InstructionBlock(
+              Allocate(t, dr.getEnd.intValue() - dr.getStart.intValue() - 1),
+              Assign(t, SymbolicValue())
+            )))
+          }
+        case _ => throw new NotImplementedError(expression.toString)
+      }
+
+    statement match {
+      case ss : SetStatement =>
+        val lv = ss.getLeft
+        val rv = translateRv(ss.getRight)
+        if (lv.getHeaderRef.isArray) {
+          val arr = handleArray(lv.getHeaderRef.asInstanceOf[IndexedHeaderRef], (x : Int) => {
+            Assign(s"${lv.getHeaderRef.getPath}[$x].${lv.getField}", rv._1)
+          })
+          rv._2 match {
+            case None => arr
+            case Some(i) => InstructionBlock(i, arr)
+          }
+        } else {
+          val h = Assign(s"${lv.getHeaderRef.getPath}.${lv.getField}", rv._1)
+          rv._2 match {
+            case None => h
+            case Some(i) => InstructionBlock(i, h)
+          }
+        }
+      case es : ExtractStatement =>
+        val hi = es.getExpression
+        val instance = switch.getInstance(hi.getPath)
+        def extract(base : String) =
+          If (Constrain(base + ".IsValid", :==:(ConstantValue(1))),
+            Fail("double extract"),
+            InstructionBlock(
+              Assign(base + ".IsValid", ConstantValue(1)) ::
+                instance.getLayout.getFields.flatMap(fld => {
+                  val fname = s"$base.${fld.getName}"
+                  List(
+                    Allocate(fname, fld.getLength),
+                    Assign(fname, if (noInputPackets) SymbolicValue(fname) else :@(Tag("CRT"))),
+                    if (noInputPackets) NoOp else CreateTag("CRT", Tag("CRT") + fld.getLength)
+                  )
+                }).toList
+            )
+          )
+        if (hi.isArray) {
+          val ihr = hi.asInstanceOf[IndexedHeaderRef]
+          handleArray(ihr, (x : Int) => {
+            val sref = new IndexedHeaderRef().setIndex(x).setPath(hi.getPath)
+            val extractStatement = new ExtractStatement(sref)
+            InstructionBlock(
+              extract(instance.getName + s"[$x]"),
+              if (ihr.isLast) Increment(instance.getName + ".next") else NoOp
+            )
+          })
+        } else
+          extract(instance.getName)
+      case rss : ReturnSelectStatement =>
+        val exprs = rss.getCaseEntryList.head.getExpressions
+        val defaultEntry = rss.getCaseEntryList.find(_.isDefault).map(_.getReturnStatement).
+          getOrElse(new ReturnStatement("").setError(true).setMessage("reject"))
+        val mapped = exprs.map(translateRv)
+        val instrs = InstructionBlock(mapped.flatMap(_._2).toList)
+        InstructionBlock(
+          instrs,
+          rss.getCaseEntryList.filter(!_.isDefault).foldRight(
+            handleStatement(mes)(defaultEntry, visited, stack))((x, acc) => {
+            val cd = InstructionBlock(mapped.zip(x.getValues.toList).map(u => {
+              if (u._2.getMask != -1)
+                ConstrainFloatingExpression(:&&:(ConstantValue(u._2.getMask), u._1._1),
+                  :==:(translateValue(u._2)))
+              else
+                ConstrainFloatingExpression(u._1._1, :==:(translateValue(u._2)))
+            }))
+            If (cd, handleStatement(mes)(x.getReturnStatement, visited, stack), acc)
+          })
+        )
+      case rs : ReturnStatement => if (rs.isError) {
+        Fail(rs.getMessage)
       } else {
-        Forward(name + ".control." + rs.getWhere)
+        if (switch.getParserState(rs.getWhere) != null) {
+          if (!visited.contains(rs.getWhere))
+            stack.append(rs.getWhere)
+          Forward(name + ".parser." + rs.getWhere)
+        } else {
+          Forward(name + ".control." + rs.getWhere)
+        }
       }
     }
   }
@@ -195,7 +293,7 @@ class LightParserGenerator(switch: Switch,
     )
   }
 
-  override def generatorCode(): Instruction = ???
+  override def generatorCode(): Instruction = Forward(generatorStartPoints().head)
 
   override def inlineGeneratorCode(): Instruction = ???
 
@@ -210,65 +308,121 @@ class LightParserGenerator(switch: Switch,
     case rss : ReturnSelectStatement => rss.getCaseEntryList.flatMap(ce => ret2nxt(ce.getReturnStatement))
   }.flatten
 
-  private def topoRecur(crt : String,
-                        visited : mutable.Set[String],
-                        res : mutable.ListBuffer[String]) : mutable.ListBuffer[String] = {
-    visited.add(crt)
-    neighs(switch.getParserState(crt)).foreach(h =>
-      if (! visited.contains(h))
-        topoRecur(h, visited, res))
-    res.prepend(crt)
-    res
+  def maxUnroll(graph : org.change.utils.graph.Graph[Statement],
+                 scc : List[Statement]): Int = {
+    val extracts = scc.map(_.asInstanceOf[ExtractStatement])
+    val nrmax = extracts.map(h => {
+      if (h.getExpression.isArray)
+        switch.getInstance(h.getExpression.getPath).asInstanceOf[ArrayInstance].getLength
+      else 1
+    }).sum
+    val root = scc.head
+    val mindelta = graph.sp(root, root)
+    Math.ceil((nrmax + 0.0) / (mindelta + 0.0)).intValue()
   }
-  private def topoSort() = {
-    val stack = new mutable.ListBuffer[String]()
-    val visited = mutable.Set.empty[String]
-    topoRecur("start", visited, stack)
-  }
-
-  private def revExtract(f: StringRef) : Instruction = {
-    val hi = switch.getInstance(f.getRef)
-    val base = if (f.isArray) f.getRef + s"[${f.getArrayIndex}]" else f.getRef
-    If (Constrain(base + ".IsValid", :==:(ConstantValue(1))),
-      InstructionBlock(hi.getLayout.getFields.flatMap(fld => {
-        val fname = s"$base.${fld.getName}"
-        List(
-          Allocate(Tag("CRT"), fld.getLength),
-          Assign(Tag("CRT"), :@(fname)),
-          CreateTag("CRT", Tag("CRT") + fld.getLength)
-        )
-      }))
+  def deparse(base : String, fld : Field) : List[Instruction] =
+    List(
+      Allocate(Tag("CRT"), fld.getLength),
+      Assign(Tag("CRT"), :@(s"$base.${fld.getName}")),
+      CreateTag("CRT", Tag("CRT") + fld.getLength)
     )
-  }
-
-  private def deparse(s : String) = {
-    val st = switch.getParserState(s)
-    InstructionBlock(st.getStatements.collect {
-      case es : ExtractStatement => es.getExpression.asInstanceOf[StringRef]
-    }.map(f => {
-      if (f.isNext) {
-        val hi = switch.getInstance(f.getRef).asInstanceOf[ArrayInstance]
-        (0 until hi.getLength).foldRight(Fail("array index out of bounds") : Instruction)((x, acc) => {
-          If (Constrain(hi.getName + ".next", :==:(ConstantValue(x))),
-            InstructionBlock(
-              Increment(hi.getName + ".next"),
-              revExtract(new StringRef(hi.getName + s"[$x]"))
-            ), acc
-          )
-        })
-      } else {
-        revExtract(f)
-      }
-    }))
-  }
 
   override def deparserCode(): Instruction = {
+    val topo: List[Instruction] = deparserInstructions
     val first = CreateTag("CRT", Tag("START")) :: switch.getInstances.flatMap {
       case ai: ArrayInstance if !ai.isMetadata =>
         Assign(ai.getName + ".next", ConstantValue(0)) :: Nil
       case _ => Nil
     }.toList
-    InstructionBlock(first ++ topoSort().map(deparse))
+    InstructionBlock(first ++ topo ++ List(Forward(s"${switchInstance.getName}.deparser.out")))
+  }
+
+  private def deparserInstructions : List[Instruction] = {
+    val cfg = buildCFG().subGraph(x => x.isInstanceOf[ExtractStatement])
+    val sccs = cfg.scc()
+    val topo = sccs.reverse.map(scc => {
+      val nrunrolls = maxUnroll(cfg, scc)
+      val i = scc.map(_.asInstanceOf[ExtractStatement].getExpression).map(f => {
+        val inst = switch.getInstance(f.getPath)
+        if (f.isArray) {
+          val b = s"${f.getPath}"
+          handleArray(f.asInstanceOf[IndexedHeaderRef], (x: Int) => {
+            val base = b + s"[$x]"
+            If(Constrain(s"$base.IsValid", :==:(ConstantValue(1))),
+              InstructionBlock(inst.getLayout.getFields.flatMap(fld => {
+                deparse(b + s"[$x]", fld)
+              }))
+            )
+          })
+        } else {
+          If(Constrain(s"${f.getPath}.IsValid", :==:(ConstantValue(1))),
+            InstructionBlock(inst.getLayout.getFields.flatMap(fld => {
+              deparse(f.getPath, fld)
+            }))
+          )
+        }
+      })
+      InstructionBlock((0 until nrunrolls).flatMap(_ => i))
+    })
+    topo
+  }
+
+  def generatorName(es : ExtractStatement): String = {
+    val path = es.getExpression.getPath
+    switchInstance.getName + ".generator." + path + (if (es.getExpression.isArray) {
+      val ihr = es.getExpression.asInstanceOf[IndexedHeaderRef]
+      if (ihr.isLast) {
+        "[next]"
+      } else {
+        s"[${ihr.getIndex}]"
+      }
+    } else "")
+  }
+
+  lazy val extraGeneratorCode : Map[String, Instruction] = {
+    val init = List(
+      CreateTag("START", 0),
+      CreateTag("CRT", Tag("START"))
+    ) ++ switch.getInstances.flatMap {
+      case ai: ArrayInstance if !ai.isMetadata =>
+        Assign(ai.getName + ".next", ConstantValue(0)) :: Nil
+      case _ => Nil
+    }.toList
+    val cfg = buildCFG().subGraph(x => x.isInstanceOf[ExtractStatement])
+    val scc = cfg.scc()
+    cfg.edges.map(x => {
+      val hdr = x._1.asInstanceOf[ExtractStatement].getExpression
+      val instance = switch.getInstance(hdr.getPath)
+      val b = hdr.getPath
+      val myInstruction = if (hdr.isArray) {
+        handleArray(hdr.asInstanceOf[IndexedHeaderRef], (x : Int) => {
+          InstructionBlock(instance.getLayout.getFields.flatMap(fld => {
+            val base = s"$b[$x]"
+            List(
+              Allocate(Tag("CRT"), fld.getLength),
+              Assign(Tag("CRT"), SymbolicValue(s"$base.${fld.getName}")),
+              CreateTag("CRT", Tag("CRT") + fld.getLength)
+            )
+          }))
+        })
+      } else {
+        InstructionBlock(instance.getLayout.getFields.flatMap(fld => {
+          val base = s"$b"
+          List(
+            Allocate(Tag("CRT"), fld.getLength),
+            Assign(Tag("CRT"), SymbolicValue(s"$base.${fld.getName}")),
+            CreateTag("CRT", Tag("CRT") + fld.getLength)
+          )
+        }))
+      }
+      generatorName(x._1.asInstanceOf[ExtractStatement]) -> InstructionBlock(
+        myInstruction,
+        Fork(x._2.map(_.asInstanceOf[ExtractStatement]).map(x => Forward(generatorName(x))))
+      )
+    }) ++ Map(
+      switchInstance.getName + ".generator" ->
+        Forward(generatorName(scc.last.head.asInstanceOf[ExtractStatement]))
+    )
   }
 
   override lazy val extraCode: Map[String, Instruction] = {
@@ -281,10 +435,10 @@ class LightParserGenerator(switch: Switch,
       visited.add(top)
       instrs += (name + ".parser." + top) -> handleState(switch.getParserState(top), visited, stack)
     }
-    instrs.toMap
+    instrs.toMap ++ extraGeneratorCode
   }
 
-  override def generatorStartPoints(): Set[String] = ???
+  override def generatorStartPoints(): Set[String] = Set(s"${switchInstance.getName}.generator")
 }
 
 class SwitchBasedParserGenerator(switch : Switch,

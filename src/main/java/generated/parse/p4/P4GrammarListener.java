@@ -1,4 +1,4 @@
-// Generated from /home/dragos/GitHub/symnet-neutron/src/main/resources/p4_grammar/P4Grammar.g4 by ANTLR 4.7
+// Generated from C:/Users/dragos/source/repos/symnet-neutron/src/main/resources/p4_grammar\P4Grammar.g4 by ANTLR 4.7.2
 package generated.parse.p4;
 import org.antlr.v4.runtime.tree.ParseTreeListener;
 
@@ -661,6 +661,26 @@ public interface P4GrammarListener extends ParseTreeListener {
 	 * @param ctx the parse tree
 	 */
 	void exitSelect_exp(P4GrammarParser.Select_expContext ctx);
+	/**
+	 * Enter a parse tree produced by {@link P4GrammarParser#latest_field_ref}.
+	 * @param ctx the parse tree
+	 */
+	void enterLatest_field_ref(P4GrammarParser.Latest_field_refContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link P4GrammarParser#latest_field_ref}.
+	 * @param ctx the parse tree
+	 */
+	void exitLatest_field_ref(P4GrammarParser.Latest_field_refContext ctx);
+	/**
+	 * Enter a parse tree produced by {@link P4GrammarParser#data_ref}.
+	 * @param ctx the parse tree
+	 */
+	void enterData_ref(P4GrammarParser.Data_refContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link P4GrammarParser#data_ref}.
+	 * @param ctx the parse tree
+	 */
+	void exitData_ref(P4GrammarParser.Data_refContext ctx);
 	/**
 	 * Enter a parse tree produced by {@link P4GrammarParser#field_or_data_ref}.
 	 * @param ctx the parse tree
