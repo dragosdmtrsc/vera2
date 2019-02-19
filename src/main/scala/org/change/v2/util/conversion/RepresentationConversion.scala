@@ -20,7 +20,7 @@ object RepresentationConversion {
     val rex = "([0-9a-fA-F]+):([0-9a-fA-F]+):([0-9a-fA-F]+):([0-9a-fA-F]+):([0-9a-fA-F]+):([0-9a-fA-F]+)".r
     rex.findFirstMatchIn(mac).map(u => {
       (0 until u.groupCount).foldLeft(0L)((acc, i) => {
-        val g = u.group(i)
+        val g = u.group(i + 1)
         (acc << 8) | java.lang.Integer.parseInt(g, 16)
       })
     })

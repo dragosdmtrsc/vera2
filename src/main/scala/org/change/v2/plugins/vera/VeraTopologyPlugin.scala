@@ -8,6 +8,8 @@ import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.p4.model.{ISwitchInstance, Switch}
 import org.change.v2.plugins.eq.{PluginBuilder, TopologyPlugin}
 
+import scala.util.matching.Regex
+
 class VeraTopologyPlugin(switchName : String,
                          sw : Switch,
                          switchInstance: SymbolicSwitchInstance,
@@ -40,10 +42,12 @@ object VeraTopologyPlugin {
     var ninterfaces = 0
     var generator = false
     var noInputPacket = false
+    var justParser = false
     override def set(parm: String, value: String): PluginBuilder[VeraTopologyPlugin] = {
       val pat = "interface(\\d+)".r
       val clonespec = "clonespec(\\d+)".r
       parm match {
+        case "justparser" => justParser = value.toBoolean; this
         case "generator" => generator = value.toBoolean; this
         case "noinputpacket" => noInputPacket = value.toBoolean; this
         case "commands" => commandsTxt = value; this
@@ -68,7 +72,7 @@ object VeraTopologyPlugin {
       val switchInstance = SymbolicSwitchInstance.fromFileWithSyms(switchName,
         ifaces.toMap, cloneSpec.toMap,
         sw, commandsTxt, false)
-      val parserGenerator = new LightParserGenerator(sw, switchInstance, noInputPacket)
+      val parserGenerator = new LightParserGenerator(sw, switchInstance, noInputPacket, justParser)
       new VeraTopologyPlugin(switchName, sw, switchInstance, ifaces.toMap, cloneSpec.toMap, parserGenerator, generator)
     }
   }

@@ -21,4 +21,9 @@ public class FieldRef extends Expression {
         this.field = field;
         return this;
     }
+
+    @Override
+    public String toString() {
+        return headerRef.toString() + "." + field;
+    }
 }

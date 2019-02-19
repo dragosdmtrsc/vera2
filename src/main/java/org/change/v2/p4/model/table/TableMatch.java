@@ -1,5 +1,7 @@
 package org.change.v2.p4.model.table;
 
+import scala.math.BigInt;
+
 /**
  * Created by dragos on 06.09.2017.
  */
@@ -7,9 +9,9 @@ public class TableMatch {
     private String table;
     private String key;
     private MatchKind matchKind;
-    private long mask = -1;
+    private BigInt mask = BigInt.apply(-1);
 
-    public TableMatch(String table, String key, MatchKind kind, long mask) {
+    public TableMatch(String table, String key, MatchKind kind, BigInt mask) {
         assert table != null;
         assert key != null;
         this.table = table;
@@ -18,7 +20,7 @@ public class TableMatch {
         this.mask = mask;
     }
     public TableMatch(String table, String key, MatchKind kind) {
-        this(table, key, kind, -1);
+        this(table, key, kind, BigInt.apply(-1));
     }
 
     public String getKey() {

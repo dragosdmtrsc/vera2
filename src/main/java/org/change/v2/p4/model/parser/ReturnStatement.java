@@ -33,4 +33,12 @@ public class ReturnStatement extends Statement {
     public String getWhere() {
         return where;
     }
+
+    @Override
+    public String toString() {
+        if (isError) {
+            return "error " + getMessage();
+        }
+        return "return " + getWhere();
+    }
 }

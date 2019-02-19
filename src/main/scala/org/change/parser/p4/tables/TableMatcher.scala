@@ -70,16 +70,14 @@ abstract class FullTableGeneric[T<:ISwitchInstance](tableName : String,
       x.instructions.filter(x => x.isInstanceOf[ConstrainNamedSymbol] || x.isInstanceOf[ConstrainRaw])
     })) :: Nil)
   }
-  protected def default() : Instruction = If (Constrain("IsClone", :==:(ConstantValue(0))),
-    InstructionBlock(
+  protected def default() : Instruction = InstructionBlock(
       defaultActionCode(),
       Assign("default.Fired", ConstantValue(1)),
       Assign(s"$tableName.Hit", ConstantValue(0))
     )
-  )
   protected def initializeTable() : Instruction = {
     InstructionBlock(
-      if (isSelected) {
+      if (!isSelected) {
         Nil
       } else {
         switch.getAllowedActions(tableName).map(x => {
@@ -88,10 +86,7 @@ abstract class FullTableGeneric[T<:ISwitchInstance](tableName : String,
           Assign("default.Fired", ConstantValue(0)),
           Assign(s"$tableName.Hit", ConstantValue(0))
         )
-      } ++ List[Instruction](
-        Allocate("IsClone", 1),
-        Assign("IsClone", ConstantValue(0))
-      )
+      }
     )
   }
   def fullAction() : Instruction = {
@@ -100,36 +95,32 @@ abstract class FullTableGeneric[T<:ISwitchInstance](tableName : String,
       (0 until numberOfFlows).foldRight(default())((x, acc) => {
         val priorAndCt = priorAndConstraints(x)
         priorAndCt._2.zip(priorAndCt._1).foldRight(action(x))((y, acc2) => {
-          If (Constrain("IsClone", :==:(ConstantValue(0))),
-            InstructionBlock(
-              y._2,
-              If (y._1,
-                if (isSelected) {
-                  InstructionBlock(
-                    acc2,
-                    Assign(s"${actionDef(x)}.Fired", ConstantValue(1)),
-                    Assign(s"$tableName.Hit", ConstantValue(1))
-                  )
-                } else {
-                  acc2
-                },
-                if (isSelected) {
-                  InstructionBlock(
-                    Assign(s"${actionDef(x)}.Fired", ConstantValue(0)),
-                    Assign(s"$tableName.Hit", ConstantValue(0)),
-                    acc
-                  )
-                } else {
+          InstructionBlock(
+            y._2,
+            If (y._1,
+              if (isSelected) {
+                InstructionBlock(
+                  acc2,
+                  Assign(s"${actionDef(x)}.Fired", ConstantValue(1)),
+                  Assign(s"$tableName.Hit", ConstantValue(1))
+                )
+              } else {
+                acc2
+              },
+              if (isSelected) {
+                InstructionBlock(
+                  Assign(s"${actionDef(x)}.Fired", ConstantValue(0)),
+                  Assign(s"$tableName.Hit", ConstantValue(0)),
                   acc
-                }
-              )
+                )
+              } else {
+                acc
+              }
             )
           )
         })
       }),
-      If (Constrain("IsClone", :==:(ConstantValue(0))),
-        Forward(s"${switchInstance.getName}.table.$tableName.out" + (if (id.length != 0) s".$id" else ""))
-      )
+      Forward(s"${switchInstance.getName}.table.$tableName.out" + (if (id.length != 0) s".$id" else ""))
     )
     ib
   }

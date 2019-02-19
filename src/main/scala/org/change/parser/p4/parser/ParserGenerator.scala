@@ -27,7 +27,8 @@ trait ParserGenerator {
 
 class LightParserGenerator(switch: Switch,
                            switchInstance: ISwitchInstance,
-                           noInputPackets : Boolean = false) extends ParserGenerator {
+                           noInputPackets : Boolean = false,
+                           justParser : Boolean = false) extends ParserGenerator {
   private lazy val startState = switch.getParserState("start")
   private val name = switchInstance.getName
 
@@ -178,7 +179,7 @@ class LightParserGenerator(switch: Switch,
             val t = s"${FreshnessManager.next()}"
             (:@(t), Some(InstructionBlock(
               Allocate(t, dr.getEnd.intValue() - dr.getStart.intValue() - 1),
-              Assign(t, SymbolicValue())
+              Assign(t, Havoc(t))
             )))
           }
         case _ => throw new NotImplementedError(expression.toString)
@@ -215,7 +216,7 @@ class LightParserGenerator(switch: Switch,
                   val fname = s"$base.${fld.getName}"
                   List(
                     Allocate(fname, fld.getLength),
-                    Assign(fname, if (noInputPackets) SymbolicValue(fname) else :@(Tag("CRT"))),
+                    Assign(fname, if (noInputPackets) Havoc(fname) else :@(Tag("CRT"))),
                     if (noInputPackets) NoOp else CreateTag("CRT", Tag("CRT") + fld.getLength)
                   )
                 }).toList
@@ -261,7 +262,9 @@ class LightParserGenerator(switch: Switch,
             stack.append(rs.getWhere)
           Forward(name + ".parser." + rs.getWhere)
         } else {
-          Forward(name + ".control." + rs.getWhere)
+          if (!justParser)
+            Forward(name + ".control." + rs.getWhere)
+          else Forward("parser_success")
         }
       }
     }
@@ -280,13 +283,33 @@ class LightParserGenerator(switch: Switch,
   override def parserCode(): Instruction = {
     val instances = switch.getInstances.toList
     val first = instances.flatMap(x => x match {
-      case ai: ArrayInstance if !ai.isMetadata =>
-        Assign(ai.getName + ".next", ConstantValue(0)) :: (0 until ai.getLength).map(x => {
-          Assign(ai.getName + s"[$x].IsValid", ConstantValue(0))
+      case ai: ArrayInstance =>
+        Assign(ai.getName + ".next", ConstantValue(0)) :: (0 until ai.getLength).flatMap(x => {
+          val base = ai.getName + s"[$x]"
+          (if (!ai.isMetadata)
+            List(
+              Allocate(s"$base.IsValid", 1),
+              Assign(s"$base.IsValid", ConstantValue(0))
+            )
+          else Nil) ++ ai.getLayout.getFields.flatMap(fld => {
+            val f = base + s".${fld.getName}"
+            List(
+              Allocate(f, fld.getLength)
+            ) ++ (if (!ai.isMetadata) Nil else Assign(f, ConstantValue(0)) :: Nil)
+          })
         }).toList
-      case _ => if (!x.isMetadata)
-        Assign(x.getName + ".IsValid", ConstantValue(0)) :: Nil
+      case _ =>
+        val base = x.getName
+        val valid = if (!x.isMetadata)
+          Allocate(base + ".IsValid", 1) :: Assign(base + ".IsValid", ConstantValue(0)) :: Nil
         else Nil
+        valid ++ x.getLayout.getFields.flatMap(fld => {
+          val f = base + s".${fld.getName}"
+          Allocate(f, fld.getLength) :: (
+            if (x.isMetadata) Assign(f, ConstantValue(0)) :: Nil
+            else Nil
+          )
+        })
     })
     InstructionBlock(
       first ++ List(CreateTag("CRT", Tag("START")), Forward(name + ".parser." + "start"))
@@ -339,6 +362,26 @@ class LightParserGenerator(switch: Switch,
 
   private def deparserInstructions : List[Instruction] = {
     val cfg = buildCFG().subGraph(x => x.isInstanceOf[ExtractStatement])
+    if (true) {
+      val full = buildCFG()
+      val fullsccs = full.scc()
+      System.out.println("digraph G {")
+      fullsccs.reverse.foreach(x => {
+        System.out.println("subgraph { ")
+        x.foreach(h => {
+          System.out.println(h.hashCode() + " [label=\"" + h + "\"];")
+        })
+        System.out.println("}")
+      })
+      full.edges.foreach(e => {
+        e._2.foreach(dst => {
+          System.out.println(e._1.hashCode() + " -> " + dst.hashCode() + ";")
+        })
+      })
+      System.out.println("}")
+      System.out.flush()
+    }
+
     val sccs = cfg.scc()
     val topo = sccs.reverse.map(scc => {
       val nrunrolls = maxUnroll(cfg, scc)
@@ -400,7 +443,7 @@ class LightParserGenerator(switch: Switch,
             val base = s"$b[$x]"
             List(
               Allocate(Tag("CRT"), fld.getLength),
-              Assign(Tag("CRT"), SymbolicValue(s"$base.${fld.getName}")),
+              Assign(Tag("CRT"), Havoc(s"$base.${fld.getName}")),
               CreateTag("CRT", Tag("CRT") + fld.getLength)
             )
           }))
@@ -410,7 +453,7 @@ class LightParserGenerator(switch: Switch,
           val base = s"$b"
           List(
             Allocate(Tag("CRT"), fld.getLength),
-            Assign(Tag("CRT"), SymbolicValue(s"$base.${fld.getName}")),
+            Assign(Tag("CRT"), Havoc(s"$base.${fld.getName}")),
             CreateTag("CRT", Tag("CRT") + fld.getLength)
           )
         }))

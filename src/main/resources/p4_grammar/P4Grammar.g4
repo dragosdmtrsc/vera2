@@ -22,9 +22,9 @@ p4_declaration  :   header_type_declaration
                 |   control_function_declaration
                 ;
 
-const_value     returns [Long constValue]:
+const_value     returns [scala.math.BigInt constValue]:
     ('+'|'-')? width_spec? unsigned_value ;
-unsigned_value  returns [Long unsignedValue]:
+unsigned_value  returns [scala.math.BigInt unsignedValue]:
     Binary_value            #BinaryUValue
     | Decimal_value         #DecimalUValue
     | Hexadecimal_value     #HexadecimalUValue
@@ -45,7 +45,7 @@ fragment Decimal_digit   :   Binary_digit | '2' | '3' | '4' | '5' | '6' | '7' | 
 fragment Hexadecimal_digit   : Decimal_digit | 'a' | 'A' | 'b' | 'B' | 'c' | 'C' | 'd' | 'D' | 'e' | 'E' | 'f' | 'F' ;
 
 width_spec  :   Decimal_value '\'' ;
-field_value returns [Long fieldValue] : const_value ;
+field_value returns [scala.math.BigInt fieldValue] : const_value ;
 
 // Section 2.1
 header_type_declaration returns [org.change.parser.p4.HeaderDeclaration headerDeclaration, org.change.v2.p4.model.Header header]:
@@ -264,7 +264,7 @@ table_declaration : 'table' table_name '{'
     ;
 
 field_match returns [org.change.v2.p4.model.table.TableMatch tableMatch, String tableName]: field_or_masked_ref ':' field_match_type ';' ;
-field_or_masked_ref returns [Long mask, String field]: header_ref | field_ref | field_ref 'mask' const_value ;
+field_or_masked_ref returns [scala.math.BigInt mask, String field]: header_ref | field_ref | field_ref 'mask' const_value ;
 field_match_type returns [org.change.v2.p4.model.table.MatchKind matchKind]: 'exact' | 'ternary' | 'lpm' | 'range' | 'valid' ;
 table_actions : action_specification | action_profile_specification ;
 action_profile_specification : 'action_profile' ':' action_profile_name ';' ;

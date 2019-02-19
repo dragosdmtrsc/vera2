@@ -5,12 +5,15 @@ package org.change.v2.p4.model.parser;
  */
 public class ConstantExpression extends Expression {
     private long value;
-
     public ConstantExpression(long value) {
         this.value = value;
     }
-
     public long getValue() {
         return value;
+    }
+
+    @Override
+    public String toString() {
+        return value + "";
     }
 }

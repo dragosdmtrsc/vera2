@@ -11,4 +11,13 @@ public class IndexedHeaderRef extends HeaderRef {
         this.index = index;
         return this;
     }
+
+    @Override
+    public String toString() {
+        if (isLast()) {
+            return super.toString() + ".last";
+        } else {
+            return super.toString() + "[" + index + "]";
+        }
+    }
 }

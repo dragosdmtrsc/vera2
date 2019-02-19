@@ -450,7 +450,7 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Const_valueContext extends ParserRuleContext {
-		public Long constValue;
+		public scala.math.BigInt constValue;
 		public Unsigned_valueContext unsigned_value() {
 			return getRuleContext(Unsigned_valueContext.class,0);
 		}
@@ -522,7 +522,7 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Unsigned_valueContext extends ParserRuleContext {
-		public Long unsignedValue;
+		public scala.math.BigInt unsignedValue;
 		public Unsigned_valueContext(ParserRuleContext parent, int invokingState) {
 			super(parent, invokingState);
 		}
@@ -657,7 +657,7 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Field_valueContext extends ParserRuleContext {
-		public Long fieldValue;
+		public scala.math.BigInt fieldValue;
 		public Const_valueContext const_value() {
 			return getRuleContext(Const_valueContext.class,0);
 		}
@@ -6097,7 +6097,7 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Field_or_masked_refContext extends ParserRuleContext {
-		public Long mask;
+		public scala.math.BigInt mask;
 		public String field;
 		public Header_refContext header_ref() {
 			return getRuleContext(Header_refContext.class,0);

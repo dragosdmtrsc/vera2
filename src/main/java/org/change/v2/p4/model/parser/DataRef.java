@@ -18,4 +18,9 @@ public class DataRef extends Expression {
         this.start = start;
         this.end = end;
     }
+
+    @Override
+    public String toString() {
+        return "current(" + getStart() + "," + getEnd() + ")";
+    }
 }

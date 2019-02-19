@@ -21,6 +21,7 @@ class ToFileConsumer(success : String, fail : String) extends ExecutorConsumer {
   }
 
   override def flush(): Unit = {
+    System.out.println(s"done. ${mSuccess.size} successful vs ${mFail.size} failed")
     val fout = new BufferedOutputStream(new FileOutputStream(success))
     JsonUtil.toJson(mSuccess, fout)
     fout.close()

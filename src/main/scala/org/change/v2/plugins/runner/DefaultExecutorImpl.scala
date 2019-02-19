@@ -4,11 +4,16 @@ import org.change.v2.analysis.constraint.{Condition, FALSE, FAND, TRUE}
 import org.change.v2.analysis.executor.TripleInstructionExecutor
 import org.change.v2.analysis.memory.{SimpleMemory, SimpleMemoryInterpreter, ToTheEndExecutor}
 import org.change.v2.analysis.processingmodels.Instruction
+import org.change.v2.analysis.processingmodels.instructions.{Fork, Forward}
 import org.change.v2.plugins.eq.{ExecutorConsumer, ExecutorPlugin, PluginBuilder}
+
+import scala.util.matching.Regex
 
 class DefaultExecutorImpl extends ExecutorPlugin {
   var totalSolverTime = 0l
   var nrSolverCalls = 0
+  var mergePoints: Regex = "(.*\\.parser\\.out)|(.*\\.parser$)|(.*\\.control\\.ingress\\.out)|(.*\\.control\\.egress\\.out)".r
+
   def simpleSatStrategy(condition: Condition,
                         newCondition: Condition): Boolean = {
     val start = java.lang.System.currentTimeMillis()
@@ -28,11 +33,11 @@ class DefaultExecutorImpl extends ExecutorPlugin {
                      startNodes: Set[String],
                      initials: List[SimpleMemory],
                      consumer: ExecutorConsumer): Unit = {
-    val toTheEndExecutor = new ToTheEndExecutor(simpleMemoryInterpreter, topology.toMap)
-    startNodes.foreach(x => {
-      initials.foreach(u => {
-        toTheEndExecutor.executeFromWithConsumer(x, u, consumer.apply)
-      })
+    val toTheEndExecutor = new ToTheEndExecutor(simpleMemoryInterpreter, topology.toMap, (s : String) => {
+      mergePoints.findFirstMatchIn(s).nonEmpty
+    })
+    initials.foreach(u => {
+      toTheEndExecutor.executeFromWithConsumer(startNodes, u, consumer.apply _, None)
     })
     consumer.flush()
   }

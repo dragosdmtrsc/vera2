@@ -10,7 +10,7 @@ import org.change.v2.analysis.executor.InstructionExecutor
 import org.change.v2.analysis.expression.concrete.{ConstantValue, SymbolicValue}
 import org.change.v2.analysis.memory.State
 import org.change.v2.analysis.processingmodels._
-import org.change.v2.analysis.processingmodels.instructions._
+import org.change.v2.analysis.processingmodels.instructions.{Assign, _}
 import org.change.v2.p4.model.{ISwitchInstance, Switch, SwitchInstance}
 import org.change.v2.util.Rewriter
 
@@ -303,15 +303,18 @@ object ControlFlowInterpreter {
                                optParserGenerator: Option[ParserGenerator])
     : ControlFlowInterpreter[SymbolicSwitchInstance] = {
 
-    val tabs = switch.getDeclaredTables.flatMap(tableName => {
-
+    val tabs =
+      Allocate("IsClone", 1) :: Assign("IsClone", ConstantValue(0)) :: switch.getDeclaredTables.flatMap(tableName => {
       val prof = switch.getProfileByTable(tableName)
       val profInstr = if (prof != null) {
         val acts = switch.getActionsPerProfile(prof.getName)
         acts
           .map(_.getActionName)
-          .map(x => {
-            Assign(s"$x.Fired", ConstantValue(0))
+          .flatMap(x => {
+            List(
+              Allocate(s"$x.Fired", 1),
+              Assign(s"$x.Fired", ConstantValue(0))
+            )
           })
       } else {
         Nil
@@ -323,7 +326,7 @@ object ControlFlowInterpreter {
         }) ++ List[Instruction](
         Assign(s"$tableName.Hit", ConstantValue(0))
       ) ++ profInstr
-    })
+    }).toList
     val initializerCode = { symbolicSwitchInstance: SymbolicSwitchInstance =>
       InstructionBlock(
         symbolicSwitchInstance.symbolicTableParams.toList

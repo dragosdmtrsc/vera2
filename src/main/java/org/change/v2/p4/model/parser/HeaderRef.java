@@ -10,4 +10,9 @@ public class HeaderRef extends Expression {
         this.path = path;
         return this;
     }
+
+    @Override
+    public String toString() {
+        return path;
+    }
 }

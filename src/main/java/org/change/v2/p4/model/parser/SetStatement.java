@@ -19,4 +19,9 @@ public class SetStatement extends Statement {
         this.left = left;
         this.right = right;
     }
+
+    @Override
+    public String toString() {
+        return left.getHeaderRef().getPath() + "." + left.getField() + " = " + getRight().toString();
+    }
 }

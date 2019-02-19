@@ -18,4 +18,19 @@ public class ReturnSelectStatement extends Statement {
     public Collection<CaseEntry> getCaseEntryList() {
         return caseEntryList;
     }
+
+    @Override
+    public String toString() {
+        CaseEntry h = caseEntryList.get(0);
+        StringBuilder crt = new StringBuilder("case(");
+        boolean first= true;
+        for (Expression e : h.getExpressions()) {
+            if (!first)
+                crt.append(",");
+            first = false;
+            crt.append(e.toString());
+        }
+        crt.append(")");
+        return crt.toString();
+    }
 }

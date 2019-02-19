@@ -1,0 +1,3 @@
+table_add filter drp x,x x,x x,x x,x =>
+table_set_default filter _nop
+table_set_default nop _nop

@@ -355,7 +355,6 @@ class FullTable(tableName : String,
       flows.zipWithIndex.foldRight(default())((x, acc) => {
         val priorAndCt = priorAndConstraints(x._2)
         priorAndCt._2.zip(priorAndCt._1).foldRight(action(x._2))((y, acc2) => {
-          If (Constrain("IsClone", :==:(ConstantValue(0))),
             InstructionBlock(
               y._2,
               If (y._1,
@@ -370,7 +369,6 @@ class FullTable(tableName : String,
                   acc
                 )
               )
-            )
           )
         })
       }),

@@ -74,13 +74,13 @@ class P4GrammarListener extends P4GrammarBaseListener {
         None
 
     val fields = ctx.header_dec_body().field_dec().toList.map { h =>
-      val width: Option[Long] = Option(h.bit_width().const_value()).map(_.constValue)
+      val width: Option[BigInt] = Option(h.bit_width().const_value()).map(_.constValue)
       val name: String = h.field_name().getText
       (name, width)
     }
 
     val fieldsWithSizes = {
-      val total = fields.foldLeft(0l)(_ + _._2.getOrElse(0l))
+      val total = fields.foldLeft(BigInt(0))(_ + _._2.getOrElse(0l))
       // If not defined, then it is computed.
       if (headerSize.isEmpty) headerSize = Some(total)
       // By this point there should be a value for the size of the header.
@@ -301,15 +301,14 @@ class P4GrammarListener extends P4GrammarBaseListener {
     //    parser_error_location
     // Standard metadata intrinsic
     val hOffs = Map[Int, (String, Int)](
-      0 -> ("ingress_port", 64),
-      64 -> ("packet_length", 64),
-      128 -> ("egress_spec", 64),
-      192 -> ("egress_port", 64),
+      0 -> ("ingress_port", 9),
+      64 -> ("packet_length", 32),
+      128 -> ("egress_spec", 9),
+      192 -> ("egress_port", 9),
       256 -> ("egress_instance", 64),
-      320 -> ("instance_type", 64),
-      384 -> ("parser_status", 64),
-      448 -> ("parser_error_location", 64),
-      512 -> ("egress_priority", 64)
+      320 -> ("instance_type", 32),
+      384 -> ("parser_status", 9),
+      448 -> ("parser_error_location", 9)
     )
 //    declaredHeaders.put("standard_metadata_t", HeaderDeclaration("standard_metadata_t", hOffs, 512))
     headers.put("standard_metadata_t", hOffs.foldLeft(new Header().setName("standard_metadata_t").setLength(512))((acc, x) => {
@@ -1004,7 +1003,7 @@ class P4GrammarListener extends P4GrammarBaseListener {
     ctx.expression = new LatestRef(ctx.field_name().getText)
 
   override def exitData_ref(ctx: Data_refContext): Unit = {
-    ctx.expression = new DataRef(ctx.const_value(0).constValue, ctx.const_value(1).constValue)
+    ctx.expression = new DataRef(ctx.const_value(0).constValue.toLong, ctx.const_value(1).constValue.toLong)
   }
   override def exitField_or_data_ref(ctx: Field_or_data_refContext): Unit = {
     ctx.expression = if (ctx.data_ref() != null) ctx.data_ref().expression

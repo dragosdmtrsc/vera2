@@ -13,4 +13,9 @@ public class LatestRef extends Expression {
     public LatestRef(String fieldName) {
         this.fieldName = fieldName;
     }
+
+    @Override
+    public String toString() {
+        return "latest." + fieldName;
+    }
 }

@@ -930,7 +930,7 @@ object SimpleMemory {
         case LogicalOr(a, b) =>
           z3.mkBVOr(translateE(sz, a.e), translateE(sz, b.e))
         case ConstantBValue(v, size) =>
-          z3.mkNumeral(BigInt(v.substring(2), 16).toString, z3.mkBVSort(size))
+          z3.mkNumeral(BigInt(v.substring(2), 16).toString, z3.mkBVSort(sz))
         case ConstantStringValue(v) =>
           z3.mkNumeral(v.hashCode.toString, z3.mkBVSort(sz))
         case org.change.v2.analysis.expression.concrete.Concat(vs) =>
@@ -1338,29 +1338,76 @@ object SimpleMemory {
 }
 
 class ToTheEndExecutor(val tripleExecutor: SimpleMemoryInterpreter,
-                       program: Map[String, Instruction]) {
+                       program: Map[String, Instruction],
+                       mergePoints : String => Boolean = _ => true) {
   private val q: mutable.Queue[SimpleMemory] = mutable.Queue[SimpleMemory]()
 
-  def executeFromWithConsumer(start: String,
+  def executeFromWithConsumer(start : String, simpleMemory: SimpleMemory,
+                              consumer : SimpleMemory => Unit,
+                              someSolver: Option[Solver] = None): Unit = executeFromWithConsumer(Set(start),
+    simpleMemory, consumer, someSolver)
+
+  def merge(loc : String, states : List[SimpleMemory]) : Iterable[SimpleMemory] = {
+    val bytags = states.groupBy(_.memTags).values
+    val byraws = bytags.flatMap(t => {
+      t.groupBy(_.rawObjects.keySet).values
+    })
+    val bysyms = byraws.flatMap(t => {
+      t.groupBy(_.symbols.keySet).values
+    })
+    bysyms.map(_.head)
+  }
+
+  def executeFromWithConsumer(start: Set[String],
                   simpleMemory: SimpleMemory,
                   consumer : SimpleMemory => Unit,
-                  someSolver: Option[Solver] = None): Unit = {
-    q.enqueue(simpleMemory.forwardTo(start))
+                  someSolver: Option[Solver]): Unit = {
+    start.foreach(x => {
+      q.enqueue(simpleMemory.forwardTo(x))
+    })
+    var toBeMerged = Map.empty[String, List[SimpleMemory]]
+    var prevMerge = false
     while (q.nonEmpty) {
       val crt = q.dequeue()
       if (program.contains(crt.location)) {
-        val prog = program(crt.location)
-        val trip = tripleExecutor.execute(prog, crt, true)
-        val filtered = if (someSolver.nonEmpty) {
-          trip.filter(SimpleMemory.isSatS)
+        if (mergePoints(crt.location)) {
+          assert(crt.errorCause.isEmpty)
+          toBeMerged = toBeMerged + (crt.location -> (crt :: toBeMerged.getOrElse(crt.location, Nil)))
         } else {
-          trip
+          val prog = program(crt.location)
+          val trip = tripleExecutor.execute(prog, crt, true)
+          val filtered = if (someSolver.nonEmpty) {
+            trip.filter(SimpleMemory.isSatS)
+          } else {
+            trip
+          }
+          filtered.continue.foreach(consumer)
+          filtered.failed.foreach(consumer)
+          q.enqueue(filtered.success: _*)
         }
-        filtered.continue.foreach(consumer)
-        filtered.failed.foreach(consumer)
-        q.enqueue(filtered.success: _*)
       } else {
         consumer(crt)
+      }
+      if (q.isEmpty && toBeMerged.nonEmpty) {
+        for (x <- toBeMerged) {
+          println(s"at location ${x._1} -> ${x._2.size}")
+          var i = 0
+          for (merged <- merge(x._1, x._2)) {
+            i = i + 1
+            val prog = program(merged.location)
+            val trip = tripleExecutor.execute(prog, merged, true)
+            val filtered = if (someSolver.nonEmpty) {
+              trip.filter(SimpleMemory.isSatS)
+            } else {
+              trip
+            }
+            filtered.continue.foreach(consumer)
+            filtered.failed.foreach(consumer)
+            q.enqueue(filtered.success: _*)
+          }
+          println(s"now, $i")
+        }
+        toBeMerged = Map.empty
       }
     }
   }
