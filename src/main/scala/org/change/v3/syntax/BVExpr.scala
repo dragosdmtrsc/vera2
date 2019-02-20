@@ -8,6 +8,7 @@ case class BVOr(a : BVExpr, b : BVExpr) extends BVExpr
 case class BVNot(b : BVExpr) extends BVExpr
 case class BVNeg(a : BVExpr) extends BVExpr
 case class Havoc(prefix : String) extends BVExpr
+case class Literal(v: BigInt) extends BVExpr
 
 trait LVExpr extends Expr
 case class Symbol(path : String) extends LVExpr with BVExpr

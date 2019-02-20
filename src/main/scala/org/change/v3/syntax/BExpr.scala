@@ -1,10 +1,13 @@
 package org.change.v3.syntax
 
 trait BExpr extends Expr
-
-case class LAnd(components : Iterable[BExpr]) extends BExpr
-case class LOr(components : Iterable[BExpr]) extends BExpr
+case class BoolLiteral(v : Boolean) extends BExpr
+case class LAnd(a : BExpr, b : BExpr) extends BExpr
+case class LOr(a : BExpr, b : BExpr) extends BExpr
 case class LNot(what : BExpr) extends BExpr
 
 case class EQ(a : BVExpr, b : BVExpr) extends BExpr
 case class LT(a : BVExpr, b : BVExpr) extends BExpr
+case class GT(a : BVExpr, b : BVExpr) extends BExpr
+case class LTE(a : BVExpr, b : BVExpr) extends BExpr
+case class GTE(a : BVExpr, b : BVExpr) extends BExpr

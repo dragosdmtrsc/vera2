@@ -188,6 +188,7 @@ case class AbsTriple(success: List[AbsState],
 object AbsTriple {
   def startFrom(a: AbsState) =
     AbsTriple(success = Nil, failed = Nil, continue = a :: Nil)
+
 }
 
 case class Triple[T](success: List[T], failed: List[T], continue: List[T]) {
@@ -212,6 +213,8 @@ case class Triple[T](success: List[T], failed: List[T], continue: List[T]) {
 object Triple {
   def startFrom[T](a: T) =
     new Triple[T](success = Nil, failed = Nil, continue = a :: Nil)
+  def fail[T](a : T) = new Triple[T](success = Nil, failed = a :: Nil, continue = Nil)
+  def success[T](a : T) = new Triple[T](success = a :: Nil, failed = Nil, continue = Nil)
 }
 
 class AbsInterpreter extends Mapper[AbsState, AbsTriple] {

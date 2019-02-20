@@ -23,9 +23,9 @@ case class TagExp(plusTags: List[Tag], minusTags: List[Tag], rest: Int) extends 
   def -(other: Int): TagExp = TagExp(plusTags, minusTags , rest-other)
   override def toString: String = plusTags.mkString("+") + (if (minusTags.nonEmpty) "-" + minusTags.mkString("-") else "") + TagExp.IntImprovements(rest)
 }
+case class IntImprovements(value : Int) extends Intable
 
 object TagExp {
-  implicit case class IntImprovements(value: Int) extends Intable {
-    override def toString: String = if (value >= 0) s"+$value" else s"-$value"
-  }
+  val brokenTagExpErrorMessage = "Cannot resolve expression to an int address"
+  implicit def apply(value : Int): IntImprovements = IntImprovements(value)
 }
