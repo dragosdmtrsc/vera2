@@ -3,6 +3,7 @@ package org.change.v2.analysis.memory
 import java.io.{BufferedOutputStream, FileOutputStream, PrintStream}
 import java.util.UUID
 
+import org.change.utils.FreshnessManager
 import org.change.utils.prettifier.JsonUtil
 import org.change.v2.analysis.constraint._
 import org.change.v2.analysis.executor.Mapper
@@ -1347,15 +1348,60 @@ class ToTheEndExecutor(val tripleExecutor: SimpleMemoryInterpreter,
                               someSolver: Option[Solver] = None): Unit = executeFromWithConsumer(Set(start),
     simpleMemory, consumer, someSolver)
 
+  def mergeConditions(conditions : List[Condition]) : Condition = FOR(conditions)
+  def mergeConditions(conditions : List[SimplePathCondition]) : SimplePathCondition =
+    SimplePathCondition(mergeConditions(conditions.map(_.cd)))
   def merge(loc : String, states : List[SimpleMemory]) : Iterable[SimpleMemory] = {
     val bytags = states.groupBy(_.memTags).values
     val byraws = bytags.flatMap(t => {
-      t.groupBy(_.rawObjects.keySet).values
+      t.groupBy(_.rawObjects.map(x => (x._1, x._2.size))).values
     })
     val bysyms = byraws.flatMap(t => {
-      t.groupBy(_.symbols.keySet).values
+      t.groupBy(_.symbols.map(x => (x._1, x._2.size))).values
     })
-    bysyms.map(_.head)
+    bysyms.map(h => {
+      val rawPlus = h.head.rawObjects.map(k => {
+        val rov = h.head.rawObjects(k._1)
+        k._1 -> (if (!h.tail.forall(_.rawObjects(k._1) == rov)) {
+          val mo = SimpleMemoryObject(SymbolicValue(FreshnessManager.next("merge")), rov.size)
+          Some(mo)
+        } else {
+          None
+        })
+      })
+      val symPlus = h.head.symbols.map(k => {
+        val rov = h.head.symbols(k._1)
+        k._1 -> (if (!h.tail.forall(_.symbols(k._1) == rov)) {
+          val mo = SimpleMemoryObject(SymbolicValue(FreshnessManager.next("merge")), rov.size)
+          Some(mo)
+        } else {
+          None
+        })
+      })
+      val anyraw = rawPlus.filter(_._2.nonEmpty)
+      val anysym = symPlus.filter(_._2.nonEmpty)
+      val newconditions = h.map(state => {
+        (anyraw.map(v => {
+          val ros = state.rawObjects(v._1)
+          OP(ros.expression, EQ_E(v._2.get.expression), ros.size)
+        }) ++ anysym.map(v => {
+          val ros = state.symbols(v._1)
+          OP(ros.expression, EQ_E(v._2.get.expression), ros.size)
+        })).foldLeft(state.pathCondition)((acc, x) => {
+          acc && x
+        })
+      })
+      val c2 = mergeConditions(newconditions)
+      h.head.copy(history = loc :: Nil,
+        pathCondition = c2,
+        rawObjects = rawPlus.map(rp => {
+          rp._1 -> rp._2.getOrElse(h.head.rawObjects(rp._1))
+        }),
+        symbols = symPlus.map(sp => {
+          sp._1 -> sp._2.getOrElse(h.head.symbols(sp._1))
+        })
+      )
+    })
   }
 
   def executeFromWithConsumer(start: Set[String],
@@ -1392,7 +1438,11 @@ class ToTheEndExecutor(val tripleExecutor: SimpleMemoryInterpreter,
         for (x <- toBeMerged) {
           println(s"at location ${x._1} -> ${x._2.size}")
           var i = 0
-          for (merged <- merge(x._1, x._2)) {
+          val start = System.currentTimeMillis()
+          val ms = merge(x._1, x._2)
+          val end = System.currentTimeMillis()
+          val totalMerge = end - start
+          for (merged <- ms) {
             i = i + 1
             val prog = program(merged.location)
             val trip = tripleExecutor.execute(prog, merged, true)

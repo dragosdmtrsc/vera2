@@ -56,7 +56,7 @@ if not symnet_path:
 jar_location=os.path.join(symnet_path, 'target', 'scala-2.12')
 first_jar = glob.glob(os.path.join(jar_location, 'symnet_2.12*.jar'))[0]
 target_path = os.path.join(symnet_path, 'target')
-classpath='' + first_jar + ';'
+classpath='' + first_jar + os.pathsep
 streams = os.path.join(target_path, 'streams', 'compile', 'dependencyClasspath', '$global', 'streams', 'export')
 with open(streams, 'r') as fd:
   classpath = classpath + fd.read() + ''
@@ -107,7 +107,7 @@ cmds.append('--consumer-parm')
 cmds.append('fail')
 cmds.append(args.fail_out_file)
 
-#print(cmds)
+print(cmds)
 start = time.time()
 ret=subprocess.call(cmds)
 end = time.time()
