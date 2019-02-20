@@ -2,7 +2,7 @@ package org.change.parser.p4.parser
 
 import java.util.UUID
 
-import org.change.utils.FreshnessManager
+import org.change.utils.{FreshnessManager, graph}
 import org.change.v2.analysis.expression.abst.FloatingExpression
 import org.change.v2.analysis.expression.concrete._
 import org.change.v2.analysis.expression.concrete.nonprimitive.{:&&:, :+:, :-:, :@}
@@ -130,65 +130,73 @@ class LightParserGenerator(switch: Switch,
     doBuild(switch.getParserState("start"), None)
     new org.change.utils.graph.Graph(adjList.toMap)
   }
+  private lazy val mes : Map[Statement, Option[ExtractStatement]] = propagateExtract(switch.getParserState("start"))
+  private lazy val fullCfg: graph.Graph[Statement] = buildCFG()
+  private lazy val fullSCC = fullCfg.scc()
+  private lazy val toComponent = fullSCC.flatMap(x => {
+    x.map(h => h -> x) ++ x.collect {
+      case rss : ReturnSelectStatement => rss.getCaseEntryList.map(h => {
+        h.getReturnStatement -> x
+      })
+    }.flatten
+  }).toMap
 
-  def handleStatement(mes : Map[Statement, Option[ExtractStatement]])
-                     (statement: Statement,
+  def translateRv(expression: Expression, statement: Statement): (FloatingExpression, Option[Instruction]) =
+    expression match {
+      case ct: ConstantExpression => (ConstantValue(ct.getValue), None)
+      case ce: CompoundExpression =>
+        val lft = translateRv(ce.getLeft, statement)
+        val rgt = translateRv(ce.getRight, statement)
+        val instr = (lft._2, rgt._2) match {
+          case (None, None) => None
+          case (Some(i1), Some(i2)) => Some(InstructionBlock(i1, i2))
+          case (None, Some(i1)) => Some(i1)
+          case (Some(i1), None) => Some(i1)
+        }
+        (if (ce.isPlus)
+          :+:(lft._1, rgt._1)
+        else
+          :-:(lft._1, rgt._1), instr)
+      case expr: StringRef => ???
+      case lr : LatestRef =>
+        val fieldRef = new FieldRef().setField(lr.getFieldName).
+          setHeaderRef(mes(statement).get.getExpression)
+        translateRv(fieldRef, statement)
+      case fr : FieldRef =>
+        val hdr = fr.getHeaderRef
+        val instance = switch.getInstance(hdr.getPath)
+        if (hdr.isArray) {
+          val ainstance = hdr.asInstanceOf[IndexedHeaderRef]
+          val tmp = s"${FreshnessManager.next()}.${fr.getField}"
+          (:@(tmp), Some(InstructionBlock(
+            Allocate(tmp, instance.getLayout.getField(fr.getField).getLength),
+            handleArray(ainstance, (x : Int) => {
+              Assign(tmp, :@(s"${hdr.getPath}[$x].${fr.getField}"))
+            })
+          )))
+        } else {
+          (:@(s"${hdr.getPath}.${fr.getField}"), None)
+        }
+      case dr : DataRef =>
+        if (!noInputPackets)
+          (Take(Right(Tag("CRT")), dr.getStart.intValue(), dr.getEnd.intValue()), None)
+        else {
+          val t = s"${FreshnessManager.next()}"
+          (:@(t), Some(InstructionBlock(
+            Allocate(t, dr.getEnd.intValue() - dr.getStart.intValue() - 1),
+            Assign(t, Havoc(t))
+          )))
+        }
+      case _ => throw new NotImplementedError(expression.toString)
+    }
+
+  def handleStatement(statement: Statement,
                       visited : mutable.Set[String],
                       stack : mutable.ListBuffer[String]) : Instruction = {
-
-    def translateRv(expression: Expression): (FloatingExpression, Option[Instruction]) =
-      expression match {
-        case ct: ConstantExpression => (ConstantValue(ct.getValue), None)
-        case ce: CompoundExpression =>
-          val lft = translateRv(ce.getLeft)
-          val rgt = translateRv(ce.getRight)
-          val instr = (lft._2, rgt._2) match {
-            case (None, None) => None
-            case (Some(i1), Some(i2)) => Some(InstructionBlock(i1, i2))
-            case (None, Some(i1)) => Some(i1)
-            case (Some(i1), None) => Some(i1)
-          }
-          (if (ce.isPlus)
-            :+:(lft._1, rgt._1)
-          else
-            :-:(lft._1, rgt._1), instr)
-        case expr: StringRef => ???
-        case lr : LatestRef =>
-          val fieldRef = new FieldRef().setField(lr.getFieldName).
-            setHeaderRef(mes(statement).get.getExpression)
-          translateRv(fieldRef)
-        case fr : FieldRef =>
-          val hdr = fr.getHeaderRef
-          val instance = switch.getInstance(hdr.getPath)
-          if (hdr.isArray) {
-            val ainstance = hdr.asInstanceOf[IndexedHeaderRef]
-            val tmp = s"${FreshnessManager.next()}.${fr.getField}"
-            (:@(tmp), Some(InstructionBlock(
-              Allocate(tmp, instance.getLayout.getField(fr.getField).getLength),
-              handleArray(ainstance, (x : Int) => {
-                Assign(tmp, :@(s"${hdr.getPath}[$x].${fr.getField}"))
-              })
-            )))
-          } else {
-            (:@(s"${hdr.getPath}.${fr.getField}"), None)
-          }
-        case dr : DataRef =>
-          if (!noInputPackets)
-            (Take(Right(Tag("CRT")), dr.getStart.intValue(), dr.getEnd.intValue()), None)
-          else {
-            val t = s"${FreshnessManager.next()}"
-            (:@(t), Some(InstructionBlock(
-              Allocate(t, dr.getEnd.intValue() - dr.getStart.intValue() - 1),
-              Assign(t, Havoc(t))
-            )))
-          }
-        case _ => throw new NotImplementedError(expression.toString)
-      }
-
     statement match {
       case ss : SetStatement =>
         val lv = ss.getLeft
-        val rv = translateRv(ss.getRight)
+        val rv = translateRv(ss.getRight, statement)
         if (lv.getHeaderRef.isArray) {
           val arr = handleArray(lv.getHeaderRef.asInstanceOf[IndexedHeaderRef], (x : Int) => {
             Assign(s"${lv.getHeaderRef.getPath}[$x].${lv.getField}", rv._1)
@@ -238,12 +246,12 @@ class LightParserGenerator(switch: Switch,
         val exprs = rss.getCaseEntryList.head.getExpressions
         val defaultEntry = rss.getCaseEntryList.find(_.isDefault).map(_.getReturnStatement).
           getOrElse(new ReturnStatement("").setError(true).setMessage("reject"))
-        val mapped = exprs.map(translateRv)
+        val mapped = exprs.map(translateRv(_, statement))
         val instrs = InstructionBlock(mapped.flatMap(_._2).toList)
         InstructionBlock(
           instrs,
           rss.getCaseEntryList.filter(!_.isDefault).foldRight(
-            handleStatement(mes)(defaultEntry, visited, stack))((x, acc) => {
+            handleStatement(defaultEntry, visited, stack))((x, acc) => {
             val cd = InstructionBlock(mapped.zip(x.getValues.toList).map(u => {
               if (u._2.getMask != -1)
                 ConstrainFloatingExpression(:&&:(ConstantValue(u._2.getMask), u._1._1),
@@ -251,16 +259,34 @@ class LightParserGenerator(switch: Switch,
               else
                 ConstrainFloatingExpression(u._1._1, :==:(translateValue(u._2)))
             }))
-            If (cd, handleStatement(mes)(x.getReturnStatement, visited, stack), acc)
+            If (cd, handleStatement(x.getReturnStatement, visited, stack), acc)
           })
         )
       case rs : ReturnStatement => if (rs.isError) {
         Fail(rs.getMessage)
       } else {
-        if (switch.getParserState(rs.getWhere) != null) {
+        val dst = switch.getParserState(rs.getWhere)
+        if (dst != null) {
+          val srcComponent = toComponent(statement)
           if (!visited.contains(rs.getWhere))
             stack.append(rs.getWhere)
-          Forward(name + ".parser." + rs.getWhere)
+          if (srcComponent.size > 1) {
+            // this may wreak havoc
+            val dstComponent = toComponent(dst.getStatements.head)
+            if (!srcComponent.eq(dstComponent)) {
+              // this is an escape transition
+              val escapeCode = Assign("escape", ConstantStringValue(rs.getWhere))
+              InstructionBlock(
+                escapeCode,
+                Forward(name + s".parser.${srcComponent.hashCode()}.escape")
+              )
+            } else {
+              // this is an internal transition
+              Forward(name + ".parser." + rs.getWhere)
+            }
+          } else {
+            Forward(name + ".parser." + rs.getWhere)
+          }
         } else {
           if (!justParser)
             Forward(name + ".control." + rs.getWhere)
@@ -274,15 +300,14 @@ class LightParserGenerator(switch: Switch,
                   visited : mutable.Set[String],
                   stack : mutable.ListBuffer[String]) :
     Instruction = {
-    val estat = handleStatement(propagateExtract(state)) _
     InstructionBlock(
-      state.getStatements.map(estat(_, visited, stack))
+      state.getStatements.map(handleStatement(_, visited, stack))
     )
   }
 
   override def parserCode(): Instruction = {
     val instances = switch.getInstances.toList
-    val first = instances.flatMap(x => x match {
+    val first = Allocate("escape", 64) :: instances.flatMap(x => x match {
       case ai: ArrayInstance =>
         Assign(ai.getName + ".next", ConstantValue(0)) :: (0 until ai.getLength).flatMap(x => {
           val base = ai.getName + s"[$x]"
@@ -363,17 +388,15 @@ class LightParserGenerator(switch: Switch,
   private def deparserInstructions : List[Instruction] = {
     val cfg = buildCFG().subGraph(x => x.isInstanceOf[ExtractStatement])
     if (true) {
-      val full = buildCFG()
-      val fullsccs = full.scc()
       System.out.println("digraph G {")
-      fullsccs.reverse.foreach(x => {
+      fullSCC.reverse.foreach(x => {
         System.out.println("subgraph { ")
         x.foreach(h => {
           System.out.println(h.hashCode() + " [label=\"" + h + "\"];")
         })
         System.out.println("}")
       })
-      full.edges.foreach(e => {
+      fullCfg.edges.foreach(e => {
         e._2.foreach(dst => {
           System.out.println(e._1.hashCode() + " -> " + dst.hashCode() + ";")
         })
@@ -478,6 +501,30 @@ class LightParserGenerator(switch: Switch,
       visited.add(top)
       instrs += (name + ".parser." + top) -> handleState(switch.getParserState(top), visited, stack)
     }
+    fullSCC.foreach(srcComponent => {
+      if (srcComponent.size > 1) {
+        val escName = name + s".parser.${srcComponent.hashCode()}.escape"
+        val alternatives = srcComponent.foldLeft(Set.empty[String])((acc, stat) => stat match {
+          case rss: ReturnSelectStatement => acc ++ nextStates(rss).map(_.getName).toSet
+          case rs: ReturnStatement => acc ++ nextState(rs).map(_.getName).toSet
+          case _ => acc
+        }).filter(alternative => {
+          val dst = switch.getParserState(alternative)
+          val dstcomponent = toComponent(dst.getStatements.head)
+          !dstcomponent.eq(srcComponent)
+        })
+        if (alternatives.nonEmpty) {
+          instrs += (escName -> (if (alternatives.size > 1)
+            alternatives.foldRight(Fail("UNREACHABLE"): Instruction)((alternative, acc) => {
+              If(Constrain("escape", :==:(ConstantStringValue(alternative))),
+                Forward(name + s".parser.$alternative"),
+                acc
+              )
+            }) else Forward(name + s".parser.${alternatives.head}")))
+        }
+      }
+    })
+
     instrs.toMap ++ extraGeneratorCode
   }
 

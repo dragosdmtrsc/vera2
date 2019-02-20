@@ -2,6 +2,7 @@ package org.change.v2.analysis.memory
 
 import java.io.{BufferedOutputStream, FileOutputStream, PrintStream}
 import java.util.UUID
+import java.util.logging.Logger
 
 import org.change.utils.FreshnessManager
 import org.change.utils.prettifier.JsonUtil
@@ -1436,7 +1437,6 @@ class ToTheEndExecutor(val tripleExecutor: SimpleMemoryInterpreter,
       }
       if (q.isEmpty && toBeMerged.nonEmpty) {
         for (x <- toBeMerged) {
-          println(s"at location ${x._1} -> ${x._2.size}")
           var i = 0
           val start = System.currentTimeMillis()
           val ms = merge(x._1, x._2)
@@ -1455,7 +1455,38 @@ class ToTheEndExecutor(val tripleExecutor: SimpleMemoryInterpreter,
             filtered.failed.foreach(consumer)
             q.enqueue(filtered.success: _*)
           }
-          println(s"now, $i")
+          Logger.getLogger(this.getClass.getName).info(
+            s"at location ${x._1} -> ${x._2.size}, now $i in $totalMerge ms")
+//          if (x._2.size < 10) {
+//            System.out.println("initial:")
+//            x._2.zipWithIndex.foreach(u => {
+//              System.out.println(s"input ${u._2}:")
+//              System.out.println("packet:")
+//              for (o <- u._1.rawObjects) {
+//                System.out.println(s"${o._1}(${o._2.size}): ${o._2.expression}")
+//              }
+//              System.out.println("meta:")
+//              for (o <- u._1.symbols) {
+//                System.out.println(s"${o._1}(${o._2.size}): ${o._2.expression}")
+//              }
+//              System.out.println("path condition:")
+//              System.out.println(u._1.pathCondition.cd)
+//            })
+//            System.out.println("merged:")
+//            ms.zipWithIndex.foreach(u => {
+//              System.out.println(s"output ${u._2}:")
+//              System.out.println("packet:")
+//              for (o <- u._1.rawObjects) {
+//                System.out.println(s"${o._1}(${o._2.size}): ${o._2.expression}")
+//              }
+//              System.out.println("meta:")
+//              for (o <- u._1.symbols) {
+//                System.out.println(s"${o._1}(${o._2.size}): ${o._2.expression}")
+//              }
+//              System.out.println("path condition:")
+//              System.out.println(u._1.pathCondition.cd)
+//            })
+//          }
         }
         toBeMerged = Map.empty
       }

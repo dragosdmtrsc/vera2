@@ -12,7 +12,8 @@ import scala.util.matching.Regex
 class DefaultExecutorImpl extends ExecutorPlugin {
   var totalSolverTime = 0l
   var nrSolverCalls = 0
-  var mergePoints: Regex = "(.*\\.parser\\.out)|(.*\\.parser$)|(.*\\.control\\.ingress\\.out)|(.*\\.control\\.egress\\.out)".r
+  var mergePoints: Regex = ("(.*\\.parser\\.out)|(.*\\.parser$)|" +
+    "(.*\\.control\\.ingress\\.out)|(.*\\.control\\.egress\\.out)|(.*\\.parser\\..*\\.escape)").r
 
   def simpleSatStrategy(condition: Condition,
                         newCondition: Condition): Boolean = {

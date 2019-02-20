@@ -13,7 +13,7 @@ parser.add_argument('--preprocess-only', action='store_true', help='preprocess o
 parser.add_argument('commands', help = 'dataplane to run vera against')
 parser.add_argument('--name', help='box name', default='switch')
 parser.add_argument('--interface', help='interfaces names', nargs='*')
-parser.add_argument('--with-packet', action='store_true')
+#parser.add_argument('--with-packet', action='store_true')
 parser.add_argument('--success-out-file', default='success.json', help='output file for successful states')
 parser.add_argument('--fail-out-file', default='fail.json', help='output file for failure states')
 parser.add_argument('--nr-interfaces', type = int, help = 'number of interfaces')
@@ -45,8 +45,8 @@ if not args.no_preprocess:
 topo_plugin_name = 'org.change.v2.plugins.vera.VeraTopologyPlugin'
 input_packet_plugin = 'org.change.v2.plugins.eq.NoPacketPlugin'
 no_packet = True
-if args.with_packet:
-  no_packet = False
+#if args.with_packet:
+#  no_packet = False
 
 symnet_path=os.getenv('SYMNET_ROOT')
 if not symnet_path:
@@ -107,7 +107,7 @@ cmds.append('--consumer-parm')
 cmds.append('fail')
 cmds.append(args.fail_out_file)
 
-print(cmds)
+#print(cmds)
 start = time.time()
 ret=subprocess.call(cmds)
 end = time.time()
