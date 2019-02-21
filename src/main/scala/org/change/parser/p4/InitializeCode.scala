@@ -46,20 +46,40 @@ class InitializeCode[T<:ISwitchInstance](switchInstance : T,
     )
   }
 
+  def initStruct(isMeta : Boolean, base : String, hdr : Header) : Iterable[Instruction] = {
+    if (isMeta) {
+      Nil
+    } else {
+      List(
+        Allocate(base + ".IsValid", 1),
+        Assign(base + ".IsValid", ConstantValue(0))
+      )
+    } ++ hdr.getFields.flatMap(fld => {
+      List(
+        Allocate(base + s".${fld.getName}", fld.getLength),
+        if (isMeta)
+          Assign(base + s".${fld.getName}", ConstantValue(0))
+        else NoOp
+      )
+    })
+  }
+
   def initializeFields() : Instruction = {
     InstructionBlock(
-      swSpec.getInstances.filter(!_.isMetadata).flatMap(x => x match {
-        case ai: ArrayInstance =>
+      swSpec.getInstances.filter(!_.isMetadata).flatMap(x => {
+        x match {
+          case ai: ArrayInstance =>
+            val len = ai.getLength
+            (0 until len).flatMap(z => {
+               initStruct(ai.isMetadata, x.getName + "[" + z + "]", ai.getLayout)
+            })
+          case _ => initStruct(x.isMetadata, x.getName, x.getLayout)
+        }
+      }) ++ swSpec.getInstances.collect {
+        case ai : ArrayInstance =>
           val len = ai.getLength
-          (0 until len).flatMap(z => {
-            List(
-              Allocate(x.getName + ".IsValid", 1),
-              Assign(x.getName + "[" + z + "].IsValid", ConstantValue(0))
-            )
-          })
-        case _ =>
-          Allocate(x.getName + ".IsValid", 1) :: Assign(x.getName + ".IsValid", ConstantValue(0)) :: Nil
-      })
+          Allocate(ai.getName + ".next", 32) :: Assign(ai.getName + ".next", ConstantValue(0)) :: Nil
+      }.flatten
     )
   }
 

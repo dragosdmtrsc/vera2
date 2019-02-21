@@ -97,7 +97,6 @@ class ControlFlowInterpreter[T <: ISwitchInstance](
           }
         })
     })
-  println("tables parsed OK")
   // plug in the buffer mechanism
   private val bufferMechanism = new BufferMechanism(switchInstance)
   private val bufferPlug = Map[String, Instruction](
@@ -305,7 +304,9 @@ object ControlFlowInterpreter {
     : ControlFlowInterpreter[SymbolicSwitchInstance] = {
 
     val tabs =
-      Allocate("IsClone", 1) :: Assign("IsClone", ConstantValue(0)) :: switch.getDeclaredTables.flatMap(tableName => {
+      Allocate("IsClone", 1) ::
+        Assign("IsClone", ConstantValue(0)) ::
+        switch.getDeclaredTables.flatMap(tableName => {
       val prof = switch.getProfileByTable(tableName)
       val profInstr = if (prof != null) {
         val acts = switch.getActionsPerProfile(prof.getName)
@@ -322,12 +323,16 @@ object ControlFlowInterpreter {
       }
       switch
         .getAllowedActions(tableName)
-        .map(x => {
-          Assign(s"$x.Fired", ConstantValue(0))
+        .flatMap(x => {
+          Allocate(s"$x.Fired", 1) :: Assign(s"$x.Fired", ConstantValue(0)) :: Nil
         }) ++ List[Instruction](
+        Allocate(s"$tableName.Hit", 1),
         Assign(s"$tableName.Hit", ConstantValue(0))
       ) ++ profInstr
-    }).toList
+    }).toList ++ List(
+        Allocate("default.Fired", 1),
+        Assign("default.Fired", ConstantValue(0))
+      )
     val initializerCode = { symbolicSwitchInstance: SymbolicSwitchInstance =>
       InstructionBlock(
         symbolicSwitchInstance.symbolicTableParams.toList
@@ -337,14 +342,17 @@ object ControlFlowInterpreter {
               AssignNamedSymbol(h._1, SymbolicValue(h._1))
             )
           }) ++ tabs ++ List(
-          Assign(s"${symbolicSwitchInstance.getName}.CloneCookie", ConstantValue(0))) ++ List(
-          Assign("default.Fired", ConstantValue(0)))
+          Allocate(s"${symbolicSwitchInstance.getName}.CloneCookie", 64),
+          Assign(s"${symbolicSwitchInstance.getName}.CloneCookie", ConstantValue(0))
+        )
       )
     }
+    val perPortInit = (sw : SymbolicSwitchInstance, _ : Int) => initializerCode(sw)
 
     new ControlFlowInterpreter[SymbolicSwitchInstance](
       symSwitch,
       switch,
+      optAdditionalInitCode = Some(perPortInit),
       optInitFactory = Some(initializerCode),
       optParserGenerator = optParserGenerator
     )

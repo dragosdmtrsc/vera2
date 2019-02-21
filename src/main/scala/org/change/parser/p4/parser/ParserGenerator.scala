@@ -308,33 +308,8 @@ class LightParserGenerator(switch: Switch,
   override def parserCode(): Instruction = {
     val instances = switch.getInstances.toList
     val first = Allocate("escape", 64) :: instances.flatMap(x => x match {
-      case ai: ArrayInstance =>
-        Assign(ai.getName + ".next", ConstantValue(0)) :: (0 until ai.getLength).flatMap(x => {
-          val base = ai.getName + s"[$x]"
-          (if (!ai.isMetadata)
-            List(
-              Allocate(s"$base.IsValid", 1),
-              Assign(s"$base.IsValid", ConstantValue(0))
-            )
-          else Nil) ++ ai.getLayout.getFields.flatMap(fld => {
-            val f = base + s".${fld.getName}"
-            List(
-              Allocate(f, fld.getLength)
-            ) ++ (if (!ai.isMetadata) Nil else Assign(f, ConstantValue(0)) :: Nil)
-          })
-        }).toList
-      case _ =>
-        val base = x.getName
-        val valid = if (!x.isMetadata)
-          Allocate(base + ".IsValid", 1) :: Assign(base + ".IsValid", ConstantValue(0)) :: Nil
-        else Nil
-        valid ++ x.getLayout.getFields.flatMap(fld => {
-          val f = base + s".${fld.getName}"
-          Allocate(f, fld.getLength) :: (
-            if (x.isMetadata) Assign(f, ConstantValue(0)) :: Nil
-            else Nil
-          )
-        })
+      case ai: ArrayInstance => Assign(ai.getName + ".next", ConstantValue(0)) :: Nil
+      case _ => Nil
     })
     InstructionBlock(
       first ++ List(CreateTag("CRT", Tag("START")), Forward(name + ".parser." + "start"))

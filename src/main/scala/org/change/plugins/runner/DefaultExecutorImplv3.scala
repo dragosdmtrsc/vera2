@@ -1,5 +1,7 @@
 package org.change.plugins.runner
 
+import java.util.logging.Logger
+
 import org.change.plugins.eq.{ExecutorConsumer, ExecutorPlugin, PluginBuilder}
 import org.change.v2tov3.V2Translator
 import org.change.v3.semantics._
@@ -13,22 +15,31 @@ import scala.util.matching.Regex
 class DefaultExecutorImplv3 extends ExecutorPlugin {
   var totalSolverTime = 0l
   var nrSolverCalls = 0
-  var mergePoints: Regex = ("(.*\\.parser\\.out)|(.*\\.parser$)|" +
-    "(.*\\.control\\.ingress\\.out)|(.*\\.control\\.egress\\.out)|(.*\\.parser\\..*\\.escape)").r
+  var mergePoints: Option[Regex] = Some(("(.*\\.parser\\.out)|(.*\\.parser$)|" +
+    "(.*\\.control\\.ingress$)|(table\\.(.*?)\\.out\\.(.*))|" +
+    "(.*\\.control\\.ingress\\.out)|(.*\\.control\\.egress\\.out)|(.*\\.parser\\..*\\.escape)").r)
 
   def simpleSatStrategy(condition: SimplePathCondition,
-                        newCondition: Condition): Boolean = {
+                        newCondition: Condition): Option[SimplePathCondition] = {
     val start = java.lang.System.currentTimeMillis()
-    val slv = context.mkSolver()
-    for (x <- condition)
-      slv.assertCnstr(x)
-    slv.assertCnstr(newCondition)
-    val b = slv.check().get
-    slv.decRef()
-    val end = java.lang.System.currentTimeMillis()
-    totalSolverTime += (end - start)
-    nrSolverCalls += 1
-    b
+    val simpd = context.simplifyAst(newCondition)
+    if (simpd == context.mkFalse())
+      None
+    else if (simpd == context.mkTrue())
+      Some(condition)
+    else {
+      val slv = context.mkSolver()
+      for (x <- condition)
+        slv.assertCnstr(x)
+      slv.assertCnstr(simpd)
+      val b = slv.check().get
+      slv.decRef()
+      val end = java.lang.System.currentTimeMillis()
+      totalSolverTime += (end - start)
+      nrSolverCalls += 1
+      if (b) Some(newCondition :: condition)
+      else None
+    }
   }
   val simpleMemoryInterpreter = new IntraExecutor(simpleSatStrategy)
   override def apply(topology: collection.Map[String, i2],
@@ -36,11 +47,15 @@ class DefaultExecutorImplv3 extends ExecutorPlugin {
                      initials: List[sm2],
                      consumer: ExecutorConsumer): Unit = {
     val toTheEndExecutor = new InterExecutor(V2Translator.v2v3(topology.toMap), simpleMemoryInterpreter,
-      (s : String) => { mergePoints.findFirstMatchIn(s).nonEmpty })
+      (s : String) => { mergePoints.map(_.findFirstMatchIn(s).nonEmpty).getOrElse(false) })
     val actualConsumer = (V2Translator.mem3mem2 _).andThen(consumer.apply)
+    val start = System.currentTimeMillis()
     initials.map(V2Translator.mem2mem3).foreach(u => {
       toTheEndExecutor.executeFromWithConsumer(startNodes, u, actualConsumer)
     })
+    val end = System.currentTimeMillis()
+    Logger.getLogger(this.getClass.getName).info(s"done in ${end - start}ms")
+    Logger.getLogger(this.getClass.getName).info(s"solver time ${totalSolverTime}ms / $nrSolverCalls")
     consumer.flush()
   }
 }

@@ -112,8 +112,10 @@ object TypeInference {
             if (mset1._1.size < mset2._1.size) {
               mset2._1.add(a)
               mset2._1.add(b)
-              for (x <- mset1._1)
+              for (x <- mset1._1) {
+                classMapping.put(x, mset2)
                 mset2._1.add(x)
+              }
               if (mset1._2.nonEmpty)
                 if (mset2._2.nonEmpty) mset2._2.update(0, mset1._2.head)
                 else mset2._2.append(mset1._2.head)
@@ -122,8 +124,10 @@ object TypeInference {
             } else {
               mset1._1.add(a)
               mset1._1.add(b)
-              for (x <- mset2._1)
+              for (x <- mset2._1) {
+                classMapping.put(x, mset1)
                 mset1._1.add(x)
+              }
               if (mset2._2.nonEmpty)
                 if (mset1._2.nonEmpty) mset1._2.update(0, mset2._2.head)
                 else mset1._2.append(mset2._2.head)

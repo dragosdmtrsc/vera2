@@ -4,6 +4,7 @@ import java.util.logging.Logger
 
 import org.change.v2.analysis.memory.Triple
 import org.change.utils.FreshnessManager
+import org.change.v2.analysis.constraint.SimplePathCondition
 import org.change.v3.syntax.Instruction
 
 import scala.collection.mutable
@@ -17,8 +18,19 @@ class InterExecutor(program : Map[String, Instruction],
                               consumer : SimpleMemory => Unit): Unit = executeFromWithConsumer(Set(start),
     simpleMemory, consumer)
 
-  def mergeConditions(conditions : List[SimplePathCondition]) : Condition =
-    context.mkOr(conditions.map(context.mkAnd(_:_*)):_*)
+  def mergeConditions(conditions : List[SimplePathCondition]) : SimplePathCondition = {
+    val hd = conditions.head
+    conditions.tail.foldLeft(hd)((acc, x) => {
+      val (eq, neq) = acc.map(Some(_)).zipAll(x.map(Some(_)), None, None).partition(h =>
+        h._1.exists(h1 => h._2.exists(h2 => h1.equals(h2))))
+      val (f, s) = neq.unzip
+      eq.map(_._1.get) :+ context.mkOr(context.mkAnd(f.collect {
+        case Some(ex) => ex
+      }:_*), context.mkAnd(s.collect {
+        case Some(ex) => ex
+      }:_*))
+    }).map(context.simplifyAst)
+  }
   def merge(loc : String, states : List[SimpleMemory]) : Iterable[SimpleMemory] = {
     val bytags = states.groupBy(_.memTags).values
     val byraws = bytags.flatMap(t => {
@@ -49,19 +61,22 @@ class InterExecutor(program : Map[String, Instruction],
       val anyraw = rawPlus.filter(_._2.nonEmpty)
       val anysym = symPlus.filter(_._2.nonEmpty)
       val newconditions = h.map(state => {
-        (anyraw.map(v => {
-          val ros = state.rawObjects(v._1)
-          context.mkEq(ros.ast.get, v._2.get.ast.get)
-        }) ++ anysym.map(v => {
+        (anyraw.flatMap(v => {
+          state.rawObjects(v._1).ast.map(x => {
+            context.mkEq(x, v._2.get.ast.get)
+          })
+        }) ++ anysym.flatMap(v => {
           val ros = state.symbols(v._1)
-          context.mkEq(ros.ast.get, v._2.get.ast.get)
+          ros.ast.map(x => {
+            context.mkEq(x, v._2.get.ast.get)
+          })
         })).foldLeft(state.pathCondition)((acc, x) => {
           x :: acc
         })
       })
       val c2 = mergeConditions(newconditions)
       h.head.copy(history = loc :: Nil,
-        pathCondition = c2 :: Nil,
+        pathCondition = c2,
         rawObjects = rawPlus.map(rp => {
           rp._1 -> rp._2.getOrElse(h.head.rawObjects(rp._1))
         }),

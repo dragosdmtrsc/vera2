@@ -21,8 +21,10 @@ object V2Translator {
     history = simpleMemory.history,
     errorCause = simpleMemory.errorCause,
     memTags = simpleMemory.memTags,
-    rawObjects = simpleMemory.rawObjects.mapValues(mo => SimpleMemoryObject(ConstantValue(1), mo.size)),
-    symbols = simpleMemory.symbols.mapValues(mo => SimpleMemoryObject(ConstantValue(1), mo.size)),
+    rawObjects = simpleMemory.rawObjects.mapValues(mo => SimpleMemoryObject(
+      ConstantStringValue(mo.ast.toString), mo.size)),
+    symbols = simpleMemory.symbols.mapValues(mo => SimpleMemoryObject(
+      ConstantStringValue(mo.ast.toString), mo.size)),
     branchHistory = Nil
   )
 

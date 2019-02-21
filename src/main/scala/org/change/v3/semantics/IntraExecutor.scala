@@ -58,8 +58,7 @@ abstract class AbsMapper[S, T] extends Mapper[S, T] {
   def executeNoOp()(state : S, verbose : Boolean) : T
 }
 
-class IntraExecutor(
-                     quickTrimStrategy: (SimplePathCondition, Condition) => Boolean = (_, _) => true) extends
+class IntraExecutor(quickTrimStrategy: (SimplePathCondition, Condition) => Option[SimplePathCondition]) extends
   AbsMapper[SimpleMemory, Triple[SimpleMemory]] {
   override def executeExoticInstruction(instruction: Instruction)(state: SimpleMemory, verbose: Boolean): Triple[SimpleMemory] = ???
 
@@ -91,35 +90,36 @@ class IntraExecutor(
       case BoolLiteral(v) => Left(if (v) context.mkTrue() else context.mkFalse())
       case EQ(a, b) => tinstantiate(a, state) match {
         case Left(v) => tinstantiate(b, state) match {
-          case Left(v2) => Left(context.mkEq(v, v2))
+          case Left(v2) =>
+            Left(context.mkEq(v, v2))
           case Right(m) => Right(m)
         }
         case Right(m) => Right(m)
       }
       case LT(a, b) => tinstantiate(a, state) match {
         case Left(v) => tinstantiate(b, state) match {
-          case Left(v2) => Left(context.mkLT(v, v2))
+          case Left(v2) => Left(context.mkBVSlt(v, v2))
           case Right(m) => Right(m)
         }
         case Right(m) => Right(m)
       }
       case GT(a, b) => tinstantiate(a, state) match {
         case Left(v) => tinstantiate(b, state) match {
-          case Left(v2) => Left(context.mkGT(v, v2))
+          case Left(v2) => Left(context.mkBVSgt(v, v2))
           case Right(m) => Right(m)
         }
         case Right(m) => Right(m)
       }
       case LTE(a, b) => tinstantiate(a, state) match {
         case Left(v) => tinstantiate(b, state) match {
-          case Left(v2) => Left(context.mkLE(v, v2))
+          case Left(v2) => Left(context.mkBVSle(v, v2))
           case Right(m) => Right(m)
         }
         case Right(m) => Right(m)
       }
       case GTE(a, b) => tinstantiate(a, state) match {
         case Left(v) => tinstantiate(b, state) match {
-          case Left(v2) => Left(context.mkGE(v, v2))
+          case Left(v2) => Left(context.mkBVSge(v, v2))
           case Right(m) => Right(m)
         }
         case Right(m) => Right(m)
@@ -161,23 +161,13 @@ class IntraExecutor(
     generateConditions(iff.bExpr, state) match {
       case Right(m) => Triple.fail(state.fail(m))
       case Left((takea, takeb, takef)) =>
-        val first = if (quickTrimStrategy(state.pathCondition, takea)) {
-          execute(iff.thn, state.addCondition(takea), verbose)
-        } else {
-          Triple.empty[SimpleMemory]
-        }
-        val second = if (quickTrimStrategy(state.pathCondition, takeb)) {
-          execute(iff.els, state.addCondition(takeb), verbose)
-        } else {
-          Triple.empty[SimpleMemory]
-        }
-        val third = if (context.simplifyAst(takef) != context.mkFalse() &&
-          quickTrimStrategy(state.pathCondition, takef)) {
+        quickTrimStrategy(state.pathCondition, takea).map(pc => {
+          execute(iff.thn, state.copy(pathCondition = pc), verbose)
+        }).getOrElse(Triple.empty) + quickTrimStrategy(state.pathCondition, takeb).map(pc => {
+          execute(iff.els, state.copy(pathCondition = pc), verbose)
+        }).getOrElse(Triple.empty) + quickTrimStrategy(state.pathCondition, takef).map(pc => {
           Triple.fail(state.fail(s"segfault found in ${iff.bExpr}"))
-        } else {
-          Triple.empty[SimpleMemory]
-        }
-        first + second + third
+        }).getOrElse(Triple.empty)
     }
   }
 
@@ -338,18 +328,11 @@ class IntraExecutor(
     generateConditions(assume.bExpr, state) match {
       case Right(m) => Triple.fail(state.fail(m))
       case Left((takea, takeb, takef)) =>
-        val first = if (quickTrimStrategy(state.pathCondition, takea)) {
-          Triple.startFrom(state.addCondition(takea))
-        } else {
-          Triple.empty[SimpleMemory]
-        }
-        val third = if (context.simplifyAst(takef) != context.mkFalse() &&
-          quickTrimStrategy(state.pathCondition, takef)) {
+        quickTrimStrategy(state.pathCondition, takea).map(pc => {
+          Triple.startFrom(state.copy(pathCondition = pc))
+        }).getOrElse(Triple.empty) + quickTrimStrategy(state.pathCondition, takef).map(pc => {
           Triple.fail(state.fail(s"segfault found in ${assume.bExpr}"))
-        } else {
-          Triple.empty[SimpleMemory]
-        }
-        first + third
+        }).getOrElse(Triple.empty)
     }
   }
 
