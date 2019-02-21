@@ -1,9 +1,9 @@
-package org.change.v2.tools.sefl
+package org.change.tools.sefl
 
 import java.io.{BufferedOutputStream, FileOutputStream, PrintWriter}
 
-import org.change.v2.plugins.eq.{PluginHolder, TopologyPlugin}
-import org.change.v2.util.ToDot
+import org.change.utils.{ToDot, ToSEFL}
+import org.change.plugins.eq.{PluginHolder, TopologyPlugin}
 
 case class ToSEFLArgs(topoClass : String = "",
                    topoParms : Map[String, String] = Map.empty,
@@ -43,7 +43,7 @@ object ToSEFL {
     val topo = PluginHolder.instantiate[TopologyPlugin](options.topoClass, options.topoParms)
     val g = topo()
     val os = new PrintWriter(new BufferedOutputStream(new FileOutputStream(options.outFile)))
-    org.change.v2.util.ToSEFL.apply(topo().toMap, topo.startNodes().toSet, os)
+    org.change.utils.ToSEFL.apply(topo().toMap, topo.startNodes().toSet, os)
     os.close()
     if (options.startFile.nonEmpty) {
       val sf = new PrintWriter(new BufferedOutputStream(new FileOutputStream(options.startFile)))

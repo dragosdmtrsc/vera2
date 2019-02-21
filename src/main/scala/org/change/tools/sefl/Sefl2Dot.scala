@@ -1,11 +1,11 @@
-package org.change.v2.tools.sefl
+package org.change.tools.sefl
 
 import java.io.{BufferedOutputStream, FileOutputStream, PrintWriter}
 
+import org.change.utils.ToDot
 import org.change.v2.cmd.EQParams
-import org.change.v2.plugins.eq.{PluginHolder, TopologyPlugin}
-import org.change.v2.tools.eq.Equivalence.{findField, isScalar}
-import org.change.v2.util.ToDot
+import org.change.plugins.eq.{PluginHolder, TopologyPlugin}
+import org.change.tools.eq.Equivalence.{findField, isScalar}
 
 case class DotArgs(topoClass : String = "",
                    topoParms : Map[String, String] = Map.empty,

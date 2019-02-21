@@ -1,4 +1,4 @@
-package org.change.v2.plugins.vera
+package org.change.plugins.vera
 
 import org.change.parser.p4.ControlFlowInterpreter
 import org.change.parser.p4.parser.{LightParserGenerator, ParserGenerator, SwitchBasedParserGenerator}
@@ -6,7 +6,7 @@ import org.change.parser.p4.tables.SymbolicSwitchInstance
 import org.change.v2.analysis.executor.CodeAwareInstructionExecutor
 import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.p4.model.{ISwitchInstance, Switch}
-import org.change.v2.plugins.eq.{PluginBuilder, TopologyPlugin}
+import org.change.plugins.eq.{PluginBuilder, TopologyPlugin}
 
 import scala.util.matching.Regex
 

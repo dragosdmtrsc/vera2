@@ -1,7 +1,8 @@
 package org.change.parser.p4
 
+import org.change.utils.ToDot
 import org.change.v2.p4.model.ISwitchInstance
-import org.change.v2.util.{ToDot, ToVis}
+import org.change.v2.util.ToVis
 
 object P4PrettyPrinter {
   implicit def toDotable(controlFlowInterpreter: ControlFlowInterpreter[_<:ISwitchInstance]): ToDot = ToDot(controlFlowInterpreter.switchInstance.getName,

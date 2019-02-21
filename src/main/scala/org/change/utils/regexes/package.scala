@@ -1,4 +1,4 @@
-package org.change.v2.util
+package org.change.utils
 
 /**
   * Author: Radu Stoenescu

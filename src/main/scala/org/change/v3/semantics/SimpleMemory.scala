@@ -4,6 +4,9 @@ import org.change.v2.interval.IntervalOps
 import org.change.v3.syntax._
 import z3.scala.Z3AST
 
+import scala.collection.immutable.SortedMap
+
+
 case class SimpleMemoryObject(ast : Option[Z3AST], size : Int)
 object SimpleMemoryObject {
   def apply(sz : Int) : SimpleMemoryObject = SimpleMemoryObject(None, sz)
@@ -16,9 +19,9 @@ case class SimpleMemory(
                          pathCondition : List[Z3AST],
                          errorCause : Option[String] = None,
                          history : List[String] = Nil,
-                         memTags : Map[String, Int] = Map.empty,
-                         rawObjects : Map[Int, SimpleMemoryObject] = Map.empty,
-                         symbols : Map[String, SimpleMemoryObject] = Map.empty
+                         memTags : SortedMap[String, Int] = SortedMap.empty,
+                         rawObjects : SortedMap[Int, SimpleMemoryObject] = SortedMap.empty,
+                         symbols : SortedMap[String, SimpleMemoryObject] = SortedMap.empty
                        ) {
   def forwardTo(loc : String): SimpleMemory = copy(history = loc :: history)
   def location : String = history.head

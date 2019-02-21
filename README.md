@@ -4,7 +4,7 @@ P4 Comments and Ideas
 sbt package
 
 java -cp "target/scala-2.12/symnet_2.12-0.2.1-SNAPSHOT.jar;$(cat target/streams/compile/dependencyClasspath/\$global/streams/export)" \
-org.change.v2.tools.sefl.ToSEFL
+org.change.tools.sefl.ToSEFL
 
 ### Section 2
 

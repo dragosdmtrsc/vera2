@@ -25,6 +25,7 @@ object ReferenceSolver {
     case BVAdd(a, b) => solveReferences(b, state, solveReferences(a, state, crt))
     case BVSub(a, b) => solveReferences(b, state, solveReferences(a, state, crt))
     case BVAnd(a, b) => solveReferences(b, state, solveReferences(a, state, crt))
+    case BVShl(a, b) => solveReferences(b, state, solveReferences(a, state, crt))
     case BVOr(a, b) => solveReferences(b, state, solveReferences(a, state, crt))
     case BVNeg(a) => solveReferences(a, state, crt)
     case BVNot(a) => solveReferences(a, state, crt)
@@ -37,13 +38,15 @@ object ReferenceSolver {
     case r : Reference => crt + (r -> state.eval(r.intable).flatMap(h => {
       state.rawObjects.get(h)
     }))
+    case _ : Literal => crt
+    case _ : Havoc => crt
   }
 }
 
 object TypeInference {
 
   def gatherConstraintsInternal(expr : Expr,
-                                crt : List[TypeConstraint] = Nil) : List[TypeConstraint] = {
+                                crt : List[TypeConstraint] = Nil) : List[TypeConstraint] = expr match {
     case LAnd(a, b) => gatherConstraintsInternal(b, gatherConstraintsInternal(a, crt))
     case LNot(a) => gatherConstraintsInternal(a, crt)
     case LOr(a, b) => gatherConstraintsInternal(b, gatherConstraintsInternal(a, crt))
@@ -52,6 +55,8 @@ object TypeInference {
     case e @ BVSub(a, b) => gatherConstraintsInternal(b,
       gatherConstraintsInternal(a, EqSize(e, a) :: EqSize(a, b) :: crt))
     case bva @ BVAnd(a, b) => gatherConstraintsInternal(b,
+      gatherConstraintsInternal(a, EqSize(bva, a) :: EqSize(a, b) :: crt))
+    case bva @ BVShl(a, b) => gatherConstraintsInternal(b,
       gatherConstraintsInternal(a, EqSize(bva, a) :: EqSize(a, b) :: crt))
     case bvor @ BVOr(a, b) => gatherConstraintsInternal(b,
       gatherConstraintsInternal(a, EqSize(bvor, a) :: EqSize(a, b) :: crt))
@@ -73,31 +78,35 @@ object TypeInference {
   }
   def gatherTypeConstraints(expr : Expr,
                             references : Map[BVExpr, Option[SimpleMemoryObject]],
-                            extra : List[TypeConstraint]) : List[TypeConstraint] = {
+                            extra : List[TypeConstraint]) : List[TypeConstraint] =
     gatherConstraintsInternal(expr, references.flatMap(h => h._2.map(x => {
-      FixedSize(h._1, x.size) : TypeConstraint
-    })).toList ++ extra)
-  }
+                              FixedSize(h._1, x.size) : TypeConstraint
+                            })).toList ++ extra)
 
   def solveTypes(expr : Expr,
                  references : Map[BVExpr, Option[SimpleMemoryObject]],
-                 extra : List[TypeConstraint] = Nil) = {
+                 extra : List[TypeConstraint] = Nil): Either[Map[BVExpr, Int], String] = {
     val withConstraints = gatherTypeConstraints(expr, references, extra)
-    val classMapping = mutable.Map.empty[BVExpr, (mutable.Set[BVExpr], Option[Int])]
+    val classMapping = mutable.Map.empty[BVExpr, (mutable.Set[BVExpr], mutable.ListBuffer[Int])]
     var bad = false
+    var contradiction = ""
     for (ct <- withConstraints if !bad) {
       ct match {
         case FixedSize(a, x) =>
-          val mset = classMapping.getOrElseUpdate(a, (mutable.Set.empty, Some(x)))
-          if (mset._2.nonEmpty && mset._2.get != x)
+          val mset = classMapping.getOrElseUpdate(a, (mutable.Set.empty, mutable.ListBuffer(x)))
+          if (mset._2.nonEmpty && mset._2.head != x) {
+            contradiction = a.toString + s"(${mset._2.head})" + " == " + x
             bad = true
-          else {
+          } else {
             mset._1.add(a)
+            if (mset._2.nonEmpty) mset._2(0) = x
+            else mset._2.append(x)
           }
         case EqSize(a, b) =>
-          var mset1 = classMapping.getOrElse(a, (mutable.Set.empty, None))
-          var mset2 = classMapping.getOrElse(b, (mutable.Set.empty, None))
-          if (mset1._2.nonEmpty && mset2._2.nonEmpty && mset1._2.get != mset2._2.get) {
+          var mset1 = classMapping.getOrElse(a, (mutable.Set.empty[BVExpr], mutable.ListBuffer.empty[Int]))
+          var mset2 = classMapping.getOrElse(b, (mutable.Set.empty[BVExpr], mutable.ListBuffer.empty[Int]))
+          if (mset1._2.nonEmpty && mset2._2.nonEmpty && mset1._2.head != mset2._2.head) {
+            contradiction = a.toString + s"(${mset1._2.head})" + " == " + b.toString + s"(${mset2._2.head})"
             bad = true
           } else {
             if (mset1._1.size < mset2._1.size) {
@@ -106,22 +115,40 @@ object TypeInference {
               for (x <- mset1._1)
                 mset2._1.add(x)
               if (mset1._2.nonEmpty)
-                mset2 = mset2.copy(_2 = mset1._2)
+                if (mset2._2.nonEmpty) mset2._2.update(0, mset1._2.head)
+                else mset2._2.append(mset1._2.head)
+              classMapping.put(a, mset2)
+              classMapping.put(b, mset2)
             } else {
               mset1._1.add(a)
               mset1._1.add(b)
               for (x <- mset2._1)
                 mset1._1.add(x)
               if (mset2._2.nonEmpty)
-                mset1 = mset1.copy(_2 = mset2._2)
+                if (mset1._2.nonEmpty) mset1._2.update(0, mset2._2.head)
+                else mset1._2.append(mset2._2.head)
+              classMapping.put(a, mset1)
+              classMapping.put(b, mset1)
             }
           }
         case Unknown(v) => ;
       }
     }
     if (!bad) {
-      if (classMapping.exists(_._2._2.isEmpty))
-
+      val empty = classMapping.find(_._2._2.isEmpty)
+      if (empty.nonEmpty) {
+        Left(classMapping.filter(_._2._2.nonEmpty).mapValues(r => r._2.head).toMap)
+//        Right(s"failed to infer types, can't say anything about ${empty.get._2._1}")
+      } else {
+        Left(classMapping.mapValues(r => r._2.head).toMap)
+      }
+    } else {
+      Right(s"failed to infer types, contradictory types encountered $contradiction")
     }
   }
+
+  def solveTypes(expr : Expr,
+                 simpleMemory: SimpleMemory,
+                 extra : List[TypeConstraint]) : Either[Map[BVExpr, Int], String] =
+    solveTypes(expr, ReferenceSolver.solveReferences(expr, simpleMemory), extra)
 }

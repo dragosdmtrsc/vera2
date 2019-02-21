@@ -1,4 +1,4 @@
-package org.change.v2.plugins.eq
+package org.change.plugins.eq
 
 import org.change.v2.analysis.equivalence.Equivalence
 import org.change.v2.cmd.EQParams

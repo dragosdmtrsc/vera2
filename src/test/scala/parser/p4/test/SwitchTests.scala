@@ -6,6 +6,7 @@ import java.util
 import org.change.parser.p4.ControlFlowInterpreter
 import org.change.parser.p4.parser.{ParserGenerator, SkipParserAndDeparser, SwitchBasedParserGenerator, TrivialDeparserGenerator}
 import org.change.parser.p4.tables.SymbolicSwitchInstance
+import org.change.utils.ToDot
 import org.change.v2.analysis.executor.solvers.Z3BVSolver
 import org.change.v2.analysis.executor.{CodeAwareInstructionExecutor, CodeAwareInstructionExecutorWithListeners}
 import org.change.v2.analysis.expression.concrete.ConstantValue
@@ -14,7 +15,6 @@ import org.change.v2.analysis.memory.TagExp.IntImprovements
 import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.analysis.processingmodels.instructions._
 import org.change.v2.p4.model.{ISwitchInstance, Switch, SwitchInstance}
-import org.change.v2.util.ToDot
 import org.scalatest.FunSuite
 
 class SwitchTests extends FunSuite {

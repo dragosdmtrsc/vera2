@@ -1,6 +1,6 @@
-package org.change.v2.plugins.eq
+package org.change.plugins.eq
 
-import org.change.v2.plugins.click.ClickPlugin
+import org.change.plugins.click.ClickPlugin
 
 class ClickToposPlugin extends AbsIntegrationPlugin {
   private lazy val topo1 = new ClickPlugin(topologyLeftParms("dir"))

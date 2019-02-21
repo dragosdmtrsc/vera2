@@ -3,12 +3,12 @@ package org.change.v2.analysis.constraint
 import java.io.{File, PrintStream}
 import java.util.UUID
 
+import org.change.utils.ToDot
 import org.change.v2.analysis.constraint.FOR.makeFOR
 import org.change.v2.analysis.expression.abst.Expression
 import org.change.v2.analysis.expression.concrete.{ConstantBValue, ConstantStringValue, ConstantValue, SymbolicValue}
 import org.change.v2.analysis.expression.concrete.nonprimitive._
 import org.change.v2.analysis.memory.MemoryObject
-import org.change.v2.util.ToDot
 import org.change.v2.util.conversion.RepresentationConversion.{numberToIp, numberToMac}
 
 import scala.collection.mutable

@@ -15,7 +15,7 @@ import org.change.v2.util.Neg
 
 import scala.io.Source
 import scala.util.matching.Regex
-import org.change.v2.util.regexes._
+import org.change.utils.regexes._
 import org.change.v2.util.conversion.RepresentationConversion
 import org.change.v2.util.conversion.RepresentationConversion.ipToNumber
 

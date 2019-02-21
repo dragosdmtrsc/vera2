@@ -1,15 +1,15 @@
-package org.change.v2.plugins.click
+package org.change.plugins.click
 
 import java.io.{File, FilenameFilter}
 
 import org.change.parser.clickfile.ClickToAbstractNetwork
 import org.change.parser.interclicklinks.InterClickLinksParser
 import org.change.parser.startpoints.StartPointParser
+import org.change.plugins.eq.{PluginBuilder, TopologyPlugin}
+import org.change.utils.ToDot
 import org.change.v2.abstractnet.optimized.router.OptimizedRouter
-import org.change.v2.analysis.executor.{ClickAsyncExecutor, CodeAwareInstructionExecutor, DecoratedInstructionExecutor, TrivialTripleInstructionExecutor}
+import org.change.v2.analysis.executor.{ClickAsyncExecutor, CodeAwareInstructionExecutor}
 import org.change.v2.analysis.processingmodels.Instruction
-import org.change.v2.plugins.eq.{PluginBuilder, TopologyPlugin}
-import org.change.v2.util.ToDot
 
 class ClickPlugin(folder : String) extends TopologyPlugin {
   private val clicksFolder = new File(folder)

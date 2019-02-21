@@ -1,7 +1,7 @@
-package org.change.v2.tools.eq
+package org.change.tools.eq
 
 import org.change.v2.analysis.equivalence.Equivalence
-import org.change.v2.plugins.eq._
+import org.change.plugins.eq._
 import System._
 import java.lang.reflect.Field
 import java.util.Objects
@@ -11,7 +11,7 @@ import org.change.v2.cmd.EQParams
 object Equivalence {
 
   val usage = """
-    Usage: java -jar <JAR> org.change.v2.tools.eq.Equivalence
+    Usage: java -jar <JAR> org.change.tools.eq.Equivalence
             --integration-plugin <plugin_class>
             [--input-port-parm <parm_name> <parm_value>]*
             [--output-port-parm <parm_name> <parm_value>]*

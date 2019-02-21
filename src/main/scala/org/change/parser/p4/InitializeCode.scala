@@ -23,7 +23,8 @@ class InitializeCode[T<:ISwitchInstance](switchInstance : T,
     GlobalInitFactory.get(switchInstance.getClass.asInstanceOf[Class[T]]))
 
   def initializeMetadata(butFor : List[String] = Nil) : Instruction = {
-    InstructionBlock(Assign("Truncate", ConstantValue(0)) :: swSpec.getInstances.filter(_.isMetadata).flatMap(x => {
+    InstructionBlock(
+      Allocate("Truncate", 1) :: Assign("Truncate", ConstantValue(0)) :: swSpec.getInstances.filter(_.isMetadata).flatMap(x => {
       if (!butFor.contains(x.getName)) {
         x.getLayout.getFields.map(f => {
           if (!butFor.contains(x.getName + "." + f.getName)) {
@@ -50,11 +51,14 @@ class InitializeCode[T<:ISwitchInstance](switchInstance : T,
       swSpec.getInstances.filter(!_.isMetadata).flatMap(x => x match {
         case ai: ArrayInstance =>
           val len = ai.getLength
-          (0 until len).map(z => {
-            Assign(x.getName + "[" + z + "].IsValid", ConstantValue(0))
+          (0 until len).flatMap(z => {
+            List(
+              Allocate(x.getName + ".IsValid", 1),
+              Assign(x.getName + "[" + z + "].IsValid", ConstantValue(0))
+            )
           })
         case _ =>
-          Assign(x.getName + ".IsValid", ConstantValue(0)) :: Nil
+          Allocate(x.getName + ".IsValid", 1) :: Assign(x.getName + ".IsValid", ConstantValue(0)) :: Nil
       })
     )
   }

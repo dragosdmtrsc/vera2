@@ -1,10 +1,10 @@
-package org.change.v2.plugins.runner
+package org.change.plugins.runner
 
 import java.io.{BufferedOutputStream, FileOutputStream}
 
 import org.change.utils.prettifier.JsonUtil
 import org.change.v2.analysis.memory.SimpleMemory
-import org.change.v2.plugins.eq.{ExecutorConsumer, PluginBuilder}
+import org.change.plugins.eq.{ExecutorConsumer, PluginBuilder}
 
 import scala.collection.mutable.ListBuffer
 

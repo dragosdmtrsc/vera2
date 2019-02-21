@@ -3,7 +3,7 @@ package org.change.v2.analysis.constraint
 import java.io.{Closeable, File, PrintStream}
 import java.util.UUID
 
-import org.change.v2.util.ToDot
+import org.change.utils.ToDot
 
 import scala.collection.mutable
 import scala.util.hashing.MurmurHash3

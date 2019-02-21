@@ -21,7 +21,7 @@ case class TagExp(plusTags: List[Tag], minusTags: List[Tag], rest: Int) extends 
   def -(other: TagExp): TagExp = TagExp(this.plusTags ++ other.minusTags, this.minusTags ++ other.plusTags , this.rest - other.rest)
   def -(other: Tag): TagExp = TagExp(this.plusTags, other :: this.minusTags, rest)
   def -(other: Int): TagExp = TagExp(plusTags, minusTags , rest-other)
-  override def toString: String = plusTags.mkString("+") + (if (minusTags.nonEmpty) "-" + minusTags.mkString("-") else "") + TagExp.IntImprovements(rest)
+  override def toString: String = plusTags.mkString("+") + (if (minusTags.nonEmpty) "-" + minusTags.mkString("-") else "") + IntImprovements(rest)
 }
 case class IntImprovements(value : Int) extends Intable
 

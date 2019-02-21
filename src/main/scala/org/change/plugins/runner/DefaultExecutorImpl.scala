@@ -1,11 +1,11 @@
-package org.change.v2.plugins.runner
+package org.change.plugins.runner
 
 import org.change.v2.analysis.constraint.{Condition, FALSE, FAND, TRUE}
 import org.change.v2.analysis.executor.TripleInstructionExecutor
 import org.change.v2.analysis.memory.{SimpleMemory, SimpleMemoryInterpreter, ToTheEndExecutor}
 import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.analysis.processingmodels.instructions.{Fork, Forward}
-import org.change.v2.plugins.eq.{ExecutorConsumer, ExecutorPlugin, PluginBuilder}
+import org.change.plugins.eq.{ExecutorConsumer, ExecutorPlugin, PluginBuilder}
 
 import scala.util.matching.Regex
 

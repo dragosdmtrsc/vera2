@@ -211,6 +211,7 @@ case class Triple[T](success: List[T], failed: List[T], continue: List[T]) {
 }
 
 object Triple {
+  def empty[T] : Triple[T] = new Triple[T]()
   def startFrom[T](a: T) =
     new Triple[T](success = Nil, failed = Nil, continue = a :: Nil)
   def fail[T](a : T) = new Triple[T](success = Nil, failed = a :: Nil, continue = Nil)

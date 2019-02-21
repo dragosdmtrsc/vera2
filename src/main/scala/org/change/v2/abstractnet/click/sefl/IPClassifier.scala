@@ -6,7 +6,7 @@ import org.change.v2.analysis.processingmodels._
 import org.change.v2.analysis.processingmodels.instructions._
 import org.change.v2.util.canonicalnames._
 import org.change.v2.util.conversion.RepresentationConversion._
-import org.change.v2.util.regexes._
+import org.change.utils.regexes._
 
 class IPClassifier(name: String,
                    inputPorts: List[Port],

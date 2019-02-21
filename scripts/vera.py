@@ -42,8 +42,8 @@ if not args.no_preprocess:
       sys.exit(-1)
   if args.preprocess_only:
     sys.exit(0)
-topo_plugin_name = 'org.change.v2.plugins.vera.VeraTopologyPlugin'
-input_packet_plugin = 'org.change.v2.plugins.eq.NoPacketPlugin'
+topo_plugin_name = 'org.change.plugins.vera.VeraTopologyPlugin'
+input_packet_plugin = 'org.change.plugins.eq.NoPacketPlugin'
 no_packet = True
 #if args.with_packet:
 #  no_packet = False
@@ -60,7 +60,7 @@ classpath='' + first_jar + os.pathsep
 streams = os.path.join(target_path, 'streams', 'compile', 'dependencyClasspath', '$global', 'streams', 'export')
 with open(streams, 'r') as fd:
   classpath = classpath + fd.read() + ''
-exec_name='org.change.v2.tools.sefl.SeflRun'
+exec_name='org.change.tools.sefl.SeflRun'
 cmds = []
 cmds.append('java')
 cmds.append('-cp')
@@ -99,7 +99,7 @@ elif args.nr_interfaces:
 else:
   raise Exception('pass either a list of interfaces or the number of ports')
 cmds.append('--consumer-plugin')
-cmds.append('org.change.v2.plugins.runner.ToFileConsumer')
+cmds.append('org.change.plugins.runner.ToFileConsumer')
 cmds.append('--consumer-parm')
 cmds.append('success')
 cmds.append(args.success_out_file)
@@ -117,9 +117,9 @@ else:
   print('failure', file=sys.stderr)
   sys.exit(-1)
 #--input-packet-plugin
-#org.change.v2.plugins.eq.NoPacketPlugin
+#org.change.plugins.eq.NoPacketPlugin
 #--topology-plugin
-#org.change.v2.plugins.vera.VeraTopologyPlugin
+#org.change.plugins.vera.VeraTopologyPlugin
 #--topology-parm
 #p4
 #C:\Users\dragos\source\repos\symnet-neutron\inputs\axon\axon-ppc.p4

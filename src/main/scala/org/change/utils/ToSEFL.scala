@@ -1,15 +1,15 @@
-package org.change.v2.util
+package org.change.utils
 
 import java.io.PrintWriter
 
 import org.change.v2.analysis.expression.abst.FloatingExpression
 import org.change.v2.analysis.expression.concrete._
 import org.change.v2.analysis.expression.concrete.nonprimitive._
+import org.change.v2.analysis.memory.TagExp.IntImprovements
 import org.change.v2.analysis.memory.{Intable, Tag, TagExp}
 import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.analysis.processingmodels.instructions._
-import org.change.v2.util.ToDot.{mkIPCG, normalize}
-import org.change.v2.analysis.memory.TagExp.IntImprovements
+
 import scala.collection.mutable
 
 object ToSEFL {

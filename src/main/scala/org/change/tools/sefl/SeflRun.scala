@@ -1,23 +1,23 @@
-package org.change.v2.tools.sefl
+package org.change.tools.sefl
 
 import java.lang.reflect.Field
 
 import org.change.v2.cmd.EQParams
-import org.change.v2.plugins.eq._
+import org.change.plugins.eq._
 
 case class SeflRunArgs(topoClass : String = "",
                    topoParms : Map[String, String] = Map.empty,
                    startFrom : String = ".*",
-                   consumerPlugin : String = "org.change.v2.plugins.runner.ToFileConsumer",
+                   consumerPlugin : String = "org.change.plugins.runner.ToFileConsumer",
                    consumerParms : Map[String, String] = Map.empty,
-                   inputPacketPlugin : String = "org.change.v2.plugins.eq.TCPPacketPluginImpl",
+                   inputPacketPlugin : String = "org.change.plugins.eq.TCPPacketPluginImpl",
                    inputPacketParms : Map[String, String] = Map.empty,
-                   runnerPlugin : String = "org.change.v2.plugins.runner.DefaultExecutorImpl",
+                   runnerPlugin : String = "org.change.plugins.runner.DefaultExecutorImplv3",
                    runnerParms : Map[String, String] = Map.empty)
 
 object SeflRun {
   val usage = """
-    Usage: java -jar <JAR> org.change.v2.tools.sefl.SeflRun
+    Usage: java -jar <JAR> org.change.tools.sefl.SeflRun
             --topology-plugin <plugin_class>
             [--topology-parm <parm_name> <parm_value>]*
             [--start-from <regex>]?

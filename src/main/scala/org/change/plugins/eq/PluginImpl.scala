@@ -1,4 +1,4 @@
-package org.change.v2.plugins.eq
+package org.change.plugins.eq
 import java.io.{BufferedOutputStream, File, FileOutputStream}
 import java.nio.file.{Path, Paths}
 

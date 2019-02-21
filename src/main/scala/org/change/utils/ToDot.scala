@@ -1,10 +1,9 @@
-package org.change.v2.util
+package org.change.utils
 
-import java.io.{OutputStream, PrintWriter}
-import java.util.UUID
+import java.io.PrintWriter
 
-import org.change.v2.analysis.processingmodels.{Instruction, SuperFork}
 import org.change.v2.analysis.processingmodels.instructions.{Fork, Forward, If, InstructionBlock}
+import org.change.v2.analysis.processingmodels.{Instruction, SuperFork}
 
 import scala.collection.mutable
 

@@ -65,6 +65,7 @@ class ControlFlowInterpreter[T <: ISwitchInstance](
         r._1 -> (
           if (r._1 == s"${switchInstance.getName}.control.ingress")
             InstructionBlock(
+              Allocate("egress_pipeline", 1),
               Assign("egress_pipeline", ConstantValue(0)),
               r._2
             )

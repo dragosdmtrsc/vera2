@@ -62,7 +62,7 @@ object OptimizedSwitch {
   def parseMacFile(f: File): Traversable[(String, String, String)] = {
     val stream = Source.fromFile(f)
 
-    import org.change.v2.util.regexes._
+    import org.change.utils.regexes._
     (for {
       l <- stream.getLines()
       if (l.matches(".*" + macCisco + ".*"))

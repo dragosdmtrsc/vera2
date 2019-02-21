@@ -1,4 +1,4 @@
-package org.change.v2.plugins.eq
+package org.change.plugins.eq
 
 import java.io.File
 

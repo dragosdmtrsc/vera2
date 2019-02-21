@@ -3,11 +3,11 @@ package org.change.v2.analysis.equivalence
 import java.io.PrintStream
 import java.util.logging.{Level, Logger}
 
+import org.change.utils.ToDot
 import org.change.v2.analysis.constraint._
 import org.change.v2.analysis.memory._
 import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.helpers.GFG
-import org.change.v2.util.ToDot
 import z3.scala.{Z3Context, Z3Solver}
 
 import scala.collection.JavaConverters._
