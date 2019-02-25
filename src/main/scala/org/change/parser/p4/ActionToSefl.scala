@@ -581,88 +581,48 @@ class ActionInstance(p4Action: P4Action,
   def handlePush(): Instruction = {
     val arrName = argList.head.asInstanceOf[Symbol].id
     val hdrArray = switch.getInstance(arrName).asInstanceOf[ArrayInstance]
-    argList(1) match {
-      case ConstantValue(c, _, _) => pushBy(c.toInt, hdrArray, arrName)
-      case _ => (0 until hdrArray.getLength).foldRight(NoOp : Instruction)((x, acc) => {
-        val tmp = s"tmp${UUID.randomUUID()}"
-        InstructionBlock(
-          Assign(tmp, argList(1)),
-          If (Constrain(tmp, :==:(ConstantValue(x))),
-            pushBy(x, hdrArray, arrName),
-            acc
-          )
-        )
-      })
-    }
+    assert(argList(1).isInstanceOf[ConstantValue], "can't handle non-constant push/pops")
+    val by = argList(1).asInstanceOf[ConstantValue].value
+    If (Constrain(arrName + ".next", :>:(ConstantValue(hdrArray.getLength + 1 - by))),
+      Fail(s"header full $arrName, can't push by $by"),
+      InstructionBlock(
+        pushBy(by.toInt, hdrArray, arrName),
+        Assign(arrName + ".next", :+:(:@(arrName + ".next"), ConstantValue(1)))
+      )
+    )
   }
 
   private def pushBy(count: Int, hdrArray: ArrayInstance, arrName : String): Instruction = {
-    val pushDown = (hdrArray.getLength - count - 1).to(0, -1).map(x => {
-      new ActionInstance(switch.getActionRegistrar.getAction("copy_header"),
-        List[FloatingExpression](:@(s"$arrName[${x + count}]"), :@(s"$arrName[$x]")), switchInstance,
-        switch, table, flowNumber, dropMessage).sefl()
-    }).toList
-
-    val createNews = (0 until count).map(x => {
-      new ActionInstance(switch.getActionRegistrar.getAction("add_header"),
-        List[FloatingExpression](:@(s"$arrName[$x]")), switchInstance, switch,
-        table, flowNumber, dropMessage).handleAddHeader(false)
-    }).toList
-    InstructionBlock(
-      pushDown ++ createNews
-    )
+    InstructionBlock((count until hdrArray.getLength).reverse.flatMap(idx => {
+      ("IsValid" :: hdrArray.getLayout.getFields.map(_.getName).toList).map(f => {
+        Assign(hdrArray.getName + s"[$idx].$f", :@(hdrArray.getName + s"[${idx - count}].$f"))
+      }) ++ (0 until count).map(idx => Assign(hdrArray.getName + s"[$idx].IsValid", ConstantValue(1)))
+    }))
   }
 
   def handlePop(): Instruction = {
     val arrName = argList.head.asInstanceOf[Symbol].id
     val hdrArray = switch.getInstance(arrName).asInstanceOf[ArrayInstance]
-    argList(1) match {
-      case ConstantValue(c, _, _) => popBy(c.toInt, hdrArray, arrName)
-      case _ => (0 until hdrArray.getLength).foldRight(NoOp : Instruction)((x, acc) => {
-        val tmp = s"tmp${UUID.randomUUID()}"
-        InstructionBlock(
-          Assign(tmp, argList(1)),
-          If (Constrain(tmp, :==:(ConstantValue(x))),
-            popBy(x, hdrArray, arrName),
-            acc
-          )
-        )
-      })
-    }
+    assert(argList(1).isInstanceOf[ConstantValue], "can't handle non-constant push/pops")
+    val by = argList(1).asInstanceOf[ConstantValue].value.toInt
+    If (Constrain(arrName + ".next", :<:(ConstantValue(by))),
+      Fail(s"stack ${hdrArray.getName} too empty to pop by $by"),
+      InstructionBlock(
+        popBy(by, hdrArray, arrName),
+        Assign(arrName + ".next", :-:(:@(arrName + ".next"), ConstantValue(1)))
+      )
+    )
   }
 
   private def popBy(count: Int, hdrArray: ArrayInstance, arrName : String): Instruction = {
-    val pushUp = (count until hdrArray.getLength).map(x => {
-      new ActionInstance(switch.getActionRegistrar.getAction("copy_header"),
-        List[FloatingExpression](:@(s"$arrName[${x - count}]"), :@(s"$arrName[$x]")),
-        switchInstance,
-        switch,
-        table,
-        flowNumber,
-        dropMessage).handleCopyHeader()
-    })
-
-    val deleteNews = (0 until count).map(x => {
-      new ActionInstance(switch.getActionRegistrar.getAction("remove_header"),
-        List[FloatingExpression](:@(s"$arrName[${hdrArray.getLength - 1 - x}]")),
-        switchInstance,
-        switch,
-        table,
-        flowNumber,
-        dropMessage).handleRemoveHeader(shouldCheck = false)
-    })
-
-    if (pushUp.isEmpty)
-      Fail(s"Attempt to pop $count which is more than the length of ${hdrArray.getName}, that is ${hdrArray.getLength}")
-    else
-      (0 until count).foldRight(InstructionBlock(
-        (pushUp ++ deleteNews).toList
-      ) : Instruction)((x, acc) => {
-        If (Constrain(s"$arrName[$x].IsValid", :==:(ConstantValue(1))),
-          acc,
-          Fail(s"Attempt to pop the array ${hdrArray.getName} with $x elements by $count")
-        )
+    val arrname = hdrArray.getName
+    InstructionBlock((count until hdrArray.getLength).flatMap(idx => {
+      ("IsValid" :: hdrArray.getLayout.getFields().map(_.getName).toList).map(f => {
+        Assign(hdrArray.getName + s"[${idx - count}].$f", :@(hdrArray.getName + s"[$idx].$f"))
       })
+    }) ++ ((hdrArray.getLength - 1 - count) until hdrArray.getLength).map(idx => {
+      Assign(hdrArray.getName + s"[$idx].IsValid", ConstantValue(0))
+    }))
   }
 
   def handleBitAndOrXor(isAnd : Boolean, isOr : Boolean, isXor : Boolean): Instruction = {

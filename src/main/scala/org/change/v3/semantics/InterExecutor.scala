@@ -10,7 +10,7 @@ import org.change.v3.syntax.Instruction
 import scala.collection.mutable
 
 class InterExecutor(program : Map[String, Instruction],
-                    tripleExecutor: Mapper[SimpleMemory, Triple[SimpleMemory]],
+                    tripleExecutor: IntraExecutor,
                     mergePoints : String => Boolean) {
   private val q: mutable.Queue[SimpleMemory] = mutable.Queue[SimpleMemory]()
 
@@ -87,27 +87,46 @@ class InterExecutor(program : Map[String, Instruction],
     })
   }
 
+  def executeFrom(start : String, mem : SimpleMemory, consumer : SimpleMemory => Unit): Unit = {
+    val prog = program(start)
+    val estimated = BranchingEstimator.estimate(prog)
+    if (estimated._1 + estimated._2 > 1000) {
+      System.err.println(s"killer found at $start $estimated")
+    }
+    val trip = tripleExecutor.reset().execute(prog, mem, true)
+    val filtered = trip
+    filtered.continue.foreach(consumer)
+    filtered.failed.foreach(consumer)
+    q.enqueue(filtered.success: _*)
+  }
+
   def executeFromWithConsumer(start: Set[String],
                               simpleMemory: SimpleMemory,
                               consumer : SimpleMemory => Unit): Unit = {
     start.foreach(x => {
       q.enqueue(simpleMemory.forwardTo(x))
     })
+    var startTime = System.currentTimeMillis()
     var toBeMerged = Map.empty[String, List[SimpleMemory]]
     var prevMerge = false
     while (q.nonEmpty) {
+      val crttime = System.currentTimeMillis()
+      if (crttime - startTime >= 60000) {
+        startTime = crttime
+        val qdepth = q.length
+        val outstanding = q.map(_.location).mkString(",")
+        val merge = toBeMerged.size
+        val outstandingMerges = toBeMerged.keySet.mkString(",")
+        Logger.getLogger(this.getClass.getName).info(s"tick $qdepth with [$outstanding] merge $merge @ [$outstandingMerges]")
+        tripleExecutor.dumpStats()
+      }
       val crt = q.dequeue()
       if (program.contains(crt.location)) {
         if (mergePoints(crt.location)) {
           assert(crt.errorCause.isEmpty)
           toBeMerged = toBeMerged + (crt.location -> (crt :: toBeMerged.getOrElse(crt.location, Nil)))
         } else {
-          val prog = program(crt.location)
-          val trip = tripleExecutor.execute(prog, crt, true)
-          val filtered = trip
-          filtered.continue.foreach(consumer)
-          filtered.failed.foreach(consumer)
-          q.enqueue(filtered.success: _*)
+          executeFrom(crt.location, crt, consumer)
         }
       } else {
         consumer(crt)
@@ -116,17 +135,14 @@ class InterExecutor(program : Map[String, Instruction],
         for (x <- toBeMerged) {
           var i = 0
           val start = System.currentTimeMillis()
-          val ms = merge(x._1, x._2)
+          val ms = if (x._2.size > 1)
+            merge(x._1, x._2)
+          else x._2
           val end = System.currentTimeMillis()
           val totalMerge = end - start
           for (merged <- ms) {
             i = i + 1
-            val prog = program(merged.location)
-            val trip = tripleExecutor.execute(prog, merged, true)
-            val filtered = trip
-            filtered.continue.foreach(consumer)
-            filtered.failed.foreach(consumer)
-            q.enqueue(filtered.success: _*)
+            executeFrom(merged.location, merged, consumer)
           }
           Logger.getLogger(this.getClass.getName).info(
             s"at location ${x._1} -> ${x._2.size}, now $i in $totalMerge ms")
@@ -134,6 +150,7 @@ class InterExecutor(program : Map[String, Instruction],
         toBeMerged = Map.empty
       }
     }
+    tripleExecutor.dumpStats()
   }
 
 }

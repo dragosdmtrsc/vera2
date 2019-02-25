@@ -1,8 +1,10 @@
 package org.change.v3.semantics
 
+import java.util.logging.Logger
+
 import org.change.v2.analysis.memory.Triple
 import org.change.v3.syntax._
-import z3.scala.Z3AST
+import z3.scala.{Z3AST, Z3Solver}
 
 trait Mapper[S, T] {
   def execute(instruction : Instruction, state: S, verbose : Boolean) : T
@@ -58,8 +60,118 @@ abstract class AbsMapper[S, T] extends Mapper[S, T] {
   def executeNoOp()(state : S, verbose : Boolean) : T
 }
 
-class IntraExecutor(quickTrimStrategy: (SimplePathCondition, Condition) => Option[SimplePathCondition]) extends
-  AbsMapper[SimpleMemory, Triple[SimpleMemory]] {
+object BranchingEstimator {
+  def estimate(instruction : Instruction, start : Long = 1) : (Long, Long) = instruction match {
+    case NoOp => (start, 0)
+    case Forward(to) => (0, start)
+    case Fail(message) => (0, start)
+    case Drop(message) => (0, start)
+    case Assign(left, right) => (start, 0)
+    case Allocate(left, sz) => (start, 0)
+    case Deallocate(left) => (start, 0)
+    case CreateTag(name, right) => (start, 0)
+    case DestroyTag(name) => (start, 0)
+    case Assume(bExpr) => (start, 0)
+    case If(bExpr, thn, els) => val estimate1 = estimate(thn, start)
+      val estimate2 = estimate(els, start)
+      (estimate1._1 + estimate2._1, estimate1._2 + estimate2._2)
+    case InstructionBlock(is) =>
+      is.foldLeft((start, 0l))((acc, x) => {
+        val est = estimate(x, acc._1)
+        (est._1, est._2 + acc._2)
+      })
+    case Clone(is) =>
+      is.map(instr => estimate(instr, start)).foldLeft((0l, 0l))((acc, x) => (acc._1 + x._1, acc._2 + acc._2))
+    case Fork(is) => is.map(instr => estimate(instr, start)).foldLeft((0l, 0l))((acc, x) => (acc._1 + x._1, acc._2 + acc._2))
+  }
+}
+
+class IntraExecutor extends AbsMapper[SimpleMemory, Triple[SimpleMemory]] {
+
+  private var optionalSolver : Option[Z3Solver] = None
+  private var level: Int = 0
+  private var nrSolverCalls = 0l
+  private var totalSolverTime = 0l
+  private var nrTrue = 0l
+  private var nrFalse = 0l
+
+  def reset(): IntraExecutor = {
+    optionalSolver = None
+    level = 0
+    this
+  }
+  def push() : IntraExecutor = {
+    level = level + 1
+    optionalSolver.foreach(_.push())
+    this
+  }
+  def pop(n : Int = 1) : IntraExecutor = if (n == 0) {
+    this
+  } else {
+    optionalSolver.foreach(_.pop(n))
+    level = level - n
+    this
+  }
+  def dumpStats(): Unit = {
+    Logger.getLogger(this.getClass.getName).info(s"solver time ${totalSolverTime}ms / $nrSolverCalls")
+  }
+  private def check(simpleMemory: SimpleMemory, newCondition : Condition): (Option[SimpleMemory], Int, Int) = {
+    val simpd = context.simplifyAst(newCondition)
+    val lev = level
+    if (simpd == context.mkFalse()) {
+      (None, lev, lev)
+    } else if (simpd == context.mkTrue()) {
+      (Some(simpleMemory), lev, lev)
+    } else {
+      val slv = if (optionalSolver.isEmpty) {
+        val s = context.mkSolver()
+        optionalSolver = Some(s)
+        simpleMemory.pathCondition.foreach(s.assertCnstr)
+        s
+      } else {
+        optionalSolver.get
+      }
+      push()
+      val newLevel = level
+      slv.assertCnstr(simpd)
+      nrSolverCalls = nrSolverCalls + 1
+      val start =System.currentTimeMillis()
+      val res = slv.check().get
+      val end = System.currentTimeMillis()
+      if (end - start > 300) {
+        Logger.getLogger(this.getClass.getName).info(s"heavy hitter ${end - start}ms")
+      }
+      totalSolverTime += (end - start)
+      (if (res) {
+        nrTrue = nrTrue + 1
+        Some(simpleMemory.addCondition(simpd))
+      } else {
+        nrFalse = nrFalse + 1
+        None
+      }, lev, newLevel)
+    }
+  }
+
+  private def undo(oldLevel : Int, newLevel : Int): IntraExecutor = {
+    assert(newLevel == level)
+    pop(newLevel - oldLevel)
+  }
+
+  private def checkAndRun(state: SimpleMemory, cd : Condition,
+                          m : SimpleMemory => Triple[SimpleMemory]) = {
+    val (ra, ola, nla) = check(state, cd)
+    val resa = ra.map(m).getOrElse(Triple.empty)
+    undo(ola, nla)
+    resa
+  }
+
+  override def execute(instruction: Instruction, state: SimpleMemory, verbose: Boolean): Triple[SimpleMemory] = {
+    val init = level
+    val res = super.execute(instruction, state, verbose)
+    val end = level
+    assert(end == init)
+    res
+  }
   override def executeExoticInstruction(instruction: Instruction)(state: SimpleMemory, verbose: Boolean): Triple[SimpleMemory] = ???
 
   override def executeInstructionBlock(ib: InstructionBlock)
@@ -161,13 +273,9 @@ class IntraExecutor(quickTrimStrategy: (SimplePathCondition, Condition) => Optio
     generateConditions(iff.bExpr, state) match {
       case Right(m) => Triple.fail(state.fail(m))
       case Left((takea, takeb, takef)) =>
-        quickTrimStrategy(state.pathCondition, takea).map(pc => {
-          execute(iff.thn, state.copy(pathCondition = pc), verbose)
-        }).getOrElse(Triple.empty) + quickTrimStrategy(state.pathCondition, takeb).map(pc => {
-          execute(iff.els, state.copy(pathCondition = pc), verbose)
-        }).getOrElse(Triple.empty) + quickTrimStrategy(state.pathCondition, takef).map(pc => {
-          Triple.fail(state.fail(s"segfault found in ${iff.bExpr}"))
-        }).getOrElse(Triple.empty)
+        checkAndRun(state, takea, newstate => execute(iff.thn, newstate, verbose)) +
+        checkAndRun(state, takeb, newstate => execute(iff.els, newstate, verbose)) +
+        checkAndRun(state, takef, newstate => Triple.fail(newstate.fail(s"segfault found in ${iff.bExpr}")))
     }
   }
 
@@ -328,11 +436,8 @@ class IntraExecutor(quickTrimStrategy: (SimplePathCondition, Condition) => Optio
     generateConditions(assume.bExpr, state) match {
       case Right(m) => Triple.fail(state.fail(m))
       case Left((takea, takeb, takef)) =>
-        quickTrimStrategy(state.pathCondition, takea).map(pc => {
-          Triple.startFrom(state.copy(pathCondition = pc))
-        }).getOrElse(Triple.empty) + quickTrimStrategy(state.pathCondition, takef).map(pc => {
-          Triple.fail(state.fail(s"segfault found in ${assume.bExpr}"))
-        }).getOrElse(Triple.empty)
+        checkAndRun(state, takea, Triple.startFrom) +
+        checkAndRun(state, takef, x => Triple.fail(x.fail(s"segfault found in ${assume.bExpr}")))
     }
   }
 

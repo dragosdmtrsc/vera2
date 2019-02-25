@@ -41,7 +41,7 @@ class DefaultExecutorImplv3 extends ExecutorPlugin {
       else None
     }
   }
-  val simpleMemoryInterpreter = new IntraExecutor(simpleSatStrategy)
+  val simpleMemoryInterpreter = new IntraExecutor
   override def apply(topology: collection.Map[String, i2],
                      startNodes: Set[String],
                      initials: List[sm2],
@@ -55,7 +55,6 @@ class DefaultExecutorImplv3 extends ExecutorPlugin {
     })
     val end = System.currentTimeMillis()
     Logger.getLogger(this.getClass.getName).info(s"done in ${end - start}ms")
-    Logger.getLogger(this.getClass.getName).info(s"solver time ${totalSolverTime}ms / $nrSolverCalls")
     consumer.flush()
   }
 }
