@@ -58,8 +58,13 @@ class ActionInstance(p4Action: P4Action,
     if (arity != argList.size)
       throw new IllegalArgumentException(s"Wrong arity got ${argList.size} vs wanted $arity")
     val argNameToIndex = complexAction.getParameterList.zipWithIndex.map { x => x._1.getParamName -> x._2 }.toMap
-    InstructionBlock(complexAction.getActionList.map( v => {
-      val x = normalize(v)
+    InstructionBlock(complexAction.getActionList.map(normalize).filter(act => {
+      act.getP4Action.getActionType != P4ActionType.Count &&
+        act.getP4Action.getActionType != P4ActionType.ExecuteMeter &&
+        act.getP4Action.getActionType != P4ActionType.GenerateDigest &&
+        act.getP4Action.getActionType != P4ActionType.ModifyFieldWithHashBasedOffset &&
+        act.getP4Action.getActionType != P4ActionType.ModifyFieldRngUniform
+    }).map(x => {
       val args = x.parameterInstances().zip(x.getP4Action.getParameterList).map( pair => {
         val y = pair._1
         val formal = pair._2

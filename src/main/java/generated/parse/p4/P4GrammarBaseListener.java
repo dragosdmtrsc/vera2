@@ -1,4 +1,4 @@
-// Generated from C:/Users/dragos/source/repos/symnet-neutron/src/main/resources/p4_grammar\P4Grammar.g4 by ANTLR 4.7.2
+// Generated from C:/Users/a-drdum/source/repos/symnet-neutron/src/main/resources/p4_grammar\P4Grammar.g4 by ANTLR 4.7.2
 package generated.parse.p4;
 
 import org.antlr.v4.runtime.ParserRuleContext;
@@ -923,6 +923,18 @@ public class P4GrammarBaseListener implements P4GrammarListener {
 	 * <p>The default implementation does nothing.</p>
 	 */
 	@Override public void exitMeter_declaration(P4GrammarParser.Meter_declarationContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void enterMeter_attribute(P4GrammarParser.Meter_attributeContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitMeter_attribute(P4GrammarParser.Meter_attributeContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *

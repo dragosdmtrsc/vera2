@@ -1,4 +1,4 @@
-// Generated from C:/Users/dragos/source/repos/symnet-neutron/src/main/resources/p4_grammar\P4Grammar.g4 by ANTLR 4.7.2
+// Generated from C:/Users/a-drdum/source/repos/symnet-neutron/src/main/resources/p4_grammar\P4Grammar.g4 by ANTLR 4.7.2
 package generated.parse.p4;
 import org.antlr.v4.runtime.tree.ParseTreeListener;
 
@@ -781,6 +781,16 @@ public interface P4GrammarListener extends ParseTreeListener {
 	 * @param ctx the parse tree
 	 */
 	void exitMeter_declaration(P4GrammarParser.Meter_declarationContext ctx);
+	/**
+	 * Enter a parse tree produced by {@link P4GrammarParser#meter_attribute}.
+	 * @param ctx the parse tree
+	 */
+	void enterMeter_attribute(P4GrammarParser.Meter_attributeContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link P4GrammarParser#meter_attribute}.
+	 * @param ctx the parse tree
+	 */
+	void exitMeter_attribute(P4GrammarParser.Meter_attributeContext ctx);
 	/**
 	 * Enter a parse tree produced by {@link P4GrammarParser#const_expr}.
 	 * @param ctx the parse tree

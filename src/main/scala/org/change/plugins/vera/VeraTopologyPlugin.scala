@@ -43,6 +43,7 @@ object VeraTopologyPlugin {
     var generator = false
     var noInputPacket = false
     var justParser = false
+    var nodeparser = false
     override def set(parm: String, value: String): PluginBuilder[VeraTopologyPlugin] = {
       val pat = "interface(\\d+)".r
       val clonespec = "clonespec(\\d+)".r
@@ -55,6 +56,7 @@ object VeraTopologyPlugin {
         case "layoutfilter" => layoutFilter = value; this
         case "name" => switchName = value; this
         case "ninterfaces" => ninterfaces = value.toInt; this
+        case "nodeparser" => nodeparser = value.toBoolean; this
         case pat(nr) => ifaces.put(nr.toInt, value); this
         case clonespec(cs) => cloneSpec.put(cs.toInt, value.toInt); this
       }
@@ -72,7 +74,7 @@ object VeraTopologyPlugin {
       val switchInstance = SymbolicSwitchInstance.fromFileWithSyms(switchName,
         ifaces.toMap, cloneSpec.toMap,
         sw, commandsTxt, false)
-      val parserGenerator = new LightParserGenerator(sw, switchInstance, noInputPacket, justParser)
+      val parserGenerator = new LightParserGenerator(sw, switchInstance, noInputPacket, justParser, nodeparser)
       new VeraTopologyPlugin(switchName, sw, switchInstance, ifaces.toMap, cloneSpec.toMap, parserGenerator, generator)
     }
   }

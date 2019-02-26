@@ -198,12 +198,10 @@ direct_attribute returns [String table] : 'direct' ':' table_name ;
 static_attribute returns [String table]: 'static' ':' table_name ;
 meter_declaration : 'meter' meter_name '{'
     'type' ':' meter_type ';'
-    ( 'result' ':' field_ref ';' )?
-    ( direct_or_static ';' )?
-    ('instance_count' ':' const_expr ';' )?
+    meter_attribute*
     '}'
     ;
-
+meter_attribute : 'result' ':' field_ref ';' | direct_or_static ';' | 'instance_count' ':' const_expr ';';
 //TODO: const_expr in not defined, I'll leave this as a const_value.
 const_expr  : const_value ;
 
@@ -250,6 +248,7 @@ action_specification returns [java.util.List<String> actions]: 'actions' '{' ( a
 
 action_selector_declaration : 'action_selector' selector_name '{'
     'selection_key' ':' field_list_calculation_name ';'
+    ('selection_mode' ':' NAME ';')?
     '}'
     ;
 

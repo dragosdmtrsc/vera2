@@ -28,7 +28,8 @@ trait ParserGenerator {
 class LightParserGenerator(switch: Switch,
                            switchInstance: ISwitchInstance,
                            noInputPackets : Boolean = false,
-                           justParser : Boolean = false) extends ParserGenerator {
+                           justParser : Boolean = false,
+                           nodeparse : Boolean = false) extends ParserGenerator {
   private lazy val startState = switch.getParserState("start")
   private val name = switchInstance.getName
 
@@ -351,34 +352,37 @@ class LightParserGenerator(switch: Switch,
     )
 
   override def deparserCode(): Instruction = {
-    val topo: List[Instruction] = deparserInstructions
-    val first = CreateTag("CRT", Tag("START")) :: switch.getInstances.flatMap {
-      case ai: ArrayInstance if !ai.isMetadata =>
-        Assign(ai.getName + ".next", ConstantValue(0)) :: Nil
-      case _ => Nil
-    }.toList
-    InstructionBlock(first ++ topo ++ List(Forward(s"${switchInstance.getName}.deparser.out")))
+    if (nodeparse) Forward(s"${switchInstance.getName}.deparser.out")
+    else {
+      val topo: List[Instruction] = deparserInstructions
+      val first = CreateTag("CRT", Tag("START")) :: switch.getInstances.flatMap {
+        case ai: ArrayInstance if !ai.isMetadata =>
+          Assign(ai.getName + ".next", ConstantValue(0)) :: Nil
+        case _ => Nil
+      }.toList
+      InstructionBlock(first ++ topo ++ List(Forward(s"${switchInstance.getName}.deparser.out")))
+    }
   }
 
   private def deparserInstructions : List[Instruction] = {
     val cfg = buildCFG().subGraph(x => x.isInstanceOf[ExtractStatement])
-    if (true) {
-      System.out.println("digraph G {")
-      fullSCC.reverse.foreach(x => {
-        System.out.println("subgraph { ")
-        x.foreach(h => {
-          System.out.println(h.hashCode() + " [label=\"" + h + "\"];")
-        })
-        System.out.println("}")
-      })
-      fullCfg.edges.foreach(e => {
-        e._2.foreach(dst => {
-          System.out.println(e._1.hashCode() + " -> " + dst.hashCode() + ";")
-        })
-      })
-      System.out.println("}")
-      System.out.flush()
-    }
+//    if (true) {
+//      System.out.println("digraph G {")
+//      fullSCC.reverse.foreach(x => {
+//        System.out.println("subgraph { ")
+//        x.foreach(h => {
+//          System.out.println(h.hashCode() + " [label=\"" + h + "\"];")
+//        })
+//        System.out.println("}")
+//      })
+//      fullCfg.edges.foreach(e => {
+//        e._2.foreach(dst => {
+//          System.out.println(e._1.hashCode() + " -> " + dst.hashCode() + ";")
+//        })
+//      })
+//      System.out.println("}")
+//      System.out.flush()
+//    }
 
     val sccs = cfg.scc()
     val topo = sccs.reverse.map(scc => {

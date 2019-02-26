@@ -14,11 +14,13 @@ parser.add_argument('commands', help = 'dataplane to run vera against')
 parser.add_argument('--name', help='box name', default='switch')
 parser.add_argument('--interface', help='interfaces names', nargs='*')
 #parser.add_argument('--with-packet', action='store_true')
+parser.add_argument('--with-deparser', action='store_true')
 parser.add_argument('--success-out-file', default='success.json', help='output file for successful states')
 parser.add_argument('--fail-out-file', default='fail.json', help='output file for failure states')
 parser.add_argument('--nr-interfaces', type = int, help = 'number of interfaces')
 parser.add_argument('--clone-spec', help='clone specification, a mapping between a clone id and an egress port', nargs = '*')
 parser.add_argument('--parse-only', action='store_true', help='only run through the parser. perf assessment option')
+parser.add_argument('--print-args', action='store_true')
 
 args = parser.parse_args()
 
@@ -60,6 +62,7 @@ classpath='' + first_jar + os.pathsep
 streams = os.path.join(target_path, 'streams', 'compile', 'dependencyClasspath', '$global', 'streams', 'export')
 with open(streams, 'r') as fd:
   classpath = classpath + fd.read() + ''
+
 exec_name='org.change.tools.sefl.SeflRun'
 cmds = []
 cmds.append('java')
@@ -86,7 +89,12 @@ if args.parse_only:
   cmds.append('--topology-parm')
   cmds.append('justparser')
   cmds.append('true')
-
+cmds.append('--topology-parm')
+cmds.append('nodeparser')
+if args.with_deparser:
+  cmds.append('false')
+else:
+  cmds.append('true')
 if args.interface:
   for i in range(0, len(args.interface)):
     cmds.append('--topology-parm')
@@ -107,7 +115,8 @@ cmds.append('--consumer-parm')
 cmds.append('fail')
 cmds.append(args.fail_out_file)
 
-#print(cmds)
+if args.print_args:
+  print(' '.join(cmds[4:]))
 start = time.time()
 ret=subprocess.call(cmds)
 end = time.time()
