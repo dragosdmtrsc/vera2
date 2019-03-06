@@ -84,7 +84,6 @@ object PluginImpl {
   }
 }
 
-
 class NoPacketPlugin extends InputPacketPlugin {
   override def apply(): List[SimpleMemory] = CreateTag("START", 0)(State.clean)._1.map(SimpleMemory.apply)
 }
@@ -94,7 +93,6 @@ object NoPacketPlugin {
     override def build(): NoPacketPlugin = new NoPacketPlugin()
   }
 }
-
 
 class TCPPacketPluginImpl(symTtl : Boolean) extends InputPacketPlugin {
   override def apply(): List[SimpleMemory] = new OVSExecutor(new Z3BVSolver()).execute(

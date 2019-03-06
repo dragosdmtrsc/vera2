@@ -16,7 +16,7 @@ object SimpleMemoryObject {
   )
 }
 case class SimpleMemory(
-                         pathCondition : List[Z3AST],
+                         pathCondition : List[Z3AST] = Nil,
                          errorCause : Option[String] = None,
                          history : List[String] = Nil,
                          memTags : SortedMap[String, Int] = SortedMap.empty,

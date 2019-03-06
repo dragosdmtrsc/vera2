@@ -1,5 +1,6 @@
 package org.change.utils.graph
 
+
 import scala.collection.mutable
 
 case class SCCContext[T](lowlinks : mutable.Map[T, Int],
@@ -50,6 +51,10 @@ class LabeledGraph[T, Label](val edges : Map[T, List[(T, Label)]]) {
 }
 class Graph[T](val edges : Map[T, List[T]]) {
 
+  lazy val backward : Graph[T] = new Graph[T](edges.toIterable.flatMap(x => {
+      x._2.map(h => h -> x._1)
+    }).groupBy(x => x._1).mapValues(r => r.map(_._2).toList))
+
   override def toString: String = {
     val sb = new mutable.StringBuilder()
     for (e <- edges) {
@@ -60,7 +65,7 @@ class Graph[T](val edges : Map[T, List[T]]) {
     sb.toString()
   }
 
-  def sp(start : T, end : T): Int = {
+  def sp(start : T, end : T, filter : T => Boolean = _ => true): Int = {
     val b = start.equals(end)
     var bfq = mutable.Queue.empty[T]
     val dist = mutable.Map.empty[T, Int]
@@ -78,7 +83,8 @@ class Graph[T](val edges : Map[T, List[T]]) {
         for (n <- getNeighs(first)) {
           if (!dist.contains(n)) {
             val my = dist(first)
-            dist.put(n, my + 1)
+            if (filter(first)) dist.put(n, my + 1)
+            else dist.put(n, my)
             bfq.enqueue(n)
           }
         }
@@ -88,7 +94,13 @@ class Graph[T](val edges : Map[T, List[T]]) {
     }
     if (found)
       dist(end)
-    else Int.MaxValue
+    else {
+      if (!b) {
+        Int.MaxValue
+      } else {
+        1
+      }
+    }
   }
 
   private def getNeighs(n : T): List[T] = if (edges contains n) edges(n) else Nil
@@ -113,6 +125,28 @@ class Graph[T](val edges : Map[T, List[T]]) {
     }
     new Graph[T](edges.filter(x => filter(x._1)).map(edge => {
       edge._1 -> span(edge._2)
+    }))
+  }
+  def map[V](start : T, fun : T => V): Iterable[V] = {
+    var visited = Set.empty[T]
+    var q = List(start)
+    var l = List.empty[V]
+    while (q.nonEmpty) {
+      val crt = q.head
+      q = q.tail
+      l = fun(crt) :: l
+      visited = visited + crt
+      for (x <- edges.getOrElse(crt, Nil)) {
+        if (!visited.contains(x)) {
+          q = x :: q
+        }
+      }
+    }
+    l
+  }
+  def induced(filter : T => Boolean): Graph[T] = {
+    new Graph[T](edges.filter(x => filter(x._1)).mapValues(r => {
+      r.filter(filter)
     }))
   }
 
@@ -173,4 +207,75 @@ class Graph[T](val edges : Map[T, List[T]]) {
       mutable.Set.empty,
       new mutable.Stack[T])()
   }
+
+  def dominators(start : T) : Map[T, Set[T]] = {
+    val in = mutable.Map.empty[T, Set[T]]
+    var changes = true
+    in(start) = Set.empty
+    var q = mutable.Queue.empty[T]
+    q.enqueue(start)
+    while (q.nonEmpty) {
+      val node = q.dequeue()
+      val ins = in(node)
+      val propagate = ins + node
+      for (neigh <- edges.getOrElse(node, Nil)) {
+        if (in.contains(neigh)) {
+          val nxt = in(neigh)
+          val newdoms = nxt.intersect(propagate)
+          if (newdoms != nxt) {
+            in(neigh) = newdoms
+            q.enqueue(neigh)
+          }
+        } else {
+          in(neigh) = propagate
+          q.enqueue(neigh)
+        }
+      }
+    }
+    in.map(f => {
+      f._1 -> (f._2 + f._1)
+    }).toMap
+  }
+
+  private def traverse(graph: Graph[T], from : T, to : T): Set[T] = {
+    var q = List(from)
+    var s = Set.empty[T]
+    while (q.nonEmpty) {
+      val crt = q.head
+      q = q.tail
+      s = s + crt
+      for (e <- graph.edges.getOrElse(crt, Nil)) {
+        if (e != to && !s.contains(e))
+          q = e :: q
+      }
+    }
+    s + to
+  }
+
+  // a set of edges (n -> h) and a set of nodes L s.t.
+  // let < the dominator relation
+  // h < n and forall x\in L h < x and !(n < x)
+  def loops(start : T) : Iterable[(T, T, Graph[T])] = {
+    val doms = dominators(start)
+    var l = List.empty[(T, T, Graph[T])]
+    for (x <- doms) {
+      for (domd <- x._2) {
+        if (edges.getOrElse(x._1, Nil).contains(domd)) {
+          val st = traverse(backward, x._1, domd)
+          println(s"loop edge: ${x._1} -> $domd => { ${st.mkString(";")} }")
+          l = (x._1, domd, induced(st.contains)) :: l
+        }
+      }
+    }
+    l
+  }
+  def rmEdges(them : Iterable[(T, T)]): Graph[T] = new Graph(them.foldLeft(edges)((acc, x) => {
+      acc.get(x._1).map(v => {
+        v.filter(e => e != x)
+      })
+      .flatMap(edges => if (edges.isEmpty) None else Some(x._1 -> edges))
+      .map(h => acc + h)
+      .getOrElse(acc)
+    }))
+  def rmLoops(start : T) : Graph[T] = rmEdges(loops(start).map(h => (h._1, h._2)))
 }

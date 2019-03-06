@@ -2,6 +2,8 @@ package org.change.parser.p4.parser
 
 import java.util.UUID
 
+import org.change.parser.p4.HeaderInstance
+import org.change.utils.graph.LabeledGraph
 import org.change.utils.{FreshnessManager, graph}
 import org.change.v2.analysis.expression.abst.FloatingExpression
 import org.change.v2.analysis.expression.concrete._
@@ -12,6 +14,10 @@ import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.analysis.processingmodels.instructions._
 import org.change.v2.p4.model.parser._
 import org.change.v2.p4.model.{ArrayInstance, Field, ISwitchInstance, Switch}
+import org.change.v3.syntax.{BExpr, Literal, True}
+import z3.scala.Z3AST
+import org.change.v3.syntax
+import org.change.v3.semantics.{CFGBuilder, SimpleMemory, context}
 
 import scala.collection.JavaConversions._
 import scala.collection.{SortedMap, mutable}
@@ -470,11 +476,62 @@ class LightParserGenerator(switch: Switch,
     )
   }
 
+  private def flattenParser(instrs : Map[String, org.change.v3.syntax.Instruction]) :
+      Map[String, org.change.v3.syntax.Instruction] = {
+    val (labeledGraph, startinstr) = CFGBuilder.build(instrs, name + ".parser.start")
+    val initials = switch.getInstances.map({
+      case ai : ArrayInstance =>
+        syntax.Allocate(syntax.Symbol(ai.getName + ".next"), 32) ::
+          syntax.Assign(syntax.Symbol(ai.getName + ".next"), Literal(0)) ::
+        (if (!ai.isMetadata) {
+          val nm = ai.getName
+          (0 until ai.getLength).flatMap(idx =>
+            syntax.Allocate(syntax.Symbol(nm + s"[$idx].IsValid"), 1) ::
+            syntax.Assign(syntax.Symbol(nm + s"[$idx].IsValid"), Literal(0)) ::
+            Nil)
+        } else {
+          Nil
+        })
+      case hi : HeaderInstance =>
+        if (!hi.isMetadata) {
+          syntax.Allocate(syntax.Symbol(hi.getName + ".IsValid"), 1) ::
+            syntax.Assign(syntax.Symbol(hi.getName + ".IsValid"), Literal(0)) :: Nil
+        } else {
+          Nil
+        }
+      )
+    })
+    labeledGraph.propagate(startinstr)
+  }
+
   override lazy val extraCode: Map[String, Instruction] = {
     val stack = mutable.ListBuffer.empty[String]
     val visited = mutable.Set.empty[String]
     stack.append("start")
     val instrs = mutable.Map.empty[String, Instruction]
+    val annotatedGraph = mutable.Map.empty[(Statement, Int), List[(Statement, Int)]]
+    val loopFree = fullCfg.rmLoops(startState.getStatements.iterator().next())
+    val topo = loopFree.scc()
+    val toporder = topo.zipWithIndex.map(h => {
+      assert(h._1.size == 1)
+      h._1.head -> (topo.size - 1 - h._2)
+    }).toMap
+    val prio = mutable.PriorityQueue.empty[Statement](Ordering.fromLessThan[Statement]((left, right) => {
+      val topo1 = toporder(left)
+      val topo2 = toporder(right)
+      topo1 < topo2
+    }))
+    prio.enqueue(startState.getStatements.iterator().next())
+    var props = Map.empty[Statement, (SimpleMemory, BExpr)]
+    props = props + (startState.getStatements.iterator().next() -> (SimpleMemory(), True))
+    while (prio.nonEmpty) {
+      val crt = prio.dequeue()
+      for (neigh <- fullCfg.edges.getOrElse(crt, Nil)) {
+        val prop = props(crt)
+        props = props + (neigh -> prop)
+        prio.enqueue(neigh)
+      }
+    }
     while (stack.nonEmpty) {
       val top = stack.remove(0)
       visited.add(top)

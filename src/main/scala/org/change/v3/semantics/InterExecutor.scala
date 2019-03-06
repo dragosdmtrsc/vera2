@@ -111,12 +111,12 @@ class InterExecutor(program : Map[String, Instruction],
     var prevMerge = false
     while (q.nonEmpty) {
       val crttime = System.currentTimeMillis()
-      if (crttime - startTime >= 60000) {
+      if (crttime - startTime >= 20000) {
         startTime = crttime
         val qdepth = q.length
         val outstanding = q.map(_.location).mkString(",")
         val merge = toBeMerged.size
-        val outstandingMerges = toBeMerged.keySet.mkString(",")
+        val outstandingMerges = toBeMerged.mapValues(_.size).mkString(",")
         Logger.getLogger(this.getClass.getName).info(s"tick $qdepth with [$outstanding] merge $merge @ [$outstandingMerges]")
         tripleExecutor.dumpStats()
       }
