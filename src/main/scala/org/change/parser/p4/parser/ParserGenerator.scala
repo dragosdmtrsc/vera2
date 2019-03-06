@@ -14,7 +14,7 @@ import org.change.v2.p4.model.parser._
 import org.change.v2.p4.model.{ArrayInstance, Field, ISwitchInstance, Switch}
 
 import scala.collection.JavaConversions._
-import scala.collection.mutable
+import scala.collection.{SortedMap, mutable}
 
 trait ParserGenerator {
   def parserCode() : Instruction

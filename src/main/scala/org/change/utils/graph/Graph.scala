@@ -1,7 +1,5 @@
 package org.change.utils.graph
 
-import org.change.v2.p4.model.parser.{ExtractStatement, Statement}
-
 import scala.collection.mutable
 
 case class SCCContext[T](lowlinks : mutable.Map[T, Int],
@@ -13,6 +11,41 @@ case class SCCContext[T](lowlinks : mutable.Map[T, Int],
   def next() : Int = {
     globalIndex = globalIndex + 1
     globalIndex - 1
+  }
+}
+class LabeledGraph[T, Label](val edges : Map[T, List[(T, Label)]]) {
+  private lazy val graphView: Graph[T] = new Graph[T](edges.mapValues(_.map(h => h._1)))
+  private lazy val sccs = graphView.scc()
+  private lazy val nodeorder = sccs.zipWithIndex.flatMap(h => {
+    h._1.map(_ -> h._2)
+  }).toMap
+  def propagate[V](start : Map[T, V],
+                   propagate : (V, T, T, Label) => Option[V],
+                   merge : (T, V, V) => Option[V]) : Map[T, V] = {
+    val q = mutable.PriorityQueue.empty[T](Ordering.fromLessThan((n1 : T, n2 :T) => {
+      nodeorder(n1) >= nodeorder(n2)
+    }))
+    var crt = start
+    start.keys.foreach(u => q.enqueue(u))
+    while (q.nonEmpty) {
+      val nxt = q.dequeue()
+      for (h <- edges.getOrElse(nxt, Nil)) {
+        val propd = propagate(crt(nxt), nxt, h._1, h._2)
+        if (propd.nonEmpty) {
+          if (crt.contains(h._1)) {
+            val merged = merge(h._1, crt(h._1), propd.get)
+            if (merged.nonEmpty) {
+              crt = crt + (h._1 -> merged.get)
+              q.enqueue(h._1)
+            }
+          } else {
+            crt = crt + (h._1 -> propd.get)
+            q.enqueue(h._1)
+          }
+        }
+      }
+    }
+    crt
   }
 }
 class Graph[T](val edges : Map[T, List[T]]) {
