@@ -1,6 +1,8 @@
 package org.change.utils.graph
 
 
+import java.io.{BufferedWriter, PrintStream}
+
 import scala.collection.mutable
 
 case class SCCContext[T](lowlinks : mutable.Map[T, Int],
@@ -15,17 +17,20 @@ case class SCCContext[T](lowlinks : mutable.Map[T, Int],
   }
 }
 class LabeledGraph[T, Label](val edges : Map[T, List[(T, Label)]]) {
-  private lazy val graphView: Graph[T] = new Graph[T](edges.mapValues(_.map(h => h._1)))
+  lazy val graphView: Graph[T] = new Graph[T](edges.mapValues(_.map(h => h._1)))
   private lazy val sccs = graphView.scc()
   private lazy val nodeorder = sccs.zipWithIndex.flatMap(h => {
     h._1.map(_ -> h._2)
   }).toMap
   def propagate[V](start : Map[T, V],
                    propagate : (V, T, T, Label) => Option[V],
-                   merge : (T, V, V) => Option[V]) : Map[T, V] = {
-    val q = mutable.PriorityQueue.empty[T](Ordering.fromLessThan((n1 : T, n2 :T) => {
-      nodeorder(n1) >= nodeorder(n2)
-    }))
+                   merge : (T, V, V) => Option[V],
+                   ordering : Option[Ordering[T]] = None) : Map[T, V] = {
+    val q = mutable.PriorityQueue.empty[T](
+      ordering.getOrElse(
+        Ordering.fromLessThan((n1 : T, n2 :T) => nodeorder(n1) >= nodeorder(n2))
+      )
+    )
     var crt = start
     start.keys.foreach(u => q.enqueue(u))
     while (q.nonEmpty) {
@@ -51,6 +56,24 @@ class LabeledGraph[T, Label](val edges : Map[T, List[(T, Label)]]) {
 }
 class Graph[T](val edges : Map[T, List[T]]) {
 
+  def mapNodes[U](fun : T => U): Graph[U] = {
+    new Graph(edges.map(x => {
+      fun(x._1) -> x._2.map(fun)
+    }))
+  }
+
+  def label[U](fun : (T, T) => U) : LabeledGraph[T, U] =
+    new LabeledGraph(edges.map(nodes => {
+      nodes._1 -> nodes._2.map(dst => {
+        (dst, fun(nodes._1, dst))
+      })
+    }))
+
+  lazy val terminals : Set[T] = {
+    edges.flatMap(sd => {
+      sd._2.filter(dst => !edges.contains(dst))
+    }).toSet
+  }
   lazy val backward : Graph[T] = new Graph[T](edges.toIterable.flatMap(x => {
       x._2.map(h => h -> x._1)
     }).groupBy(x => x._1).mapValues(r => r.map(_._2).toList))
@@ -269,13 +292,55 @@ class Graph[T](val edges : Map[T, List[T]]) {
     }
     l
   }
-  def rmEdges(them : Iterable[(T, T)]): Graph[T] = new Graph(them.foldLeft(edges)((acc, x) => {
-      acc.get(x._1).map(v => {
-        v.filter(e => e != x)
-      })
-      .flatMap(edges => if (edges.isEmpty) None else Some(x._1 -> edges))
-      .map(h => acc + h)
-      .getOrElse(acc)
+  def nloops(start : T) : Map[T, (Set[T], List[T])] = {
+    val doms = dominators(start)
+    var l = Map.empty[T, (Set[T], List[T])]
+    for (x <- doms) {
+      for (domd <- x._2) {
+        if (edges.getOrElse(x._1, Nil).contains(domd)) {
+          val st = traverse(backward, x._1, domd)
+          val crt = l.getOrElse(domd, (Set.empty, List.empty))
+          l = l + (domd -> (crt._1 ++ st, x._1 :: crt._2))
+        }
+      }
+    }
+    l
+  }
+  def rmEdges(them : Iterable[(T, T)]): Graph[T] =
+    new Graph(them.foldLeft(edges)((acc, x) => {
+      val newedges = acc.get(x._1).map(v => {
+        v.filter(e => e != x._2)
+      }).getOrElse(Nil)
+      if (newedges.isEmpty) {
+        acc - x._1
+      } else {
+        acc + (x._1 -> newedges)
+      }
     }))
+
+  def toDot(os : PrintStream) : Unit = {
+    val visited = mutable.Set.empty[T]
+    val knownedges = mutable.Set.empty[(T, T)]
+    for (x <- edges) {
+      if (!visited.contains(x._1)) {
+        visited.add(x._1)
+        os.println(x._1.hashCode() + " [label=\"" + x._1 + "\"];")
+        for (l <- x._2) {
+          if (!visited.contains(l)) {
+            visited.add(l)
+            os.println(l.hashCode() + " [label=\"" + l + "\"];")
+          }
+        }
+      }
+    }
+    for (x <- edges) {
+      for (l <- x._2) {
+        if (!knownedges.contains((x._1, l))) {
+          knownedges.add((x._1, l))
+          os.println(x._1.hashCode() + " -> " + l.hashCode() + ";")
+        }
+      }
+    }
+  }
   def rmLoops(start : T) : Graph[T] = rmEdges(loops(start).map(h => (h._1, h._2)))
 }

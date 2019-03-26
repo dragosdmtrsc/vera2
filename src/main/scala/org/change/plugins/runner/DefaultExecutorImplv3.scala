@@ -19,6 +19,7 @@ class DefaultExecutorImplv3 extends ExecutorPlugin {
     "(.*\\.control\\.ingress$)|(table\\.(.*?)\\.out\\.(.*))|" +
     "(.*\\.control\\.ingress\\.out)|(.*\\.control\\.egress\\.out)|(.*\\.parser\\..*\\.escape)").r)
 
+  override def supports(): Set[Int] = Set(2, 3)
   def simpleSatStrategy(condition: SimplePathCondition,
                         newCondition: Condition): Option[SimplePathCondition] = {
     val start = java.lang.System.currentTimeMillis()
@@ -42,19 +43,38 @@ class DefaultExecutorImplv3 extends ExecutorPlugin {
     }
   }
   val simpleMemoryInterpreter = new IntraExecutor
-  override def apply(topology: collection.Map[String, i2],
+  override def apply(topology: scala.collection.Map[String, i2],
                      startNodes: Set[String],
                      initials: List[sm2],
                      consumer: ExecutorConsumer): Unit = {
-    val toTheEndExecutor = new InterExecutor(V2Translator.v2v3(topology.toMap), simpleMemoryInterpreter,
-      (s : String) => { mergePoints.map(_.findFirstMatchIn(s).nonEmpty).getOrElse(false) })
-    val actualConsumer = (V2Translator.mem3mem2 _).andThen(consumer.apply)
+    assert(consumer.supports().contains(2))
+    val topo3 = V2Translator.v2v3(topology)
+    val initials3 = initials.map(V2Translator.mem2mem3)
+    val actualConsumer3 = (V2Translator.mem3mem2 _).andThen(consumer.apply)
+    run3(topo3, startNodes, initials3, actualConsumer3)
+    consumer.flush()
+  }
+
+  private def run3(topo3: collection.Map[String, Instruction],
+                   startNodes: Set[String],
+                   initials3: List[SimpleMemory],
+                   actualConsumer3: SimpleMemory => Unit): Unit = {
+    val toTheEndExecutor = new InterExecutor(topo3, simpleMemoryInterpreter,
+      (s : String) => { mergePoints.exists(_.findFirstMatchIn(s).nonEmpty) })
+
     val start = System.currentTimeMillis()
-    initials.map(V2Translator.mem2mem3).foreach(u => {
-      toTheEndExecutor.executeFromWithConsumer(startNodes, u, actualConsumer)
+    initials3.foreach(u => {
+      toTheEndExecutor.executeFromWithConsumer(startNodes, u, actualConsumer3)
     })
     val end = System.currentTimeMillis()
     Logger.getLogger(this.getClass.getName).info(s"done in ${end - start}ms")
+  }
+  override def apply3(topo3: collection.Map[String, Instruction],
+                      startNodes: Set[String],
+                      initials3: List[SimpleMemory],
+                      consumer: ExecutorConsumer): Unit = {
+    assert(consumer.supports().contains(3))
+    run3(topo3, startNodes, initials3, x => consumer.apply3(x))
     consumer.flush()
   }
 }

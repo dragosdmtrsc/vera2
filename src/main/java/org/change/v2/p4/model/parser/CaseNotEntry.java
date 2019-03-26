@@ -8,9 +8,23 @@ import java.util.List;
  */
 public class CaseNotEntry extends Statement {
     private List<CaseEntry> caseEntryList = new ArrayList<CaseEntry>();
-
+    private ReturnStatement returnStatement;
     public CaseNotEntry addCaseEntry(CaseEntry ce) {
         this.caseEntryList.add(ce);
+        return this;
+    }
+    public CaseNotEntry(CaseNotEntry cne) {
+        this.caseEntryList = cne.caseEntryList;
+        this.returnStatement = cne.returnStatement;
+    }
+    public CaseNotEntry() {}
+
+    public ReturnStatement getReturnStatement() {
+        return returnStatement;
+    }
+
+    public CaseNotEntry setReturnStatement(ReturnStatement returnStatement) {
+        this.returnStatement = returnStatement;
         return this;
     }
 

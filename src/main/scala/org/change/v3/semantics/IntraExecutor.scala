@@ -113,7 +113,8 @@ class IntraExecutor extends AbsMapper[SimpleMemory, Triple[SimpleMemory]] {
     this
   }
   def dumpStats(): Unit = {
-    Logger.getLogger(this.getClass.getName).info(s"solver time ${totalSolverTime}ms / $nrSolverCalls")
+    Logger.getLogger(this.getClass.getName).info(s"solver time ${totalSolverTime}ms / " +
+      s"$nrSolverCalls - $nrTrue sat vs $nrFalse unsat")
   }
   private def check(simpleMemory: SimpleMemory, newCondition : Condition): (Option[SimpleMemory], Int, Int) = {
     val simpd = context.simplifyAst(newCondition)
@@ -136,7 +137,7 @@ class IntraExecutor extends AbsMapper[SimpleMemory, Triple[SimpleMemory]] {
       slv.assertCnstr(simpd)
       nrSolverCalls = nrSolverCalls + 1
       val start =System.currentTimeMillis()
-      val res = slv.check().get
+      val res = true//slv.check().get
       val end = System.currentTimeMillis()
       if (end - start > 300) {
         Logger.getLogger(this.getClass.getName).info(s"heavy hitter ${end - start}ms")
@@ -390,8 +391,8 @@ class IntraExecutor extends AbsMapper[SimpleMemory, Triple[SimpleMemory]] {
                   target : Int) : Either[Z3AST, String] = {
     val newtypes = TypeInference.solveTypes(bvexp, state, Nil)
     newtypes match {
-      case Left(tinfo) => {
-        tinfo.get(bvexp).map(src => {
+      case Left(tinfo) =>
+        tinfo.get(bvexp).filter(w => w > 0).map(src => {
           val cast = if (src == target) {
             x : Z3AST => x
           } else if (src < target) {
@@ -405,7 +406,6 @@ class IntraExecutor extends AbsMapper[SimpleMemory, Triple[SimpleMemory]] {
             instantiateBVWithTypes(tinfo)(bvexp, state)
           })
         })
-      }
       case Right(m) => Right(m)
     }
   }

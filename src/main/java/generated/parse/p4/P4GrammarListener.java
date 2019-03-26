@@ -1288,6 +1288,30 @@ public interface P4GrammarListener extends ParseTreeListener {
 	 */
 	void exitConst_bool(P4GrammarParser.Const_boolContext ctx);
 	/**
+	 * Enter a parse tree produced by the {@code data_ref_exp}
+	 * labeled alternative in {@link P4GrammarParser#exp}.
+	 * @param ctx the parse tree
+	 */
+	void enterData_ref_exp(P4GrammarParser.Data_ref_expContext ctx);
+	/**
+	 * Exit a parse tree produced by the {@code data_ref_exp}
+	 * labeled alternative in {@link P4GrammarParser#exp}.
+	 * @param ctx the parse tree
+	 */
+	void exitData_ref_exp(P4GrammarParser.Data_ref_expContext ctx);
+	/**
+	 * Enter a parse tree produced by the {@code latest_field_ref_expr}
+	 * labeled alternative in {@link P4GrammarParser#exp}.
+	 * @param ctx the parse tree
+	 */
+	void enterLatest_field_ref_expr(P4GrammarParser.Latest_field_ref_exprContext ctx);
+	/**
+	 * Exit a parse tree produced by the {@code latest_field_ref_expr}
+	 * labeled alternative in {@link P4GrammarParser#exp}.
+	 * @param ctx the parse tree
+	 */
+	void exitLatest_field_ref_expr(P4GrammarParser.Latest_field_ref_exprContext ctx);
+	/**
 	 * Enter a parse tree produced by the {@code compound_exp}
 	 * labeled alternative in {@link P4GrammarParser#exp}.
 	 * @param ctx the parse tree

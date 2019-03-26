@@ -9,10 +9,14 @@ import java.util.Map;
  * Created by dragos on 01.09.2017.
  */
 public class Header {
+
     private String name;
     private int length = -1;
     private int maxLength;
-
+    public Header(String name) {
+        this.name = name;
+    }
+    public Header() {}
     public int getLength() {
         if (length == -1) {
             length = 0;

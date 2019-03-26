@@ -21,8 +21,12 @@ case class SimpleMemory(
                          history : List[String] = Nil,
                          memTags : SortedMap[String, Int] = SortedMap.empty,
                          rawObjects : SortedMap[Int, SimpleMemoryObject] = SortedMap.empty,
-                         symbols : SortedMap[String, SimpleMemoryObject] = SortedMap.empty
+                         symbols : SortedMap[String, SimpleMemoryObject] = SortedMap.empty,
+                         done : Boolean = false
                        ) {
+  override def toString: String = symbols.keys.mkString(",")
+  def finish() : SimpleMemory = copy(done = true)
+  def finished() : Boolean = done || errorCause.nonEmpty
   def forwardTo(loc : String): SimpleMemory = copy(history = loc :: history)
   def location : String = history.head
   def createTag(name: String, value: Int): SimpleMemory =
@@ -44,6 +48,7 @@ case class SimpleMemory(
         })
     case _ => ???
   }
+  def getAST(sym : String) : Z3AST = symbols(sym).ast.get
 
   def canRead(s: String): Boolean = symbols.contains(s)
   def canRead(t: Int): Boolean = rawObjects.contains(t)

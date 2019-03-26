@@ -1,6 +1,6 @@
 package org.change.parser.p4
 
-import java.util.UUID
+import java.util.{Collections, UUID}
 
 import org.change.v2.analysis.expression.abst.{Expression, FloatingExpression}
 import org.change.v2.analysis.expression.concrete.ConstantValue
@@ -178,19 +178,21 @@ class ActionInstance(p4Action: P4Action,
 
 
   def handleResubmit(resubmit: Resubmit): InstructionBlock = {
-    val fldList = argList.head.asInstanceOf[Symbol].id
-    val actualFieldList = switch.getFieldListMap()(fldList)
-    InstructionBlock(
-      restore(actualFieldList.getFields.toList),
-      Assign("standard_metadata.instance_type", ConstantValue(PKT_INSTANCE_TYPE_RESUBMIT.value)),
-      Forward(switchInstance.getName + ".parser")
-    )
+    InstructionBlock()
+    //TODO: redo
+//    val fldList = argList.head.asInstanceOf[Symbol].id
+//    val actualFieldList = switch.getFieldListMap()(fldList)
+//    InstructionBlock(
+//      restore(actualFieldList.getFields.toList),
+//      Assign("standard_metadata.instance_type", ConstantValue(PKT_INSTANCE_TYPE_RESUBMIT.value)),
+//      Forward(switchInstance.getName + ".parser")
+//    )
   }
 
   def handleRecirculate(recirculate: Recirculate): InstructionBlock = {
     if (argList.nonEmpty) {
       val fldList = argList.head.asInstanceOf[Symbol].id
-      val actualFieldList = switch.getFieldListMap()(fldList)
+      val actualFieldList = new FieldList()//TODO:switch.getFieldListMap()(fldList)
       InstructionBlock(
         setOriginal(),
         restore(actualFieldList.getFields.toList),
@@ -207,7 +209,7 @@ class ActionInstance(p4Action: P4Action,
 
   def handleCloneFromIngressToIngress(cloneIngressPktToIngress: CloneIngressPktToIngress): Fork = {
     val fldList = argList(1).asInstanceOf[Symbol].id
-    val actualFieldList = switch.getFieldListMap()(fldList)
+    val actualFieldList = new FieldList()//TODO:switch.getFieldListMap()(fldList)
     Fork(
       List[Instruction](
         InstructionBlock(
@@ -224,7 +226,7 @@ class ActionInstance(p4Action: P4Action,
 
   def handleCloneFromIngressToEgress(cloneIngressPktToEgress: CloneIngressPktToEgress): Fork = {
     val fldList = argList(1).asInstanceOf[Symbol].id
-    val actualFieldList = switch.getFieldListMap()(fldList)
+    val actualFieldList = new FieldList()//TODO:switch.getFieldListMap()(fldList)
     Fork(
       List[Instruction](
         InstructionBlock(
@@ -242,7 +244,7 @@ class ActionInstance(p4Action: P4Action,
 
   def handleCloneFromEgressToIngress(cloneEgressPktToIngress: CloneEgressPktToIngress): Fork = {
     val fldList = argList(1).asInstanceOf[Symbol].id
-    val actualFieldList = switch.getFieldListMap()(fldList)
+    val actualFieldList = new FieldList()//TODO:switch.getFieldListMap()(fldList)
     Fork(
       List[Instruction](
         InstructionBlock(
@@ -269,7 +271,7 @@ class ActionInstance(p4Action: P4Action,
 
   def handleCloneFromEgressToEgress(cloneEgressPktToIngress: CloneEgressPktToEgress): Fork = {
     val fldList = argList(1).asInstanceOf[Symbol].id
-    val actualFieldList = switch.getFieldListMap()(fldList)
+    val actualFieldList = new FieldList()//TODO:switch.getFieldListMap()(fldList)
     Fork(
       List[Instruction](
         InstructionBlock(

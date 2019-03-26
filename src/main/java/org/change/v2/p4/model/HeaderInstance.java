@@ -14,8 +14,19 @@ public class HeaderInstance {
     private Map<String, Long> initializer = new HashMap<String, Long>();
 
     public HeaderInstance(Header layout, String name) {
+        assert layout != null && name != null;
         this.layout = layout;
         this.name = name;
+    }
+    public HeaderInstance(String layout, String name) {
+        assert layout != null && name != null;
+        this.layout = new Header(layout);
+        this.name = name;
+    }
+
+    public HeaderInstance setLayout(Header layout) {
+        this.layout = layout;
+        return this;
     }
 
     public HeaderInstance addInitializer(String field, Long value) {
@@ -41,5 +52,10 @@ public class HeaderInstance {
     public HeaderInstance setMetadata(boolean tf) {
         this.metadata = tf;
         return this;
+    }
+
+    @Override
+    public String toString() {
+        return getName() + " : " + getLayout().getName();
     }
 }

@@ -1516,6 +1516,30 @@ public class P4GrammarBaseListener implements P4GrammarListener {
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
+	@Override public void enterData_ref_exp(P4GrammarParser.Data_ref_expContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitData_ref_exp(P4GrammarParser.Data_ref_expContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void enterLatest_field_ref_expr(P4GrammarParser.Latest_field_ref_exprContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitLatest_field_ref_expr(P4GrammarParser.Latest_field_ref_exprContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
 	@Override public void enterCompound_exp(P4GrammarParser.Compound_expContext ctx) { }
 	/**
 	 * {@inheritDoc}

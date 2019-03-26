@@ -10,6 +10,7 @@ public class FieldList {
     private String name;
     private List<String> fields = new ArrayList<String>();
 
+    public FieldList() {}
     public FieldList(String name, List<String> fields) {
         this.name = name;
         this.fields = fields;

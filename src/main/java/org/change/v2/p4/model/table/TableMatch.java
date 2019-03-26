@@ -1,5 +1,7 @@
 package org.change.v2.p4.model.table;
 
+import org.change.v2.p4.model.parser.Expression;
+import org.change.v2.p4.model.parser.Ref;
 import scala.math.BigInt;
 
 /**
@@ -8,6 +10,7 @@ import scala.math.BigInt;
 public class TableMatch {
     private String table;
     private String key;
+    private Expression referenceKey;
     private MatchKind matchKind;
     private BigInt mask = BigInt.apply(-1);
 
@@ -19,6 +22,16 @@ public class TableMatch {
         this.matchKind = kind;
         this.mask = mask;
     }
+
+    public Expression getReferenceKey() {
+        return referenceKey;
+    }
+
+    public TableMatch setReferenceKey(Expression referenceKey) {
+        this.referenceKey = referenceKey;
+        return this;
+    }
+
     public TableMatch(String table, String key, MatchKind kind) {
         this(table, key, kind, BigInt.apply(-1));
     }

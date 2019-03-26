@@ -1,5 +1,8 @@
 package org.change.v2.p4.model.parser;
 
+import org.change.v2.p4.model.control.exp.P4BExpr;
+import org.change.v2.p4.model.control.exp.P4Expr;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -8,9 +11,35 @@ import java.util.List;
  */
 public class CaseEntry extends Statement {
     private boolean def = false;
-    private List<Expression> expressions = new ArrayList<Expression>();
+    private List<Expression> expressions = new ArrayList<>();
+    private List<P4Expr> bvexpressions = new ArrayList<>();
+    private List<CaseEntry> negated = new ArrayList<>();
     private ReturnStatement returnStatement;
     private List<Value> values = new ArrayList<Value>();
+    public CaseEntry() {}
+    public CaseEntry(CaseEntry ce) {
+        def = ce.def;
+        negated = ce.negated;
+        expressions = ce.expressions;
+        bvexpressions = ce.bvexpressions;
+        returnStatement = ce.returnStatement;
+        values = ce.values;
+    }
+    public List<CaseEntry> getNegated() {
+        return negated;
+    }
+    public CaseEntry setNegated(List<CaseEntry> negated) {
+        this.negated = negated;
+        return this;
+    }
+
+    public CaseEntry addExpression(P4Expr expr) {
+        bvexpressions.add(expr);
+        return this;
+    }
+    public List<P4Expr> getBVExpressions() {
+        return bvexpressions;
+    }
 
     public CaseEntry addExpression(Expression expression) {
         this.expressions.add(expression);
@@ -38,5 +67,13 @@ public class CaseEntry extends Statement {
     public CaseEntry addValue(Value v) {
         this.values.add(v);
         return this;
+    }
+
+    @Override
+    public String toString() {
+        return "CaseEntry{" +
+                "expressions=" + expressions +
+                ", returnStatement=" + returnStatement +
+                '}';
     }
 }

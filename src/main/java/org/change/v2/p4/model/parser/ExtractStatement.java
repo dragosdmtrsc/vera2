@@ -1,5 +1,7 @@
 package org.change.v2.p4.model.parser;
 
+import org.change.v2.analysis.expression.concrete.Extract;
+
 /**
  * Created by dragos on 12.09.2017.
  */
@@ -27,6 +29,12 @@ public class ExtractStatement extends Statement {
 
     public ExtractStatement(HeaderRef expression) {
         this.expression = expression;
+    }
+    public ExtractStatement() {}
+    public ExtractStatement(ExtractStatement es) {
+        expression = es.expression;
+        width = es.width;
+        crt = es.crt;
     }
 
     @Override

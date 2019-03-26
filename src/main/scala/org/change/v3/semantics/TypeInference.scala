@@ -11,10 +11,6 @@ case class FixedSize(expr : BVExpr, sz : Int) extends TypeConstraint
 case class EqSize(left : BVExpr, right: BVExpr) extends TypeConstraint
 case class Unknown(left : BVExpr) extends TypeConstraint
 
-class TypeInference {
-
-}
-
 object ReferenceSolver {
   def solveReferences(expr: Expr, state : SimpleMemory,
                       crt : Map[BVExpr, Option[SimpleMemoryObject]] = Map.empty) :

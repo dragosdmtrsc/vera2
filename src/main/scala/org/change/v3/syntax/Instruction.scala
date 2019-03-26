@@ -16,5 +16,8 @@ case class Assume(bExpr: BExpr) extends Instruction
 
 case class If(bExpr: BExpr, thn : Instruction, els : Instruction) extends Instruction
 case class InstructionBlock(is : Iterable[Instruction]) extends Instruction
+object InstructionBlock {
+  def apply(xs : Instruction*) : InstructionBlock = InstructionBlock(xs.toIterable)
+}
 case class Clone(is : Iterable[Instruction]) extends Instruction
 case class Fork(is : Iterable[Instruction]) extends Instruction

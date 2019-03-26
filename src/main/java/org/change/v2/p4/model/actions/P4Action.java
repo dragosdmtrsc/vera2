@@ -2,6 +2,7 @@ package org.change.v2.p4.model.actions;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Created by dragos on 30.08.2017.
@@ -42,10 +43,20 @@ public class P4Action {
 
     @Override
     public String toString() {
-        return "P4Action{" +
-                "actionName='" + actionName + '\'' +
-                ", actionType=" + actionType +
-                ", parameterList=" + parameterList +
-                '}';
+        return actionName  + "(" + parameterList +
+                ')';
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        P4Action p4Action = (P4Action) o;
+        return actionName.equals(p4Action.actionName);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(actionName);
     }
 }

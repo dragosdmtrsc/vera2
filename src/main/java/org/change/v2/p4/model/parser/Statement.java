@@ -1,10 +1,8 @@
 package org.change.v2.p4.model.parser;
 
-import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import org.change.v2.p4.model.control.ControlStatement;
 
 /**
  * Created by dragos on 12.09.2017.
  */
-@JsonTypeInfo(use= JsonTypeInfo.Id.NAME, include=JsonTypeInfo.As.PROPERTY, property = "type")
-public class Statement {
-}
+public class Statement implements ControlStatement {}

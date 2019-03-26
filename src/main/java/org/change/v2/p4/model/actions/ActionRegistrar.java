@@ -11,7 +11,6 @@ public class ActionRegistrar {
     private List<P4Action> declaredActions = new ArrayList<P4Action>();
     private Map<String, P4Action> actionMap = new HashMap<String, P4Action>();
 
-
     public ActionRegistrar() {
         init();
     }

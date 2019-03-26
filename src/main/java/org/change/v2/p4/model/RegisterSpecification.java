@@ -12,6 +12,26 @@ public class RegisterSpecification {
     private boolean isStatic;
     private String staticTable;
 
+    boolean isCounter = false;
+    boolean isMeter = false;
+
+    public boolean isMeter() {
+        return isMeter;
+    }
+
+    public RegisterSpecification setMeter(boolean meter) {
+        isMeter = meter;
+        return this;
+    }
+
+    public boolean isCounter() {
+        return isCounter;
+    }
+    public RegisterSpecification setCounter(boolean counter) {
+        isCounter = counter;
+        return this;
+    }
+
     public String getName() {
         return name;
     }

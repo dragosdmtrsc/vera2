@@ -17,11 +17,4 @@ public class P4ComplexAction extends P4Action {
     public List<P4ActionCall> getActionList() {
         return actionList;
     }
-
-    @Override
-    public String toString() {
-        return "P4ComplexAction{name=" + this.getActionName() + "," +
-                "actionList=" + actionList +
-                '}';
-    }
 }

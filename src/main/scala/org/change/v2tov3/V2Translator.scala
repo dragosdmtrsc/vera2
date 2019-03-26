@@ -15,6 +15,8 @@ import org.change.v2.analysis.processingmodels.{Instruction, SuperFork}
 import org.change.v3.syntax.{BExpr, BVAdd, BVAnd, BVExpr, BVNot, BVOr, BVShl, BVSub, BoolLiteral, Clone, EQ, GT, GTE, LAnd, LOr, LT, LTE, Literal, Reference, Allocate => alloc3, Assign => asg3, Assume => assume3, CreateTag => ct3, Deallocate => dealloc3, DestroyTag => dt3, Fail => fail3, Fork => fork3, Forward => fw3, Havoc => havoc3, If => if3, Instruction => i3, InstructionBlock => ib3, IntImprovements => ii3, Intable => intable3, NoOp => nop3, Symbol => sym3, Tag => tag3, TagExp => texp3}
 import org.change.v3.syntax.{LNot => not3}
 import org.change.v3.semantics.{context, SimpleMemory => SimpleMemory3, SimpleMemoryObject => smo3}
+import scala.collection.Map
+
 object V2Translator {
 
   def mem3mem2(simpleMemory: SimpleMemory3) : SimpleMemory = new SimpleMemory(

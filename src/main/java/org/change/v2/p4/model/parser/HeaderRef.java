@@ -1,18 +1,27 @@
 package org.change.v2.p4.model.parser;
 
-public class HeaderRef extends Expression {
-    private String path;
-    public boolean isArray() { return false; }
-    public String getPath() {
-        return path;
+import org.change.v2.p4.model.HeaderInstance;
+
+public class HeaderRef extends Ref {
+    private HeaderInstance instance;
+    public HeaderInstance getInstance() {
+        return instance;
     }
-    public HeaderRef setPath(String path) {
-        this.path = path;
+    public HeaderRef setInstance(HeaderInstance instance) {
+        this.instance = instance;
+        this.path = instance.getName();
         return this;
     }
 
     @Override
+    public HeaderRef setPath(String path) {
+        super.setPath(path);
+        return this;
+    }
+
+    public boolean isArray() { return false; }
+    @Override
     public String toString() {
-        return path;
+        return getPath();
     }
 }

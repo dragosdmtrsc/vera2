@@ -9,7 +9,7 @@ import org.change.v3.syntax.Instruction
 
 import scala.collection.mutable
 
-class InterExecutor(program : Map[String, Instruction],
+class InterExecutor(program : collection.Map[String, Instruction],
                     tripleExecutor: IntraExecutor,
                     mergePoints : String => Boolean) {
   private val q: mutable.Queue[SimpleMemory] = mutable.Queue[SimpleMemory]()

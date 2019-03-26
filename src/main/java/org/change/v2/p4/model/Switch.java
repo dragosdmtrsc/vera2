@@ -1,8 +1,5 @@
 package org.change.v2.p4.model;
 
-import org.change.v2.p4.model.actions.P4ActionProfile;
-import scala.Tuple2;
-import scala.collection.JavaConversions;
 import generated.parse.p4.P4GrammarLexer;
 import generated.parse.p4.P4GrammarParser;
 import org.antlr.v4.runtime.CharStream;
@@ -10,12 +7,15 @@ import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.tree.ParseTreeWalker;
 import org.change.parser.p4.P4GrammarListener;
-import org.change.v2.abstractnet.click.sefl.StripIPHeader;
 import org.change.v2.analysis.processingmodels.Instruction;
 import org.change.v2.p4.model.actions.ActionRegistrar;
 import org.change.v2.p4.model.actions.P4Action;
+import org.change.v2.p4.model.actions.P4ActionProfile;
+import org.change.v2.p4.model.fieldlists.FieldList;
 import org.change.v2.p4.model.parser.State;
+import org.change.v2.p4.model.table.TableDeclaration;
 import org.change.v2.p4.model.table.TableMatch;
+import scala.Tuple2;
 import scala.collection.JavaConversions;
 
 import java.io.IOException;
@@ -27,11 +27,124 @@ import java.util.stream.Collectors;
  * which is basically a holder for info regarding the P4 program comprised therein
  */
 public class Switch {
-    private Map<String, List<String>> allowedActions = new HashMap<>();
+
+    // the good and the new. All declarations go here:
+    private Map<String, Calculation> calculationDeclarations = new HashMap<>();
+    private Map<String, TableDeclaration> tableDeclarations = new HashMap<>();
+    private Map<String, ControlBlock> controlBlockDeclarations = new HashMap<>();
+    private Map<String, Header> headerDeclarations = new HashMap<>();
     private Map<String, HeaderInstance> instances = new HashMap<>();
-    private Map<String, RegisterSpecification> registerSpecificationMap = null;
-    private ActionRegistrar actionRegistrar = null;
-    private Map<String, FieldList> fieldListMap = null;
+    private Map<String, RegisterSpecification> registerSpecificationMap = new HashMap<>();
+    private ActionRegistrar actionRegistrar = new ActionRegistrar();
+    private Map<String, P4ActionProfile> actionProfiles = new HashMap<>();
+    private Map<String, State> parserStates = new HashMap<>();
+    private Map<String, org.change.v2.p4.model.fieldlists.FieldList> fieldListMap =
+            new HashMap<>();
+
+    public Iterable<ControlBlock> controlBlocks() {
+        return controlBlockDeclarations.values();
+    }
+    public Iterable<TableDeclaration> tables() {
+        return tableDeclarations.values();
+    }
+    public Iterable<P4Action> actions() { return actionRegistrar.getDeclaredActions(); }
+    public Calculation calculation(String name) {
+        return calculationDeclarations.getOrDefault(name, null);
+    }
+
+    public org.change.v2.p4.model.fieldlists.FieldList fieldList(String fieldList) {
+        return fieldListMap.getOrDefault(fieldList, null);
+    }
+    public P4Action action(String actionName) {
+        return actionRegistrar.getAction(actionName);
+    }
+    public RegisterSpecification register(String registerName) {
+        return registerSpecificationMap.getOrDefault(registerName, null);
+    }
+    public Switch declareCalculation(Calculation calc, boolean allowOverride) {
+        Calculation old = calculationDeclarations.put(calc.getName(), calc);
+        if (old != null && !allowOverride)
+            throw new IllegalStateException("calculation " + old + " already declared");
+        return this;
+    }
+    public Switch declareHeader(Header hdr, boolean allowOverride) {
+        Header old = headerDeclarations.put(hdr.getName(), hdr);
+        if (!allowOverride && old != null) {
+            throw new IllegalStateException("header " + hdr.getName() + " already declared");
+        }
+        return this;
+    }
+
+    public Switch declareAction(P4Action action) {
+        actionRegistrar.register(action);
+        return this;
+    }
+    public Switch declareHeaderInstance(HeaderInstance instance, boolean allowOverride) {
+        Header layout = headerDeclarations.getOrDefault(instance.getLayout().getName(),
+                null);
+        if (layout == null) {
+            // first declare a header type, then the instance => resolution
+            // is performed straight up
+            throw new IllegalStateException(instance.getLayout().getName() +
+                    " header type not declared");
+        }
+        if (layout != instance.getLayout()) {
+            // the switch holds the ground truth
+            instance.setLayout(layout);
+        }
+        HeaderInstance old = instances.put(instance.getName(), instance);
+        if (!allowOverride && old != null)
+            throw new IllegalStateException("header instance " + old + " already declared");
+        return this;
+    }
+    public Switch declareControlBlock(ControlBlock block, boolean allowOverride) {
+        ControlBlock old = controlBlockDeclarations.put(block.getName(), block);
+        if (old != null && !allowOverride)
+            throw new IllegalStateException("control block " + old + " already declared");
+        return this;
+    }
+    public ControlBlock controlBlock(String controlName) {
+        return controlBlockDeclarations.get(controlName);
+    }
+    public TableDeclaration table(String table) {
+        return tableDeclarations.get(table);
+    }
+    public Switch declareTable(TableDeclaration tableDeclaration, boolean allowOverride) {
+        TableDeclaration old = tableDeclarations.put(tableDeclaration.getName(), tableDeclaration);
+        if (old != null && !allowOverride)
+            throw new IllegalStateException("table " + old + " already declared");
+        return this;
+    }
+    public Switch declareActionProfile(P4ActionProfile actProf, boolean allowOverride) {
+        P4ActionProfile old = actionProfiles.put(actProf.getName(), actProf);
+        if (old != null && !allowOverride)
+            throw new IllegalStateException("action profile " + old + " already declared");
+        return this;
+    }
+
+    public Switch declareParserState(State state, boolean allowOverride) {
+        State old = parserStates.put(state.getName(), state);
+        if (old != null && !allowOverride)
+            throw new IllegalStateException("parser state " + old + " already declared");
+        return this;
+    }
+    public Switch declareFieldList(org.change.v2.p4.model.fieldlists.FieldList fieldList, boolean allowOverride) {
+        org.change.v2.p4.model.fieldlists.FieldList old = fieldListMap.put(fieldList.getName(), fieldList);
+        if (old != null && !allowOverride)
+            throw new IllegalStateException("field list " + old + " already declared");
+        return this;
+    }
+
+    public Switch declareRegister(RegisterSpecification registerSpecification, boolean allowOverride) {
+        RegisterSpecification old = registerSpecificationMap.put(registerSpecification.getName(), registerSpecification);
+        if (old != null && !allowOverride)
+            throw new IllegalStateException("register " + old + " already declared");
+        return this;
+    }
+
+    // the bad and the old
+    private Map<String, List<String>> allowedActions = new HashMap<>();
+
     private Map<scala.Tuple2<String, String>, Boolean> tableSelectors = null;
     public Map<String, RegisterSpecification> getRegisterSpecificationMap() {
         return registerSpecificationMap;
@@ -39,8 +152,6 @@ public class Switch {
 
     private Map<String, String> controlFlowLinks = null;
     private Map<String, Instruction> controlFlowInstructions = null;
-
-    private Map<String, P4ActionProfile> actionProfiles = new HashMap<>();
 
     public P4ActionProfile getProfile(String name) {
         if (actionProfiles.containsKey(name))
@@ -74,6 +185,7 @@ public class Switch {
     }
 
     private Map<String, List<TableMatch>> matches = new HashMap<>();
+    private Map<String, String> tableControl = new HashMap<>();
 
     public State getParserState(Object o) {
         return parserStates.get(o);
@@ -86,8 +198,9 @@ public class Switch {
     public Set<String> parserStates() {
         return parserStates.keySet();
     }
-
-    private Map<String, State> parserStates = new HashMap<>();
+    public Iterable<State> states() {
+        return parserStates.values();
+    }
 
     public List<String> getAllowedActions(String perTable) {
         if (!allowedActions.containsKey(perTable))
@@ -103,11 +216,6 @@ public class Switch {
         this.tableSelectors = tableSelectors;
         return this;
     }
-    public Switch setRegisterSpecificationMap(Map<String, RegisterSpecification> registerSpecificationMap) {
-        this.registerSpecificationMap = registerSpecificationMap;
-        return this;
-    }
-
     public List<TableMatch> getTableMatches(String perTable) {
         if (this.matches.containsKey(perTable))
             return this.matches.get(perTable);
@@ -130,14 +238,6 @@ public class Switch {
         }
         return instance.getLayout().getField(split[1]).getLength();
     }
-
-    public Switch createTable(String table) {
-        if (!this.matches.containsKey(table)) {
-            this.matches.put(table, new ArrayList<>());
-        }
-        return this;
-    }
-
     public Iterable<String> getDeclaredTables() {
         return this.matches.keySet();
     }
@@ -172,18 +272,8 @@ public class Switch {
         return actionRegistrar;
     }
 
-    public Switch setActionRegistrar(ActionRegistrar actionRegistrar) {
-        this.actionRegistrar = actionRegistrar;
-        return this;
-    }
-
-    public Map<String, FieldList> getFieldListMap() {
+    public Map<String, org.change.v2.p4.model.fieldlists.FieldList> getFieldListMap() {
         return fieldListMap;
-    }
-
-    public Switch setFieldListMap(Map<String, FieldList> fieldListMap) {
-        this.fieldListMap = fieldListMap;
-        return this;
     }
 
     public HeaderInstance getInstance(String o) {
@@ -212,22 +302,7 @@ public class Switch {
         P4GrammarListener listener = new P4GrammarListener();
 
         walker.walk(listener, tree);
-
-        Switch sw = new Switch().
-                setActionRegistrar(listener.actionRegistrar()).
-                setFieldListMap(listener.fieldLists()).
-                setRegisterSpecificationMap(listener.registerMap()).
-                setTableSelectors(JavaConversions.mapAsJavaMap(listener.tableSelectors()));
-        for (String table : listener.tables())
-            sw = sw.createTable(table);
-        sw.matches = listener.tableDeclarations();
-        sw.allowedActions = listener.tableAllowedActions();
-        sw.parserStates = listener.parserFunctions();
-        sw.setControlFlowInstructions(JavaConversions.mapAsJavaMap(listener.instructions()));
-        sw.setControlFlowLinks(JavaConversions.mapAsJavaMap(listener.links()));
-        sw.instances = new HashMap<>(listener.instances());
-        sw.actionProfiles = new HashMap<>(listener.actionProfiles());
-        return sw;
+        return tree.switchSpec
+                .setTableSelectors(JavaConversions.mapAsJavaMap(listener.tableSelectors()));
     }
-
 }

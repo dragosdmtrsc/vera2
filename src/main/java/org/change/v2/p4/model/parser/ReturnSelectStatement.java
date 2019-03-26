@@ -1,5 +1,7 @@
 package org.change.v2.p4.model.parser;
 
+import org.change.v2.p4.model.control.exp.P4Expr;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -19,12 +21,16 @@ public class ReturnSelectStatement extends Statement {
         return caseEntryList;
     }
 
+    public ReturnSelectStatement(ReturnSelectStatement rss) {
+        caseEntryList = rss.caseEntryList;
+    }
+    public ReturnSelectStatement() {}
     @Override
     public String toString() {
         CaseEntry h = caseEntryList.get(0);
         StringBuilder crt = new StringBuilder("case(");
         boolean first= true;
-        for (Expression e : h.getExpressions()) {
+        for (P4Expr e : h.getBVExpressions()) {
             if (!first)
                 crt.append(",");
             first = false;

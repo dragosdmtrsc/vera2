@@ -164,7 +164,6 @@ class LightParserGenerator(switch: Switch,
           :+:(lft._1, rgt._1)
         else
           :-:(lft._1, rgt._1), instr)
-      case expr: StringRef => ???
       case lr : LatestRef =>
         val fieldRef = new FieldRef().setField(lr.getFieldName).
           setHeaderRef(mes(statement).get.getExpression)
@@ -479,29 +478,19 @@ class LightParserGenerator(switch: Switch,
   private def flattenParser(instrs : Map[String, org.change.v3.syntax.Instruction]) :
       Map[String, org.change.v3.syntax.Instruction] = {
     val (labeledGraph, startinstr) = CFGBuilder.build(instrs, name + ".parser.start")
-    val initials = switch.getInstances.map({
+    val absdom = switch.getInstances.flatMap({
       case ai : ArrayInstance =>
-        syntax.Allocate(syntax.Symbol(ai.getName + ".next"), 32) ::
-          syntax.Assign(syntax.Symbol(ai.getName + ".next"), Literal(0)) ::
-        (if (!ai.isMetadata) {
-          val nm = ai.getName
-          (0 until ai.getLength).flatMap(idx =>
-            syntax.Allocate(syntax.Symbol(nm + s"[$idx].IsValid"), 1) ::
-            syntax.Assign(syntax.Symbol(nm + s"[$idx].IsValid"), Literal(0)) ::
-            Nil)
-        } else {
-          Nil
-        })
+        if (!ai.isMetadata)
+          (0 until ai.getLength).map(idx => {
+            s"${ai.getName}[$idx].IsValid" -> 0
+          }) :+ (s"${ai.getName}.next" -> 0)
+        else Nil
       case hi : HeaderInstance =>
-        if (!hi.isMetadata) {
-          syntax.Allocate(syntax.Symbol(hi.getName + ".IsValid"), 1) ::
-            syntax.Assign(syntax.Symbol(hi.getName + ".IsValid"), Literal(0)) :: Nil
-        } else {
-          Nil
-        }
-      )
-    })
-    labeledGraph.propagate(startinstr)
+        if (!hi.isMetadata)
+          (s"${hi.getName}.IsValid" -> 0) :: Nil
+        else Nil
+    }).toMap
+    Map.empty
   }
 
   override lazy val extraCode: Map[String, Instruction] = {
@@ -522,16 +511,16 @@ class LightParserGenerator(switch: Switch,
       topo1 < topo2
     }))
     prio.enqueue(startState.getStatements.iterator().next())
-    var props = Map.empty[Statement, (SimpleMemory, BExpr)]
-    props = props + (startState.getStatements.iterator().next() -> (SimpleMemory(), True))
-    while (prio.nonEmpty) {
-      val crt = prio.dequeue()
-      for (neigh <- fullCfg.edges.getOrElse(crt, Nil)) {
-        val prop = props(crt)
-        props = props + (neigh -> prop)
-        prio.enqueue(neigh)
-      }
-    }
+//    var props = Map.empty[Statement, (SimpleMemory, BExpr)]
+//    props = props + (startState.getStatements.iterator().next() -> (SimpleMemory(), True))
+//    while (prio.nonEmpty) {
+//      val crt = prio.dequeue()
+//      for (neigh <- fullCfg.edges.getOrElse(crt, Nil)) {
+//        val prop = props(crt)
+//        props = props + (neigh -> prop)
+//        prio.enqueue(neigh)
+//      }
+//    }
     while (stack.nonEmpty) {
       val top = stack.remove(0)
       visited.add(top)

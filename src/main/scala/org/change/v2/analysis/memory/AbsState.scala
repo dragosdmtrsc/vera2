@@ -205,9 +205,8 @@ case class Triple[T](success: List[T], failed: List[T], continue: List[T]) {
          continue = continue.map(fun))
   def filter(fun : T => Boolean) : Triple[T] =
     copy(success = success.filter(fun), continue = continue.filter(fun), failed = failed.filter(fun))
-
+  def all() : List[T] = flat() ++ continue
   def flat() : List[T] = success ++ failed
-
 }
 
 object Triple {

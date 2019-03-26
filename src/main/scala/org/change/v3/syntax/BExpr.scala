@@ -6,6 +6,16 @@ object True extends BoolLiteral(true)
 object False extends BoolLiteral(false)
 case class LAnd(a : BExpr, b : BExpr) extends BExpr
 case class LOr(a : BExpr, b : BExpr) extends BExpr
+object LOr {
+  def apply(conds : Iterable[BExpr]): BExpr = {
+    if (conds.isEmpty) BoolLiteral(false)
+    else if (conds.tail.isEmpty) {
+      conds.head
+    } else {
+      conds.tail.foldLeft(conds.head)((acc, x) => LOr(acc, x))
+    }
+  }
+}
 case class LNot(what : BExpr) extends BExpr
 
 case class EQ(a : BVExpr, b : BVExpr) extends BExpr

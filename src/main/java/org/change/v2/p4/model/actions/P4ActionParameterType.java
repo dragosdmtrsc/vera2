@@ -19,4 +19,9 @@ public enum P4ActionParameterType {
     P4ActionParameterType(int x) {
         this.x = x;
     }
+
+    public static boolean isLV(int x) {
+        return ((x & (1 << 2)) != 0) &&
+                (x & (1 << 4)) == 0;
+    }
 }

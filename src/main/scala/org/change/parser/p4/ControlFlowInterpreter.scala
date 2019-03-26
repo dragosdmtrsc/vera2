@@ -26,13 +26,15 @@ class ControlFlowInterpreter[T <: ISwitchInstance](
     val additionalInitCode: (T, Int) => Instruction,
     val tableFactory: (T, String, String) => Instruction,
     val initFactory: (T) => Instruction,
-    val parserGenerator: ParserGenerator) {
+    val parserGenerator: ParserGenerator,
+    val noParser : Boolean) {
   def this(switchInstance: T,
            switch: Switch,
            optAdditionalInitCode: Option[(T, Int) => Instruction] = None,
            optTableFactory: Option[(T, String, String) => Instruction] = None,
            optInitFactory: Option[(T) => Instruction] = None,
-           optParserGenerator: Option[ParserGenerator] = None) = this(
+           optParserGenerator: Option[ParserGenerator] = None,
+           noParser : Boolean = false) = this(
     switchInstance,
     switch,
     optAdditionalInitCode.getOrElse(
@@ -42,10 +44,11 @@ class ControlFlowInterpreter[T <: ISwitchInstance](
     optInitFactory.getOrElse(
       GlobalInitFactory.get(switchInstance.getClass.asInstanceOf[Class[T]])),
     optParserGenerator.getOrElse(
-      new SwitchBasedParserGenerator(switch, switchInstance))
+      new SwitchBasedParserGenerator(switch, switchInstance)),
+    noParser
   )
   def this(switchInstance: T, switch: Switch) =
-    this(switchInstance, switch, None, None, None, None)
+    this(switchInstance, switch, None, None, None, None, false)
   private def renamer(s: String) =
     if (s.startsWith(s"${switchInstance.getName}."))
       s
@@ -150,9 +153,15 @@ class ControlFlowInterpreter[T <: ISwitchInstance](
     Fork(switchInstance.getIfaceSpec.keys.map(x => {
       Forward(s"${switchInstance.getName}.input.$x")
     }))
-  def startingPoints() : Set[String] = switchInstance.getIfaceSpec.keys.map(x => {
-    s"${switchInstance.getName}.input.$x"
-  }).toSet
+  def startingPoints() : Set[String] =
+    if (!noParser) {
+      switchInstance.getIfaceSpec.keys.map(x => {
+        s"${switchInstance.getName}.input.$x"
+      }).toSet
+    } else {
+      Set(s"${switchInstance.getName}.control.ingress")
+    }
+
 
   def initialize(port: Int): Instruction =
     initializeCode.switchInitializePacketEnter(port)
@@ -300,7 +309,8 @@ object ControlFlowInterpreter {
 
   def buildSymbolicInterpreter(symSwitch: SymbolicSwitchInstance,
                                switch: Switch,
-                               optParserGenerator: Option[ParserGenerator])
+                               optParserGenerator: Option[ParserGenerator],
+                               noParser : Boolean = false)
     : ControlFlowInterpreter[SymbolicSwitchInstance] = {
 
     val tabs =
@@ -354,7 +364,8 @@ object ControlFlowInterpreter {
       switch,
       optAdditionalInitCode = Some(perPortInit),
       optInitFactory = Some(initializerCode),
-      optParserGenerator = optParserGenerator
+      optParserGenerator = optParserGenerator,
+      noParser = noParser
     )
   }
 
