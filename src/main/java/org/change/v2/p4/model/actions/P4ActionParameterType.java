@@ -20,6 +20,9 @@ public enum P4ActionParameterType {
         this.x = x;
     }
 
+    public static boolean isField(int v) {
+        return (v & FLD.x) != 0;
+    }
     public static boolean isLV(int x) {
         return ((x & (1 << 2)) != 0) &&
                 (x & (1 << 4)) == 0;

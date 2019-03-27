@@ -158,12 +158,17 @@ parser_exception_name   :   NAME ;
 
 case_entry returns [org.change.v2.p4.model.parser.CaseEntry caseEntry] :
     value_list ':' case_return_value_type ';';
-value_list returns [java.util.List<org.change.v2.p4.model.parser.Value> values]:
+value_list returns [java.util.List<org.change.v2.p4.model.parser.Value> values,
+java.util.List<org.change.v2.p4.model.control.exp.LiteralExpr> bvValues,
+java.util.List<org.change.v2.p4.model.control.exp.LiteralExpr> bvMasks,
+boolean isDefault]:
     value_or_masked ( ',' value_or_masked )* | 'default' ;
 
 case_return_value_type  : parser_state_name | control_function_name | 'parse_error' parser_exception_name ;
 
-value_or_masked returns [org.change.v2.p4.model.parser.Value v]:
+value_or_masked returns [org.change.v2.p4.model.parser.Value v,
+org.change.v2.p4.model.control.exp.LiteralExpr bvValue,
+org.change.v2.p4.model.control.exp.LiteralExpr bvMask]:
     field_value | field_value 'mask' field_value | value_set_name ;
 
 

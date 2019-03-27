@@ -50,6 +50,7 @@ class AnalyzeThis(switch: Switch) {
       open(applyTableStatement)
     case applyAndSelectTableStatement: ApplyAndSelectTableStatement =>
       mkEdge(applyAndSelectTableStatement)
+      //TODO: make this a pass in SolveTables, because it is out of scope here
       if (!applyAndSelectTableStatement.isFullyCovered)
         applyAndSelectTableStatement.createDefault()
       val oldOutstanding = ListBuffer.empty[(ControlStatement, Option[P4BExpr])]

@@ -1,7 +1,7 @@
 package org.change.v2.p4.model.parser;
 
-import org.change.v2.p4.model.control.exp.P4BExpr;
-import org.change.v2.p4.model.control.exp.P4Expr;
+import org.change.v2.p4.model.control.exp.*;
+import org.change.v3.syntax.Literal;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -16,6 +16,8 @@ public class CaseEntry extends Statement {
     private List<CaseEntry> negated = new ArrayList<>();
     private ReturnStatement returnStatement;
     private List<Value> values = new ArrayList<Value>();
+    private List<LiteralExpr> bvValues = new ArrayList<>();
+    private List<LiteralExpr> bvMasks = new ArrayList<>();
     public CaseEntry() {}
     public CaseEntry(CaseEntry ce) {
         def = ce.def;
@@ -24,6 +26,8 @@ public class CaseEntry extends Statement {
         bvexpressions = ce.bvexpressions;
         returnStatement = ce.returnStatement;
         values = ce.values;
+        bvValues = ce.bvValues;
+        bvMasks = ce.bvMasks;
     }
     public List<CaseEntry> getNegated() {
         return negated;
@@ -33,12 +37,55 @@ public class CaseEntry extends Statement {
         return this;
     }
 
+    public P4BExpr getBExpr() {
+        if (isDefault()) {
+            P4BExpr nxt = LiteralBool.trueLit();
+            for (CaseEntry n : negated) {
+                nxt = BinBExpr.from("and", new NegBExpr(n.getBExpr()), nxt);
+            }
+            return nxt;
+        } else {
+            int sz = 0;
+            P4BExpr nxt = LiteralBool.trueLit();
+            for (int i = 0; i < sz; ++i) {
+                P4Expr crt = bvexpressions.get(i);
+                P4Expr val = bvValues.get(i);
+                P4Expr mask = bvMasks.get(i);
+                P4BExpr thiscase = RelOp.from(
+                "==",
+                    BinExpr.from("&", crt, mask),
+                    BinExpr.from("&", val, mask)
+                );
+                nxt = BinBExpr.from("and", nxt, thiscase);
+            }
+            return nxt;
+        }
+    }
+
     public CaseEntry addExpression(P4Expr expr) {
         bvexpressions.add(expr);
         return this;
     }
     public List<P4Expr> getBVExpressions() {
         return bvexpressions;
+    }
+
+    public List<LiteralExpr> getBvValues() {
+        return bvValues;
+    }
+
+    public CaseEntry setBvValues(List<LiteralExpr> bvValues) {
+        this.bvValues = bvValues;
+        return this;
+    }
+
+    public List<LiteralExpr> getBvMasks() {
+        return bvMasks;
+    }
+
+    public CaseEntry setBvMasks(List<LiteralExpr> bvMasks) {
+        this.bvMasks = bvMasks;
+        return this;
     }
 
     public CaseEntry addExpression(Expression expression) {

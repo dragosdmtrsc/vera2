@@ -2,7 +2,7 @@ import java.io.PrintWriter
 
 organization  := "org.change"
 version       := "0.2.1-SNAPSHOT"
-scalaVersion  := "2.12.1"
+scalaVersion  := "2.11.1"
 
 name := "symnet"
 

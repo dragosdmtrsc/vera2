@@ -604,7 +604,7 @@ class ParserToLogics(switch : Switch,
         context.mkEq(last, rast)
       case caseEntry: CaseEntry =>
         context.mkAnd(
-          caseEntry.getExpressions.asScala.zip(caseEntry.getValues.asScala).map(a => {
+          caseEntry.getValues.asScala.zip(caseEntry.getValues.asScala).map(a => {
             val ast1 = evalR(a._1)(inv)
             val t1 = type2sort(computeTypes.typeMapping(a._1))
             val ast2 = context.mkNumeral(a._2.getValue.toString, t1)

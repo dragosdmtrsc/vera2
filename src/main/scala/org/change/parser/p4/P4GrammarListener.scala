@@ -30,7 +30,6 @@ class P4GrammarListener extends P4GrammarBaseListener {
     ctx.fieldValue = ctx.const_value().constValue
     ctx.width = ctx.const_value().width
   }
-
   override def exitConst_value(ctx: P4GrammarParser.Const_valueContext): Unit = {
     if (ctx.width_spec() != null) {
       ctx.width = Integer.parseInt(ctx.width_spec().getText)
@@ -901,6 +900,14 @@ class P4GrammarListener extends P4GrammarBaseListener {
       else
         -1l
       )
+    val fv0 = ctx.field_value(0)
+    ctx.bvValue = new LiteralExpr(fv0.fieldValue, fv0.width)
+    if (ctx.field_value().size() > 1) {
+      ctx.bvMask = new LiteralExpr(ctx.field_value(1).fieldValue, ctx.field_value(1).width)
+    } else {
+      val oldWidth = fv0.width
+      ctx.bvMask = new LiteralExpr(-1, oldWidth)
+    }
   }
 
   override def exitValue_list(ctx: Value_listContext): Unit = {
@@ -908,6 +915,8 @@ class P4GrammarListener extends P4GrammarBaseListener {
       ctx.values = ctx.value_or_masked().map(x => x.v)
     else
       ctx.values = null
+    ctx.bvValues = ctx.value_or_masked().map(_.bvValue)
+    ctx.bvMasks = ctx.value_or_masked().map(_.bvMask)
   }
 
   override def exitCase_entry(ctx: Case_entryContext): Unit = {
@@ -915,6 +924,12 @@ class P4GrammarListener extends P4GrammarBaseListener {
       new ReturnStatement("").setError(true).setMessage(ctx.case_return_value_type().parser_exception_name().getText)
     } else  {
       new ReturnStatement(ctx.case_return_value_type().getText)
+    }
+    if (ctx.value_list().isDefault) {
+      ctx.caseEntry = new CaseEntry().setDefault()
+    } else {
+      assert(ctx.value_list().bvMasks.size() == ctx.value_list().bvValues.size())
+      ctx.caseEntry = new CaseEntry().setBvMasks(ctx.value_list().bvMasks).setBvValues(ctx.value_list().bvValues)
     }
     ctx.caseEntry = (if (ctx.value_list().values == null) {
       // default

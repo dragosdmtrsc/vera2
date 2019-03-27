@@ -1,4 +1,4 @@
-// Generated from C:/Users/a-drdum/source/repos/symnet-neutron/src/main/resources/p4_grammar\P4Grammar.g4 by ANTLR 4.7.2
+// Generated from C:/Users/dragos/source/repos/symnet-neutron/src/main/resources/p4_grammar\P4Grammar.g4 by ANTLR 4.7.2
 package generated.parse.p4;
 import org.antlr.v4.runtime.atn.*;
 import org.antlr.v4.runtime.dfa.DFA;
@@ -3649,6 +3649,9 @@ public class P4GrammarParser extends Parser {
 
 	public static class Value_listContext extends ParserRuleContext {
 		public java.util.List<org.change.v2.p4.model.parser.Value> values;
+		public java.util.List<org.change.v2.p4.model.control.exp.LiteralExpr> bvValues;
+		public java.util.List<org.change.v2.p4.model.control.exp.LiteralExpr> bvMasks;
+		public boolean isDefault;
 		public List<Value_or_maskedContext> value_or_masked() {
 			return getRuleContexts(Value_or_maskedContext.class);
 		}
@@ -3796,6 +3799,8 @@ public class P4GrammarParser extends Parser {
 
 	public static class Value_or_maskedContext extends ParserRuleContext {
 		public org.change.v2.p4.model.parser.Value v;
+		public org.change.v2.p4.model.control.exp.LiteralExpr bvValue;
+		public org.change.v2.p4.model.control.exp.LiteralExpr bvMask;
 		public List<Field_valueContext> field_value() {
 			return getRuleContexts(Field_valueContext.class);
 		}
