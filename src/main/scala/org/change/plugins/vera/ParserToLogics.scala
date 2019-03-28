@@ -137,22 +137,16 @@ class ParserHelper(switch : Switch) {
         last.get match {
           case rss : ReturnSelectStatement =>
             val nondef = rss.getCaseEntryList.asScala.filter(!_.isDefault).toList
-            val default = rss.getCaseEntryList.asScala.filter(_.isDefault).map(ce => {
-              nondef.foldLeft(new CaseNotEntry())((acc, x) => {
-                acc.addCaseEntry(x)
-              }).setReturnStatement(ce.getReturnStatement)
-            })
+            assert(rss.getCaseEntryList.asScala.filter(_.isDefault).forall(x => {
+              !x.getNegated.isEmpty
+            }))
             val crt = adjList.getOrElse(rss, Nil)
-            adjList.put(rss, crt ++ nondef ++ default)
-            (nondef ++ default).foreach {
-              case ce : CaseEntry =>
+            adjList.put(rss, crt ++ rss.getCaseEntryList.asScala)
+            rss.getCaseEntryList.asScala.foreach {
+              ce: CaseEntry =>
                 val crt = adjList.getOrElse(ce, Nil)
                 adjList.put(ce, ce.getReturnStatement :: crt)
                 nextState(ce.getReturnStatement).foreach(doBuild(_, Some(ce.getReturnStatement)))
-              case cne : CaseNotEntry =>
-                val crt = adjList.getOrElse(cne, Nil)
-                adjList.put(cne, cne.getReturnStatement :: crt)
-                nextState(cne.getReturnStatement).foreach(doBuild(_, Some(cne.getReturnStatement)))
             }
           case rs : ReturnStatement => nextState(rs).foreach(x => doBuild(x, last))
         }
@@ -187,8 +181,10 @@ case class SSAInfo[T](inv : Map[T, Map[String, Int]],
 trait P4Type
 case class BVType(sz : Int) extends P4Type
 object IntType extends P4Type
+object BoolType extends P4Type
 object PacketType extends P4Type
 case class FixedArrayType(inner : P4Type, sz : Int) extends P4Type
+case class StructType(members : Map[String, P4Type]) extends P4Type
 
 case class TypeHolder(typeMapping : Map[Expression, P4Type],
                       castRequired : Map[Expression, P4Type]) {
@@ -603,16 +599,17 @@ class ParserToLogics(switch : Switch,
         val last = evalR(setStatement.getLeft)(outv)
         context.mkEq(last, rast)
       case caseEntry: CaseEntry =>
-        context.mkAnd(
-          caseEntry.getValues.asScala.zip(caseEntry.getValues.asScala).map(a => {
-            val ast1 = evalR(a._1)(inv)
-            val t1 = type2sort(computeTypes.typeMapping(a._1))
-            val ast2 = context.mkNumeral(a._2.getValue.toString, t1)
-            val ast3 = context.mkNumeral(a._2.getMask.toString, t1)
-            context.mkEq(context.mkBVAnd(ast1, ast3),
-              context.mkBVAnd(ast2, ast3))
-          }): _*
-        )
+//        context.mkAnd(
+//          caseEntry.getValues.asScala.zip(caseEntry.getValues.asScala).map(a => {
+//            val ast1 = evalR(a._1)(inv)
+//            val t1 = type2sort(computeTypes.typeMapping(a._1))
+//            val ast2 = context.mkNumeral(a._2.getValue.toString, t1)
+//            val ast3 = context.mkNumeral(a._2.getMask.toString, t1)
+//            context.mkEq(context.mkBVAnd(ast1, ast3),
+//              context.mkBVAnd(ast2, ast3))
+//          }): _*
+//        )
+        context.mkTrue()
       case caseNotEntry: CaseNotEntry =>
         context.mkAnd(caseNotEntry.getCaseEntryList.asScala.map(ce => {
           context.mkNot(transform((ce, 0), inv, outv))

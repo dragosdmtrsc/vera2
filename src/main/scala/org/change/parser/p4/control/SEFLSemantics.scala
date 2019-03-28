@@ -2,7 +2,7 @@ package org.change.parser.p4.control
 
 import org.change.v2.p4.model.Switch
 import org.change.v2.p4.model.control._
-import org.change.v2.p4.model.control.exp.{P4BExpr, RelOp, ValidRef}
+import org.change.v2.p4.model.control.exp.P4BExpr
 import org.change.v2.p4.model.parser._
 import org.change.v2.p4.model.table.TableDeclaration
 import org.change.v3.semantics.{IntraExecutor, SimpleMemory, context}
@@ -22,7 +22,7 @@ class SEFLSemantics(switch: Switch) extends
       new TableHandler(switch, table, context))
   }
   import SMInstantiator._
-  val ctx = P4Memory(switch)
+  val ctx : P4Memory = null
   private val evaluator = new EvalWrapper(switch, context)
   override def translate(src: ControlStatement,
                          rho: Option[P4BExpr],
@@ -57,46 +57,22 @@ class SEFLSemantics(switch: Switch) extends
           val validFail = ctx.validityFailure(ss.getLeft)
           val validFailSrc = ctx.validityFailure(ss.getRightE)
           p._2
-//          validFail.ite(ctx.fails(s"cannot write to invalid header ${ss.getLeft}"),
-//            validFailSrc.ite(
-//              ctx.fails(s"cannot read from an invalid header ${ss.getRightE}"),
-//              ctx.update(ctx(ss.getLeft), ctx(ss.getRightE))
-//            )
-//          ).instantiate(p._2).asInstanceOf[P4MemoryValue[List[SimpleMemory]]].value
         case es : ExtractStatement =>
-          val hdr1 = ctx(es.getExpression).asInstanceOf[HeaderQuery]
+          val hdr1 = ctx(es.getExpression)
           val packet = ctx.packet()
           val validRef = hdr1.valid()
-          val dostuff = hdr1.fields().foldLeft(ctx.update(validRef, validRef.int(1)))((crtQuery, fld) => {
-            crtQuery.update(fld, packet(0, fld.len())).update(packet, packet.pop(fld.len()))
+          val dostuff = hdr1.fields().foldLeft(ctx.update(validRef, validRef.int(1)))((crtQuery, fname) => {
+            val fld = hdr1.field(fname)
+            crtQuery.update(fld, packet(fld.len().int(0), fld.len())).update(packet, packet.pop(fld.len()))
           })
-//          (if (ctx.field(es.getExpression.getPath).isArray()) {
-//            dostuff.update(ctx.field(es.getExpression.getPath).next(),
-//              ctx.field(es.getExpression.getPath).next())
-//          } else {
-//            dostuff
-//          }).instantiate(p._2).asInstanceOf[P4MemoryValue[List[SimpleMemory]]].value
           p._2
         case es : EmitStatement =>
           val packet = ctx.packet()
-          val hdr1 = ctx(es.getHeaderRef).asInstanceOf[HeaderQuery]
-          val valid  = ctx(es.getHeaderRef).asInstanceOf[HeaderQuery]
-//          val dostuff = valid.ite(hdr1.fields().foldLeft(ctx)((crtQuery, fld) => {
-//            crtQuery.update(packet, packet.append(fld))
-//          }), ctx).asInstanceOf[P4Memory]
-//          (if (ctx.field(es.getHeaderRef.getPath).isArray()) {
-//            dostuff.update(ctx.field(es.getHeaderRef.getPath).next(),
-//              ctx.field(es.getHeaderRef.getPath).next() + ctx.field(es.getHeaderRef.getPath).next().int(1))
-//          } else {
-//            dostuff
-//          }).instantiate(p._2).asInstanceOf[P4MemoryValue[List[SimpleMemory]]].value
+          val hdr1 = ctx(es.getHeaderRef)
+          val valid  = ctx(es.getHeaderRef)
           p._2
         case ce : CaseEntry =>
           val valfail = ctx.validityFailure(ce.getBExpr)
-//          valfail.ite(
-//            ctx.fails(s"validity failure reading ${ce.getBExpr}"),
-//            ctx.where(ctx(ce.getBExpr))
-//          ).instantiate(p._2).asInstanceOf[P4MemoryValue[List[SimpleMemory]]].value
           p._2
         case rs : ReturnStatement => p._2
         case rs : ReturnSelectStatement => p._2

@@ -25,12 +25,12 @@ case class QueryMaker(context : P4Memory,
   }
 
   override def postorder(literalBool: LiteralBool): Unit =
-    exprs.put(literalBool, LiteralBoolValue(literalBool.value()))
+    exprs.put(literalBool, context.boolVal(literalBool.value()))
 
   override def postorder(relOp: RelOp): Unit = super.postorder(relOp)
 
   override def postorder(literalExpr: LiteralExpr): Unit =
-    exprs.put(literalExpr, LiteralExprValue(literalExpr.getValue, literalExpr.getWidth))
+    exprs.put(literalExpr, context.int(literalExpr.getValue))
 
   override def postorder(binExpr: BinExpr): Unit = {
     val l = exprs(binExpr.getLeft)

@@ -18,8 +18,10 @@ object MkQuery {
     Traverse(QueryMaker(context, where))(expr)
     where(expr)
   }
-  def validityFailure(context : P4Memory, expr: P4Expr) : P4Query = ???
-  def validityFailure(context : P4Memory, fieldRef: FieldRef) : P4Query = ???
-  def validityFailure(context : P4Memory, expr: P4BExpr) : P4Query = ???
-  def validityFailure(context : P4Memory, expr: Expression) : P4Query = ???
+  //TODO do it right
+  def validityFailure(context : P4Memory, expr: P4Expr) : P4Query =
+    context.boolVal(true)
+  def validityFailure(context : P4Memory, fieldRef: FieldRef) : P4Query = context.boolVal(true)
+  def validityFailure(context : P4Memory, expr: P4BExpr) : P4Query = context.boolVal(true)
+  def validityFailure(context : P4Memory, expr: Expression) : P4Query = context.boolVal(true)
 }

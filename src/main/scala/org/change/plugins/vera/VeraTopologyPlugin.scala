@@ -2,6 +2,7 @@ package org.change.plugins.vera
 
 import org.change.parser.p4.ControlFlowInterpreter
 import org.change.parser.p4.control._
+import org.change.parser.p4.control.queryimpl.{MemoryInitializer, P4RootMemory}
 import org.change.parser.p4.parser.{LightParserGenerator, ParserGenerator}
 import org.change.parser.p4.tables.SymbolicSwitchInstance
 import org.change.plugins.eq.{InputPacketPlugin, NoPacketPlugin, PluginBuilder, TopologyPlugin}
@@ -12,6 +13,7 @@ import org.change.v2.p4.model.control.ControlStatement
 import org.change.v2.p4.model.parser.ReturnStatement
 import org.change.v3.semantics.SimpleMemory
 import z3.scala.Z3AST
+import org.change.v3.semantics._
 
 import scala.collection.mutable
 import scala.util.matching.Regex
@@ -86,55 +88,13 @@ object VeraTopologyPlugin {
           ifaces.put(h, s"eth$h")
         })
       }
-      val p2l = new ParserToLogics(sw, ifaces.toMap)
-      val initials = p2l.produceTerminalState(new ReturnStatement("ingress")):: Nil
-      val packetOut = initials.head.getAST("packet")
-      val solver = p2l.context.mkSolver()
+      val solver = context.mkSolver()
       val astToFail = mutable.Map.empty[Z3AST, (ControlStatement, SimpleMemory)]
-      val SEFLSemantics = new MergingSEFLSemantics(sw) {
-        override def finishNode(src: ControlStatement, region: Option[List[SimpleMemory]]): Unit = {
-          region.foreach(r => {
-            r.filter(_.errorCause.nonEmpty).foreach(state => {
-              val newAst = p2l.context.mkFreshBoolConst("prop")
-              astToFail.put(newAst, (src, state))
-              solver.assertCnstr(p2l.context.mkImplies(
-                newAst, p2l.context.mkAnd(
-                  state.pathCondition:_*
-                )
-              ))
-            })
-          })
-        }
-        override def beforeNode(src: ControlStatement, region: List[SimpleMemory]): Unit = {
-        }
-      }
-      val first = SEFLSemantics.getFirst("ingress")
-      val execd = SEFLSemantics.execute("ingress")(Map(first -> initials))
-      val firstEgress = SEFLSemantics.getFirst("egress")
-      val exegress = SEFLSemantics.execute("egress")(Map(firstEgress -> execd.head._2))
-      val asp = p2l.context.mkOr(astToFail.keys.toSeq:_*)
-      solver.assertCnstr(asp)
-      var n = 0
-      val limit = 300
-      while (n < limit) {
-        if (solver.check().get) {
-          System.err.println("yup, a failure may occur")
-          val model = solver.getModel()
-          val pack = model.eval(packetOut)
-          System.err.println(pack.get)
-          for (x <- astToFail) {
-            if (model.evalAs[Boolean](x._1).getOrElse(false)) {
-              System.err.println(s"for instance, in ${x._2._1} because ${x._2._2.error}")
-              solver.push()
-              solver.assertCnstr(p2l.context.mkNot(x._1))
-            }
-          }
-        } else {
-          System.err.println("nope, no failure can occur...")
-          n = limit + 1
-        }
-        n = n + 1
-      }
+      val SEFLSemantics = new QueryDrivenSemantics[P4RootMemory](sw)
+      val first = SEFLSemantics.getFirst("parser")
+      val execd = SEFLSemantics.execute("parser")(Map(first -> MemoryInitializer.initialize(sw)(context)))
+      val firstEgress = SEFLSemantics.getFirst("ingress")
+      val exegress = SEFLSemantics.execute("ingress")(Map(firstEgress -> execd.head._2))
       val end = System.currentTimeMillis()
       System.err.println(s"execution took ${end - start}ms")
       System.exit(0)

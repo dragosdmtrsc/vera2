@@ -1,10 +1,9 @@
 package org.change.parser.p4
 
-import org.change.parser.p4.control.{P4Memory, P4Query}
 import org.change.parser.p4.control.SMInstantiator._
-import org.change.v2.p4.model.actions.{P4ActionCall, P4ActionParameterType}
+import org.change.parser.p4.control.{P4Memory, P4Query}
 import org.change.v2.p4.model.actions.P4ActionCall.ParamExpression
-import org.change.v2.p4.model.actions.primitives.ModifyField
+import org.change.v2.p4.model.actions.{P4ActionCall, P4ActionParameterType}
 import org.change.v2.p4.model.control.IfElseStatement
 import org.change.v2.p4.model.parser.CaseEntry
 

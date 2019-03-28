@@ -207,14 +207,16 @@ class QueryDrivenSemantics[T<:P4Memory](switch: Switch) extends Semantics[T](swi
     val nxtidx = arr.next()
     val count = params(1)
     val fresh = arr.fresh()
-    val len = arr.len().asInstanceOf[LiteralExprValue].nr.toInt
+    val len = arr.len().nr.toInt
     ctx.where(
       ctx.and((0 until len).map(idx => {
         val i = ctx.int(idx)
         val zeros = fresh(i).zeros()
         val valid = zeros.valid()
-        val zeroButValid = zeros.set(valid, ctx.boolVal(true))
-        fresh(i) === (i < count).ite(zeroButValid, arr(i - count))
+        val flds = ctx.and(fresh(i).fields().filter(_ != "IsValid").map(f => {
+          fresh(i).field(f) === fresh(i).field(f).zeros()
+        }) ++ List(zeros.valid() === ctx.boolVal(true)))
+        (i < count).ite(flds, fresh(i) === arr(i - count))
       }))
     ).update(arr, fresh)
   }
@@ -271,40 +273,40 @@ class QueryDrivenSemantics[T<:P4Memory](switch: Switch) extends Semantics[T](swi
               params : List[P4Query],
               stackTrace : List[P4Action])
              (implicit ctx : P4Memory) : P4Memory = {
-    (p4Action match {
-      case ax : org.change.v2.p4.model.actions.primitives.Add => analyze(ax, _, _)
-      case ax : org.change.v2.p4.model.actions.primitives.AddHeader => analyze(ax, _, _)
-      case ax : org.change.v2.p4.model.actions.primitives.AddToField => analyze(ax, _, _)
-      case ax : org.change.v2.p4.model.actions.primitives.BitAnd => analyze(ax, _, _)
-      case ax : org.change.v2.p4.model.actions.primitives.BitOr => analyze(ax, _, _)
-      case ax : org.change.v2.p4.model.actions.primitives.BitXor => analyze(ax, _, _)
-      case ax : org.change.v2.p4.model.actions.primitives.CloneEgressPktToEgress => analyze(ax, _, _)
-      case ax : org.change.v2.p4.model.actions.primitives.CloneEgressPktToIngress => analyze(ax, _, _)
-      case ax : org.change.v2.p4.model.actions.primitives.CloneIngressPktToEgress => analyze(ax, _, _)
-      case ax : org.change.v2.p4.model.actions.primitives.CloneIngressPktToIngress => analyze(ax, _, _)
-      case ax : org.change.v2.p4.model.actions.primitives.CopyHeader => analyze(ax, _, _)
-      case ax : org.change.v2.p4.model.actions.primitives.Count => analyze(ax, _, _)
-      case ax : org.change.v2.p4.model.actions.primitives.Drop => analyze(ax, _, _)
-      case ax : org.change.v2.p4.model.actions.primitives.ExecuteMeter => analyze(ax, _, _)
-      case ax : org.change.v2.p4.model.actions.primitives.GenerateDigest => analyze(ax, _, _)
-      case ax : org.change.v2.p4.model.actions.primitives.ModifyField => analyze(ax, _, _)
-      case ax : org.change.v2.p4.model.actions.primitives.ModifyFieldRngUniform => analyze(ax, _, _)
-      case ax : org.change.v2.p4.model.actions.primitives.ModifyFieldWithHashBasedOffset => analyze(ax, _, _)
-      case ax : org.change.v2.p4.model.actions.primitives.NoOp => analyze(ax, _, _)
-      case ax : org.change.v2.p4.model.actions.primitives.Pop => analyze(ax, _, _)
-      case ax : org.change.v2.p4.model.actions.primitives.Push => analyze(ax, _, _)
-      case ax : org.change.v2.p4.model.actions.primitives.Recirculate => analyze(ax, _, _)
-      case ax : org.change.v2.p4.model.actions.primitives.RegisterRead => analyze(ax, _, _)
-      case ax : org.change.v2.p4.model.actions.primitives.RegisterWrite => analyze(ax, _, _)
-      case ax : org.change.v2.p4.model.actions.primitives.RemoveHeader => analyze(ax, _, _)
-      case ax : org.change.v2.p4.model.actions.primitives.Resubmit => analyze(ax, _, _)
-      case ax : org.change.v2.p4.model.actions.primitives.ShiftLeft => analyze(ax, _, _)
-      case ax : org.change.v2.p4.model.actions.primitives.ShiftRight => analyze(ax, _, _)
-      case ax : org.change.v2.p4.model.actions.primitives.Subtract => analyze(ax, _, _)
-      case ax : org.change.v2.p4.model.actions.primitives.SubtractFromField => analyze(ax, _, _)
-      case ax : org.change.v2.p4.model.actions.primitives.Truncate => analyze(ax, _, _)
-      case ax : org.change.v2.p4.model.actions.P4ComplexAction => analyze(ax, _, _)
-    })(params, stackTrace)
+    p4Action match {
+      case ax : org.change.v2.p4.model.actions.primitives.Add => analyze(ax, params, stackTrace)
+      case ax : org.change.v2.p4.model.actions.primitives.AddHeader => analyze(ax, params, stackTrace)
+      case ax : org.change.v2.p4.model.actions.primitives.AddToField => analyze(ax, params, stackTrace)
+      case ax : org.change.v2.p4.model.actions.primitives.BitAnd => analyze(ax, params, stackTrace)
+      case ax : org.change.v2.p4.model.actions.primitives.BitOr => analyze(ax, params, stackTrace)
+      case ax : org.change.v2.p4.model.actions.primitives.BitXor => analyze(ax, params, stackTrace)
+      case ax : org.change.v2.p4.model.actions.primitives.CloneEgressPktToEgress => analyze(ax, params, stackTrace)
+      case ax : org.change.v2.p4.model.actions.primitives.CloneEgressPktToIngress => analyze(ax, params, stackTrace)
+      case ax : org.change.v2.p4.model.actions.primitives.CloneIngressPktToEgress => analyze(ax, params, stackTrace)
+      case ax : org.change.v2.p4.model.actions.primitives.CloneIngressPktToIngress => analyze(ax, params, stackTrace)
+      case ax : org.change.v2.p4.model.actions.primitives.CopyHeader => analyze(ax, params, stackTrace)
+      case ax : org.change.v2.p4.model.actions.primitives.Count => analyze(ax, params, stackTrace)
+      case ax : org.change.v2.p4.model.actions.primitives.Drop => analyze(ax, params, stackTrace)
+      case ax : org.change.v2.p4.model.actions.primitives.ExecuteMeter => analyze(ax, params, stackTrace)
+      case ax : org.change.v2.p4.model.actions.primitives.GenerateDigest => analyze(ax, params, stackTrace)
+      case ax : org.change.v2.p4.model.actions.primitives.ModifyField => analyze(ax, params, stackTrace)
+      case ax : org.change.v2.p4.model.actions.primitives.ModifyFieldRngUniform => analyze(ax, params, stackTrace)
+      case ax : org.change.v2.p4.model.actions.primitives.ModifyFieldWithHashBasedOffset => analyze(ax, params, stackTrace)
+      case ax : org.change.v2.p4.model.actions.primitives.NoOp => analyze(ax, params, stackTrace)
+      case ax : org.change.v2.p4.model.actions.primitives.Pop => analyze(ax, params, stackTrace)
+      case ax : org.change.v2.p4.model.actions.primitives.Push => analyze(ax, params, stackTrace)
+      case ax : org.change.v2.p4.model.actions.primitives.Recirculate => analyze(ax,params, stackTrace)
+      case ax : org.change.v2.p4.model.actions.primitives.RegisterRead => analyze(ax, params, stackTrace)
+      case ax : org.change.v2.p4.model.actions.primitives.RegisterWrite => analyze(ax, params, stackTrace)
+      case ax : org.change.v2.p4.model.actions.primitives.RemoveHeader => analyze(ax, params, stackTrace)
+      case ax : org.change.v2.p4.model.actions.primitives.Resubmit => analyze(ax,params, stackTrace)
+      case ax : org.change.v2.p4.model.actions.primitives.ShiftLeft => analyze(ax, params, stackTrace)
+      case ax : org.change.v2.p4.model.actions.primitives.ShiftRight => analyze(ax, params, stackTrace)
+      case ax : org.change.v2.p4.model.actions.primitives.Subtract => analyze(ax, params, stackTrace)
+      case ax : org.change.v2.p4.model.actions.primitives.SubtractFromField => analyze(ax,params, stackTrace)
+      case ax : org.change.v2.p4.model.actions.primitives.Truncate => analyze(ax, params, stackTrace)
+      case ax : org.change.v2.p4.model.actions.P4ComplexAction => analyze(ax, params, stackTrace)
+    }
   }
 
   def analyze(action: P4ComplexAction,
@@ -366,7 +368,7 @@ class QueryDrivenSemantics[T<:P4Memory](switch: Switch) extends Semantics[T](swi
       validFail.ite(
         ctx.fails(s"validity failure reading ${rho.get}"),
         ctx.where(what)
-      ).as[P4Memory]
+      )
     } else {
       src match {
         case ss : SetStatement =>
@@ -379,11 +381,12 @@ class QueryDrivenSemantics[T<:P4Memory](switch: Switch) extends Semantics[T](swi
             )
           ).as[P4Memory]
         case es : ExtractStatement =>
-          val hdr1 = ctx(es.getExpression).asInstanceOf[HeaderQuery]
+          val hdr1 = ctx(es.getExpression)
           val packet = ctx.packet()
           val validRef = hdr1.valid()
-          val dostuff = hdr1.fields().foldLeft(ctx.update(validRef, validRef.int(1)))((crtQuery, fld) => {
-            crtQuery.update(fld, packet(0, fld.len())).update(packet, packet.pop(fld.len()))
+          val dostuff = hdr1.fields().foldLeft(ctx.update(validRef, validRef.int(1)))((crtQuery, fname) => {
+            val fld = hdr1.field(fname)
+            crtQuery.update(fld, packet(fld.len().int(0), fld.len())).update(packet, packet.pop(fld.len()))
           })
           if (ctx.field(es.getExpression.getPath).isArray) {
             val nxtfield = ctx.field(es.getExpression.getPath).next()
@@ -393,12 +396,12 @@ class QueryDrivenSemantics[T<:P4Memory](switch: Switch) extends Semantics[T](swi
           }
         case es : EmitStatement =>
           val packet = ctx.packet()
-          val hdr1 = ctx(es.getHeaderRef).asInstanceOf[HeaderQuery]
-          val valid  = ctx(es.getHeaderRef).asInstanceOf[HeaderQuery]
+          val hdr1 = ctx(es.getHeaderRef)
+          val valid  = ctx(es.getHeaderRef)
           val dostuff = valid.ite(hdr1.fields().foldLeft(ctx)((crtQuery, fld) => {
-            crtQuery.update(packet, packet.append(fld))
+            crtQuery.update(packet, packet.append(hdr1.field(fld)))
           }), ctx).asInstanceOf[P4Memory]
-          if (ctx.field(es.getHeaderRef.getPath).isArray()) {
+          if (ctx.field(es.getHeaderRef.getPath).isArray) {
             dostuff.update(ctx.field(es.getHeaderRef.getPath).next(),
               ctx.field(es.getHeaderRef.getPath).next() + ctx.field(es.getHeaderRef.getPath).next().int(1))
           } else {
@@ -421,9 +424,9 @@ class QueryDrivenSemantics[T<:P4Memory](switch: Switch) extends Semantics[T](swi
           def toAST(tce : TableCaseEntry) : P4Query = {
             if (tce.isHitMiss) {
               if (tce.hit()) {
-                !lastFlow.isDefault()
+                !lastFlow.isDefault
               } else if (tce.miss()) {
-                lastFlow.isDefault()
+                lastFlow.isDefault
               } else {
                 ctx.and(tce.getNegated.asScala.map(!toAST(_)))
               }
