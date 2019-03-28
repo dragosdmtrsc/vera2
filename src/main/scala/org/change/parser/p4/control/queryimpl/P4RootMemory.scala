@@ -11,6 +11,7 @@ trait AbsValueWrapper {
   def maybePath : Option[ChurnedMemPath]
 }
 case class P4RootMemory(switch : Switch,
+                        error : Z3AST,
                         rootMemory: RootMemory) extends P4Memory(switch) {
   case class ValueWrapper(value: Value,
                           maybePath : Option[ChurnedMemPath]) extends PacketQuery
@@ -221,7 +222,8 @@ case class P4RootMemory(switch : Switch,
 
   override def ok(): P4Query = this
 
-  override def err(): P4Query = ???
+  override def err(): P4Query =
+    copy(rootMemory = rootMemory.where(error))
 
   override def errorCause(): ValueWrapper = field("errorCause")
 
@@ -241,7 +243,7 @@ case class P4RootMemory(switch : Switch,
     val rootMem = other.as[P4RootMemory]
     copy(
       switch = switch,
-      this.rootMemory.merge(rootMem.rootMemory)
+      rootMemory = this.rootMemory.merge(rootMem.rootMemory)
     )
   }
 

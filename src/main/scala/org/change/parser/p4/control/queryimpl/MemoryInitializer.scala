@@ -30,6 +30,6 @@ object MemoryInitializer {
     })).toMap ++ helperStuff)
     val tm = new TypeMapper()(context)
     val structObject = tm.fresh(st).asInstanceOf[StructObject]
-    P4RootMemory(switch, RootMemory(structObject = structObject, context.mkTrue()))
+    P4RootMemory(switch, context.mkFalse(), RootMemory(structObject = structObject, context.mkTrue()))
   }
 }
