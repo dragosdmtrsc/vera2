@@ -15,12 +15,15 @@ case class RootMemory(structObject: StructObject,
         (acc._1 + (lv._1 -> v), mkAnd2(c1, acc._2), mkAnd2(c2, acc._3))
       })
       (lm._2, lm._3, StructObject(ofType, lm._1))
-    case ArrayObject(ofType, elems) =>
+    case ArrayObject(ofType, n, elems) =>
       val lm = elems.zipWithIndex.foldLeft((List.empty[Value], mkBool(true), mkBool(true)))((acc, lv) => {
         val (c1, c2, v) = leftMerge(lv._1, r.asInstanceOf[ArrayObject].elems(lv._2))
         (acc._1 :+ v, mkAnd2(c1, acc._2), mkAnd2(c2, acc._3))
       })
-      (lm._2, lm._3, ArrayObject(ofType, lm._1))
+      val oarr = r.asInstanceOf[ArrayObject]
+      val (c1, c2, vnext) = leftMerge(n, oarr.next)
+      (mkAnd2(lm._2, c1), mkAnd2(lm._3, c2), ArrayObject(ofType,
+        vnext.asInstanceOf[ScalarValue], lm._1))
     case sv : ScalarValue =>
       val sd = r.asInstanceOf[ScalarValue]
       if (context.isEqAST(sd.z3AST, sv.z3AST)) {
@@ -32,14 +35,20 @@ case class RootMemory(structObject: StructObject,
   }
 
   def merge(other: RootMemory) : RootMemory = {
-    val (c1, c2, va) = leftMerge(structObject, other.structObject)
-    copy(
-      structObject = va.asInstanceOf[StructObject],
-      condition = context.mkOr(
-        other.where(c2).condition,
-        where(c1).condition
+    if (this.isEmpty()) {
+      other
+    } else if (other.isEmpty()) {
+      this
+    } else {
+      val (c1, c2, va) = leftMerge(structObject, other.structObject)
+      copy(
+        structObject = va.asInstanceOf[StructObject],
+        condition = context.mkOr(
+          other.where(c2).condition,
+          where(c1).condition
+        )
       )
-    )
+    }
   }
 
   def newV(old : Value, memPath: MemPath, v : Value) : Value = {
@@ -47,10 +56,13 @@ case class RootMemory(structObject: StructObject,
       v
     } else {
       memPath.head match {
-        case Left(a) =>
+        case Left(a) if a != "next__" =>
           val so = old.asInstanceOf[StructObject]
           so.copy(fieldRefs = so.fieldRefs +
-            (a -> newV(old.asInstanceOf[StructObject].fieldRefs(a), memPath.tail, v)))
+            (a -> newV(so.fieldRefs(a), memPath.tail, v)))
+        case Left(a) if a == "next__" =>
+          val so = old.asInstanceOf[ArrayObject]
+          so.copy(next = v.asInstanceOf[ScalarValue])
         case Right(b) =>
           val so = old.asInstanceOf[ArrayObject]
           so.copy(elems = so.elems.updated(b,
@@ -60,7 +72,7 @@ case class RootMemory(structObject: StructObject,
     }
   }
   def set(memPath: MemPath, v : Value) : RootMemory = {
-    this.copy(structObject = newV(structObject, memPath, v).asInstanceOf[StructObject])
+    this.copy(structObject = newV(structObject, memPath.reverse, v).asInstanceOf[StructObject])
   }
   def typeOf(memPath: MemPath) : P4Type =
     memPath.foldRight(structObject.ofType : P4Type)((x, acc) => {
@@ -95,9 +107,18 @@ case class RootMemory(structObject: StructObject,
     if (v) new ScalarValue(BoolType, context.mkTrue()) else new ScalarValue(BoolType, context.mkFalse())
   }
 
-  def mkSelect(field : String, crt : Value): Value = crt match {
-    case StructObject(_, flds) => flds(field)
-    case _ => throw new IllegalArgumentException(s"$crt must be a struct")
+  def getNext(value : ArrayObject) : ScalarValue = {
+    value.next
+  }
+  def mkSelect(field : String, crt : Value): Value = {
+    if (field == "next__") {
+      crt.asInstanceOf[ArrayObject].next
+    } else {
+      crt match {
+        case StructObject(_, flds) => flds(field)
+        case _ => throw new IllegalArgumentException(s"$crt must be a struct, can't access $field")
+      }
+    }
   }
   def mkITE(condition : ScalarValue, thn : Value, els : Value) : Value = thn match {
     case StructObject(t, flds) =>
@@ -105,9 +126,9 @@ case class RootMemory(structObject: StructObject,
       StructObject(t, flds.map(v => {
         v._1 -> mkITE(condition, v._2, e.fieldRefs(v._1))
       }))
-    case ArrayObject(t, elems) =>
+    case ArrayObject(t, n, elems) =>
       val a2 = els.asInstanceOf[ArrayObject]
-      ArrayObject(t, elems.zipWithIndex.map(v => {
+      ArrayObject(t, n, elems.zipWithIndex.map(v => {
         mkITE(condition, v._1, a2.elems(v._2))
       }))
     case scalarValue: ScalarValue =>
@@ -118,11 +139,15 @@ case class RootMemory(structObject: StructObject,
       )
   }
   def mkIndex(idx : Value, on : Value) : (Value, Iterable[(ScalarValue, Int)]) = on match {
-    case ArrayObject(t, flds) =>
+    case ArrayObject(t, _, flds) =>
       idx match {
         case sv : ScalarValue if sv.ofType == IntType =>
           sv.tryResolve.map(idx => {
-            (flds(idx), (mkBool(true), idx) :: Nil)
+            if (idx >= 0 && idx < t.sz) {
+              (flds(idx), (mkBool(true), idx) :: Nil)
+            } else {
+              (typeMapper.zeros(t.inner), (mkBool(true), idx) :: Nil)
+            }
           }).getOrElse({
             val churn = flds.indices.map(u => {
               (mkEQ(typeMapper.literal(IntType, u), idx), u)
@@ -152,13 +177,23 @@ case class RootMemory(structObject: StructObject,
   def get(memPath: MemPath) : Value = {
     memPath.foldRight(structObject : Value)((x, acc) => {
       x match {
-        case Left(s) => acc.asInstanceOf[StructObject].fieldRefs(s)
+        case Left(s) if s != "next__" => acc.asInstanceOf[StructObject].fieldRefs(s)
+        case Left(s) if s == "next__" =>
+          acc.asInstanceOf[ArrayObject].next
         case Right(i) => acc.asInstanceOf[ArrayObject].elems(i)
       }
     })
   }
 
-  def where(condition : Z3AST): RootMemory = this.copy(condition = context.mkAnd(this.condition, condition))
+  def isEmpty() : Boolean = {
+    context.getBoolValue(condition).filter(!_).getOrElse(false)
+  }
+
+  def where(condition : Z3AST): RootMemory = {
+    context.getBoolValue(condition).filter(!_).map(_ =>
+      copy(condition = context.mkFalse())
+    ).getOrElse(this.copy(condition = context.mkAnd(this.condition, condition)))
+  }
   def where(condition : ScalarValue): RootMemory = where(condition.z3AST)
 
   def mkEQ(l : Value, r : Value) : ScalarValue = {
@@ -168,7 +203,7 @@ case class RootMemory(structObject: StructObject,
         new ScalarValue(BoolType, context.mkAnd(flds.map(fv => {
           mkEQ(rs.fieldRefs(fv._1), fv._2)
         }).map(_.z3AST).toList:_*))
-      case ArrayObject(_, elems) =>
+      case ArrayObject(_, _, elems) =>
         val rs = r.asInstanceOf[ArrayObject]
         new ScalarValue(BoolType, context.mkAnd(elems.zipWithIndex.map(fv => {
           mkEQ(rs.elems(fv._2), fv._1)
@@ -187,7 +222,7 @@ case class RootMemory(structObject: StructObject,
     case IntType => new ScalarValue(IntType, context.mkUnaryMinus(l.asInstanceOf[ScalarValue].z3AST))
   }
   def mkLT(l : Value, r : Value) : ScalarValue = {
-    l.ofType match {
+    l match {
       case sv : ScalarValue if sv.ofType == IntType =>
         new ScalarValue(BoolType,
           context.mkLT(sv.z3AST, r.asInstanceOf[ScalarValue].z3AST))
@@ -197,7 +232,7 @@ case class RootMemory(structObject: StructObject,
     }
   }
   def mkLE(l : Value, r : Value) : ScalarValue = {
-    l.ofType match {
+    l match {
       case sv : ScalarValue if sv.ofType == IntType =>
         new ScalarValue(BoolType,
           context.mkLE(sv.z3AST, r.asInstanceOf[ScalarValue].z3AST))
@@ -207,7 +242,7 @@ case class RootMemory(structObject: StructObject,
     }
   }
   def mkGE(l : Value, r : Value) : ScalarValue = {
-    l.ofType match {
+    l match {
       case sv : ScalarValue if sv.ofType == IntType =>
         new ScalarValue(BoolType,
           context.mkGE(sv.z3AST, r.asInstanceOf[ScalarValue].z3AST))
@@ -217,7 +252,7 @@ case class RootMemory(structObject: StructObject,
     }
   }
   def mkGT(l : Value, r : Value) : ScalarValue = {
-    l.ofType match {
+    l match {
       case sv : ScalarValue if sv.ofType == IntType =>
         new ScalarValue(BoolType,
           context.mkGT(sv.z3AST, r.asInstanceOf[ScalarValue].z3AST))

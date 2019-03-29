@@ -53,6 +53,9 @@ class SolveTables(switch: Switch) extends ASTVisitor {
       switch.table(applyAndSelectTableStatement.getTable.getName)
     )
     applyAndSelectTableStatement.createDefault()
+    applyAndSelectTableStatement.getCaseEntries.asScala.foreach(ce => {
+      ce.setTableDeclaration(applyAndSelectTableStatement.getTable)
+    })
   }
 
   override def postorder(actCall: P4ActionCall): Unit = {

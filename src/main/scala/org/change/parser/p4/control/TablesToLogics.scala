@@ -11,7 +11,7 @@ import scala.collection.mutable
 
 case class FlowStruct(context : Z3Context,
                       table : TableDeclaration,
-                      switch: Switch) {
+                      switch: Switch) extends P4Type {
   val allowed : Iterable[String] = if (table.hasProfile) {
     table.actionProfile().getActions.asScala
   } else {
@@ -37,7 +37,7 @@ case class FlowStruct(context : Z3Context,
   }
   private val matchToSorts = table.getMatches.asScala.map(x => {
     x.getMatchKind match {
-      case MatchKind.Valid => (x, context.mkBVSort(1) :: Nil)
+      case MatchKind.Valid => (x, context.mkBoolSort() :: Nil)
       case MatchKind.Exact => (x, keySort(x) :: Nil)
       case MatchKind.Lpm => (x, keySort(x) :: keySort(x) :: Nil)
       case MatchKind.Ternary => (x, keySort(x) :: keySort(x) :: Nil)
@@ -104,14 +104,19 @@ case class FlowStruct(context : Z3Context,
       flowSort._3(matchMaskOffset(tableMatch))(z3AST)
     def getActionParam(action : String, parmName : String): Z3AST =
       flowSort._3(getOffset(action, parmName))(z3AST)
+    def getActionParamType(action : String, parmName : String) : P4Type = {
+      switch.action(action).getParameterList
+        .asScala.find(_.getParamName == parmName).get.getSort
+    }
   }
   def query(asts : List[Z3AST]) : FlowInstance =
-    FlowInstance(queryFun.apply(asts.toSeq:_*))
+    FlowInstance(queryFun.apply(asts:_*))
   def from(ast : Z3AST): FlowInstance = {
     if (ast.getSort != flowSort._1)
       throw new IllegalArgumentException(s"expecting ${flowSort._1}, got ${ast.getSort}")
     FlowInstance(ast)
   }
+  def sort() : Z3Sort = flowSort._1
 }
 class TablesToLogics(switch: Switch,
                      context: Z3Context,

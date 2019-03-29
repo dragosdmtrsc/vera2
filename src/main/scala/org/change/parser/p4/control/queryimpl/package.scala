@@ -12,6 +12,7 @@ package object queryimpl {
   case class StructObject(ofType: StructType,
                           fieldRefs : Map[String, Value]) extends MemoryObject
   case class ArrayObject(ofType: FixedArrayType,
+                         next : ScalarValue,
                          elems : List[Value]) extends MemoryObject
   class ScalarValue(val ofType : P4Type, val z3AST: Z3AST) extends Value {
     private lazy val ctx = z3AST.context
@@ -46,6 +47,7 @@ package object queryimpl {
     def apply(p4Type: P4Type) : Z3Sort = p4Type match {
       case BVType(n) => context.mkBVSort(n)
       case PacketType => packetWrapper.sort()
+      case fs : FlowStruct => fs.sort()
       case IntType => context.mkIntSort()
       case BoolType => context.mkBoolSort()
     }
@@ -55,7 +57,7 @@ package object queryimpl {
         StructObject(h, f)
       case a : FixedArrayType =>
         val flds = (0 until a.sz).map(_ => zeros(a.inner))
-        ArrayObject(a, flds.toList)
+        ArrayObject(a, literal(IntType, 0), flds.toList)
       case PacketType => new ScalarValue(PacketType, packetWrapper.zero())
       case _ => literal(p4Type, 0)
     }
@@ -63,14 +65,22 @@ package object queryimpl {
       case st : StructType =>
         StructObject(st, st.members.mapValues(fresh(_, prefix)))
       case arr : FixedArrayType =>
-        ArrayObject(arr, (0 until arr.sz).map(_ => fresh(arr.inner, prefix)).toList)
+        ArrayObject(arr,
+          literal(IntType, 0),
+          (0 until arr.sz).map(_ => fresh(arr.inner, prefix)).toList)
       case sv : P4Type =>
         val srt = this(sv)
         new ScalarValue(sv, context.mkFreshConst(prefix, srt))
     }
     def literal(p4Type: P4Type, v : BigInt): ScalarValue = {
       val tp = apply(p4Type)
-      new ScalarValue(p4Type, tp.context.mkNumeral(v.toString(), tp))
+      if (p4Type == BoolType) {
+        if (v == 0)
+          new ScalarValue(BoolType, tp.context.mkFalse())
+        else new ScalarValue(BoolType, tp.context.mkTrue())
+      } else {
+        new ScalarValue(p4Type, tp.context.mkNumeral(v.toString(), tp))
+      }
     }
   }
 

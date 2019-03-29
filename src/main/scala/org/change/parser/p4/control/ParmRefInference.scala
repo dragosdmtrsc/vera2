@@ -2,7 +2,7 @@ package org.change.parser.p4.control
 
 import org.change.v2.p4.model.{RegisterSpecification, Switch}
 import org.change.v2.p4.model.actions.P4ActionCall.ParamExpression
-import org.change.v2.p4.model.actions.{P4ActionCall, P4ActionParameter, P4ComplexAction}
+import org.change.v2.p4.model.actions.{P4Action, P4ActionCall, P4ActionParameter, P4ComplexAction}
 import org.change.v2.p4.model.control.exp.{FieldRefExpr, ValidRef}
 import org.change.v2.p4.model.fieldlists.FieldList
 import org.change.v2.p4.model.parser._
@@ -10,6 +10,7 @@ import org.change.v2.p4.model.parser._
 import scala.collection.JavaConverters._
 
 class ParmRefInference(switch: Switch) extends ASTVisitor {
+  var lastAction : P4Action = null
   var stack = List.empty[Map[String, P4ActionParameter]]
   override def postorder(parmInstance : ParamExpression) : Unit = {
     val expression = parmInstance.getExpression
@@ -17,7 +18,7 @@ class ParmRefInference(switch: Switch) extends ASTVisitor {
       case stringRef : StringRef =>
         val maybeParam = stack.headOption.flatMap(_.get(stringRef.getRef))
         if (maybeParam.nonEmpty) {
-          parmInstance.setExpression(new ParmRef(maybeParam.get))
+          parmInstance.setExpression(new ParmRef(lastAction, maybeParam.get))
         } else {
           val hdr = switch.getInstance(stringRef.getRef)
           if (hdr != null) {
@@ -70,6 +71,7 @@ class ParmRefInference(switch: Switch) extends ASTVisitor {
     stack = action.getParameterList.asScala.map(x => {
       x.getParamName -> x
     }).toMap :: stack
+    lastAction = action
     true
   }
 

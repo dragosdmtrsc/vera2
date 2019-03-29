@@ -1,5 +1,6 @@
 package org.change.parser.p4.control
 
+import org.change.plugins.vera.P4Type
 import org.change.v2.p4.model.control.exp._
 import org.change.v2.p4.model.parser.{Expression, FieldRef}
 import org.change.v2.p4.model.table.TableDeclaration
@@ -23,6 +24,7 @@ trait P4Query {
   def set(src : P4Query, value : P4Query) : P4Query = ???
   def ite(thn : P4Query, els : P4Query): P4Query = ???
   def int(value : BigInt) : P4Query = ???
+  def int(value : BigInt, p4Type: P4Type) : P4Query = ???
   def isArray: Boolean = false
 
   def fields() : Iterable[String] = ???
@@ -82,7 +84,7 @@ class P4Memory(switch : Switch) extends P4Query {
   def update(dst: P4Query, src : P4Query) : P4Memory = ???
   def packet() : PacketQuery = ???
   def standardMetadata() : P4Query = field("standard_metadata")
-  def query(table : String) : P4TableQuery = ???
+  def query(table : String, params : Iterable[P4Query]) : P4TableQuery = ???
   def lastQuery(table : String) : P4TableQuery = ???
 
 }

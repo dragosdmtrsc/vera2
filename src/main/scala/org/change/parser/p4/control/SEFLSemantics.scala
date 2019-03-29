@@ -83,9 +83,6 @@ class SEFLSemantics(switch: Switch) extends
             f.assignNewValue("last_flow", context.mkInt(0, context.mkBVSort(1))).get
           })
         case ast : ApplyAndSelectTableStatement =>
-          ast.getCaseEntries.asScala.foreach(ce => {
-            ce.setTableDeclaration(ast.getTable)
-          })
           p._2.flatMap(f => getTable(ast.getTable).handle(f))
         case tableCaseEntry: TableCaseEntry =>
           val tableHandler = getTable(tableCaseEntry.getTableDeclaration)

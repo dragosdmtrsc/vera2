@@ -1,9 +1,10 @@
 package org.change.parser.p4.control.queryimpl
 
 import org.change.parser.p4.control._
-import org.change.plugins.vera.IntType
+import org.change.plugins.vera.{BVType, BoolType, IntType, P4Type}
 import org.change.v2.p4.model.Switch
 import z3.scala.Z3AST
+import z3.scala.dsl.BVSort
 
 
 trait AbsValueWrapper {
@@ -11,7 +12,6 @@ trait AbsValueWrapper {
   def maybePath : Option[ChurnedMemPath]
 }
 case class P4RootMemory(switch : Switch,
-                        error : Z3AST,
                         rootMemory: RootMemory) extends P4Memory(switch) {
   case class ValueWrapper(value: Value,
                           maybePath : Option[ChurnedMemPath]) extends PacketQuery
@@ -48,20 +48,43 @@ case class P4RootMemory(switch : Switch,
     }
 
     // packet mapper
-    override def apply(from: P4Query, to: P4Query): P4Query = super.apply(from, to)
+    //TODO: add proper code here
+    override def apply(from: P4Query, to: P4Query): P4Query = this
 
-    override def pop(n: P4Query): PacketQuery = super.pop(n)
+    override def pop(n: P4Query): PacketQuery = this//super.pop(n)
 
-    override def append(what: P4Query): PacketQuery = super.append(what)
+    override def append(what: P4Query): PacketQuery = this//super.append(what)
 
     // table query handlers
     override def isDefault: P4Query = super.isDefault
 
-    override def exists(): P4Query = super.exists()
+    override def exists(): P4Query = {
+      val ast = this.value.asInstanceOf[ScalarValue].z3AST
+      val struct = this.value.ofType.asInstanceOf[FlowStruct]
+      val finstance = struct.from(ast)
+      rv(new ScalarValue(BoolType, finstance.exists()))
+    }
 
-    override def isAction(act: String): P4Query = super.isAction(act)
+    override def isAction(act: String): P4Query = {
+      val ast = this.value.asInstanceOf[ScalarValue].z3AST
+      val struct = this.value.ofType.asInstanceOf[FlowStruct]
+      val finstance = struct.from(ast)
+      rv(new ScalarValue(
+        BoolType,
+        struct.isAction(act, finstance.actionRun())
+      ))
+    }
 
-    override def getParam(act: String, parmName: String): P4Query = super.getParam(act, parmName)
+    override def getParam(act: String, parmName: String): P4Query = {
+      val ast = this.value.asInstanceOf[ScalarValue].z3AST
+      val struct = this.value.ofType.asInstanceOf[FlowStruct]
+      val finstance = struct.from(ast)
+      val ap = finstance.getActionParam(act, parmName)
+      val of = finstance.getActionParamType(act, parmName)
+      rv(new ScalarValue(
+        of, ap
+      ))
+    }
 
     // p4 query methods
     override def ok(): P4Query = this
@@ -76,13 +99,18 @@ case class P4RootMemory(switch : Switch,
       copy(value = rootMemory.mkSelect(name, value), maybePath = append(name))
 
     override def len(): LiteralExprValue = value match {
-      case ArrayObject(_, elems) =>
+      case sv : ScalarValue if sv.ofType == BoolType =>
+        rv(rootMemory.typeMapper.literal(IntType, 1))
+      case ArrayObject(_, _, elems) =>
         rv(rootMemory.typeMapper.literal(IntType, elems.size))
+      case sv : ScalarValue if sv.ofType.isInstanceOf[BVType] =>
+        val ival = sv.ofType.asInstanceOf[BVType].sz
+        rv(rootMemory.typeMapper.literal(IntType, ival))
     }
 
     override def valid(): P4Query = field("IsValid")
 
-    override def next(): P4Query = field("next")
+    override def next(): P4Query = field("next__")
 
     override def fresh(): P4Query = ValueWrapper(value =
       rootMemory.typeMapper.fresh(value.ofType, "fresh"), maybePath = None)
@@ -97,7 +125,7 @@ case class P4RootMemory(switch : Switch,
         if (thn.isInstanceOf[P4RootMemory]) {
           assert(els.isInstanceOf[P4RootMemory])
           P4RootMemory.this.copy(rootMemory = rootMemory.where(sv)) ||
-            P4RootMemory.this.copy(rootMemory = rootMemory.where(sv))
+            P4RootMemory.this.copy(rootMemory = rootMemory.where(rootMemory.mkNot(sv)))
         } else {
           copy(
             value = rootMemory.mkITE(sv, asWrapper(thn).value, asWrapper(els).value),
@@ -131,6 +159,10 @@ case class P4RootMemory(switch : Switch,
     override def apply(idx: P4Query): P4Query = {
       val (nv, churn) = rootMemory.mkIndex(asWrapper(idx).value, value)
       copy(value = nv, maybePath = append(churn))
+    }
+
+    override def int(value: BigInt, p4Type: P4Type): P4Query = {
+      rv(rootMemory.typeMapper.literal(p4Type, value))
     }
 
     override def &&(other: P4Query): P4Query = value match {
@@ -202,7 +234,7 @@ case class P4RootMemory(switch : Switch,
     copy(rootMemory = rootMemory.where(p4Query.asInstanceOf[ValueWrapper].ast))
   }
   def asWrapper(p4Query: P4Query) : AbsValueWrapper = p4Query match {
-    case x : ValueWrapper => x
+    case x : AbsValueWrapper => x
     case m : P4RootMemory =>
       m.rootWrap.copy()
   }
@@ -214,16 +246,32 @@ case class P4RootMemory(switch : Switch,
 
   override def packet(): ValueWrapper = field("packet")
 
-  override def query(table: String): ValueWrapper = ???
+  override def query(table: String,
+                     params : Iterable[P4Query]): ValueWrapper = {
+    val fs = lastQuery(table).value.ofType.asInstanceOf[FlowStruct]
+    ValueWrapper.rv(
+      new ScalarValue(
+        fs,
+        fs.query(params.map(_.asInstanceOf[ValueWrapper].value.asInstanceOf[ScalarValue])
+          .map(r => r.z3AST).toList).z3AST
+      ))
+  }
 
-  override def lastQuery(table: String): ValueWrapper = ???
+  override def int(value: BigInt, p4Type: P4Type): P4Query = {
+    rootWrap.int(value, p4Type)
+  }
+
+  override def lastQuery(table: String): ValueWrapper = {
+    field(table + "_lastQuery")
+  }
 
   override def as[T <: P4Query]: T = super.as
 
-  override def ok(): P4Query = this
+  override def ok(): P4Query =
+    where(errorCause() === errorCause().int(0))
 
   override def err(): P4Query =
-    copy(rootMemory = rootMemory.where(error))
+    where(errorCause() != errorCause().int(0))
 
   override def errorCause(): ValueWrapper = field("errorCause")
 

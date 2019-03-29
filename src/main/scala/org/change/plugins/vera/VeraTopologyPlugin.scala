@@ -90,11 +90,22 @@ object VeraTopologyPlugin {
       }
       val solver = context.mkSolver()
       val astToFail = mutable.Map.empty[Z3AST, (ControlStatement, SimpleMemory)]
-      val SEFLSemantics = new QueryDrivenSemantics[P4RootMemory](sw)
+      val SEFLSemantics = new QueryDrivenSemantics[P4RootMemory](sw) {
+        override def finishNode(src: ControlStatement, region: Option[P4RootMemory]): Unit = {
+          region.filter(r => {
+            !r.rootMemory.isEmpty()
+          }).foreach(r => {
+            System.err.println(s"possible error in $src")
+          })
+        }
+      }
       val first = SEFLSemantics.getFirst("parser")
       val execd = SEFLSemantics.execute("parser")(Map(first -> MemoryInitializer.initialize(sw)(context)))
-      val firstEgress = SEFLSemantics.getFirst("ingress")
-      val exegress = SEFLSemantics.execute("ingress")(Map(firstEgress -> execd.head._2))
+      val firstIngress = SEFLSemantics.getFirst("ingress")
+      val exegress = SEFLSemantics.execute("ingress")(Map(firstIngress -> execd.head._2))
+      val postingress = exegress.head._2
+      val firstEgress = SEFLSemantics.getFirst("egress")
+      val all = SEFLSemantics.execute("egress")(Map(firstEgress -> exegress.head._2))
       val end = System.currentTimeMillis()
       System.err.println(s"execution took ${end - start}ms")
       System.exit(0)

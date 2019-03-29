@@ -20,8 +20,9 @@ object MkQuery {
   }
   //TODO do it right
   def validityFailure(context : P4Memory, expr: P4Expr) : P4Query =
-    context.boolVal(true)
-  def validityFailure(context : P4Memory, fieldRef: FieldRef) : P4Query = context.boolVal(true)
-  def validityFailure(context : P4Memory, expr: P4BExpr) : P4Query = context.boolVal(true)
-  def validityFailure(context : P4Memory, expr: Expression) : P4Query = context.boolVal(true)
+    context.boolVal(false)
+  def validityFailure(context : P4Memory, fieldRef: FieldRef) : P4Query =
+    context.boolVal(false)
+  def validityFailure(context : P4Memory, expr: P4BExpr) : P4Query = context.boolVal(false)
+  def validityFailure(context : P4Memory, expr: Expression) : P4Query = context.boolVal(false)
 }
