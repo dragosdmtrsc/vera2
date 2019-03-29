@@ -3,7 +3,7 @@ package org.change.parser.p4
 import org.change.parser.p4.control.SMInstantiator._
 import org.change.parser.p4.control.{P4Memory, P4Query}
 import org.change.v2.p4.model.actions.P4ActionCall.ParamExpression
-import org.change.v2.p4.model.actions.{P4ActionCall, P4ActionParameterType}
+import org.change.v2.p4.model.actions.{P4Action, P4ActionParameterType}
 import org.change.v2.p4.model.control.IfElseStatement
 import org.change.v2.p4.model.parser.CaseEntry
 
@@ -20,8 +20,8 @@ class IsValidQuery extends SafetyQuery {
       memory.validityFailure(ifElseStatement.getCondition)
     case caseEntry: CaseEntry =>
       memory.validityFailure(caseEntry.getBExpr)
-    case act: P4ActionCall =>
-      memory.and(act.getP4Action.getParameterList.asScala.zip(act.params().asScala).filter(pv => {
+    case (act: P4Action, params : List[P4Query], stackTrace : List[P4Action]) =>
+      memory.and(act.getParameterList.asScala.zip(params).filter(pv => {
         P4ActionParameterType.isField(pv._1.getType)
       }).map(pv => {
         memory.validityFailure(pv._2.asInstanceOf[ParamExpression].getExpression)

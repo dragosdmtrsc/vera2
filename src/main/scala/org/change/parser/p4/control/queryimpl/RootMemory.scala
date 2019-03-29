@@ -9,6 +9,12 @@ case class RootMemory(structObject: StructObject,
   val typeMapper = new TypeMapper
 
   def leftMerge(l : Value, r : Value) : (ScalarValue, ScalarValue, Value) = l match {
+    case ImmutableValue(v) =>
+      r match {
+        case ImmutableValue(rv) => assert(rv == v)
+          (mkBool(true), mkBool(true), l)
+        case _ => throw new IllegalStateException(s"can't merge immutable with mutable $l $r")
+      }
     case StructObject(ofType, fieldRefs) =>
       val lm = fieldRefs.foldLeft((Map.empty[String, Value], mkBool(true), mkBool(true)))((acc, lv) => {
         val (c1, c2, v) = leftMerge(lv._2, r.asInstanceOf[StructObject].fieldRefs(lv._1))
@@ -51,28 +57,38 @@ case class RootMemory(structObject: StructObject,
     }
   }
 
+  def unwrapImmutable(v: Value) : Value = v match {
+    case ImmutableValue(v) => v
+    case _ => v
+  }
+
   def newV(old : Value, memPath: MemPath, v : Value) : Value = {
-    if (memPath.isEmpty) {
-      v
-    } else {
-      memPath.head match {
-        case Left(a) if a != "next__" =>
-          val so = old.asInstanceOf[StructObject]
-          so.copy(fieldRefs = so.fieldRefs +
-            (a -> newV(so.fieldRefs(a), memPath.tail, v)))
-        case Left(a) if a == "next__" =>
-          val so = old.asInstanceOf[ArrayObject]
-          so.copy(next = v.asInstanceOf[ScalarValue])
-        case Right(b) =>
-          val so = old.asInstanceOf[ArrayObject]
-          so.copy(elems = so.elems.updated(b,
-            newV(old.asInstanceOf[ArrayObject].elems(b), memPath.tail, v)
-          ))
+    old match {
+      case ImmutableValue(x) =>
+        x
+      case _ => if (memPath.isEmpty) {
+        v
+      } else {
+        memPath.head match {
+          case Left(a) if a != "next__" =>
+            val so = old.asInstanceOf[StructObject]
+            so.copy(fieldRefs = so.fieldRefs +
+              (a -> newV(so.fieldRefs(a), memPath.tail, v)))
+          case Left(a) if a == "next__" =>
+            val so = old.asInstanceOf[ArrayObject]
+            so.copy(next = v.asInstanceOf[ScalarValue])
+          case Right(b) =>
+            val so = old.asInstanceOf[ArrayObject]
+            so.copy(elems = so.elems.updated(b,
+              newV(old.asInstanceOf[ArrayObject].elems(b), memPath.tail, v)
+            ))
+        }
       }
     }
   }
   def set(memPath: MemPath, v : Value) : RootMemory = {
-    this.copy(structObject = newV(structObject, memPath.reverse, v).asInstanceOf[StructObject])
+    val newstruct = newV(structObject, memPath.reverse, v)
+    this.copy(structObject = newstruct.asInstanceOf[StructObject])
   }
   def typeOf(memPath: MemPath) : P4Type =
     memPath.foldRight(structObject.ofType : P4Type)((x, acc) => {
@@ -85,6 +101,13 @@ case class RootMemory(structObject: StructObject,
     case BoolType => new ScalarValue(BoolType, context.mkAnd(a.z3AST, b.z3AST))
     case bvType: BVType => new ScalarValue(bvType, context.mkBVAnd(a.z3AST, b.z3AST))
     case _ => throw new IllegalArgumentException(s"can't and between $a and $b")
+  }
+  def mkAnd(a : Iterable[ScalarValue]): ScalarValue = {
+    if (a.isEmpty)
+      throw new IllegalArgumentException("and accepts at least one argument")
+    if (a.size == 1)
+      a.head
+    else a.tail.foldLeft(a.head)((acc, x) => mkAnd2(x, acc))
   }
   def mkOr2(a : ScalarValue, b : ScalarValue) : ScalarValue = a.ofType match {
     case BoolType => new ScalarValue(BoolType, context.mkAnd(a.z3AST, b.z3AST))
@@ -164,15 +187,19 @@ case class RootMemory(structObject: StructObject,
 
   def set(churnedMemPath: ChurnedMemPath, v : Value) : RootMemory = {
     val kind = typeOf(churnedMemPath.head._2)
-    val assigned = churnedMemPath.foldLeft(this)((acc, f) => {
-      set(f._2, typeMapper.fresh(kind, "fresh"))
-    })
-    assigned.where(mkOr(churnedMemPath.map(x => {
-      val cond = x._1
-      val old = get(x._2)
-      val novel = assigned.get(x._2)
-      mkAnd2(mkEQ(novel, old), cond)
-    })))
+    if (churnedMemPath.size == 1) {
+      set(churnedMemPath.head._2, v)
+    } else {
+      val assigned = churnedMemPath.foldLeft(this)((acc, f) => {
+        set(f._2, typeMapper.fresh(kind, "fresh"))
+      })
+      assigned.where(mkAnd(churnedMemPath.map(x => {
+        val cond = x._1
+        val old = get(x._2)
+        val novel = assigned.get(x._2)
+        mkEQ(novel, mkITE(cond, v, old))
+      })))
+    }
   }
   def get(memPath: MemPath) : Value = {
     memPath.foldRight(structObject : Value)((x, acc) => {
@@ -185,14 +212,25 @@ case class RootMemory(structObject: StructObject,
     })
   }
 
+  def getBoolValue(ast : Z3AST) : Either[Boolean, Z3AST] = {
+    val simplified = ast.context.simplifyAst(ast)
+    context.getBoolValue(simplified).map(f => Left(f)).getOrElse(Right(simplified))
+  }
+
   def isEmpty() : Boolean = {
-    context.getBoolValue(condition).filter(!_).getOrElse(false)
+    val got = getBoolValue(condition)
+    got match {
+      case Left(false) => true
+      case _ => false
+    }
   }
 
   def where(condition : Z3AST): RootMemory = {
-    context.getBoolValue(condition).filter(!_).map(_ =>
-      copy(condition = context.mkFalse())
-    ).getOrElse(this.copy(condition = context.mkAnd(this.condition, condition)))
+    copy(condition = getBoolValue(condition) match {
+      case Left(false) => context.mkFalse()
+      case Left(true) => this.condition
+      case Right(ast) => context.mkAnd(this.condition, ast)
+    })
   }
   def where(condition : ScalarValue): RootMemory = where(condition.z3AST)
 

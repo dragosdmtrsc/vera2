@@ -8,6 +8,11 @@ package object queryimpl {
   trait Value {
     def ofType : P4Type
   }
+
+  case class ImmutableValue(value : Value) extends Value {
+    override def ofType: P4Type = value.ofType
+  }
+
   trait MemoryObject extends Value
   case class StructObject(ofType: StructType,
                           fieldRefs : Map[String, Value]) extends MemoryObject

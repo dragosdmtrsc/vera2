@@ -107,7 +107,7 @@ object VeraTopologyPlugin {
       val firstEgress = SEFLSemantics.getFirst("egress")
       val all = SEFLSemantics.execute("egress")(Map(firstEgress -> exegress.head._2))
       val end = System.currentTimeMillis()
-      System.err.println(s"execution took ${end - start}ms")
+      System.err.println(s"propagation took ${end - start}ms")
       System.exit(0)
 
       val switchInstance = SymbolicSwitchInstance.fromFileWithSyms(switchName,

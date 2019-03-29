@@ -1,6 +1,6 @@
 package org.change.parser.p4.control.queryimpl
 
-import org.change.parser.p4.control.FlowStruct
+import org.change.parser.p4.control.{FlowStruct, P4Memory}
 import org.change.plugins.vera._
 import org.change.v2.p4.model.actions.P4ActionType
 import org.change.v2.p4.model.table.TableDeclaration
@@ -26,6 +26,12 @@ object MemoryInitializer {
     )
   }
 
+  def populateHelpers(switch: Switch, ctx : P4RootMemory)(implicit context: Z3Context) : P4RootMemory = {
+    ctx.update(ctx.field("clone"), ctx.int(0))
+       .update(ctx.field("field_list_ref"), ctx.int(0))
+       .update(ctx.field("errorCause"), ctx.int(0)).as[P4RootMemory]
+  }
+
   def tableStructures(switch: Switch)
                      (implicit context: Z3Context): Map[String, P4Type] = {
     switch.tables().asScala.map(tableDeclaration => {
@@ -44,6 +50,58 @@ object MemoryInitializer {
     }).toMap
   }
 
+  def populateHeaders(switch: Switch, crt : P4Memory)(implicit context: Z3Context) : P4Memory = {
+    switch.getInstances.asScala.foldLeft(crt)((crt, h) => h match {
+      case ai : ArrayInstance =>
+        val inst = crt.field(ai.getName)
+        (0 until ai.getLength).foldLeft(crt)((acc, x) => {
+          val h = inst(inst.next().int(x))
+          val valid = h.valid()
+          val m = if (!ai.isMetadata) {
+            acc.update(valid, h.valid().int(0))
+          } else {
+            val rm = acc.asInstanceOf[P4RootMemory]
+            rm.copy(rootMemory = rm.rootMemory.set(List(Left("IsValid"), Right(x), Left(ai.getName)), ImmutableValue(
+              rm.rootMemory.mkBool(true)
+            )))
+          }
+          if (ai.isMetadata) {
+            ai.getLayout.getFields.asScala.foldLeft(m)((acc, fld) => {
+              if (ai.getName == "standard_metadata" &&
+                    (fld.getName == "ingress_port" ||
+                      fld.getName == "instance_type" ||
+                      fld.getName == "packet_length")) {
+                acc
+              } else {
+                //TODO: use metadata initializers to correctly initialize all fields
+                acc.update(h.field(fld.getName), h.field(fld.getName).zeros())
+              }
+            })
+          } else {
+            m
+          }
+        })
+      case hi : HeaderInstance =>
+        val inst = crt.field(hi.getName)
+        val h = inst
+        val valid = h.valid()
+        val m = if (!hi.isMetadata)
+          crt.update(valid, h.valid().int(0))
+        else {
+          val rm = crt.asInstanceOf[P4RootMemory]
+          rm.copy(rootMemory = rm.rootMemory.set(List(Left("IsValid"), Left(hi.getName)), ImmutableValue(
+            rm.rootMemory.mkBool(true)
+          )))
+        }
+        if (hi.isMetadata)
+          hi.getLayout.getFields.asScala.foldLeft(m)((acc, fld) => {
+            //TODO: use metadata initializers to correctly initialize all fields
+            acc.update(h.field(fld.getName), h.field(fld.getName).zeros())
+          })
+        else m
+    })
+  }
+
   def initialize(switch: Switch)(implicit context : Z3Context) : P4RootMemory = {
     val st = StructType(switch.getInstances.asScala.map(x =>
       x.getName -> (x match {
@@ -54,6 +112,9 @@ object MemoryInitializer {
     })).toMap ++ helperStuff ++ tableStructures(switch) ++ actionStructures(switch))
     val tm = new TypeMapper()(context)
     val structObject = tm.fresh(st).asInstanceOf[StructObject]
-    P4RootMemory(switch, RootMemory(structObject = structObject, context.mkTrue()))
+    val fresh =  P4RootMemory(switch, RootMemory(structObject = structObject, context.mkTrue()))
+    val r = populateHelpers(switch, populateHeaders(switch, fresh)(context).asInstanceOf[P4RootMemory])
+    assert(r.err().as[P4RootMemory].rootMemory.isEmpty())
+    r
   }
 }

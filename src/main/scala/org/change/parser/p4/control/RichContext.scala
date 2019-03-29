@@ -41,7 +41,8 @@ case class RichContext(ctx : P4Memory) {
       ctx.field(act)
     case ihr : IndexedHeaderRef =>
       if (ihr.isLast) {
-        ctx.field(ihr.getPath)(ctx.next())
+        val path = ctx.field(ihr.getPath)
+        ctx.field(ihr.getPath)(path.next())
       } else {
         val fld = ctx.field(ihr.getPath)
         fld(fld.next().int(ihr.getIndex))

@@ -120,7 +120,7 @@ case class P4RootMemory(switch : Switch,
 
     override def set(src: P4Query, value: P4Query): P4Query = ???
 
-    override def ite(thn: P4Query, els: P4Query): P4Query = value match {
+    override def ite(thn: P4Query, els: P4Query): P4Query = rootMemory.unwrapImmutable(value) match {
       case sv : ScalarValue =>
         if (thn.isInstanceOf[P4RootMemory]) {
           assert(els.isInstanceOf[P4RootMemory])

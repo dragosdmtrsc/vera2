@@ -25,11 +25,13 @@ class QueryDrivenSemantics[T<:P4Memory](switch: Switch) extends Semantics[T](swi
               stackTrace : List[P4Action])
              (implicit ctx : P4Memory): P4Memory = {
     assert(params.size == 1)
-    params.head.valid().ite(
-      ctx.fails(s"loss of information in ${action :: stackTrace}"),
-      ctx.update(params.head, params.head.zeros())
-        .update(params.head.valid(), ctx.boolVal(true))
-    ).asInstanceOf[P4Memory]
+//    params.head.valid().ite(
+//      ctx.fails(s"loss of information in ${action :: stackTrace}"),
+//      ctx.update(params.head, params.head.zeros())
+//        .update(params.head.valid(), ctx.boolVal(true))
+//    ).asInstanceOf[P4Memory]
+    ctx.update(params.head, params.head.zeros())
+       .update(params.head.valid(), ctx.boolVal(true))
   }
 
   def analyze(action: AddToField,
@@ -116,13 +118,14 @@ class QueryDrivenSemantics[T<:P4Memory](switch: Switch) extends Semantics[T](swi
              (implicit ctx : P4Memory): P4Memory = {
     val av = params.head.valid()
     val bv = params(1).valid()
-    (av && !bv).ite(
-      ctx.fails(s"loss of information in ${action :: stackTrace}"),
-      (!av && !bv).ite(
-        ctx,
-        ctx.update(params.head, params(1))
-      )
-    ).asInstanceOf[P4Memory]
+    ctx.update(params.head, params(1))
+//    (av && !bv).ite(
+//      ctx.fails(s"loss of information in ${action :: stackTrace}"),
+//      (!av && !bv).ite(
+//        ctx,
+//        ctx.update(params.head, params(1))
+//      )
+//    ).asInstanceOf[P4Memory]
   }
 
   def analyze(action: Count,
@@ -413,21 +416,23 @@ class QueryDrivenSemantics[T<:P4Memory](switch: Switch) extends Semantics[T](swi
     val ret = if (rho.nonEmpty) {
       val what = ctx(rho.get)
       val validFail = ctx.validityFailure(rho.get)
-      validFail.ite(
-        ctx.fails(s"validity failure reading ${rho.get}"),
-        ctx.where(what)
-      )
+//      validFail.ite(
+//        ctx.fails(s"validity failure reading ${rho.get}"),
+//        ctx.where(what)
+//      )
+      ctx.where(what)
     } else {
       src match {
         case ss : SetStatement =>
-          val validFail = ctx.validityFailure(ss.getLeft)
-          val validFailSrc = ctx.validityFailure(ss.getRightE)
-          validFail.ite(ctx.fails(s"cannot write to invalid header ${ss.getLeft}"),
-            validFailSrc.ite(
-              ctx.fails(s"cannot read from an invalid header ${ss.getRightE}"),
-              ctx.update(ctx(ss.getLeft), ctx(ss.getRightE))
-            )
-          ).as[P4Memory]
+//          val validFail = ctx.validityFailure(ss.getLeft)
+//          val validFailSrc = ctx.validityFailure(ss.getRightE)
+//          validFail.ite(ctx.fails(s"cannot write to invalid header ${ss.getLeft}"),
+//            validFailSrc.ite(
+//              ctx.fails(s"cannot read from an invalid header ${ss.getRightE}"),
+//              ctx.update(ctx(ss.getLeft), ctx(ss.getRightE))
+//            )
+//          ).as[P4Memory]
+          ctx.update(ctx(ss.getLeft), ctx(ss.getRightE))
         case es : ExtractStatement =>
           val hdr1 = ctx(es.getExpression)
           val packet = ctx.packet()
@@ -459,10 +464,11 @@ class QueryDrivenSemantics[T<:P4Memory](switch: Switch) extends Semantics[T](swi
           }
         case ce : CaseEntry =>
           val valfail = ctx.validityFailure(ce.getBExpr)
-          valfail.ite(
-            ctx.fails(s"validity failure reading ${ce.getBExpr}"),
-            ctx.where(ctx(ce.getBExpr))
-          ).as[P4Memory]
+//          valfail.ite(
+//            ctx.fails(s"validity failure reading ${ce.getBExpr}"),
+//            ctx.where(ctx(ce.getBExpr))
+//          ).as[P4Memory]
+          ctx.where(ctx(ce.getBExpr))
         case rs : ReturnStatement => ctx
         case rs : ReturnSelectStatement => ctx
         case at : ApplyTableStatement =>

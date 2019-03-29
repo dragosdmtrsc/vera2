@@ -54,8 +54,8 @@ class SEFLSemantics(switch: Switch) extends
     } else {
       src match {
         case ss : SetStatement =>
-          val validFail = ctx.validityFailure(ss.getLeft)
-          val validFailSrc = ctx.validityFailure(ss.getRightE)
+//          val validFail = ctx.validityFailure(ss.getLeft)
+//          val validFailSrc = ctx.validityFailure(ss.getRightE)
           p._2
         case es : ExtractStatement =>
           val hdr1 = ctx(es.getExpression)
