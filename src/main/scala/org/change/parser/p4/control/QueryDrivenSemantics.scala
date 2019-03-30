@@ -1,7 +1,6 @@
 package org.change.parser.p4.control
 
 import org.change.parser.p4.control.SMInstantiator._
-import org.change.parser.p4.control.queryimpl.P4RootMemory
 import org.change.v2.p4.model.Switch
 import org.change.v2.p4.model.actions.P4ActionCall.ParamExpression
 import org.change.v2.p4.model.actions.primitives._
@@ -21,24 +20,11 @@ class QueryDrivenSemantics[T<:P4Memory](switch: Switch) extends Semantics[T](swi
     ctx.update(params.head, params(1) + params(2))
   }
 
-  override def beforeNode(src: ControlStatement, region: T): Unit = {
-    if (region.as[P4RootMemory].rootMemory.isEmpty()) {
-      System.err.println(s"bad things detected at $src")
-    } else {
-      System.err.println(s"reach $src")
-    }
-  }
-
   def analyze(action: AddHeader,
               params : List[P4Query],
               stackTrace : List[P4Action])
              (implicit ctx : P4Memory): P4Memory = {
     assert(params.size == 1)
-//    params.head.valid().ite(
-//      ctx.fails(s"loss of information in ${action :: stackTrace}"),
-//      ctx.update(params.head, params.head.zeros())
-//        .update(params.head.valid(), ctx.boolVal(true))
-//    ).asInstanceOf[P4Memory]
     ctx.update(params.head, params.head.zeros())
        .update(params.head.valid(), ctx.boolVal(true))
   }
@@ -93,8 +79,8 @@ class QueryDrivenSemantics[T<:P4Memory](switch: Switch) extends Semantics[T](swi
     val cloneSpec = ctx.standardMetadata().field("clone_spec")
     val flRef = ctx.field("field_list_ref")
     ctx.update(cloneEgress, ctx.int(1))
-      .update(cloneSpec, params.head)
-      .update(flRef, params(1))
+       .update(cloneSpec, params.head)
+       .update(flRef, params(1))
   }
   def analyze(action: CloneIngressPktToEgress,
               params : List[P4Query],
@@ -117,24 +103,15 @@ class QueryDrivenSemantics[T<:P4Memory](switch: Switch) extends Semantics[T](swi
     val cloneSpec = ctx.standardMetadata().field("clone_spec")
     val flRef = ctx.field("field_list_ref")
     ctx.update(cloneEgress, ctx.int(1))
-      .update(cloneSpec, params.head)
-      .update(flRef, params(1))
+       .update(cloneSpec, params.head)
+       .update(flRef, params(1))
   }
 
   def analyze(action: CopyHeader,
               params : List[P4Query],
               stackTrace : List[P4Action])
              (implicit ctx : P4Memory): P4Memory = {
-    val av = params.head.valid()
-    val bv = params(1).valid()
     ctx.update(params.head, params(1))
-//    (av && !bv).ite(
-//      ctx.fails(s"loss of information in ${action :: stackTrace}"),
-//      (!av && !bv).ite(
-//        ctx,
-//        ctx.update(params.head, params(1))
-//      )
-//    ).asInstanceOf[P4Memory]
   }
 
   def analyze(action: Count,
@@ -245,7 +222,8 @@ class QueryDrivenSemantics[T<:P4Memory](switch: Switch) extends Semantics[T](swi
               params : List[P4Query],
               stackTrace : List[P4Action])
              (implicit ctx : P4Memory): P4Memory = {
-    ctx
+    //TODO: add real semantics for registers
+    ctx.update(params.head, params.head.fresh())
   }
 
   def analyze(action: Resubmit,
@@ -307,7 +285,8 @@ class QueryDrivenSemantics[T<:P4Memory](switch: Switch) extends Semantics[T](swi
               params : List[P4Query],
               stackTrace : List[P4Action])
              (implicit ctx : P4Memory) : P4Memory = {
-    p4Action match {
+    before((p4Action, params, stackTrace), ctx.as[T])
+    val out = p4Action match {
       case ax : org.change.v2.p4.model.actions.primitives.Add => analyze(ax, params, stackTrace)
       case ax : org.change.v2.p4.model.actions.primitives.AddHeader => analyze(ax, params, stackTrace)
       case ax : org.change.v2.p4.model.actions.primitives.AddToField => analyze(ax, params, stackTrace)
@@ -341,6 +320,8 @@ class QueryDrivenSemantics[T<:P4Memory](switch: Switch) extends Semantics[T](swi
       case ax : org.change.v2.p4.model.actions.primitives.Truncate => analyze(ax, params, stackTrace)
       case ax : org.change.v2.p4.model.actions.P4ComplexAction => analyze(ax, params, stackTrace)
     }
+    after((p4Action, params, stackTrace), out.as[T])
+    out
   }
 
   def analyze(action: P4ComplexAction,
@@ -354,17 +335,20 @@ class QueryDrivenSemantics[T<:P4Memory](switch: Switch) extends Semantics[T](swi
     val resolutionContext = mapper.foldLeft(ctx)((acc, parm) => {
       acc.update(acc.field(action.getActionName + "_" + parm._1), parm._2)
     })
-    action.getActionList.asScala.foldLeft(ctx)((acc, actcall) => {
-      val parms = actcall.params().asScala.map(_.asInstanceOf[ParamExpression].getExpression).map(exp => {
-//        resolutionContext.validityFailure(exp).ite(
-//          resolutionContext(exp).fails(s"cannot read $exp, because of a validity failure in ${action :: stackTrace}"),
-//          resolutionContext(exp)
-//        )
-        resolutionContext(exp)
-      })
-      analyze(actcall.getP4Action, parms.toList, action :: stackTrace)(acc)
+    action.getActionList.asScala.foldLeft(resolutionContext)((acc, actcall) => {
+      val parms = actcall.params()
+        .asScala
+        .map(_.asInstanceOf[ParamExpression].getExpression)
+        .map(exp => acc(exp))
+      before(actcall, acc.as[T])
+      val res = analyze(actcall.getP4Action, parms.toList, action :: stackTrace)(acc)
+      after(actcall, res.as[T])
+      res
     })
   }
+
+  def before(obj : Object, ctx : T) : Unit = {}
+  def after(obj : Object, ctx : T) : Unit = {}
 
   protected def mkActionQuery(p4Action: P4Action,
                               lst : List[P4Query])
@@ -421,7 +405,8 @@ class QueryDrivenSemantics[T<:P4Memory](switch: Switch) extends Semantics[T](swi
 
   protected def mkQuery(src : ControlStatement,
                         rho : Option[P4BExpr],
-                        dst : ControlStatement)(implicit ctx : P4Memory) : T = {
+                        dst : ControlStatement)(implicit ctx : T) : T = {
+    before((src, rho, dst), ctx)
     val ret = if (rho.nonEmpty) {
       val what = ctx(rho.get)
       ctx.where(what)
@@ -441,7 +426,8 @@ class QueryDrivenSemantics[T<:P4Memory](switch: Switch) extends Semantics[T](swi
             val packet = crtQuery.packet()
             crtQuery.update(fld, packet(fld.len().int(0), fld.len())).update(packet, packet.pop(fld.len()))
           })
-          if (dostuff.field(es.getExpression.getPath).isArray) {
+          if (es.getExpression.isArray &&
+              es.getExpression.asInstanceOf[IndexedHeaderRef].isNext) {
             val nxtfield = dostuff.field(es.getExpression.getPath).next()
             dostuff.update(nxtfield, nxtfield + nxtfield.int(1))
           } else {
@@ -451,9 +437,9 @@ class QueryDrivenSemantics[T<:P4Memory](switch: Switch) extends Semantics[T](swi
           val packet = ctx.packet()
           val hdr1 = ctx(es.getHeaderRef)
           val valid  = ctx(es.getHeaderRef)
-          val dostuff = valid.ite(hdr1.fields().foldLeft(ctx)((crtQuery, fld) => {
+          val dostuff = valid.ite(hdr1.fields().foldLeft(ctx : P4Memory)((crtQuery, fld) => {
             crtQuery.update(packet, packet.append(hdr1.field(fld)))
-          }), ctx).asInstanceOf[P4Memory]
+          }), ctx).as[P4Memory]
           if (ctx.field(es.getHeaderRef.getPath).isArray) {
             dostuff.update(ctx.field(es.getHeaderRef.getPath).next(),
               ctx.field(es.getHeaderRef.getPath).next() + ctx.field(es.getHeaderRef.getPath).next().int(1))
@@ -491,6 +477,7 @@ class QueryDrivenSemantics[T<:P4Memory](switch: Switch) extends Semantics[T](swi
         case ac : ApplyControlStatement => ctx
       }
     }
+    after((src, rho, dst), ret.as[T])
     ret.as[T]
   }
   override def translate(src: ControlStatement,

@@ -1,8 +1,10 @@
 package org.change.v2.p4.model.control;
 
+import org.change.v2.p4.model.parser.Statement;
+
 import java.util.Objects;
 
-public class EndOfControl implements ControlStatement {
+public class EndOfControl extends Statement implements ControlStatement {
     private String control;
 
     public EndOfControl(String control) {

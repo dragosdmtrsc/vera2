@@ -170,7 +170,7 @@ class P4GrammarListener extends P4GrammarBaseListener {
 
   override def exitHeader_extract_index(ctx: Header_extract_indexContext): Unit =
     if (ctx.const_value() != null) ctx.expression = ctx.const_value().constValue.intValue()
-    else ctx.expression = -1
+    else ctx.expression = -2
 
   override def exitParser_function_declaration(ctx: P4GrammarParser.Parser_function_declarationContext): Unit = {
     ctx.functionDeclaration = ParserFunctionDeclaration(

@@ -1,13 +1,11 @@
 package org.change.parser.p4.control
 
-import org.change.plugins.vera.{ParserHelper, ParserToLogics}
 import org.change.utils.graph.LabeledGraph
 import org.change.v2.p4.model.Switch
 import org.change.v2.p4.model.control.ControlStatement
 import org.change.v2.p4.model.control.exp.P4BExpr
 
 import scala.collection.mutable
-import scala.collection.mutable.ListBuffer
 
 
 // T identifies a region data structure
@@ -24,13 +22,6 @@ abstract class Semantics[T](switch: Switch) {
   private val cfgBuilder = new AnalyzeThis(switch)
   private val controlCFGs = mutable.Map.empty[String, LabeledGraph[ControlStatement, Option[P4BExpr]]]
   private val controlSCCs = mutable.Map.empty[String, List[List[ControlStatement]]]
-
-  protected val listeners: ListBuffer[P4EventListener] = ListBuffer.empty[P4EventListener]
-
-  def listen(eventListener : P4EventListener): Semantics[T] = {
-    listeners.append(eventListener)
-    this
-  }
 
   def getCFG(control : String): LabeledGraph[ControlStatement, Option[P4BExpr]] = {
     controlCFGs.getOrElseUpdate(control, cfgBuilder.build(control))

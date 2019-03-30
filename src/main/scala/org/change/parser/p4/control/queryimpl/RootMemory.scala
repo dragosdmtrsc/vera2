@@ -160,8 +160,8 @@ case class RootMemory(structObject: StructObject,
     else a.tail.foldLeft(a.head)((acc, x) => mkAnd2(x, acc))
   }
   def mkOr2(a : ScalarValue, b : ScalarValue) : ScalarValue = a.ofType match {
-    case BoolType => new ScalarValue(BoolType, context.mkAnd(a.z3AST, b.z3AST))
-    case bvType: BVType => new ScalarValue(bvType, context.mkBVAnd(a.z3AST, b.z3AST))
+    case BoolType => new ScalarValue(BoolType, context.mkOr(a.z3AST, b.z3AST))
+    case bvType: BVType => new ScalarValue(bvType, context.mkBVOr(a.z3AST, b.z3AST))
     case _ => throw new IllegalArgumentException(s"can't and between $a and $b")
   }
   def mkXor2(a : ScalarValue, b : ScalarValue) : ScalarValue = a.ofType match {

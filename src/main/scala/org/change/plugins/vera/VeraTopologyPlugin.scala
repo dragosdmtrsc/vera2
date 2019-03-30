@@ -2,16 +2,16 @@ package org.change.plugins.vera
 
 import java.io.PrintStream
 
-import org.change.parser.p4.ControlFlowInterpreter
+import org.change.parser.p4.{ControlFlowInterpreter, IsValidQuery}
 import org.change.parser.p4.control._
-import org.change.parser.p4.control.queryimpl.{MemoryInitializer, P4RootMemory}
+import org.change.parser.p4.control.queryimpl.{MemoryInitializer, P4RootMemory, QueryBuilder}
 import org.change.parser.p4.parser.{LightParserGenerator, ParserGenerator}
 import org.change.parser.p4.tables.SymbolicSwitchInstance
 import org.change.plugins.eq.{InputPacketPlugin, NoPacketPlugin, PluginBuilder, TopologyPlugin}
 import org.change.v2.analysis.executor.CodeAwareInstructionExecutor
 import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.p4.model.Switch
-import org.change.v2.p4.model.control.ControlStatement
+import org.change.v2.p4.model.control.{ControlStatement, EndOfControl}
 import org.change.v2.p4.model.control.exp.P4BExpr
 import org.change.v2.p4.model.parser.ReturnStatement
 import org.change.v3.semantics.SimpleMemory
@@ -91,25 +91,11 @@ object VeraTopologyPlugin {
           ifaces.put(h, s"eth$h")
         })
       }
-      val solver = context.mkSolver()
+      val qb = new IsValidQuery(sw, context)
       val astToFail = mutable.Map.empty[Z3AST, (ControlStatement, SimpleMemory)]
-      val SEFLSemantics = new QueryDrivenSemantics[P4RootMemory](sw) {
-        override def finishNode(src: ControlStatement, region: Option[P4RootMemory]): Unit = {
-          region.filter(r => {
-            !r.rootMemory.isEmpty()
-          }).foreach(r => {
-            System.err.println(s"possible error in $src")
-          })
-        }
-
-        override def mkQuery(src: ControlStatement,
-                             rho: Option[P4BExpr],
-                             dst: ControlStatement)(implicit ctx: P4Memory): P4RootMemory = {
-          val out = super.mkQuery(src, rho, dst)(ctx)
-          out
-        }
-      }
-
+      val SEFLSemantics = new SemaWithEvents[P4RootMemory](sw).addListener(
+        qb
+      )
       val ph = new ParserHelper(sw)
       val ps = new PrintStream("bla.dot")
       ps.println("digraph G {")
@@ -125,14 +111,19 @@ object VeraTopologyPlugin {
 
       val first = SEFLSemantics.getFirst("parser")
       val execd = SEFLSemantics.execute("parser")(Map(first -> MemoryInitializer.initialize(sw)(context)))
-      println(execd.head._1)
+      val goingOut = execd(new EndOfControl("parser"))
       val firstIngress = SEFLSemantics.getFirst("ingress")
-      val exegress = SEFLSemantics.execute("ingress")(Map(firstIngress -> execd.head._2))
-//      val postingress = exegress.head._2
-//      val firstEgress = SEFLSemantics.getFirst("egress")
-//      val all = SEFLSemantics.execute("egress")(Map(firstEgress -> exegress.head._2))
+      val exegress = SEFLSemantics.execute("ingress")(Map(firstIngress -> goingOut))
+      val postingress = exegress(new EndOfControl("ingress"))
+      val firstEgress = SEFLSemantics.getFirst("egress")
+      val all = SEFLSemantics.execute("egress")(Map(firstEgress -> postingress))
       val end = System.currentTimeMillis()
       System.err.println(s"propagation took ${end - start}ms")
+      for (a <- qb.possibleLocations()) {
+        System.err.println(a._1)
+      }
+      val qend = System.currentTimeMillis()
+      System.err.println(s"validity querying took ${qend - end}ms")
       System.exit(0)
 
       val switchInstance = SymbolicSwitchInstance.fromFileWithSyms(switchName,

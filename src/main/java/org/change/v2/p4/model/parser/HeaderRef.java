@@ -12,7 +12,11 @@ public class HeaderRef extends Ref {
         this.path = instance.getName();
         return this;
     }
-
+    public HeaderRef() {}
+    public HeaderRef(HeaderRef h) {
+        this.instance = h.instance;
+        setPath(h.getPath());
+    }
     @Override
     public HeaderRef setPath(String path) {
         super.setPath(path);
