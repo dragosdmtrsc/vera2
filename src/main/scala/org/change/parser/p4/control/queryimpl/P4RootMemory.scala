@@ -129,8 +129,10 @@ case class P4RootMemory(switch : Switch,
       case sv : ScalarValue =>
         if (thn.isInstanceOf[P4RootMemory]) {
           assert(els.isInstanceOf[P4RootMemory])
-          P4RootMemory.this.copy(rootMemory = rootMemory.where(sv)) ||
-            P4RootMemory.this.copy(rootMemory = rootMemory.where(rootMemory.mkNot(sv)))
+          val rmt = thn.as[P4RootMemory]
+          val rme = els.as[P4RootMemory]
+          rmt.copy(rootMemory = rmt.rootMemory.where(sv)) ||
+            rme.copy(rootMemory = rme.rootMemory.where(rmt.rootMemory.mkNot(sv)))
         } else {
           copy(
             value = rootMemory.mkITE(sv, asWrapper(thn).value, asWrapper(els).value),
@@ -238,6 +240,23 @@ case class P4RootMemory(switch : Switch,
   override def where(p4Query: P4Query): P4Memory = {
     copy(rootMemory = rootMemory.where(p4Query.asInstanceOf[ValueWrapper].ast))
   }
+
+  override def when(whenCases: Iterable[(P4Query, P4Query)]): P4Query = {
+    if (whenCases.isEmpty)
+      throw new IllegalArgumentException("cannot have an empty set of when clauses")
+    if (!whenCases.forall(_._2.isInstanceOf[P4RootMemory]))
+      throw new AssertionError("when only works on " + classOf[P4RootMemory])
+    if (whenCases.size == 1) {
+      val first = whenCases.head._2.as[P4RootMemory]
+      first.where(whenCases.head._1)
+    } else {
+      val first = whenCases.head._2.as[P4RootMemory]
+      val merged = whenCases.tail.foldLeft(first.where(whenCases.head._1))((acc, crt) => {
+        (crt._2.as[P4RootMemory].where(crt._1) || acc).as[P4RootMemory]
+      })
+      merged
+    }
+  }
   def asWrapper(p4Query: P4Query) : AbsValueWrapper = p4Query match {
     case x : AbsValueWrapper => x
     case m : P4RootMemory =>
@@ -272,8 +291,11 @@ case class P4RootMemory(switch : Switch,
 
   override def as[T <: P4Query]: T = super.as
 
-  override def ok(): P4Query =
-    where(errorCause() === errorCause().int(0))
+  override def ok(): P4Query = {
+    val n = where(errorCause() === errorCause().int(0))
+      .update(errorCause(), errorCause().zeros())
+    n
+  }
 
   override def err(): P4Query =
     where(errorCause() != errorCause().int(0))

@@ -1,6 +1,7 @@
 package org.change.parser.p4.control
 
 import org.change.parser.p4.control.SMInstantiator._
+import org.change.parser.p4.control.queryimpl.P4RootMemory
 import org.change.v2.p4.model.Switch
 import org.change.v2.p4.model.actions.P4ActionCall.ParamExpression
 import org.change.v2.p4.model.actions.primitives._
@@ -18,6 +19,14 @@ class QueryDrivenSemantics[T<:P4Memory](switch: Switch) extends Semantics[T](swi
              (implicit ctx : P4Memory): P4Memory = {
     assert(params.size == 3)
     ctx.update(params.head, params(1) + params(2))
+  }
+
+  override def beforeNode(src: ControlStatement, region: T): Unit = {
+    if (region.as[P4RootMemory].rootMemory.isEmpty()) {
+      System.err.println(s"bad things detected at $src")
+    } else {
+      System.err.println(s"reach $src")
+    }
   }
 
   def analyze(action: AddHeader,
@@ -415,23 +424,11 @@ class QueryDrivenSemantics[T<:P4Memory](switch: Switch) extends Semantics[T](swi
                         dst : ControlStatement)(implicit ctx : P4Memory) : T = {
     val ret = if (rho.nonEmpty) {
       val what = ctx(rho.get)
-      val validFail = ctx.validityFailure(rho.get)
-//      validFail.ite(
-//        ctx.fails(s"validity failure reading ${rho.get}"),
-//        ctx.where(what)
-//      )
       ctx.where(what)
     } else {
       src match {
+        case _ : EndOfControl => ctx
         case ss : SetStatement =>
-//          val validFail = ctx.validityFailure(ss.getLeft)
-//          val validFailSrc = ctx.validityFailure(ss.getRightE)
-//          validFail.ite(ctx.fails(s"cannot write to invalid header ${ss.getLeft}"),
-//            validFailSrc.ite(
-//              ctx.fails(s"cannot read from an invalid header ${ss.getRightE}"),
-//              ctx.update(ctx(ss.getLeft), ctx(ss.getRightE))
-//            )
-//          ).as[P4Memory]
           ctx.update(ctx(ss.getLeft), ctx(ss.getRightE))
         case es : ExtractStatement =>
           val hdr1 = ctx(es.getExpression)
@@ -464,11 +461,6 @@ class QueryDrivenSemantics[T<:P4Memory](switch: Switch) extends Semantics[T](swi
             dostuff
           }
         case ce : CaseEntry =>
-          val valfail = ctx.validityFailure(ce.getBExpr)
-//          valfail.ite(
-//            ctx.fails(s"validity failure reading ${ce.getBExpr}"),
-//            ctx.where(ctx(ce.getBExpr))
-//          ).as[P4Memory]
           ctx.where(ctx(ce.getBExpr))
         case rs : ReturnStatement => ctx
         case rs : ReturnSelectStatement => ctx
@@ -506,7 +498,9 @@ class QueryDrivenSemantics[T<:P4Memory](switch: Switch) extends Semantics[T](swi
                          dst: ControlStatement)(from: T): T = {
     mkQuery(src, rho, dst)(from)
   }
-  override def merge(crt: T, merge: T): T = (crt || merge).as[T]
+  override def merge(crt: T, merge: T): T = {
+    (crt || merge).as[T]
+  }
   override def stop(region: T): T = region.err().as[T]
   override def success(region: T): T = region.ok().as[T]
 }

@@ -78,6 +78,9 @@ class AnalyzeThis(switch: Switch) {
       edges.clear()
       outstanding.clear()
       lookAt(ctrl.getStatement)
+      if (outstanding.nonEmpty) {
+        mkEdge(new EndOfControl(controlName))
+      }
       new LabeledGraph(edges.toMap)
     } else {
       if (controlName == "parser") {

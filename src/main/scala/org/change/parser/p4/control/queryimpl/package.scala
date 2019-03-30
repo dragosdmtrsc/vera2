@@ -1,6 +1,7 @@
 package org.change.parser.p4.control
 
 import org.change.plugins.vera._
+import z3.Z3Wrapper
 import z3.scala.Z3Context.{RecursiveType, RegularSort}
 import z3.scala.{Z3AST, Z3Context, Z3FuncDecl, Z3Sort}
 
@@ -21,13 +22,17 @@ package object queryimpl {
   case class ArrayObject(ofType: FixedArrayType,
                          next : ScalarValue,
                          elems : List[Value]) extends MemoryObject
-  class ScalarValue(val ofType : P4Type, val z3AST: Z3AST) extends Value {
+  class ScalarValue(val ofType : P4Type,
+                    val z3AST: Z3AST,
+                    var maybeBoolean : Option[Boolean] = None,
+                    var maybeInt : Option[BigInt] = None) extends Value {
     private lazy val ctx = z3AST.context
     def copy(z3AST: Z3AST = this.z3AST) : ScalarValue = {
       new ScalarValue(ofType, z3AST)
     }
-    def tryResolve : Option[Int] = {
-      ctx.getNumeralInt(ctx.simplifyAst(z3AST)).value
+    def tryResolve : Option[BigInt] = {
+      if (maybeInt.nonEmpty) maybeInt
+      else z3AST.context.getNumeralInt(z3AST.context.simplifyAst(z3AST)).value.map(BigInt(_))
     }
   }
   type ChurnedMemPath  = Iterable[(ScalarValue, MemPath)]
@@ -108,10 +113,10 @@ package object queryimpl {
       val tp = apply(p4Type)
       if (p4Type == BoolType) {
         if (v == 0)
-          new ScalarValue(BoolType, tp.context.mkFalse())
+          new ScalarValue(BoolType, tp.context.mkFalse(), maybeBoolean = Some(false))
         else new ScalarValue(BoolType, tp.context.mkTrue())
       } else {
-        new ScalarValue(p4Type, tp.context.mkNumeral(v.toString(), tp))
+        new ScalarValue(p4Type, tp.context.mkNumeral(v.toString(), tp), maybeInt = Some(v))
       }
     }
   }

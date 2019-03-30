@@ -38,10 +38,13 @@ class SolveTables(switch: Switch) extends ASTVisitor {
     tableDeclaration.getMatches.asScala.foreach(m => {
       solve(m.getReferenceKey)
     })
-    if (tableDeclaration.hasProfile)
-      if (!tableDeclaration.actionProfile.getActions.contains("no_op"))
+    if (tableDeclaration.hasProfile) {
+      //bind reference to real object
+      tableDeclaration.setProfile(switch.getProfile(tableDeclaration.actionProfile().getName))
+      if (!tableDeclaration.actionProfile.getActions.contains("no_op")) {
         tableDeclaration.actionProfile.getActions.add("no_op")
-    else {
+      }
+    } else {
       if (!tableDeclaration.getAllowedActions.asScala.exists(p => p.getActionType == P4ActionType.NoOp)) {
         tableDeclaration.addAction(switch.action("no_op"))
       }

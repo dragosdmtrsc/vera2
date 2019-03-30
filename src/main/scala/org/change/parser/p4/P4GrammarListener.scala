@@ -14,6 +14,7 @@ import org.change.v2.p4.model
 import org.change.v2.p4.model._
 import org.change.v2.p4.model.control._
 import org.change.v2.p4.model.control.exp._
+import org.change.v2.p4.model.fieldlists.FieldList.PayloadEntry
 import org.change.v2.p4.model.parser._
 import org.change.v2.p4.model.table.{MatchKind, TableDeclaration, TableMatch}
 
@@ -356,7 +357,7 @@ class P4GrammarListener extends P4GrammarBaseListener {
       ctx.entry = new fieldlists.FieldList.FieldValueEntry(ctx.field_value().fieldValue,
         ctx.field_value().width)
     } else {
-      throw new UnsupportedOperationException("can't handle payload field lists")
+      ctx.entry = new PayloadEntry
     }
   }
 

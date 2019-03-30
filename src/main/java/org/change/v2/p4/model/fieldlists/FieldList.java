@@ -59,6 +59,7 @@ public class FieldList {
             return headerRef;
         }
     }
+    public static class PayloadEntry implements Entry {}
     public static class FieldValueEntry implements Entry {
         private BigInt number;
         private int width;

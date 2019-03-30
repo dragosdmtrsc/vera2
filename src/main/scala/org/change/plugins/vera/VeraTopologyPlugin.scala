@@ -12,9 +12,10 @@ import org.change.v2.analysis.executor.CodeAwareInstructionExecutor
 import org.change.v2.analysis.processingmodels.Instruction
 import org.change.v2.p4.model.Switch
 import org.change.v2.p4.model.control.ControlStatement
+import org.change.v2.p4.model.control.exp.P4BExpr
 import org.change.v2.p4.model.parser.ReturnStatement
 import org.change.v3.semantics.SimpleMemory
-import z3.scala.Z3AST
+import z3.scala.{Z3AST, Z3Context}
 import org.change.v3.semantics._
 
 import scala.collection.mutable
@@ -100,28 +101,36 @@ object VeraTopologyPlugin {
             System.err.println(s"possible error in $src")
           })
         }
+
+        override def mkQuery(src: ControlStatement,
+                             rho: Option[P4BExpr],
+                             dst: ControlStatement)(implicit ctx: P4Memory): P4RootMemory = {
+          val out = super.mkQuery(src, rho, dst)(ctx)
+          out
+        }
       }
 
       val ph = new ParserHelper(sw)
-
-      val ps1 = new PrintStream("old.dot")
-      ps1.println("digraph G {")
-      ph.unrolledCFG.toDot(ps1)
-      ps1.println("}")
-      ps1.close()
-
       val ps = new PrintStream("bla.dot")
       ps.println("digraph G {")
       ph.mkUnrolledLabeledGraph.graphView.toDot(ps)
       ps.println("}")
       ps.close()
+
+      val psi = new PrintStream("ingress.dot")
+      psi.println("digraph G {")
+      SEFLSemantics.getCFG("ingress").graphView.toDot(psi)
+      psi.println("}")
+      psi.close()
+
       val first = SEFLSemantics.getFirst("parser")
       val execd = SEFLSemantics.execute("parser")(Map(first -> MemoryInitializer.initialize(sw)(context)))
+      println(execd.head._1)
       val firstIngress = SEFLSemantics.getFirst("ingress")
       val exegress = SEFLSemantics.execute("ingress")(Map(firstIngress -> execd.head._2))
-      val postingress = exegress.head._2
-      val firstEgress = SEFLSemantics.getFirst("egress")
-      val all = SEFLSemantics.execute("egress")(Map(firstEgress -> exegress.head._2))
+//      val postingress = exegress.head._2
+//      val firstEgress = SEFLSemantics.getFirst("egress")
+//      val all = SEFLSemantics.execute("egress")(Map(firstEgress -> exegress.head._2))
       val end = System.currentTimeMillis()
       System.err.println(s"propagation took ${end - start}ms")
       System.exit(0)

@@ -14,8 +14,8 @@ case class RootMemory(structObject: StructObject,
     val fromI = from.asInstanceOf[ScalarValue].tryResolve.get
     val toI = to.asInstanceOf[ScalarValue].tryResolve.get
     new ScalarValue(
-      BVType(toI - fromI),
-      typeMapper.packetWrapper.take(scalarValue.z3AST, fromI, toI)
+      BVType((toI - fromI).toInt),
+      typeMapper.packetWrapper.take(scalarValue.z3AST, fromI.toInt, toI.toInt)
     )
   }
 
@@ -69,11 +69,13 @@ case class RootMemory(structObject: StructObject,
       this
     } else {
       val (c1, c2, va) = leftMerge(structObject, other.structObject)
+      val c1s = context.simplifyAst(c1.z3AST)
+      val c2s = context.simplifyAst(c2.z3AST)
       copy(
         structObject = va.asInstanceOf[StructObject],
         condition = context.mkOr(
-          other.where(c2).condition,
-          where(c1).condition
+          other.where(c2s).condition,
+          where(c1s).condition
         )
       )
     }
@@ -121,7 +123,7 @@ case class RootMemory(structObject: StructObject,
           val scalarV = v.asInstanceOf[ScalarValue]
           if (n < m) {
             new ScalarValue(
-              BVType(n), context.mkExtract(n, 0,
+              BVType(n), context.mkExtract(n - 1, 0,
                 scalarV.z3AST))
           } else {
             new ScalarValue(
@@ -215,9 +217,9 @@ case class RootMemory(structObject: StructObject,
         case sv : ScalarValue if sv.ofType == IntType =>
           sv.tryResolve.map(idx => {
             if (idx >= 0 && idx < t.sz) {
-              (flds(idx), (mkBool(true), idx) :: Nil)
+              (flds(idx.toInt), (mkBool(true), idx.toInt) :: Nil)
             } else {
-              (typeMapper.zeros(t.inner), (mkBool(true), idx) :: Nil)
+              (typeMapper.zeros(t.inner), (mkBool(true), idx.toInt) :: Nil)
             }
           }).getOrElse({
             val churn = flds.indices.map(u => {
