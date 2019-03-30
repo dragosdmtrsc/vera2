@@ -435,16 +435,17 @@ class QueryDrivenSemantics[T<:P4Memory](switch: Switch) extends Semantics[T](swi
           ctx.update(ctx(ss.getLeft), ctx(ss.getRightE))
         case es : ExtractStatement =>
           val hdr1 = ctx(es.getExpression)
-          val packet = ctx.packet()
           val validRef = hdr1.valid()
           val dostuff = hdr1.fields()
             .filter(_ != "IsValid")
             .foldLeft(ctx.update(validRef, validRef.int(1)))((crtQuery, fname) => {
+            val hdr1 = crtQuery(es.getExpression)
             val fld = hdr1.field(fname)
+            val packet = crtQuery.packet()
             crtQuery.update(fld, packet(fld.len().int(0), fld.len())).update(packet, packet.pop(fld.len()))
           })
-          if (ctx.field(es.getExpression.getPath).isArray) {
-            val nxtfield = ctx.field(es.getExpression.getPath).next()
+          if (dostuff.field(es.getExpression.getPath).isArray) {
+            val nxtfield = dostuff.field(es.getExpression.getPath).next()
             dostuff.update(nxtfield, nxtfield + nxtfield.int(1))
           } else {
             dostuff

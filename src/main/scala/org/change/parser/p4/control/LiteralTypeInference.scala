@@ -3,6 +3,7 @@ package org.change.parser.p4.control
 import org.change.plugins.vera.BVType
 import org.change.v2.p4.model.Switch
 import org.change.v2.p4.model.control.exp._
+import org.change.v2.p4.model.parser.SetStatement
 import z3.scala.Z3Context
 
 class LiteralTypeInference(switch : Switch) extends ASTVisitor {
@@ -32,6 +33,14 @@ class LiteralTypeInference(switch : Switch) extends ASTVisitor {
   override def postorder(literalExpr: LiteralExpr): Unit = {
     if (literalExpr.getWidth > 0)
       typeSolver.equal(literalExpr, BVType(literalExpr.getWidth))
+  }
+
+  override def postorder(setStatement : SetStatement) : Unit = {
+    val left = setStatement.getLeft.getFieldReference
+    val right = setStatement.getRightE
+    if (right.isInstanceOf[LiteralExpr]) {
+      typeSolver.equal(right, BVType(left.getLength))
+    }
   }
 
   override def postorder(binExpr: BinExpr): Unit = {

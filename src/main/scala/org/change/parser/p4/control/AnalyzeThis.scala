@@ -81,22 +81,7 @@ class AnalyzeThis(switch: Switch) {
       new LabeledGraph(edges.toMap)
     } else {
       if (controlName == "parser") {
-        parserHelper.unrolledCFG.mapNodes(stat => {
-          (stat._1 match {
-            case ss : SetStatement =>
-              new SetStatement(ss.getLeft, ss.getRight)
-            case cne : CaseNotEntry =>
-              new CaseNotEntry(cne)
-            case ce : CaseEntry =>
-              new CaseEntry(ce)
-            case rs : ReturnStatement =>
-              new ReturnStatement(rs)
-            case rss : ReturnSelectStatement =>
-              new ReturnSelectStatement(rss)
-            case es : ExtractStatement =>
-              new ExtractStatement(es)
-          }) : ControlStatement
-        }).label((_, _) => Option.empty[P4BExpr])
+        parserHelper.mkUnrolledLabeledGraph
       } else if (controlName == "deparser") {
         new Graph(parserHelper.cfg.scc().flatMap(r => {
           r.collect {

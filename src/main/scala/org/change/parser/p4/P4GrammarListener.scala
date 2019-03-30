@@ -894,12 +894,6 @@ class P4GrammarListener extends P4GrammarBaseListener {
   }
 
   override def exitValue_or_masked(ctx : Value_or_maskedContext) : Unit = {
-    ctx.v = new Value(ctx.field_value(0).const_value().constValue.toLong,
-      if (ctx.field_value().size() > 1)
-        ctx.field_value(1).const_value().constValue.toLong
-      else
-        -1l
-      )
     val fv0 = ctx.field_value(0)
     ctx.bvValue = new LiteralExpr(fv0.fieldValue, fv0.width)
     if (ctx.field_value().size() > 1) {
@@ -911,12 +905,9 @@ class P4GrammarListener extends P4GrammarBaseListener {
   }
 
   override def exitValue_list(ctx: Value_listContext): Unit = {
-    if (ctx.value_or_masked() != null && !ctx.value_or_masked().isEmpty)
-      ctx.values = ctx.value_or_masked().map(x => x.v)
-    else
-      ctx.values = null
     ctx.bvValues = ctx.value_or_masked().map(_.bvValue)
     ctx.bvMasks = ctx.value_or_masked().map(_.bvMask)
+    ctx.isDefault = ctx.value_or_masked().isEmpty
   }
 
   override def exitCase_entry(ctx: Case_entryContext): Unit = {
@@ -931,19 +922,10 @@ class P4GrammarListener extends P4GrammarBaseListener {
       assert(ctx.value_list().bvMasks.size() == ctx.value_list().bvValues.size())
       ctx.caseEntry = new CaseEntry().setBvMasks(ctx.value_list().bvMasks).setBvValues(ctx.value_list().bvValues)
     }
-    ctx.caseEntry = (if (ctx.value_list().values == null) {
-      // default
-      new CaseEntry().setDefault()
-    } else {
-      // useful
-      ctx.value_list().values.foldLeft(new CaseEntry())((acc, x) => {
-        acc.addValue(x)
-      })
-    }).setReturnStatement(retst)
+    ctx.caseEntry.setReturnStatement(retst)
   }
   override def exitSelect_exp(ctx: Select_expContext): Unit = {
     ctx.bvexpressions = ctx.exp().map(_.bvexpr)
-    ctx.expressions = new util.ArrayList[Expression]()//ctx.field_or_data_ref().map(x => x.expression)
   }
   private var currentControl : ControlBlock = null
   private val tableDecls : util.Set[TableDeclaration] = new util.HashSet[TableDeclaration]()

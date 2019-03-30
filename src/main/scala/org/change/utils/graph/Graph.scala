@@ -325,11 +325,11 @@ class Graph[T](val edges : Map[T, List[T]]) {
       if (!visited.contains(x._1)) {
         visited.add(x._1)
         os.println(x._1.hashCode() + " [label=\"" + x._1 + "\"];")
-        for (l <- x._2) {
-          if (!visited.contains(l)) {
-            visited.add(l)
-            os.println(l.hashCode() + " [label=\"" + l + "\"];")
-          }
+      }
+      for (l <- x._2) {
+        if (!visited.contains(l)) {
+          visited.add(l)
+          os.println(l.hashCode() + " [label=\"" + l + "\"];")
         }
       }
     }

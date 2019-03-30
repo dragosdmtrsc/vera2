@@ -60,6 +60,10 @@ class ParmRefInference(switch: Switch) extends ASTVisitor {
     f.setFieldReference(f.getHeaderRef.getInstance().getLayout.getField(f.getField))
   }
 
+  override def postorder(setStatement: SetStatement) : Unit = {
+    setStatement.setLeft(solveFieldRef(setStatement.getLeft))
+  }
+
   private def solveHeader(hdrref: HeaderRef): HeaderRef = {
     val hdr = switch.getInstance(hdrref.getPath)
     assert(hdr != null)

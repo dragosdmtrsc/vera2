@@ -28,7 +28,7 @@ public class ReturnSelectStatement extends Statement {
     @Override
     public String toString() {
         CaseEntry h = caseEntryList.get(0);
-        StringBuilder crt = new StringBuilder("case(");
+        StringBuilder crt = new StringBuilder("return case(");
         boolean first= true;
         for (P4Expr e : h.getBVExpressions()) {
             if (!first)

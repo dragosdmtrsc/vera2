@@ -1,5 +1,7 @@
 package org.change.plugins.vera
 
+import java.io.PrintStream
+
 import org.change.parser.p4.ControlFlowInterpreter
 import org.change.parser.p4.control._
 import org.change.parser.p4.control.queryimpl.{MemoryInitializer, P4RootMemory}
@@ -99,6 +101,20 @@ object VeraTopologyPlugin {
           })
         }
       }
+
+      val ph = new ParserHelper(sw)
+
+      val ps1 = new PrintStream("old.dot")
+      ps1.println("digraph G {")
+      ph.unrolledCFG.toDot(ps1)
+      ps1.println("}")
+      ps1.close()
+
+      val ps = new PrintStream("bla.dot")
+      ps.println("digraph G {")
+      ph.mkUnrolledLabeledGraph.graphView.toDot(ps)
+      ps.println("}")
+      ps.close()
       val first = SEFLSemantics.getFirst("parser")
       val execd = SEFLSemantics.execute("parser")(Map(first -> MemoryInitializer.initialize(sw)(context)))
       val firstIngress = SEFLSemantics.getFirst("ingress")

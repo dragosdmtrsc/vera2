@@ -72,5 +72,8 @@ case class QueryMaker(context : P4Memory,
     exprs.put(fieldRefExpr, hquery)
   }
 
-  override def postorder(dre: DataRefExpr): Unit = super.postorder(dre)
+  override def postorder(dre: DataRefExpr): Unit = {
+    exprs.put(dre, context.packet()(context.int(dre.getDataRef.getStart),
+      context.int(dre.getDataRef.getEnd)))
+  }
 }

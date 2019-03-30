@@ -2,7 +2,8 @@ package org.change.plugins.vera
 
 import org.change.parser.p4.control.{ASTVisitor, Traverse}
 import org.change.utils.graph.{Graph, LabeledGraph}
-import org.change.v2.p4.model.control.exp.FieldRefExpr
+import org.change.v2.p4.model.control.ControlStatement
+import org.change.v2.p4.model.control.exp.{FieldRefExpr, P4BExpr}
 import org.change.v2.p4.model.parser._
 import org.change.v2.p4.model.{ArrayInstance, HeaderInstance, ISwitchInstance, Switch}
 import org.change.v3.semantics.{SimpleMemory, SimpleMemoryObject}
@@ -58,6 +59,30 @@ class ParserHelper(switch : Switch) {
     lastExtract.filter(_._2.nonEmpty).foreach(x => {
       Traverse(new SetEmpty(x._2.get.getExpression))(x._1)
     })
+  }
+
+  lazy val mkUnrolledLabeledGraph: LabeledGraph[ControlStatement, Option[P4BExpr]] = {
+    val currentMap = mutable.Map.empty[(Statement, Int), ControlStatement]
+    def node(statement: Statement, idx : Int,
+             maybeNew : () => ControlStatement) : ControlStatement = {
+      currentMap.getOrElseUpdate((statement, idx), maybeNew())
+    }
+    unrolledCFG.mapNodes(stat => {
+      (stat._1 match {
+        case ss : SetStatement =>
+          node(ss, stat._2, () => new SetStatement(ss))
+        case ce : CaseEntry =>
+          node(ce, stat._2, () => new CaseEntry(ce))
+        case rs : ReturnStatement =>
+          node(rs, stat._2, () => {
+            new ReturnStatement(rs, "_" + stat._2 + "")
+          })
+        case rss : ReturnSelectStatement =>
+          node(rss, stat._2, () => new ReturnSelectStatement(rss))
+        case es : ExtractStatement =>
+          node(es, stat._2, () => new ExtractStatement(es))
+      }) : ControlStatement
+    }).label((_, _) => Option.empty[P4BExpr])
   }
 
   lazy val unrolledCFG : Graph[(Statement, Int)] = {

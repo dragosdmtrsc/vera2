@@ -2,7 +2,9 @@ package org.change.parser.p4.control
 
 import org.change.plugins.vera._
 import z3.scala.Z3Context.{RecursiveType, RegularSort}
-import z3.scala.{Z3AST, Z3Context, Z3Sort}
+import z3.scala.{Z3AST, Z3Context, Z3FuncDecl, Z3Sort}
+
+import scala.collection.mutable
 
 package object queryimpl {
   trait Value {
@@ -31,9 +33,19 @@ package object queryimpl {
   type ChurnedMemPath  = Iterable[(ScalarValue, MemPath)]
 
   class PacketWrapper(implicit context: Z3Context) {
+
+    private val takeFuns = mutable.Map.empty[(Int, Int), Z3FuncDecl]
+
+    def getTakeFun(start : Int, end : Int): Z3FuncDecl = {
+      takeFuns.getOrElseUpdate((start, end),
+        context.mkFuncDecl(s"take_${start}_$end",
+            packetSort._1, context.mkBVSort(end - start))
+      )
+    }
+
     val packetSort = context.mkADTSorts(Seq(
       ("Packet",
-        Seq("nil", "take"),
+        Seq("nil", "pop"),
         Seq(
           Seq(),
           Seq(("pin", RecursiveType(0)),
@@ -43,8 +55,23 @@ package object queryimpl {
       )
     )).head
 
+    def pop(packet: Z3AST, nr : Z3AST): Z3AST = {
+      if (packet.getSort != sort()) {
+        throw new IllegalArgumentException(s"cannot apply take on $packet, " +
+          s"expecting something of sort ${sort()}")
+      }
+      packetSort._2(1)(packet, nr)
+    }
+
     def zero() : Z3AST = packetSort._2.head()
     def sort() : Z3Sort = packetSort._1
+    def take(p : Z3AST, start : Int, end : Int) : Z3AST = {
+      if (p.getSort != sort()) {
+        throw new IllegalArgumentException(s"cannot apply take on $p, " +
+          s"expecting something of sort ${sort()}")
+      }
+      getTakeFun(start, end)(p)
+    }
   }
 
   class TypeMapper()(implicit context: Z3Context) {

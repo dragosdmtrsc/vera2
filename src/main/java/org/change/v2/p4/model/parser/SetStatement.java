@@ -22,6 +22,16 @@ public class SetStatement extends Statement {
         this.left = left;
         this.right = right;
     }
+    public SetStatement(SetStatement ss) {
+        this.left = ss.left;
+        this.right = ss.right;
+        this.rightE = ss.rightE;
+    }
+
+    public SetStatement setLeft(FieldRef left) {
+        this.left = left;
+        return this;
+    }
 
     public P4Expr getRightE() {
         return rightE;
@@ -34,6 +44,6 @@ public class SetStatement extends Statement {
 
     @Override
     public String toString() {
-        return left.getHeaderRef().getPath() + "." + left.getField() + " = " + getRight().toString();
+        return left + " = " + getRightE().toString();
     }
 }

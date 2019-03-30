@@ -5,6 +5,7 @@ import org.change.v3.syntax.Literal;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Created by dragos on 12.09.2017.
@@ -45,20 +46,24 @@ public class CaseEntry extends Statement {
             }
             return nxt;
         } else {
-            int sz = 0;
-            P4BExpr nxt = LiteralBool.trueLit();
-            for (int i = 0; i < sz; ++i) {
-                P4Expr crt = bvexpressions.get(i);
-                P4Expr val = bvValues.get(i);
-                P4Expr mask = bvMasks.get(i);
-                P4BExpr thiscase = RelOp.from(
-                "==",
-                    BinExpr.from("&", crt, mask),
-                    BinExpr.from("&", val, mask)
-                );
-                nxt = BinBExpr.from("and", nxt, thiscase);
+            int sz = bvexpressions.size();
+            if (sz == bvValues.size()) {
+                P4BExpr nxt = LiteralBool.trueLit();
+                for (int i = 0; i < sz; ++i) {
+                    P4Expr crt = bvexpressions.get(i);
+                    P4Expr val = bvValues.get(i);
+                    P4Expr mask = bvMasks.get(i);
+                    P4BExpr thiscase = RelOp.from(
+                            "==",
+                            BinExpr.from("&", crt, mask),
+                            BinExpr.from("&", val, mask)
+                    );
+                    nxt = BinBExpr.from("and", nxt, thiscase);
+                }
+                return nxt;
+            } else {
+                throw new AssertionError(bvValues + " should be of length " + bvexpressions.size());
             }
-            return nxt;
         }
     }
 
@@ -118,9 +123,8 @@ public class CaseEntry extends Statement {
 
     @Override
     public String toString() {
-        return "CaseEntry{" +
-                "expressions=" + expressions +
-                ", returnStatement=" + returnStatement +
-                '}';
+        if (!isDefault())
+            return "case(" + bvValues + "&" + bvMasks + ")";
+        return "default";
     }
 }

@@ -49,9 +49,14 @@ case class P4RootMemory(switch : Switch,
 
     // packet mapper
     //TODO: add proper code here
-    override def apply(from: P4Query, to: P4Query): P4Query = this
+    override def apply(from: P4Query, to: P4Query): P4Query = {
+      rv(rootMemory.mkPacketTake(
+        value,
+        from.as[ValueWrapper].value, to.as[ValueWrapper].value))
+    }
 
-    override def pop(n: P4Query): PacketQuery = this//super.pop(n)
+    override def pop(n: P4Query): PacketQuery =
+      rv(rootMemory.mkPacketPop(value, n.as[ValueWrapper].value))
 
     override def append(what: P4Query): PacketQuery = this//super.append(what)
 

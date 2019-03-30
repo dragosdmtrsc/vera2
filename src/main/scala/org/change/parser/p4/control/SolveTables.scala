@@ -71,11 +71,13 @@ class SolveTables(switch: Switch) extends ASTVisitor {
 object SolveTables {
   def apply(switch : Switch) : Switch = {
     Traverse(new ResolveLatest)(switch)
-    Traverse(new MkDefaultCases)(switch)
     Traverse(new SolveTables(switch))(switch)
     Traverse(new ParmRefInference(switch))(switch)
     Traverse(new ParmTypeInference(switch))(switch)
     Traverse(new LiteralTypeInference(switch))(switch)
+    Traverse(new SplitCaseEntries(switch))(switch)
+    Traverse(new MkCaseEntryLiteralWidth(switch))(switch)
+    Traverse(new MkDefaultCases)(switch)
     switch
   }
 }

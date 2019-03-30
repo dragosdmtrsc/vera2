@@ -79,7 +79,9 @@ abstract class Semantics[T](switch: Switch) {
     val lcfg = getCFG(control)
     val cfg = lcfg.graphView
     cfg.scc().reverse.foldLeft(current)((now, scc) => {
-      assert(scc.size == 1)
+      if (scc.size != 1) {
+        throw new AssertionError(s"something is wrong in $control, scc <> 1" + scc)
+      }
       val node = scc.head
       val neighs = lcfg.edges.getOrElse(node, Nil)
       val my = now.get(node)

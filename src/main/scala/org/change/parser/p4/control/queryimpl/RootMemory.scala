@@ -1,11 +1,33 @@
 package org.change.parser.p4.control.queryimpl
 
+import org.change.parser.p4.control.P4Query
 import org.change.plugins.vera.{FixedArrayType, _}
 import z3.scala.{Z3AST, Z3Context}
 
 case class RootMemory(structObject: StructObject,
                       condition: Z3AST)
                      (implicit val context : Z3Context) {
+  def mkPacketTake(value: Value,
+                   from: Value,
+                   to: Value): Value = {
+    val scalarValue = value.asInstanceOf[ScalarValue]
+    val fromI = from.asInstanceOf[ScalarValue].tryResolve.get
+    val toI = to.asInstanceOf[ScalarValue].tryResolve.get
+    new ScalarValue(
+      BVType(toI - fromI),
+      typeMapper.packetWrapper.take(scalarValue.z3AST, fromI, toI)
+    )
+  }
+
+  def mkPacketPop(value : Value, n : Value): ScalarValue = {
+    val v = value.asInstanceOf[ScalarValue]
+    val nr = n.asInstanceOf[ScalarValue].z3AST
+    new ScalarValue(
+      PacketType,
+      typeMapper.packetWrapper.pop(v.z3AST, nr)
+    )
+  }
+
   val typeMapper = new TypeMapper
 
   def leftMerge(l : Value, r : Value) : (ScalarValue, ScalarValue, Value) = l match {
@@ -79,21 +101,47 @@ case class RootMemory(structObject: StructObject,
             so.copy(next = v.asInstanceOf[ScalarValue])
           case Right(b) =>
             val so = old.asInstanceOf[ArrayObject]
-            so.copy(elems = so.elems.updated(b,
-              newV(old.asInstanceOf[ArrayObject].elems(b), memPath.tail, v)
-            ))
+            if (b < 0 || b >= so.elems.size) {
+              so
+            } else {
+              so.copy(elems = so.elems.updated(b,
+                newV(old.asInstanceOf[ArrayObject].elems(b), memPath.tail, v)
+              ))
+            }
         }
       }
     }
   }
   def set(memPath: MemPath, v : Value) : RootMemory = {
-    val newstruct = newV(structObject, memPath.reverse, v)
+    val t1 = typeOf(memPath)
+    val t2 = v.ofType
+    val setTo = if (t1 != v.ofType) {
+      (t1, t2) match {
+        case (BVType(n), BVType(m)) =>
+          val scalarV = v.asInstanceOf[ScalarValue]
+          if (n < m) {
+            new ScalarValue(
+              BVType(n), context.mkExtract(n, 0,
+                scalarV.z3AST))
+          } else {
+            new ScalarValue(
+              BVType(n), context.mkZeroExt(n - m,
+                scalarV.z3AST))
+          }
+        case _ => throw new IllegalArgumentException(s"cannot assign to " +
+          s"$memPath of type $t1 the value $v of type $t2")
+      }
+    } else {
+      v
+    }
+    val newstruct = newV(structObject, memPath.reverse, setTo)
     this.copy(structObject = newstruct.asInstanceOf[StructObject])
   }
   def typeOf(memPath: MemPath) : P4Type =
     memPath.foldRight(structObject.ofType : P4Type)((x, acc) => {
       x match {
-        case Left(s) => acc.asInstanceOf[StructType].members(s)
+        case Left(s) if s != "next__" => acc.asInstanceOf[StructType].members(s)
+        case Left(s) if s == "next__" => IntType
         case Right(i) => acc.asInstanceOf[FixedArrayType].inner
       }
     })

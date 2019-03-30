@@ -6,12 +6,20 @@ import java.util.Objects;
  * Created by dragos on 12.09.2017.
  */
 public class ReturnStatement extends Statement {
+    private String suffix = "";
     private String where;
     private String message;
     private boolean isError;
 
     public ReturnStatement() {}
     public ReturnStatement(ReturnStatement rs) {
+        suffix = rs.suffix;
+        where = rs.where;
+        message = rs.message;
+        isError = rs.isError;
+    }
+    public ReturnStatement(ReturnStatement rs, String suffix) {
+        this.suffix = suffix;
         where = rs.where;
         message = rs.message;
         isError = rs.isError;
@@ -57,12 +65,13 @@ public class ReturnStatement extends Statement {
         if (o == null || getClass() != o.getClass()) return false;
         ReturnStatement that = (ReturnStatement) o;
         return isError == that.isError &&
+                Objects.equals(suffix, that.suffix) &&
                 Objects.equals(where, that.where) &&
                 Objects.equals(message, that.message);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(where, message, isError);
+        return Objects.hash(suffix, where, message, isError);
     }
 }
