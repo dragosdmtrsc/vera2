@@ -108,4 +108,77 @@ object MkQuery {
       }
     case _ => context.boolVal(false)
   }
+
+  def indexOutOfBounds(context : P4Memory, expr: P4Expr) : P4Query = expr match {
+    case fieldRefExpr: FieldRefExpr =>
+      indexOutOfBounds(context, fieldRefExpr.getFieldRef)
+    case binExpr: BinExpr =>
+      val l = binExpr.getLeft
+      val r = binExpr.getRight
+      binExpr.getType match {
+        case BinExpr.OpType.BVAND =>
+          val lv = apply(context, l)
+          val rv = apply(context, r)
+          val lf = indexOutOfBounds(context, l)
+          val rf = indexOutOfBounds(context, r)
+          (lf && (rv != rv.int(0))) ||
+            (rf && (lv != lv.int(0))) ||
+            (lf && rf)
+        case BinExpr.OpType.BVOR =>
+          val lv = apply(context, l)
+          val rv = apply(context, r)
+          val lf = indexOutOfBounds(context, l)
+          val rf = indexOutOfBounds(context, r)
+          (lf && (rv != rv.int(-1))) ||
+            (rf && (lv != lv.int(-1))) ||
+            (rf && lf)
+        case _ => indexOutOfBounds(context, l) ||
+          indexOutOfBounds(context, r)
+      }
+    case unOp : UnOpExpr =>
+      indexOutOfBounds(context, unOp.getExpr)
+    case _ => context.boolVal(false)
+  }
+  def indexOutOfBounds(context : P4Memory, expr: P4BExpr) : P4Query = expr match {
+    case binBExpr: BinBExpr =>
+      val lf = indexOutOfBounds(context, binBExpr.getLeft)
+      val rf = indexOutOfBounds(context, binBExpr.getRight)
+      val lv = apply(context, binBExpr.getLeft)
+      val rv = apply(context, binBExpr.getRight)
+      binBExpr.getType match {
+        case BinBExpr.OpType.AND =>
+          (lf && rv) || (rf && lv)
+        case BinBExpr.OpType.OR =>
+          (lf && !rv) || (rf && !lv)
+      }
+    case negBExpr: NegBExpr => indexOutOfBounds(context, negBExpr.getExpr)
+    case relOp: RelOp =>
+      indexOutOfBounds(context, relOp.getLeft) ||
+        indexOutOfBounds(context, relOp.getRight)
+    case _ => context.boolVal(false)
+  }
+  def indexOutOfBounds(context : P4Memory,
+                      expr: Expression) : P4Query = expr match {
+    case fr : FieldRef =>
+      if (fr.getHeaderRef.isArray) {
+        indexOutOfBounds(context, fr.getHeaderRef)
+      } else {
+        context.boolVal(false)
+      }
+    case ihr : IndexedHeaderRef =>
+      val h = context.field(ihr.getPath)
+      val nxt = h.next()
+      val len = h.len()
+      if (ihr.isLast) {
+        ((nxt - nxt.int(1)) < len) &&
+          ((nxt - nxt.int(1)) >= nxt.int(0))
+      } else if (ihr.isNext) {
+        (nxt < len) &&
+          (nxt >= nxt.int(0))
+      } else {
+        (nxt.int(ihr.getIndex) < len) &&
+          (nxt.int(ihr.getIndex) >= nxt.int(0))
+      }
+    case _ => context.boolVal(false)
+  }
 }

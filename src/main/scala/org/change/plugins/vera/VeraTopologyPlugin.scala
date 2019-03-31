@@ -2,7 +2,7 @@ package org.change.plugins.vera
 
 import java.io.PrintStream
 
-import org.change.parser.p4.{ControlFlowInterpreter, IsValidQuery}
+import org.change.parser.p4.{ControlFlowInterpreter, DisjQuery, IndexOutOfBounds, IsValidQuery}
 import org.change.parser.p4.control._
 import org.change.parser.p4.control.queryimpl.{MemoryInitializer, P4RootMemory, QueryBuilder}
 import org.change.parser.p4.parser.{LightParserGenerator, ParserGenerator}
@@ -91,7 +91,10 @@ object VeraTopologyPlugin {
           ifaces.put(h, s"eth$h")
         })
       }
-      val qb = new IsValidQuery(sw, context)
+      val qb = DisjQuery(sw, context)(
+        new IsValidQuery(sw, context),
+        new IndexOutOfBounds(sw, context)
+      )
       val astToFail = mutable.Map.empty[Z3AST, (ControlStatement, SimpleMemory)]
       val SEFLSemantics = new SemaWithEvents[P4RootMemory](sw).addListener(
         qb
