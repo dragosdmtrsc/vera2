@@ -5,14 +5,17 @@ import org.change.plugins.vera.{FixedArrayType, _}
 import z3.scala.{Z3AST, Z3Context}
 
 case class RootMemory(structObject: StructObject,
-                      condition: Z3AST)
+                      ocondition: ScalarValue)
                      (implicit val context : Z3Context) {
+
+  lazy val condition : Z3AST = ocondition.z3AST
+
   def mkPacketTake(value: Value,
                    from: Value,
                    to: Value): Value = {
     val scalarValue = value.asInstanceOf[ScalarValue]
-    val fromI = from.asInstanceOf[ScalarValue].tryResolve.get
-    val toI = to.asInstanceOf[ScalarValue].tryResolve.get
+    val fromI = from.asInstanceOf[ScalarValue].maybeInt.get
+    val toI = to.asInstanceOf[ScalarValue].maybeInt.get
     new ScalarValue(
       BVType((toI - fromI).toInt),
       typeMapper.packetWrapper.take(scalarValue.z3AST, fromI.toInt, toI.toInt)
@@ -69,13 +72,11 @@ case class RootMemory(structObject: StructObject,
       this
     } else {
       val (c1, c2, va) = leftMerge(structObject, other.structObject)
-      val c1s = context.simplifyAst(c1.z3AST)
-      val c2s = context.simplifyAst(c2.z3AST)
       copy(
         structObject = va.asInstanceOf[StructObject],
-        condition = context.mkOr(
-          other.where(c2s).condition,
-          where(c1s).condition
+        ocondition = mkOr2(
+          other.where(c2).ocondition,
+          where(c1).ocondition
         )
       )
     }
@@ -124,11 +125,13 @@ case class RootMemory(structObject: StructObject,
           if (n < m) {
             new ScalarValue(
               BVType(n), context.mkExtract(n - 1, 0,
-                scalarV.z3AST))
+                scalarV.z3AST), maybeInt = scalarV.maybeInt.map(f => {
+                f & ((BigInt(1) << n) - 1)
+              }))
           } else {
             new ScalarValue(
               BVType(n), context.mkZeroExt(n - m,
-                scalarV.z3AST))
+                scalarV.z3AST), maybeInt = scalarV.maybeInt)
           }
         case _ => throw new IllegalArgumentException(s"cannot assign to " +
           s"$memPath of type $t1 the value $v of type $t2")
@@ -148,8 +151,22 @@ case class RootMemory(structObject: StructObject,
       }
     })
   def mkAnd2(a : ScalarValue, b : ScalarValue) : ScalarValue = a.ofType match {
-    case BoolType => new ScalarValue(BoolType, context.mkAnd(a.z3AST, b.z3AST))
-    case bvType: BVType => new ScalarValue(bvType, context.mkBVAnd(a.z3AST, b.z3AST))
+    case BoolType =>
+      (a.maybeBoolean, b.maybeBoolean) match {
+        case (Some(false), _) | (_, Some(false)) => new ScalarValue(
+          BoolType, context.mkFalse(), maybeBoolean = Some(false))
+        case (Some(true), _) => b
+        case (_, Some(true)) => a
+        case _ => new ScalarValue(BoolType, context.mkAnd(a.z3AST, b.z3AST))
+      }
+    case bvType: BVType =>
+      (a.maybeInt, b.maybeInt) match {
+        case (Some(x), _) if x == 0 => typeMapper.literal(bvType, 0)
+        case (_, Some(x)) if x == 0 => typeMapper.literal(bvType, 0)
+        case (Some(x), _) if x == -1 => b
+        case (_, Some(x)) if x == -1 => a
+        case _ => new ScalarValue(bvType, context.mkBVAnd(a.z3AST, b.z3AST))
+      }
     case _ => throw new IllegalArgumentException(s"can't and between $a and $b")
   }
   def mkAnd(a : Iterable[ScalarValue]): ScalarValue = {
@@ -160,14 +177,38 @@ case class RootMemory(structObject: StructObject,
     else a.tail.foldLeft(a.head)((acc, x) => mkAnd2(x, acc))
   }
   def mkOr2(a : ScalarValue, b : ScalarValue) : ScalarValue = a.ofType match {
-    case BoolType => new ScalarValue(BoolType, context.mkOr(a.z3AST, b.z3AST))
-    case bvType: BVType => new ScalarValue(bvType, context.mkBVOr(a.z3AST, b.z3AST))
+    case BoolType =>
+      (a.maybeBoolean, b.maybeBoolean) match {
+        case (Some(true), _) | (_, Some(true)) => typeMapper.literal(BoolType, 1)
+        case (Some(false), _) => b
+        case (_, Some(false)) => a
+        case (_, _) =>
+          new ScalarValue(BoolType, context.mkOr(a.z3AST, b.z3AST))
+      }
+    case bvType: BVType =>
+      (a.maybeInt, b.maybeInt) match {
+        case (Some(x), _) if x == 0 => b
+        case (_, Some(x)) if x == 0 => a
+        case (Some(x), _) if x == -1 => typeMapper.literal(bvType, -1)
+        case (_, Some(x)) if x == -1 => typeMapper.literal(bvType, -1)
+        case _ => new ScalarValue(bvType, context.mkBVAnd(a.z3AST, b.z3AST))
+      }
     case _ => throw new IllegalArgumentException(s"can't and between $a and $b")
   }
   def mkXor2(a : ScalarValue, b : ScalarValue) : ScalarValue = a.ofType match {
-    case BoolType => new ScalarValue(BoolType, context.mkXor(a.z3AST, b.z3AST))
-    case bvType: BVType => new ScalarValue(bvType, context.mkBVXor(a.z3AST, b.z3AST))
-    case _ => throw new IllegalArgumentException(s"can't and between $a and $b")
+    case BoolType =>
+      (a.maybeBoolean, b.maybeBoolean) match {
+        case (Some(x), Some(y)) => mkBool(x.^(y))
+        case (_, _) =>
+          new ScalarValue(BoolType, context.mkXor(a.z3AST, b.z3AST))
+      }
+    case bvType: BVType =>
+      (a.maybeInt, b.maybeInt) match {
+        case (Some(x), Some(y)) => typeMapper.literal(bvType, x ^ y)
+        case (_, _) =>
+          new ScalarValue(bvType, context.mkBVXor(a.z3AST, b.z3AST))
+      }
+    case _ => throw new IllegalArgumentException(s"can't xor between $a and $b")
   }
   def mkOr(a : Iterable[ScalarValue]): ScalarValue = {
     if (a.isEmpty)
@@ -177,7 +218,10 @@ case class RootMemory(structObject: StructObject,
     else a.tail.foldLeft(a.head)((acc, x) => mkOr2(x, acc))
   }
   def mkBool(v : Boolean) : ScalarValue = {
-    if (v) new ScalarValue(BoolType, context.mkTrue()) else new ScalarValue(BoolType, context.mkFalse())
+    if (v)
+      new ScalarValue(BoolType, context.mkTrue(), maybeBoolean = Some(true))
+    else
+      new ScalarValue(BoolType, context.mkFalse(), maybeBoolean = Some(false))
   }
 
   def getNext(value : ArrayObject) : ScalarValue = {
@@ -193,29 +237,35 @@ case class RootMemory(structObject: StructObject,
       }
     }
   }
-  def mkITE(condition : ScalarValue, thn : Value, els : Value) : Value = thn match {
-    case StructObject(t, flds) =>
-      val e = els.asInstanceOf[StructObject]
-      StructObject(t, flds.map(v => {
-        v._1 -> mkITE(condition, v._2, e.fieldRefs(v._1))
-      }))
-    case ArrayObject(t, n, elems) =>
-      val a2 = els.asInstanceOf[ArrayObject]
-      ArrayObject(t, n, elems.zipWithIndex.map(v => {
-        mkITE(condition, v._1, a2.elems(v._2))
-      }))
-    case scalarValue: ScalarValue =>
-      val s2 = els.asInstanceOf[ScalarValue]
-      new ScalarValue(
-        scalarValue.ofType,
-        context.mkITE(condition.z3AST, scalarValue.z3AST, s2.z3AST)
-      )
+  def mkITE(condition : ScalarValue, thn : Value, els : Value) : Value = {
+    condition.maybeBoolean match {
+      case Some(true) => thn
+      case Some(false) => els
+      case _ => thn match {
+        case StructObject(t, flds) =>
+          val e = els.asInstanceOf[StructObject]
+          StructObject(t, flds.map(v => {
+            v._1 -> mkITE(condition, v._2, e.fieldRefs(v._1))
+          }))
+        case ArrayObject(t, n, elems) =>
+          val a2 = els.asInstanceOf[ArrayObject]
+          ArrayObject(t, n, elems.zipWithIndex.map(v => {
+            mkITE(condition, v._1, a2.elems(v._2))
+          }))
+        case scalarValue: ScalarValue =>
+          val s2 = els.asInstanceOf[ScalarValue]
+          new ScalarValue(
+            scalarValue.ofType,
+            context.mkITE(condition.z3AST, scalarValue.z3AST, s2.z3AST)
+          )
+      }
+    }
   }
   def mkIndex(idx : Value, on : Value) : (Value, Iterable[(ScalarValue, Int)]) = on match {
     case ArrayObject(t, _, flds) =>
       idx match {
         case sv : ScalarValue if sv.ofType == IntType =>
-          sv.tryResolve.map(idx => {
+          sv.maybeInt.map(idx => {
             if (idx >= 0 && idx < t.sz) {
               (flds(idx.toInt), (mkBool(true), idx.toInt) :: Nil)
             } else {
@@ -261,65 +311,93 @@ case class RootMemory(structObject: StructObject,
       }
     })
   }
-
-  def getBoolValue(ast : Z3AST) : Either[Boolean, Z3AST] = {
-    val simplified = ast.context.simplifyAst(ast)
-    context.getBoolValue(simplified).map(f => Left(f)).getOrElse(Right(simplified))
-  }
-
   def isEmpty() : Boolean = {
-    val got = getBoolValue(condition)
-    got match {
-      case Left(false) => true
+    ocondition.maybeBoolean match {
+      case Some(false) => true
       case _ => false
     }
   }
 
-  def where(condition : Z3AST): RootMemory = {
-    copy(condition = getBoolValue(condition) match {
-      case Left(false) => context.mkFalse()
-      case Left(true) => this.condition
-      case Right(ast) => context.mkAnd(this.condition, ast)
-    })
-  }
-  def where(condition : ScalarValue): RootMemory = where(condition.z3AST)
+  def where(condition : ScalarValue): RootMemory =
+    copy(ocondition = mkAnd2(ocondition, condition))
 
   def mkEQ(l : Value, r : Value) : ScalarValue = {
     l match {
       case StructObject(_, flds) =>
         val rs = r.asInstanceOf[StructObject]
-        new ScalarValue(BoolType, context.mkAnd(flds.map(fv => {
-          mkEQ(rs.fieldRefs(fv._1), fv._2)
-        }).map(_.z3AST).toList:_*))
+        mkAnd(flds.map(fv => mkEQ(rs.fieldRefs(fv._1), fv._2)))
       case ArrayObject(_, _, elems) =>
         val rs = r.asInstanceOf[ArrayObject]
-        new ScalarValue(BoolType, context.mkAnd(elems.zipWithIndex.map(fv => {
-          mkEQ(rs.elems(fv._2), fv._1)
-        }).map(_.z3AST):_*))
+        mkAnd(elems.zipWithIndex.map(fv => mkEQ(rs.elems(fv._2), fv._1)))
       case sv : ScalarValue =>
-        new ScalarValue(BoolType,
-          context.mkEq(sv.z3AST, r.asInstanceOf[ScalarValue].z3AST))
+        val rv = r.asInstanceOf[ScalarValue]
+        (sv.maybeBoolean, rv.maybeBoolean) match {
+          case (Some(x), Some(y)) => mkBool(x == y)
+          case _ => (sv.maybeInt, rv.maybeInt) match {
+            case (Some(x), Some(y)) => mkBool(x == y)
+            case _ => new ScalarValue(BoolType,
+              context.mkEq(sv.z3AST, r.asInstanceOf[ScalarValue].z3AST))
+          }
+        }
     }
   }
   def mkNot(l : Value) : ScalarValue = l.ofType match {
-    case b : BVType => new ScalarValue(b, context.mkBVNot(l.asInstanceOf[ScalarValue].z3AST))
-    case BoolType => new ScalarValue(BoolType, context.mkNot(l.asInstanceOf[ScalarValue].z3AST))
+    case b : BVType =>
+      val ls = l.asInstanceOf[ScalarValue]
+      ls.maybeInt match {
+        case Some(x) =>
+          typeMapper.literal(b, ((BigInt(1) << b.sz) - 1) ^ x)
+        case _ => new ScalarValue(b, context.mkBVNot(ls.z3AST))
+      }
+    case BoolType =>
+      val ls = l.asInstanceOf[ScalarValue]
+      ls.maybeBoolean match {
+        case Some(x) => mkBool(!x)
+        case _ => new ScalarValue(BoolType, context.mkNot(ls.z3AST))
+      }
   }
   def mkNeg(l : Value) : ScalarValue = l.ofType match {
-    case b : BVType => new ScalarValue(b, context.mkBVNeg(l.asInstanceOf[ScalarValue].z3AST))
-    case IntType => new ScalarValue(IntType, context.mkUnaryMinus(l.asInstanceOf[ScalarValue].z3AST))
+    case b : BVType =>
+      val ls = l.asInstanceOf[ScalarValue]
+      ls.maybeInt match {
+        case Some(x) =>
+          val ones = ((BigInt(1) << b.sz) - 1) ^ x
+          typeMapper.literal(b, ones - 1)
+        case _ => new ScalarValue(b, context.mkBVNeg(ls.z3AST))
+      }
+    case IntType =>
+      val ls = l.asInstanceOf[ScalarValue]
+      ls.maybeInt match {
+        case Some(x) => typeMapper.literal(IntType, -x)
+        case _ => new ScalarValue(IntType, context.mkUnaryMinus(ls.z3AST))
+      }
   }
-  def mkLT(l : Value, r : Value) : ScalarValue = {
-    l match {
-      case sv : ScalarValue if sv.ofType == IntType =>
-        new ScalarValue(BoolType,
-          context.mkLT(sv.z3AST, r.asInstanceOf[ScalarValue].z3AST))
-      case sv : ScalarValue =>
-        new ScalarValue(BoolType,
-          context.mkBVSlt(sv.z3AST, r.asInstanceOf[ScalarValue].z3AST))
+  def intResolve[T](l : Value, r : Value, c : (BigInt, BigInt) => T): Option[T] = {
+    val lsc = l.asInstanceOf[ScalarValue]
+    val rsc = r.asInstanceOf[ScalarValue]
+    (lsc.maybeInt, rsc.maybeInt) match {
+      case (Some(x), Some(y)) => Some(c(x, y))
+      case _ => None
     }
   }
-  def mkLE(l : Value, r : Value) : ScalarValue = {
+
+  def mkLT(l : Value, r : Value) : ScalarValue = intResolve(l, r, _ < _)
+    .map(mkBool)
+    .getOrElse({
+      l match {
+        case sv : ScalarValue if sv.ofType == IntType =>
+          intResolve(l, r, _ < _).map(mkBool).getOrElse(
+            new ScalarValue(BoolType,
+              context.mkLT(sv.z3AST, r.asInstanceOf[ScalarValue].z3AST))
+          )
+        case sv : ScalarValue =>
+          new ScalarValue(BoolType,
+            context.mkBVSlt(sv.z3AST, r.asInstanceOf[ScalarValue].z3AST))
+      }
+    })
+  def mkLE(l : Value, r : Value) : ScalarValue = intResolve(l, r, _ <= _)
+    .map(mkBool)
+    .getOrElse({
     l match {
       case sv : ScalarValue if sv.ofType == IntType =>
         new ScalarValue(BoolType,
@@ -328,8 +406,10 @@ case class RootMemory(structObject: StructObject,
         new ScalarValue(BoolType,
           context.mkBVSle(sv.z3AST, r.asInstanceOf[ScalarValue].z3AST))
     }
-  }
-  def mkGE(l : Value, r : Value) : ScalarValue = {
+  })
+  def mkGE(l : Value, r : Value) : ScalarValue = intResolve(l, r, _ >= _)
+    .map(mkBool)
+    .getOrElse({
     l match {
       case sv : ScalarValue if sv.ofType == IntType =>
         new ScalarValue(BoolType,
@@ -338,8 +418,10 @@ case class RootMemory(structObject: StructObject,
         new ScalarValue(BoolType,
           context.mkBVSge(sv.z3AST, r.asInstanceOf[ScalarValue].z3AST))
     }
-  }
-  def mkGT(l : Value, r : Value) : ScalarValue = {
+  })
+  def mkGT(l : Value, r : Value) : ScalarValue = intResolve(l, r, _ > _)
+    .map(mkBool)
+    .getOrElse({
     l match {
       case sv : ScalarValue if sv.ofType == IntType =>
         new ScalarValue(BoolType,
@@ -348,8 +430,10 @@ case class RootMemory(structObject: StructObject,
         new ScalarValue(BoolType,
           context.mkBVSgt(sv.z3AST, r.asInstanceOf[ScalarValue].z3AST))
     }
-  }
-  def mkAdd(l : Value, r : Value) : ScalarValue = {
+  })
+  def mkAdd(l : Value, r : Value) : ScalarValue = intResolve(l, r, _ + _)
+    .map(typeMapper.literal(l.ofType, _))
+    .getOrElse({
     l.ofType match {
       case IntType => new ScalarValue(
         IntType,
@@ -364,53 +448,38 @@ case class RootMemory(structObject: StructObject,
         )
       case _ => throw new IllegalArgumentException(s"can't add these two values $l + $r")
     }
-  }
-  def mkSub(l : Value, r : Value) : ScalarValue = {
-    l.ofType match {
-      case IntType => new ScalarValue(
-        IntType,
-        context.mkSub(l.asInstanceOf[ScalarValue].z3AST,
-          r.asInstanceOf[ScalarValue].z3AST)
-      )
-      case b : BVType =>
-        new ScalarValue(
-          b,
-          context.mkBVSub(l.asInstanceOf[ScalarValue].z3AST,
+  })
+  def mkSub(l : Value, r : Value) : ScalarValue = intResolve(l, r, _ - _)
+    .map(typeMapper.literal(l.ofType, _))
+    .getOrElse({
+      l.ofType match {
+        case IntType => new ScalarValue(
+          IntType,
+          context.mkSub(l.asInstanceOf[ScalarValue].z3AST,
             r.asInstanceOf[ScalarValue].z3AST)
         )
-      case _ => throw new IllegalArgumentException(s"can't add these two values $l + $r")
-    }
-  }
-  def mkSHL(l : Value, r : Value) : ScalarValue = {
-    l.ofType match {
-      case b : BVType =>
-        new ScalarValue(
-          b,
-          context.mkBVShl(l.asInstanceOf[ScalarValue].z3AST,
-            r.asInstanceOf[ScalarValue].z3AST)
-        )
-      case _ => throw new IllegalArgumentException(s"can't add these two values $l + $r")
-    }
-  }
-
-  def condition(cd: Z3AST,
-                value : Value,
-                els : Option[Value] = None) : Value = value.ofType match {
-    case FixedArrayType(inner, sz) =>
-      val arrayObject = value.asInstanceOf[ArrayObject]
-      arrayObject.copy(elems = arrayObject.elems.map(condition(cd, _)))
-    case StructType(flds) =>
-      val structObject = value.asInstanceOf[StructObject]
-      structObject.copy(fieldRefs = structObject.fieldRefs.mapValues(condition(cd, _)))
-    case _ =>
-      val scalarValue = value.asInstanceOf[ScalarValue]
-      scalarValue.copy(cd.context.mkITE(
-        cd,
-        scalarValue.z3AST,
-        typeMapper.zeros(scalarValue.ofType).asInstanceOf[ScalarValue].z3AST
-      ))
-  }
-
+        case b : BVType =>
+          new ScalarValue(
+            b,
+            context.mkBVSub(l.asInstanceOf[ScalarValue].z3AST,
+              r.asInstanceOf[ScalarValue].z3AST)
+          )
+        case _ => throw new IllegalArgumentException(s"can't add these two values $l + $r")
+      }
+    })
+  def mkSHL(l : Value, r : Value) : ScalarValue = intResolve(l, r, _ << _.toInt)
+    .map(typeMapper.literal(l.ofType, _))
+    .getOrElse({
+      l.ofType match {
+        case b : BVType =>
+          new ScalarValue(
+            b,
+            context.mkBVShl(l.asInstanceOf[ScalarValue].z3AST,
+              r.asInstanceOf[ScalarValue].z3AST)
+          )
+        case _ => throw new IllegalArgumentException(s"can't add these two values $l + $r")
+      }
+    })
 }
 
 

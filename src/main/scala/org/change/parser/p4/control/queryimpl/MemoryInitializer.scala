@@ -112,7 +112,8 @@ object MemoryInitializer {
     })).toMap ++ helperStuff ++ tableStructures(switch) ++ actionStructures(switch))
     val tm = new TypeMapper()(context)
     val structObject = tm.fresh(st).asInstanceOf[StructObject]
-    val fresh =  P4RootMemory(switch, RootMemory(structObject = structObject, context.mkTrue()))
+    val fresh =  P4RootMemory(switch, RootMemory(structObject = structObject,
+      tm.literal(BoolType, 1)))
     val r = populateHelpers(switch, populateHeaders(switch, fresh)(context).asInstanceOf[P4RootMemory])
     assert(r.err().as[P4RootMemory].rootMemory.isEmpty())
     r

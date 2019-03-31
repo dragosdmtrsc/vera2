@@ -24,16 +24,8 @@ package object queryimpl {
                          elems : List[Value]) extends MemoryObject
   class ScalarValue(val ofType : P4Type,
                     val z3AST: Z3AST,
-                    var maybeBoolean : Option[Boolean] = None,
-                    var maybeInt : Option[BigInt] = None) extends Value {
-    private lazy val ctx = z3AST.context
-    def copy(z3AST: Z3AST = this.z3AST) : ScalarValue = {
-      new ScalarValue(ofType, z3AST)
-    }
-    def tryResolve : Option[BigInt] = {
-      if (maybeInt.nonEmpty) maybeInt
-      else z3AST.context.getNumeralInt(z3AST.context.simplifyAst(z3AST)).value.map(BigInt(_))
-    }
+                    val maybeBoolean : Option[Boolean] = None,
+                    val maybeInt : Option[BigInt] = None) extends Value {
   }
   type ChurnedMemPath  = Iterable[(ScalarValue, MemPath)]
 
@@ -113,10 +105,13 @@ package object queryimpl {
       val tp = apply(p4Type)
       if (p4Type == BoolType) {
         if (v == 0)
-          new ScalarValue(BoolType, tp.context.mkFalse(), maybeBoolean = Some(false))
-        else new ScalarValue(BoolType, tp.context.mkTrue())
+          new ScalarValue(BoolType, tp.context.mkFalse(),
+            maybeBoolean = Some(false))
+        else new ScalarValue(BoolType, tp.context.mkTrue(),
+          maybeBoolean = Some(true))
       } else {
-        new ScalarValue(p4Type, tp.context.mkNumeral(v.toString(), tp), maybeInt = Some(v))
+        new ScalarValue(p4Type,
+          tp.context.mkNumeral(v.toString(), tp), maybeInt = Some(v))
       }
     }
   }

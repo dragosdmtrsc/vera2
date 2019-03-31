@@ -61,14 +61,14 @@ case class P4RootMemory(switch : Switch,
     override def append(what: P4Query): PacketQuery = this//super.append(what)
 
     // table query handlers
-    override def isDefault: P4Query = super.isDefault
-
-    override def exists(): P4Query = {
+    override def isDefault: P4Query = {
       val ast = this.value.asInstanceOf[ScalarValue].z3AST
       val struct = this.value.ofType.asInstanceOf[FlowStruct]
       val finstance = struct.from(ast)
-      rv(new ScalarValue(BoolType, finstance.exists()))
+      rv(new ScalarValue(BoolType, ast.context.mkNot(finstance.hits())))
     }
+
+    override def exists(): P4Query = ???
 
     override def isAction(act: String): P4Query = {
       val ast = this.value.asInstanceOf[ScalarValue].z3AST
@@ -229,7 +229,7 @@ case class P4RootMemory(switch : Switch,
     override def boolVal(bv: Boolean): ValueWrapper = rv(rootMemory.mkBool(bv))
 
     override def nr: BigInt = value match {
-      case s : ScalarValue => s.tryResolve.get
+      case s : ScalarValue => s.maybeInt.get
     }
   }
   object ValueWrapper {
@@ -238,7 +238,8 @@ case class P4RootMemory(switch : Switch,
   lazy val rootWrap = ValueWrapper(rootMemory.structObject, Some(Nil))
 
   override def where(p4Query: P4Query): P4Memory = {
-    copy(rootMemory = rootMemory.where(p4Query.asInstanceOf[ValueWrapper].ast))
+    copy(rootMemory = rootMemory.where(p4Query.asInstanceOf[ValueWrapper]
+      .value.asInstanceOf[ScalarValue]))
   }
 
   override def when(whenCases: Iterable[(P4Query, P4Query)]): P4Query = {
@@ -310,7 +311,7 @@ case class P4RootMemory(switch : Switch,
 
   override def fresh(): P4Query =
     copy(rootMemory = RootMemory(
-      condition = rootMemory.mkBool(true).z3AST,
+      ocondition = rootMemory.mkBool(true),
       structObject = rootMemory.typeMapper.fresh(rootMemory.structObject.ofType, "fresh").asInstanceOf[StructObject]
     )(rootMemory.context))
 
@@ -323,7 +324,7 @@ case class P4RootMemory(switch : Switch,
   }
 
   override def zeros(): P4RootMemory = copy(rootMemory = RootMemory(
-    condition = rootMemory.mkBool(true).z3AST,
+    ocondition = rootMemory.mkBool(true),
     structObject = rootMemory.typeMapper.zeros(rootMemory.structObject.ofType).asInstanceOf[StructObject]
   )(rootMemory.context))
 

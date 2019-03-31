@@ -397,10 +397,7 @@ class QueryDrivenSemantics[T<:P4Memory](switch: Switch) extends Semantics[T](swi
         }).toList
       ))
     }))
-    newquery.lastQuery(tableDeclaration.getName).exists().ite(
-      actionSema,
-      newquery
-    ).as[T]
+    actionSema.as[T]
   }
 
   protected def mkQuery(src : ControlStatement,

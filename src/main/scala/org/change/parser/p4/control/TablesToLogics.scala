@@ -68,7 +68,7 @@ case class FlowStruct(context : Z3Context,
   }).toList
 
   private val parmsZipped = parmTypes.zipWithIndex.map(x => x._1._1 -> x._2).toMap
-  private def getOffset(action : String, parm : String) = {
+  private def getOffset(action : String, parm : String): Int = {
     parmsZipped((action, parm)) + matchKinds.size + 3
   }
 
