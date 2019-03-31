@@ -119,7 +119,7 @@ object VeraTopologyPlugin {
       val all = SEFLSemantics.execute("egress")(Map(firstEgress -> postingress))
       val end = System.currentTimeMillis()
       System.err.println(s"propagation took ${end - start}ms")
-      for (a <- qb.possibleLocations()) {
+      for (a <- qb.possibleLocations().take(50)) {
         System.err.println(a._1)
       }
       val qend = System.currentTimeMillis()

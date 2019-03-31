@@ -26,7 +26,7 @@ class IsValidQuery(switch: Switch,
       val fail = memory.validityFailure(bexpr)
       Some(memory.where(fail).as[P4RootMemory])
     case acall : P4ActionCall =>
-      val fail = memory.and(acall.params().asScala
+      val fail = memory.or(acall.params().asScala
         .map(_.asInstanceOf[ParamExpression])
         .map(p => {
           MkQuery.validityFailure(memory, p.getExpression)

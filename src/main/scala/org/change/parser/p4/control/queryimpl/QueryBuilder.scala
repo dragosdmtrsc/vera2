@@ -15,7 +15,7 @@ class QueryBuilder(switch : Switch,
   lazy val solver : Z3Solver = context.mkSolver()
   override def before(event: Object, ctx: P4RootMemory): Unit = {
     super.before(event, ctx)
-    query(event, ctx).foreach(mem => {
+    query(event, ctx).filter(!_.rootMemory.isEmpty()).foreach(mem => {
       val p = context.mkFreshBoolConst("asp")
       solver.assertCnstr(context.mkImplies(p, mem.rootMemory.condition))
       nodeToConstraint.put(event, p)
