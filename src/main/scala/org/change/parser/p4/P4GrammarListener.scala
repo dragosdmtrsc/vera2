@@ -272,8 +272,7 @@ class P4GrammarListener extends P4GrammarBaseListener {
       141 -> ("parser_status", 9),
       150 -> ("parser_error_location", 9),
       159 -> ("field_list_ref", 16),
-      175 -> ("clone_spec", 16),
-      191 -> ("recirculate_flag", 16)
+      175 -> ("clone_spec", 16)
     )
     ctx.switchSpec = new Switch()
     switch = ctx.switchSpec

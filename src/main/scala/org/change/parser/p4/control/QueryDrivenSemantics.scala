@@ -34,7 +34,7 @@ class QueryDrivenSemantics[T<:P4Memory](switch: Switch) extends Semantics[T](swi
                       ingress : Boolean = true) : BufferResult[T] = {
     val cloneInstanceType = if (ingress) INGRESS_CLONE else EGRESS_CLONE
     val recircType = if (ingress) RESUBMITED else RECIRCULATED
-    val resubField = if (ingress) "resubmit_flag" else "recirculate_flag"
+    val resubField = if (ingress) RESUBMIT_FLAG else RECIRCULATE_FLAG
     // what does the clone look like
     val cloneSpec = p4Memory.standardMetadata().field("clone_spec")
     val cl = p4Memory.where(
@@ -103,7 +103,7 @@ class QueryDrivenSemantics[T<:P4Memory](switch: Switch) extends Semantics[T](swi
       noDrop.standardMetadata().field("egress_spec")
     ) else noDrop
     BufferResult(
-      cloned = postClone.as[T],
+      cloned = cl.as[T],
       goesOn = continue.as[T],
       recirculated = postResubmit.as[T],
       dropped = dropped.as[T]
@@ -316,8 +316,14 @@ class QueryDrivenSemantics[T<:P4Memory](switch: Switch) extends Semantics[T](swi
               params : List[P4Query],
               stackTrace : List[P4Action])
              (implicit ctx : P4Memory): P4Memory = {
-    ctx.update(ctx.standardMetadata().field("recirculate_flag"), params.head)
-      .update(ctx.field(FIELD_LIST_REF), params(1))
+    val hi = switch.getInstance(INTRINSIC_METADATA)
+    if (hi != null) {
+      if (hi.getLayout.getField(RECIRCULATE_FLAG) != null) {
+        ctx.update(ctx.field(INTRINSIC_METADATA).field(RECIRCULATE_FLAG),
+          ctx.field(INTRINSIC_METADATA).field(RECIRCULATE_FLAG).int(1)
+        ).update(ctx.field(FIELD_LIST_REF), params(1))
+      } else ctx
+    } else ctx
   }
 
   def analyze(action: RegisterRead,
@@ -332,8 +338,14 @@ class QueryDrivenSemantics[T<:P4Memory](switch: Switch) extends Semantics[T](swi
               params : List[P4Query],
               stackTrace : List[P4Action])
              (implicit ctx : P4Memory): P4Memory = {
-    ctx.update(ctx.standardMetadata().field("resubmit_flag"), params.head)
-      .update(ctx.field(FIELD_LIST_REF), params(1))
+    val hi = switch.getInstance(INTRINSIC_METADATA)
+    if (hi != null) {
+      if (hi.getLayout.getField(RESUBMIT_FLAG) != null) {
+        ctx.update(ctx.field(INTRINSIC_METADATA).field(RESUBMIT_FLAG),
+          ctx.field(INTRINSIC_METADATA).field(RESUBMIT_FLAG).int(1)
+        ).update(ctx.field(FIELD_LIST_REF), params(1))
+      } else ctx
+    } else ctx
   }
 
   def analyze(action: ShiftLeft,

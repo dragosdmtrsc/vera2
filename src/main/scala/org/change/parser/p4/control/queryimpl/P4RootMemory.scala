@@ -7,7 +7,7 @@ import z3.scala.Z3AST
 import z3.scala.dsl.BVSort
 
 
-trait AbsValueWrapper {
+trait AbsValueWrapper extends P4Query {
   def value : Value
   def maybePath : Option[ChurnedMemPath]
 }

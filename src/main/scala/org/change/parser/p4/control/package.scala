@@ -12,6 +12,7 @@ package object control {
 
   val FIELD_LIST_REF : String = "field_list_ref"
   val STANDARD_METADATA : String = "standard_metadata"
+  val INTRINSIC_METADATA : String = "intrinsic_metadata"
   val CLONE_SPEC : String = "clone_spec"
   val RESUBMIT_FLAG : String = "resubmit_flag"
   val RECIRCULATE_FLAG : String = "recirculate_flag"
