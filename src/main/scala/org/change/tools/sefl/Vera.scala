@@ -1,8 +1,8 @@
 package org.change.tools.sefl
 
 import org.change.parser.p4.{DisjQuery, IndexOutOfBounds, IsValidQuery}
-import org.change.parser.p4.control.{BufferResult, SemaWithEvents, SolveTables}
-import org.change.parser.p4.control.queryimpl.{MemoryInitializer, P4RootMemory}
+import org.change.parser.p4.control.{BufferResult, P4Commands, SemaWithEvents, SolveTables}
+import org.change.parser.p4.control.queryimpl.{ConstraintBuilder, MemoryInitializer, P4RootMemory}
 import org.change.v2.p4.model.Switch
 import org.change.v3.semantics.context
 
@@ -30,7 +30,7 @@ object Vera {
       case "--pipeline" =>
         parse(argList.tail.tail, vera.addPipeline(argList.tail.head))
       case "--commands" =>
-        parse(argList.tail.tail, vera.addPipeline(argList.tail.head))
+        parse(argList.tail.tail, vera.addCommandsFile(argList.tail.head))
       case "--help" =>
         System.out.println(usage)
         System.exit(0)
@@ -59,11 +59,30 @@ object Vera {
     val BufferResult(ecloned, egoesOn, erecirculated, edropped) =
       sema.buffer(egressOutcome, egressInput, ingress = false)
     val limit = veraArgs.maxBugs
-    for (x <- qb.possibleLocations().take(limit)) {
-      System.err.println("at: ")
-      System.err.println(x._1)
-      System.err.println("because: ")
-      System.err.println(x._2)
+    if (veraArgs.commands.nonEmpty) {
+      for (x <- veraArgs.commands) {
+        val instance = P4Commands.fromFile(switch, x)
+        val constraints = ConstraintBuilder(switch, context, instance).toList
+        qb.solver.push()
+        for (c <- constraints) {
+          qb.solver.assertCnstr(c)
+        }
+        System.err.println(s"now checking dataplane $x")
+        for (x <- qb.possibleLocations().take(limit)) {
+          System.err.println("at: ")
+          System.err.println(x._1)
+          System.err.println("because: ")
+          System.err.println(x._2)
+        }
+        qb.solver.pop()
+      }
+    } else {
+      for (x <- qb.possibleLocations().take(limit)) {
+        System.err.println("at: ")
+        System.err.println(x._1)
+        System.err.println("because: ")
+        System.err.println(x._2)
+      }
     }
   }
 }

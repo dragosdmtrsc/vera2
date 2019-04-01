@@ -18,12 +18,12 @@ class IsValidQuery(switch: Switch,
                      memory : P4RootMemory) : Option[P4RootMemory] = node match {
     case (ifElseStatement: IfElseStatement, _, _) =>
       val fail = memory.validityFailure(ifElseStatement.getCondition)
-      Some(memory.where(fail).fails("invalid condition in if condition " +
+      Some(memory.where(fail).fails("invalid header access in condition of if condition " +
         s"${ifElseStatement.getCondition.toString}").as[P4RootMemory])
     case (caseEntry: CaseEntry, _, _) =>
       val bexpr = caseEntry.getBExpr
       val fail = memory.validityFailure(bexpr)
-      Some(memory.where(fail).fails("invalid condition in case entry" +
+      Some(memory.where(fail).fails("invalid header access in condition of case entry" +
         s"${bexpr.toString}").as[P4RootMemory])
     case acall : P4ActionCall =>
       val fail = memory.or(acall.params().asScala
@@ -31,7 +31,7 @@ class IsValidQuery(switch: Switch,
         .map(p => {
           MkQuery.validityFailure(memory, p.getExpression)
         }))
-      Some(memory.where(fail).fails(s"invalid action call in " +
+      Some(memory.where(fail).fails(s"invalid header access in action call " +
         s"${acall.toString}").as[P4RootMemory])
     case _ => None
   }

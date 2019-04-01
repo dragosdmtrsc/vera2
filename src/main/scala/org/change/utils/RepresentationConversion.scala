@@ -1,5 +1,7 @@
 package org.change.utils
 
+import java.net.{Inet6Address, InetAddress}
+
 object RepresentationConversion {
   def unpack(bytes: Int) = {
     List[Byte](
@@ -34,6 +36,16 @@ object RepresentationConversion {
 
   def ipToNumber(ip: String): Long = {
     ip.split("\\.").map(Integer.parseInt(_)).foldLeft(0L)((a: Long, g: Int) => a * 256 + g)
+  }
+
+  def ip6ToNumber(ip : String) : BigInt = {
+    val ia = InetAddress.getByName(ip)
+    val byteArr : Array[Byte] = ia.getAddress
+    var ipNumber = BigInt(0)
+    if (ia.isInstanceOf[Inet6Address]) {
+      ipNumber = BigInt(1, byteArr)
+    }
+    ipNumber
   }
 
   def macToNumber(mac: String): Long = {

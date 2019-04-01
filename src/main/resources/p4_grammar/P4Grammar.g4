@@ -148,7 +148,7 @@ metadata_expr returns [org.change.v2.p4.model.control.exp.P4Expr p4expr,
 org.change.v2.p4.model.parser.Expression expression]:   compound ;
 
 return_statement  returns [org.change.v2.p4.model.parser.Statement statement]  :
-    return_value_type | 'return select' '(' select_exp ')' '{' case_entry+ '}'  ;
+    return_value_type | 'return' 'select' '(' select_exp ')' '{' case_entry+ '}'  ;
 
 return_value_type  returns [org.change.v2.p4.model.parser.ReturnStatement statement] :
     'return' parser_state_name ';' | 'return' control_function_name ';'

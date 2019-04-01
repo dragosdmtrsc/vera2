@@ -9,6 +9,16 @@ import z3.scala.{Z3AST, Z3Context, Z3FuncDecl, Z3Sort}
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 
+trait IFlowInstance {
+  def exists() : Z3AST
+  def hits() : Z3AST
+  def actionRun() : Z3AST
+  def getMatchValue(tableMatch: TableMatch) : Z3AST
+  def getMatchMask(tableMatch: TableMatch) : Z3AST
+  def getActionParam(action : String, parmName : String): Z3AST
+  def getActionParamType(action : String, parmName : String) : P4Type
+}
+
 case class FlowStruct(context : Z3Context,
                       table : TableDeclaration,
                       switch: Switch) extends P4Type {
@@ -55,7 +65,7 @@ case class FlowStruct(context : Z3Context,
     matchValueIndices._2(tableMatch)._2 + 3
 
   private val matchKinds : List[Z3Sort] = matchToSorts.flatMap(_._2)
-  private val queryParms : List[Z3Sort] = matchToSorts.map(_._2.head)
+  val queryParms : List[Z3Sort] = matchToSorts.map(_._2.head)
 
   def p4typeToSort(p4Type: P4Type) : Z3Sort = p4Type match {
     case IntType => context.mkIntSort()
@@ -94,7 +104,7 @@ case class FlowStruct(context : Z3Context,
     enumKind._3(actNameToId(action))(value)
   def actionTypeConst(action : String) : Z3AST =
     enumKind._2(actNameToId(action))()
-  case class FlowInstance(z3AST: Z3AST) {
+  case class FlowInstance(z3AST: Z3AST) extends IFlowInstance{
     def exists() : Z3AST = flowSort._3.head(z3AST)
     def hits() : Z3AST = flowSort._3(1)(z3AST)
     def actionRun() : Z3AST = flowSort._3(2)(z3AST)
