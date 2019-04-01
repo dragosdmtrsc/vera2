@@ -80,12 +80,16 @@ class P4Memory(switch : Switch) extends P4Query {
     else qries.tail.foldLeft(qries.head)((acc, qry) => acc && qry)
   }
 
+  def root() : P4Query = ???
   def where(p4Query: P4Query) : P4Memory = ???
   def update(dst: P4Query, src : P4Query) : P4Memory = ???
   def packet() : PacketQuery = ???
   def standardMetadata() : P4Query = field("standard_metadata")
   def query(table : String, params : Iterable[P4Query]) : P4TableQuery = ???
   def lastQuery(table : String) : P4TableQuery = ???
+
+  def cloneSession(cloneSpec : P4Query) : P4Query = ???
+  def multicastSession(mgid : P4Query) : P4Query = ???
 
 }
 trait PacketQuery extends P4Query {

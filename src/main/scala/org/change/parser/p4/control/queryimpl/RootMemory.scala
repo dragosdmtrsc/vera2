@@ -286,8 +286,14 @@ case class RootMemory(structObject: StructObject,
   }
 
   def set(churnedMemPath: ChurnedMemPath, v : Value) : RootMemory = {
-    val kind = typeOf(churnedMemPath.head._2)
-    if (churnedMemPath.size == 1) {
+    val kind = if (churnedMemPath.nonEmpty) {
+      typeOf(churnedMemPath.head._2)
+    } else {
+      structObject.ofType
+    }
+    if (churnedMemPath.isEmpty) {
+      this.copy(structObject = v.asInstanceOf[StructObject])
+    } else if (churnedMemPath.size == 1) {
       set(churnedMemPath.head._2, v)
     } else {
       val assigned = churnedMemPath.foldLeft(this)((acc, f) => {

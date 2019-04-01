@@ -1,6 +1,7 @@
 package org.change.parser.p4.control
 
 import org.change.parser.p4.control.SMInstantiator._
+import org.change.plugins.vera.BVType
 import org.change.v2.p4.model.Switch
 import org.change.v2.p4.model.actions.P4ActionCall.ParamExpression
 import org.change.v2.p4.model.actions.primitives._
@@ -13,6 +14,73 @@ import org.change.v2.p4.model.table.{MatchKind, TableDeclaration}
 import scala.collection.JavaConverters._
 
 class QueryDrivenSemantics[T<:P4Memory](switch: Switch) extends Semantics[T](switch) {
+
+  override def buffer(p4Memory : T,
+                      initial : T,
+                      ingress : Boolean = true) : BufferResult[T] = {
+    val cloneInstanceType = if (ingress) 1 else 2
+    val recircType = if (ingress) 6 else 4
+    val resubField = if (ingress) "resubmit_flag" else "recirculate_flag"
+    // what does the clone look like
+    val cloneSpec = p4Memory.standardMetadata().field("clone_spec")
+    val cl = p4Memory.where(
+      cloneSpec != cloneSpec.int(0)
+    ).update(cloneSpec, cloneSpec.int(0))
+    val noClone = p4Memory.where(cloneSpec === cloneSpec.int(0))
+    val espec = cl.cloneSession(cloneSpec)
+    val copied = cl.update(cl.root(), initial.root()).update(cloneSpec, cloneSpec.zeros())
+    //TODO: restore - copy fields in field list to initial packet
+    //means: set instance type to clone_ingress and then re-run
+    val toBeCloned = copied.update(copied.standardMetadata().field("egress_spec"), espec)
+      .update(copied.standardMetadata().field("instance_type"),
+        copied.standardMetadata().field("instance_type").int(cloneInstanceType))
+    //always zero out clone_spec to avoid bombarding the switch
+    // mimic a merge operation if (clone_spec != 0) { set up the clone } else { noop; }
+    val continuedPostClone = (cl || noClone).as[P4Memory]
+    // mgid handling
+    val intrinsics = switch.getInstance("intrinsic_metadata")
+    var mgid = p4Memory.int(0, BVType(16))
+    var resubmitFlag = p4Memory.int(0, BVType(1))
+    if (intrinsics != null) {
+      if (intrinsics.getLayout.getField("mcast_grp") != null)
+        mgid = continuedPostClone.field(intrinsics.getName).field("mcast_grp")
+      if (intrinsics.getLayout.getField(resubField) != null)
+        resubmitFlag = continuedPostClone.field(intrinsics.getName).field(resubField)
+    }
+    var resub = continuedPostClone.where(resubmitFlag != resubmitFlag.int(0))
+    if (intrinsics != null && intrinsics.getLayout.getField(resubField) != null)
+      resub = resub.update(resubmitFlag, resubmitFlag.int(0))
+    // TODO: also copy field lists here
+    val toBeResubmited = resub.update(resub.root(), initial.root())
+      .update(resub.standardMetadata().field("instance_type"),
+        resub.standardMetadata().field("instance_type").int(recircType))
+    val continueAfterResubmit = continuedPostClone.where(resubmitFlag === resubmitFlag.int(0))
+
+    val multicasted = continueAfterResubmit.where(mgid != mgid.zeros())
+      .update(resub.standardMetadata().field("instance_type"),
+        resub.standardMetadata().field("instance_type").int(5))
+      .update(continueAfterResubmit.standardMetadata().field("egress_spec"),
+        continueAfterResubmit.multicastSession(mgid)
+      )
+    val noMulticast = continueAfterResubmit.where(mgid === mgid.zeros())
+    val afterMulticast = if (ingress) (noMulticast || multicasted).as[P4Memory] else noMulticast
+
+    val dropquery = afterMulticast.standardMetadata().field("egress_spec") ===
+      afterMulticast.standardMetadata().field("egress_spec").int(511)
+    val dropped = afterMulticast.where(dropquery)
+    val noDrop = afterMulticast.where(!dropquery)
+    val continue =
+      if (ingress) noDrop.update(
+      noDrop.standardMetadata().field("egress_port"),
+      noDrop.standardMetadata().field("egress_spec")
+    ) else noDrop
+    BufferResult(
+      cloned = cl.as[T],
+      goesOn = continue.as[T],
+      recirculated = toBeResubmited.as[T],
+      dropped = dropped.as[T]
+    )
+  }
 
   def analyze(action: Add, params : List[P4Query], stackTrace : List[P4Action])
              (implicit ctx : P4Memory): P4Memory = {

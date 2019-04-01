@@ -169,7 +169,7 @@ object MkQuery {
       val h = context.field(ihr.getPath)
       val nxt = h.next()
       val len = h.len()
-      if (ihr.isLast) {
+      !(if (ihr.isLast) {
         ((nxt - nxt.int(1)) < len) &&
           ((nxt - nxt.int(1)) >= nxt.int(0))
       } else if (ihr.isNext) {
@@ -178,7 +178,7 @@ object MkQuery {
       } else {
         (nxt.int(ihr.getIndex) < len) &&
           (nxt.int(ihr.getIndex) >= nxt.int(0))
-      }
+      })
     case _ => context.boolVal(false)
   }
 }

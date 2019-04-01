@@ -33,6 +33,10 @@ abstract class Semantics[T](switch: Switch) {
     getSCC(control).last.head
   }
 
+  def buffer(p4Memory : T,
+             initial : T, ingress: Boolean = true) : BufferResult[T] =
+    BufferResult(p4Memory, p4Memory, p4Memory, p4Memory)
+
   def parse(p4Memory: T): T = {
     val first = getFirst("parser")
     val parserCfg = getCFG("parser")

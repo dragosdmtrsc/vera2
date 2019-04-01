@@ -1,14 +1,15 @@
 package org.change.tools.sefl
 
 import org.change.parser.p4.{DisjQuery, IndexOutOfBounds, IsValidQuery}
-import org.change.parser.p4.control.{SemaWithEvents, SolveTables}
+import org.change.parser.p4.control.{BufferResult, SemaWithEvents, SolveTables}
 import org.change.parser.p4.control.queryimpl.{MemoryInitializer, P4RootMemory}
 import org.change.v2.p4.model.Switch
 import org.change.v3.semantics.context
 
 case class VeraArgs(p4File : String = "",
                     pipelines : Set[String] = Set.empty,
-                    commands : Set[String] = Set.empty) {
+                    commands : Set[String] = Set.empty,
+                    maxBugs : Int = 50) {
   def addPipeline(pipeline : String): VeraArgs =
     copy(pipelines = pipelines + pipeline)
 
@@ -36,12 +37,12 @@ object Vera {
         (argList, vera)
       case _ => (argList, vera)
     }
-    val (remaining, veraArgs) = parse(args.toList, VeraArgs())
+    var (remaining, veraArgs) = parse(args.toList, VeraArgs())
     if (remaining.size != 1) {
       throw new IllegalArgumentException("unknown option " + remaining.size)
     }
-    val newargs = veraArgs.copy(p4File = remaining.head)
-    System.out.println(s"preparing to run vera against ${newargs.p4File}")
+    veraArgs = veraArgs.copy(p4File = remaining.head)
+    System.out.println(s"preparing to run vera against ${veraArgs.p4File}")
     val switch = SolveTables(Switch.fromFile(veraArgs.p4File))
     val input = MemoryInitializer.initialize(switch)(context)
     val qb = DisjQuery(switch, context)(
@@ -51,6 +52,18 @@ object Vera {
     val sema = new SemaWithEvents[P4RootMemory](switch).addListener(qb)
     val parsed = sema.parse(input)
     val postingress = sema.runControl("ingress", parsed)
-
+    val BufferResult(cloned, goesOn, recirculated, dropped) =
+      sema.buffer(postingress, input, ingress = true)
+    val egressInput = (cloned || goesOn).as[P4RootMemory]
+    val egressOutcome = sema.runControl("egress", egressInput)
+    val BufferResult(ecloned, egoesOn, erecirculated, edropped) =
+      sema.buffer(egressOutcome, egressInput, ingress = false)
+    val limit = veraArgs.maxBugs
+    for (x <- qb.possibleLocations().take(limit)) {
+      System.err.println("at: ")
+      System.err.println(x._1)
+      System.err.println("because: ")
+      System.err.println(x._2)
+    }
   }
 }

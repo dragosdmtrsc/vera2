@@ -269,6 +269,17 @@ case class P4RootMemory(switch : Switch,
     copy(rootMemory = rootMemory.set(d.maybePath.get, s.value))
   }
 
+
+  override def cloneSession(cloneSpec: P4Query): P4Query = {
+    ValueWrapper.rv(rootMemory.typeMapper.fresh(BVType(32), "clone_session"))
+  }
+
+  override def multicastSession(mgid: P4Query): P4Query = {
+    ValueWrapper.rv(rootMemory.typeMapper.fresh(BVType(32), "mgid_session"))
+  }
+
+  override def root() : P4Query = rootWrap
+
   override def packet(): ValueWrapper = field("packet")
 
   override def query(table: String,
