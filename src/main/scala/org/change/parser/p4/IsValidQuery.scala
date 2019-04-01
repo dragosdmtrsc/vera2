@@ -18,7 +18,7 @@ class IsValidQuery(switch: Switch,
                      memory : P4RootMemory) : Option[P4RootMemory] = node match {
     case (ifElseStatement: IfElseStatement, _, _) =>
       val fail = memory.validityFailure(ifElseStatement.getCondition)
-      Some(memory.where(fail).fails("invalid condition in if condition" +
+      Some(memory.where(fail).fails("invalid condition in if condition " +
         s"${ifElseStatement.getCondition.toString}").as[P4RootMemory])
     case (caseEntry: CaseEntry, _, _) =>
       val bexpr = caseEntry.getBExpr
@@ -42,19 +42,19 @@ class IndexOutOfBounds(switch: Switch,
   override def query(node : Object,
                      memory : P4RootMemory) : Option[P4RootMemory] = node match {
     case (ifElseStatement: IfElseStatement, _, _) =>
-      val fail = memory.validityFailure(ifElseStatement.getCondition)
+      val fail = memory.indexOutOfBounds(ifElseStatement.getCondition)
       Some(memory.where(fail).fails("array index out of bounds in if statement condition " +
         s"${ifElseStatement.getCondition.toString}").as[P4RootMemory])
     case (caseEntry: CaseEntry, _, _) =>
       val bexpr = caseEntry.getBExpr
-      val fail = memory.validityFailure(bexpr)
+      val fail = memory.indexOutOfBounds(bexpr)
       Some(memory.where(fail).fails("array index out of bounds in case statement " +
         s"${bexpr.toString}").as[P4RootMemory])
     case acall : P4ActionCall =>
       val fail = memory.or(acall.params().asScala
         .map(_.asInstanceOf[ParamExpression])
         .map(p => {
-          MkQuery.validityFailure(memory, p.getExpression)
+          memory.indexOutOfBounds(p.getExpression)
         }))
       Some(memory.where(fail).fails("array index out of bounds in action call " +
         s"${acall.toString}").as[P4RootMemory])
@@ -67,8 +67,8 @@ class DisjQuery(switch: Switch,
                 q1 : QueryBuilder,
                 q2 : QueryBuilder) extends QueryBuilder(switch, context) {
   override def query(evt: Object, in: P4RootMemory): Option[P4RootMemory] = {
-    val qa = q1.query(evt, in)
-    val qb = q2.query(evt, in)
+    val qa = q1.query(evt, in).filter(!_.rootMemory.isEmpty())
+    val qb = q2.query(evt, in).filter(!_.rootMemory.isEmpty())
     (qa, qb) match {
       case (Some(lr), Some(rr)) =>
         Some((lr || rr).as[P4RootMemory])

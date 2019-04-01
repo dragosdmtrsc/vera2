@@ -118,12 +118,19 @@ object VeraTopologyPlugin {
       val firstIngress = SEFLSemantics.getFirst("ingress")
       val exegress = SEFLSemantics.execute("ingress")(Map(firstIngress -> goingOut))
       val postingress = exegress(new EndOfControl("ingress"))
+      val bufferBuilder = new BufferMechanism(sw)(postingress)._4
       val firstEgress = SEFLSemantics.getFirst("egress")
-      val all = SEFLSemantics.execute("egress")(Map(firstEgress -> postingress))
+      val postEgress = SEFLSemantics.execute("egress")(Map(firstEgress -> bufferBuilder.as[P4RootMemory]))
+      val firstDeparser = SEFLSemantics.getFirst("deparser")
+      val deparsed = SEFLSemantics.execute("deparser")(
+        Map(firstDeparser -> postEgress(new EndOfControl("egress")))
+      )
+
       val end = System.currentTimeMillis()
       System.err.println(s"propagation took ${end - start}ms")
       for (a <- qb.possibleLocations().take(50)) {
-        System.err.println(a._1)
+        System.err.println("at: " + a._1)
+        System.err.println("because: " + a._2)
       }
       val qend = System.currentTimeMillis()
       System.err.println(s"validity querying took ${qend - end}ms")

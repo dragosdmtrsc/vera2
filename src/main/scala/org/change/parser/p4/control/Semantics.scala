@@ -1,8 +1,8 @@
 package org.change.parser.p4.control
 
-import org.change.utils.graph.LabeledGraph
+import org.change.utils.graph.{Graph, LabeledGraph}
 import org.change.v2.p4.model.Switch
-import org.change.v2.p4.model.control.ControlStatement
+import org.change.v2.p4.model.control.{ControlStatement, EndOfControl}
 import org.change.v2.p4.model.control.exp.P4BExpr
 
 import scala.collection.mutable
@@ -33,6 +33,13 @@ abstract class Semantics[T](switch: Switch) {
     getSCC(control).last.head
   }
 
+  def parse(p4Memory: T): T = {
+    val first = getFirst("parser")
+    val parserCfg = getCFG("parser")
+    val mapping = runOnCFG("parser", Map(first -> p4Memory), parserCfg)
+    mapping(new EndOfControl("parser"))
+  }
+
   def translate(src : ControlStatement, rho : Option[P4BExpr], dst : ControlStatement)
                (from : T) : T
 
@@ -49,25 +56,27 @@ abstract class Semantics[T](switch: Switch) {
   def executeDeparser(current : Map[ControlStatement, T]) : Map[ControlStatement, T] = {
     execute("deparser")(current)
   }
-  class V1Model {
-    val parser: LabeledGraph[ControlStatement, Option[P4BExpr]] = getCFG("parser")
-    val ingress: LabeledGraph[ControlStatement, Option[P4BExpr]] = getCFG("ingress")
-    val egress: LabeledGraph[ControlStatement, Option[P4BExpr]] = getCFG("egress")
-    val deparser: LabeledGraph[ControlStatement, Option[P4BExpr]] = getCFG("deparser")
-
-    val parserStart: ControlStatement = parser.graphView.scc().last.head
-    val ingressStart: ControlStatement = ingress.graphView.scc().last.head
-    val egressStart: ControlStatement = egress.graphView.scc().last.head
-    val deparserStart: ControlStatement = deparser.graphView.scc().last.head
-
-
+  def runControl(control : String, startFrom : T) : T = {
+    val lcfg = getCFG(control)
+    val first = getFirst(control)
+    runOnCFG(control, Map(first -> startFrom), lcfg)(new EndOfControl(control))
   }
-  def v1model() : V1Model = {
-    new V1Model
+
+  def deparse(startFrom : T) : T = {
+    val lcfg = getCFG("deparser")
+    val first = getFirst("deparser")
+    runOnCFG("deparser",
+      Map(first -> startFrom), lcfg)(new EndOfControl("deparser"))
   }
 
   def execute(control : String)(current : Map[ControlStatement, T]) : Map[ControlStatement, T] = {
     val lcfg = getCFG(control)
+    runOnCFG(control, current, lcfg)
+  }
+
+  private def runOnCFG(control: String,
+                       current: Map[ControlStatement, T],
+                       lcfg: LabeledGraph[ControlStatement, Option[P4BExpr]]): Map[ControlStatement, T] = {
     val cfg = lcfg.graphView
     cfg.scc().reverse.foldLeft(current)((now, scc) => {
       if (scc.size != 1) {
@@ -86,7 +95,7 @@ abstract class Semantics[T](switch: Switch) {
             (acc._1.get(nxt._1).map(old => {
               acc._1 + (nxt._1 -> merge(old, goon))
             }).getOrElse(acc._1 + (nxt._1 -> goon)),
-            Some(acc._2.map(merge(_, stopped)).getOrElse(stopped)))
+              Some(acc._2.map(merge(_, stopped)).getOrElse(stopped)))
           })(obj)
         })
         if (partial._2.isEmpty) {

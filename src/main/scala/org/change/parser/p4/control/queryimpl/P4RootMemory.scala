@@ -303,7 +303,8 @@ case class P4RootMemory(switch : Switch,
 
   override def errorCause(): ValueWrapper = field("errorCause")
 
-  override def fails(because: String): P4Query = update(errorCause(), int(because.hashCode))
+  override def fails(because: String): P4Query =
+    update(errorCause(), int(ErrorLedger.errorIndex(because)))
 
   override def int(v : BigInt): ValueWrapper = ValueWrapper.rv(rootMemory.typeMapper.literal(IntType, v))
 

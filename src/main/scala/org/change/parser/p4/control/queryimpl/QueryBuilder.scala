@@ -11,6 +11,7 @@ class QueryBuilder(switch : Switch,
   extends SafetyQueryListener[P4RootMemory] {
 
   val nodeToConstraint = mutable.Map.empty[Object, Z3AST]
+  val errCause = mutable.Map.empty[Object, Z3AST]
 
   lazy val solver : Z3Solver = context.mkSolver()
   override def before(event: Object, ctx: P4RootMemory): Unit = {
@@ -19,10 +20,11 @@ class QueryBuilder(switch : Switch,
       val p = context.mkFreshBoolConst("asp")
       solver.assertCnstr(context.mkImplies(p, mem.rootMemory.condition))
       nodeToConstraint.put(event, p)
+      errCause.put(event, mem.errorCause().value.asInstanceOf[ScalarValue].z3AST)
     })
   }
 
-  def possibleLocations() : Iterator[(Object, Z3Model)] = {
+  def possibleLocations() : Iterator[(Object, String, Z3Model)] = {
     if (nodeToConstraint.isEmpty) {
       Iterator.empty
     } else {
@@ -39,10 +41,12 @@ class QueryBuilder(switch : Switch,
           val o2 = nodeToConstraint.find(loc => {
             model.evalAs[Boolean](loc._2).getOrElse(false)
           }).get
+          val casus = model.evalAs[Int](errCause(o2._1)).getOrElse(-1)
+          val error = ErrorLedger.error(casus)
           solver.push()
           nrPushes = nrPushes + 1
           solver.assertCnstr(context.mkNot(o2._2))
-          (o2._1, model)
+          (o2._1, error, model)
         }).takeWhile(_ => if (solver.check().get) {
           true
         } else {

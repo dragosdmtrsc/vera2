@@ -86,7 +86,7 @@ class AnalyzeThis(switch: Switch) {
       if (controlName == "parser") {
         parserHelper.mkUnrolledLabeledGraph
       } else if (controlName == "deparser") {
-        new Graph(parserHelper.cfg.scc().flatMap(r => {
+        val eds = parserHelper.cfg.scc().flatMap(r => {
           r.collect {
             case es : ExtractStatement =>
               new EmitStatement(es.getExpression)
@@ -97,7 +97,11 @@ class AnalyzeThis(switch: Switch) {
           } else {
             acc._2
           })
-        })._2).label((_, _) => Option.empty[P4BExpr])
+        })
+        val last = eds._1.get
+        new Graph(eds._2 +
+          (last -> (new EndOfControl("deparser") :: Nil)))
+          .label((_, _) => Option.empty[P4BExpr])
       } else {
         throw new IllegalArgumentException(s"can't find $controlName object")
       }

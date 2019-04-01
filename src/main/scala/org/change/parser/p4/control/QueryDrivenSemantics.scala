@@ -179,6 +179,10 @@ class QueryDrivenSemantics[T<:P4Memory](switch: Switch) extends Semantics[T](swi
     val count = params(1)
     val fresh = arr.fresh()
     val len = arr.len().nr.toInt
+    val newnext = (nxtidx - count >= arr.len().int(0)).ite(
+      nxtidx - count,
+      arr.len().int(0)
+    )
     ctx.where(
       ctx.and((0 until len).map(idx => {
         val i = ctx.int(idx)
@@ -197,6 +201,10 @@ class QueryDrivenSemantics[T<:P4Memory](switch: Switch) extends Semantics[T](swi
     val count = params(1)
     val fresh = arr.fresh()
     val len = arr.len().nr.toInt
+    val newnext = (nxtidx + count <= arr.len()).ite(
+      nxtidx + count,
+      arr.len()
+    )
     ctx.where(
       ctx.and((0 until len).map(idx => {
         val i = ctx.int(idx)
@@ -207,7 +215,7 @@ class QueryDrivenSemantics[T<:P4Memory](switch: Switch) extends Semantics[T](swi
         }) ++ List(zeros.valid() === ctx.boolVal(true)))
         (i < count).ite(flds, fresh(i) === arr(i - count))
       }))
-    ).update(arr, fresh)
+    ).update(arr, fresh).update(nxtidx, newnext)
   }
 
   def analyze(action: Recirculate,
@@ -433,7 +441,7 @@ class QueryDrivenSemantics[T<:P4Memory](switch: Switch) extends Semantics[T](swi
         case es : EmitStatement =>
           val packet = ctx.packet()
           val hdr1 = ctx(es.getHeaderRef)
-          val valid  = ctx(es.getHeaderRef)
+          val valid  = hdr1.valid()
           val dostuff = valid.ite(hdr1.fields().foldLeft(ctx : P4Memory)((crtQuery, fld) => {
             crtQuery.update(packet, packet.append(hdr1.field(fld)))
           }), ctx).as[P4Memory]

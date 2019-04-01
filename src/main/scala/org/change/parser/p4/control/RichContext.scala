@@ -5,13 +5,13 @@ import org.change.v2.p4.model.parser._
 
 case class RichContext(ctx : P4Memory) {
   def indexOutOfBounds(p4Expr: P4Expr) : P4Query = {
-    MkQuery.validityFailure(ctx, p4Expr)
+    MkQuery.indexOutOfBounds(ctx, p4Expr)
   }
   def indexOutOfBounds(p4Expr: P4BExpr) : P4Query = {
-    MkQuery.validityFailure(ctx, p4Expr)
+    MkQuery.indexOutOfBounds(ctx, p4Expr)
   }
   def indexOutOfBounds(expr: Expression) : P4Query = {
-    MkQuery.validityFailure(ctx, expr)
+    MkQuery.indexOutOfBounds(ctx, expr)
   }
   def validityFailure(p4Expr: P4Expr) : P4Query = {
     MkQuery.validityFailure(ctx, p4Expr)
