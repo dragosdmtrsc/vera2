@@ -1,12 +1,9 @@
 package org.change.parser.p4.control
 
-import java.io.{BufferedReader, FileInputStream, InputStreamReader}
-
-import generated.parse.p4.{P4GrammarLexer, P4GrammarParser}
 import generated.parser.p4.commands.{P4CommandsBaseListener, P4CommandsLexer, P4CommandsParser}
 import org.antlr.v4.runtime.tree.ParseTreeWalker
-import org.antlr.v4.runtime.{CharStream, CharStreams, CommonTokenStream}
-import org.change.parser.p4.{P4GrammarListener, ValueSpecificationParser}
+import org.antlr.v4.runtime.{CharStreams, CommonTokenStream}
+import org.change.parser.p4.ValueSpecificationParser
 import org.change.parser.p4.parser._
 import org.change.utils.RepresentationConversion
 import org.change.v2.p4.model.Switch
