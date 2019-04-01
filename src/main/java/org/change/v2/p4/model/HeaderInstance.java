@@ -1,5 +1,7 @@
 package org.change.v2.p4.model;
 
+import scala.math.BigInt;
+
 import java.util.HashMap;
 import java.util.Map;
 
@@ -11,7 +13,7 @@ public class HeaderInstance {
     private String name;
     private boolean metadata;
 
-    private Map<String, Long> initializer = new HashMap<String, Long>();
+    private Map<String, BigInt> initializer = new HashMap<>();
 
     public HeaderInstance(Header layout, String name) {
         assert layout != null && name != null;
@@ -29,12 +31,12 @@ public class HeaderInstance {
         return this;
     }
 
-    public HeaderInstance addInitializer(String field, Long value) {
+    public HeaderInstance addInitializer(String field, BigInt value) {
         this.initializer.put(field, value);
         return this;
     }
 
-    public Map<String, Long> getInitializer() {
+    public Map<String, BigInt> getInitializer() {
         return initializer;
     }
 

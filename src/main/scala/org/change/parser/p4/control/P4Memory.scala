@@ -57,7 +57,7 @@ trait P4TableQuery extends P4Query {
   def isAction(act : String) : P4Query = ???
   def getParam(act : String, parmName : String) : P4Query = ???
 }
-class P4Memory(switch : Switch) extends P4Query {
+class P4Memory(val switch : Switch) extends P4Query {
   def when(whenCases : Iterable[(P4Query, P4Query)]): P4Query = {
     if (whenCases.isEmpty)
       throw new IllegalArgumentException("when must have at least one case")

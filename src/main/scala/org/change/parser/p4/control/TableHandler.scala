@@ -356,7 +356,7 @@ class TableHandler(switch: Switch,
       case ax : org.change.v2.p4.model.actions.primitives.Drop =>
         toTriple(set(
           standardMeta("egress_spec"),
-          context.mkInt(511, context.mkBVSort(9)),
+          context.mkInt(DROP_VALUE, context.mkBVSort(9)),
           simpleMemory
         ))
       case ax : org.change.v2.p4.model.actions.primitives.ExecuteMeter =>

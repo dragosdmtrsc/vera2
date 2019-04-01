@@ -12,6 +12,9 @@ import org.change.v2.p4.model.actions.ActionRegistrar;
 import org.change.v2.p4.model.actions.P4Action;
 import org.change.v2.p4.model.actions.P4ActionProfile;
 import org.change.v2.p4.model.fieldlists.FieldList;
+import org.change.v2.p4.model.parser.FieldRef;
+import org.change.v2.p4.model.parser.HeaderRef;
+import org.change.v2.p4.model.parser.IndexedHeaderRef;
 import org.change.v2.p4.model.parser.State;
 import org.change.v2.p4.model.table.TableDeclaration;
 import org.change.v2.p4.model.table.TableMatch;
@@ -28,6 +31,13 @@ import java.util.stream.Collectors;
  */
 public class Switch {
 
+    public Switch() {
+        //start counting field lists from 1,
+        //zero is reserved to mean that no change is to be performed
+        idsToFieldLists.add(null);
+        fl2ids.put("", 0);
+    }
+
     // the good and the new. All declarations go here:
     private Map<String, Calculation> calculationDeclarations = new HashMap<>();
     private Map<String, TableDeclaration> tableDeclarations = new HashMap<>();
@@ -40,6 +50,11 @@ public class Switch {
     private Map<String, State> parserStates = new HashMap<>();
     private Map<String, org.change.v2.p4.model.fieldlists.FieldList> fieldListMap =
             new HashMap<>();
+    private Map<String, List<FieldRef>> fieldListExpansion = new HashMap<>();
+
+    private List<org.change.v2.p4.model.fieldlists.FieldList> idsToFieldLists =
+            new ArrayList<>();
+    private Map<String, Integer> fl2ids = new HashMap<>();
 
     public Iterable<ControlBlock> controlBlocks() {
         return controlBlockDeclarations.values();
@@ -132,7 +147,61 @@ public class Switch {
         org.change.v2.p4.model.fieldlists.FieldList old = fieldListMap.put(fieldList.getName(), fieldList);
         if (old != null && !allowOverride)
             throw new IllegalStateException("field list " + old + " already declared");
+        idsToFieldLists.add(fieldList);
+        fl2ids.put(fieldList.getName(), idsToFieldLists.size() - 1);
         return this;
+    }
+
+    public FieldList getFieldListByIndex(int idx) {
+        if (idx < 1 || idx >= idsToFieldLists.size()) {
+            return null;
+        }
+        return idsToFieldLists.get(idx);
+    }
+    public int getFieldListIndex(String fieldList) {
+        return fl2ids.getOrDefault(fieldList, -1);
+    }
+    public List<FieldRef> expandFieldList(String pfieldList) {
+        if (fieldListExpansion.size() != fieldListMap.size()) {
+            for (Map.Entry<String, FieldList> entry : fieldListMap.entrySet()) {
+                FieldList fl = entry.getValue();
+                String fieldList = entry.getKey();
+                List<FieldRef> refs = new ArrayList<>();
+                for (FieldList.Entry fe : fl.getEntries()) {
+                    if (fe instanceof FieldList.FieldRefEntry) {
+                        FieldRef fr = ((FieldList.FieldRefEntry) fe).getFieldRef();
+                        HeaderInstance inst = getInstance(fr.getHeaderRef().getPath());
+                        fr.getHeaderRef().setInstance(inst);
+                        fr.setFieldReference(inst.getLayout().getField(fr.getField()));
+                        refs.add(fr);
+                    } else if (fe instanceof FieldList.HeaderRefEntry) {
+                        HeaderInstance href = getInstance(((FieldList.HeaderRefEntry) fe).getHeaderRef().getPath());
+                        if (href instanceof ArrayInstance) {
+                            ArrayInstance ai = (ArrayInstance) href;
+                            for (int i = 0; i != ai.getLength(); ++i) {
+                                HeaderRef h = new IndexedHeaderRef().setIndex(i).setInstance(ai);
+                                for (Field f : href.getLayout().getFields()) {
+                                    FieldRef fr = new FieldRef()
+                                            .setField(f.getName()).setFieldReference(f).setHeaderRef(h);
+                                    refs.add(fr);
+                                }
+                            }
+                        } else {
+                            HeaderRef h = new HeaderRef().setInstance(href).setPath(href.getName());
+                            for (Field f : href.getLayout().getFields()) {
+                                FieldRef fr = new FieldRef()
+                                        .setField(f.getName()).setFieldReference(f).setHeaderRef(h);
+                                refs.add(fr);
+                            }
+                        }
+                    } else {
+                        //TODO: is there anything else that we may handle?
+                    }
+                }
+                fieldListExpansion.put(fieldList, refs);
+            }
+        }
+        return fieldListExpansion.get(pfieldList);
     }
 
     public Switch declareRegister(RegisterSpecification registerSpecification, boolean allowOverride) {

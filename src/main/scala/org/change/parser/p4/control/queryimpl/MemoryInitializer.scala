@@ -3,9 +3,9 @@ package org.change.parser.p4.control.queryimpl
 import org.change.parser.p4.control.{FlowStruct, P4Memory}
 import org.change.plugins.vera._
 import org.change.v2.p4.model.actions.P4ActionType
-import org.change.v2.p4.model.table.TableDeclaration
 import org.change.v2.p4.model.{ArrayInstance, Header, HeaderInstance, Switch}
 import z3.scala.Z3Context
+import org.change.parser.p4.control.FIELD_LIST_REF
 
 import scala.collection.JavaConverters._
 object MemoryInitializer {
@@ -22,13 +22,13 @@ object MemoryInitializer {
       "errorCause" -> IntType,
       "packetLength" -> IntType,
       "clone" -> IntType,
-      "field_list_ref" -> IntType
+      FIELD_LIST_REF -> IntType
     )
   }
 
   def populateHelpers(switch: Switch, ctx : P4RootMemory)(implicit context: Z3Context) : P4RootMemory = {
     ctx.update(ctx.field("clone"), ctx.int(0))
-       .update(ctx.field("field_list_ref"), ctx.int(0))
+       .update(ctx.field(FIELD_LIST_REF), ctx.int(0))
        .update(ctx.field("errorCause"), ctx.int(0)).as[P4RootMemory]
   }
 

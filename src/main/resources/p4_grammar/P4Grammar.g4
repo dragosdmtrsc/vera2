@@ -82,7 +82,7 @@ instance_name   :   NAME ;
 
 metadata_instance returns [org.change.parser.p4.MetadataInstance instance]:
    'metadata' header_type_name instance_name metadata_initializer? ';' ;
-metadata_initializer returns [scala.collection.Map<String, Integer> inits]:
+metadata_initializer returns [scala.collection.Map<String, scala.math.BigInt> inits]:
    '{' ( field_name ':' field_value ';' )+ '}' ;
 
 header_ref returns [org.change.v2.analysis.memory.TagExp tagReference, String headerInstanceId,

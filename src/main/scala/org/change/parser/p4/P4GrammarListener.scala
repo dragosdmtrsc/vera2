@@ -33,7 +33,7 @@ class P4GrammarListener extends P4GrammarBaseListener {
   }
   override def exitConst_value(ctx: P4GrammarParser.Const_valueContext): Unit = {
     if (ctx.width_spec() != null) {
-      ctx.width = Integer.parseInt(ctx.width_spec().getText)
+      ctx.width = Integer.parseInt(ctx.width_spec().Decimal_value().getText)
     } else {
       ctx.width = -1
     }
@@ -111,19 +111,19 @@ class P4GrammarListener extends P4GrammarBaseListener {
   override def exitMetadata_initializer(ctx: P4GrammarParser.Metadata_initializerContext): Unit = {
     import scala.collection.JavaConverters._
     ctx.inits = (ctx.field_name().asScala zip ctx.field_value().asScala).map( nv => {
-      nv._1.getText -> new Integer(nv._2.fieldValue.intValue())
+      nv._1.getText -> nv._2.fieldValue
     }).toMap
   }
 
   override def exitMetadataInstance(ctx: P4GrammarParser.MetadataInstanceContext): Unit = {
     val headerType = ctx.metadata_instance().header_type_name().getText
     val instanceName = ctx.metadata_instance().instance_name().getText
-    val initializer: Map[String, Int] = if (ctx.metadata_instance().metadata_initializer() != null)
-      ctx.metadata_instance().metadata_initializer().inits.map(mv => mv._1.toString -> mv._2.intValue()).toMap
+    val initializer: Map[String, BigInt] = if (ctx.metadata_instance().metadata_initializer() != null)
+      ctx.metadata_instance().metadata_initializer().inits.map(mv => mv._1.toString -> mv._2).toMap
     else
       Map.empty
     switch.declareHeaderInstance(initializer.foldLeft(new model.HeaderInstance(headerType, instanceName).setMetadata(true))((acc, x) => {
-        acc.addInitializer(x._1, x._2.toLong)
+        acc.addInitializer(x._1, x._2)
       }), true
     )
   }

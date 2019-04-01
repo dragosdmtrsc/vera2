@@ -1673,7 +1673,7 @@ public class P4GrammarParser extends Parser {
 	}
 
 	public static class Metadata_initializerContext extends ParserRuleContext {
-		public scala.collection.Map<String, Integer> inits;
+		public scala.collection.Map<String, scala.math.BigInt> inits;
 		public List<Field_nameContext> field_name() {
 			return getRuleContexts(Field_nameContext.class);
 		}

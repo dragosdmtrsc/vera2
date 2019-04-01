@@ -15,17 +15,31 @@ import scala.collection.JavaConverters._
 
 class QueryDrivenSemantics[T<:P4Memory](switch: Switch) extends Semantics[T](switch) {
 
+  def restoreFieldList(dst : T, src : T, omit : FieldRef => Boolean) : T = {
+    // src has the field_list_ref number set to the field list reference
+    // under which it was cloned
+    val fieldRef = src.field(FIELD_LIST_REF)
+    dst.or(switch.getFieldListMap.keySet().asScala.map(fr => {
+      val idx = switch.getFieldListIndex(fr)
+      val expanded = switch.expandFieldList(fr)
+      val cd  = fieldRef === fieldRef.int(idx)
+      expanded.asScala.filter(!omit(_)).foldLeft(dst : P4Memory)((acc, x) => {
+        acc.update(MkQuery.apply(acc, x), MkQuery.apply(src, x))
+      }).where(cd).update(fieldRef, fieldRef.zeros()).as[T]
+    })).as[T]
+  }
+
   override def buffer(p4Memory : T,
                       initial : T,
                       ingress : Boolean = true) : BufferResult[T] = {
-    val cloneInstanceType = if (ingress) 1 else 2
-    val recircType = if (ingress) 6 else 4
+    val cloneInstanceType = if (ingress) INGRESS_CLONE else EGRESS_CLONE
+    val recircType = if (ingress) RESUBMITED else RECIRCULATED
     val resubField = if (ingress) "resubmit_flag" else "recirculate_flag"
     // what does the clone look like
     val cloneSpec = p4Memory.standardMetadata().field("clone_spec")
     val cl = p4Memory.where(
       cloneSpec != cloneSpec.int(0)
-    ).update(cloneSpec, cloneSpec.int(0))
+    )
     val noClone = p4Memory.where(cloneSpec === cloneSpec.int(0))
     val espec = cl.cloneSession(cloneSpec)
     val copied = cl.update(cl.root(), initial.root()).update(cloneSpec, cloneSpec.zeros())
@@ -33,10 +47,18 @@ class QueryDrivenSemantics[T<:P4Memory](switch: Switch) extends Semantics[T](swi
     //means: set instance type to clone_ingress and then re-run
     val toBeCloned = copied.update(copied.standardMetadata().field("egress_spec"), espec)
       .update(copied.standardMetadata().field("instance_type"),
-        copied.standardMetadata().field("instance_type").int(cloneInstanceType))
+        copied.standardMetadata().field("instance_type").int(cloneInstanceType)).as[T]
+    val postClone = restoreFieldList(toBeCloned, cl.as[T],
+      omit = f => {
+        f.getHeaderRef.getInstance().getName == STANDARD_METADATA &&
+          (f.getField == CLONE_SPEC ||
+            f.getField == "instance_type" ||
+            f.getField == "egress_spec")
+      }).update(cloneSpec, cloneSpec.int(0))
+
     //always zero out clone_spec to avoid bombarding the switch
     // mimic a merge operation if (clone_spec != 0) { set up the clone } else { noop; }
-    val continuedPostClone = (cl || noClone).as[P4Memory]
+    val continuedPostClone = (postClone || noClone).as[P4Memory]
     // mgid handling
     val intrinsics = switch.getInstance("intrinsic_metadata")
     var mgid = p4Memory.int(0, BVType(16))
@@ -50,15 +72,21 @@ class QueryDrivenSemantics[T<:P4Memory](switch: Switch) extends Semantics[T](swi
     var resub = continuedPostClone.where(resubmitFlag != resubmitFlag.int(0))
     if (intrinsics != null && intrinsics.getLayout.getField(resubField) != null)
       resub = resub.update(resubmitFlag, resubmitFlag.int(0))
-    // TODO: also copy field lists here
     val toBeResubmited = resub.update(resub.root(), initial.root())
       .update(resub.standardMetadata().field("instance_type"),
         resub.standardMetadata().field("instance_type").int(recircType))
+    val postResubmit = restoreFieldList(toBeResubmited.as[T], resub.as[T], omit = f => {
+      f.getHeaderRef.getInstance().getName == STANDARD_METADATA &&
+        (f.getField == CLONE_SPEC ||
+          f.getField == "instance_type" ||
+          f.getField == "egress_spec" ||
+          f.getField == resubField)
+    })
     val continueAfterResubmit = continuedPostClone.where(resubmitFlag === resubmitFlag.int(0))
 
     val multicasted = continueAfterResubmit.where(mgid != mgid.zeros())
       .update(resub.standardMetadata().field("instance_type"),
-        resub.standardMetadata().field("instance_type").int(5))
+        resub.standardMetadata().field("instance_type").int(MULTICAST))
       .update(continueAfterResubmit.standardMetadata().field("egress_spec"),
         continueAfterResubmit.multicastSession(mgid)
       )
@@ -66,7 +94,7 @@ class QueryDrivenSemantics[T<:P4Memory](switch: Switch) extends Semantics[T](swi
     val afterMulticast = if (ingress) (noMulticast || multicasted).as[P4Memory] else noMulticast
 
     val dropquery = afterMulticast.standardMetadata().field("egress_spec") ===
-      afterMulticast.standardMetadata().field("egress_spec").int(511)
+      afterMulticast.standardMetadata().field("egress_spec").int(DROP_VALUE)
     val dropped = afterMulticast.where(dropquery)
     val noDrop = afterMulticast.where(!dropquery)
     val continue =
@@ -75,9 +103,9 @@ class QueryDrivenSemantics[T<:P4Memory](switch: Switch) extends Semantics[T](swi
       noDrop.standardMetadata().field("egress_spec")
     ) else noDrop
     BufferResult(
-      cloned = cl.as[T],
+      cloned = postClone.as[T],
       goesOn = continue.as[T],
-      recirculated = toBeResubmited.as[T],
+      recirculated = postResubmit.as[T],
       dropped = dropped.as[T]
     )
   }
@@ -130,12 +158,10 @@ class QueryDrivenSemantics[T<:P4Memory](switch: Switch) extends Semantics[T](swi
               stackTrace : List[P4Action])
              (implicit ctx : P4Memory): P4Memory = {
     // TODO: please look at BMV2 and check how to do it
-    val cloneEgress = ctx.field("clone")
     val cloneSpec = ctx.standardMetadata().field("clone_spec")
-    val flRef = ctx.field("field_list_ref")
-    ctx.update(cloneEgress, ctx.int(2))
-      .update(cloneSpec, params.head)
-      .update(flRef, params(1))
+    val flRef = ctx.field(FIELD_LIST_REF)
+    ctx.update(cloneSpec, params.head)
+       .update(flRef, params(1))
   }
 
   def analyze(action: CloneEgressPktToIngress,
@@ -143,36 +169,36 @@ class QueryDrivenSemantics[T<:P4Memory](switch: Switch) extends Semantics[T](swi
               stackTrace : List[P4Action])
              (implicit ctx : P4Memory): P4Memory = {
     // TODO: please look at BMV2 and check how to do it
-    val cloneEgress = ctx.field("clone")
-    val cloneSpec = ctx.standardMetadata().field("clone_spec")
-    val flRef = ctx.field("field_list_ref")
-    ctx.update(cloneEgress, ctx.int(1))
-       .update(cloneSpec, params.head)
-       .update(flRef, params(1))
+//    val cloneEgress = ctx.field("clone")
+//    val cloneSpec = ctx.standardMetadata().field("clone_spec")
+//    val flRef = ctx.field("field_list_ref")
+//    ctx.update(cloneEgress, ctx.int(1))
+//       .update(cloneSpec, params.head)
+//       .update(flRef, params(1))
+    throw new UnsupportedOperationException("as per BMV2 and p4c, don't support " + action)
   }
   def analyze(action: CloneIngressPktToEgress,
               params : List[P4Query],
               stackTrace : List[P4Action])
              (implicit ctx : P4Memory): P4Memory = {
     // TODO: please look at BMV2 and check how to do it
-    val cloneEgress = ctx.field("clone")
     val cloneSpec = ctx.standardMetadata().field("clone_spec")
-    val flRef = ctx.field("field_list_ref")
-    ctx.update(cloneEgress, ctx.int(2))
-      .update(cloneSpec, params.head)
-      .update(flRef, params(1))
+    val flRef = ctx.field(FIELD_LIST_REF)
+    ctx.update(cloneSpec, params.head)
+       .update(flRef, params(1))
   }
   def analyze(action: CloneIngressPktToIngress,
               params : List[P4Query],
               stackTrace : List[P4Action])
              (implicit ctx : P4Memory): P4Memory = {
     // TODO: please look at BMV2 and check how to do it
-    val cloneEgress = ctx.field("clone")
-    val cloneSpec = ctx.standardMetadata().field("clone_spec")
-    val flRef = ctx.field("field_list_ref")
-    ctx.update(cloneEgress, ctx.int(1))
-       .update(cloneSpec, params.head)
-       .update(flRef, params(1))
+//    val cloneEgress = ctx.field("clone")
+//    val cloneSpec = ctx.standardMetadata().field("clone_spec")
+//    val flRef = ctx.field("field_list_ref")
+//    ctx.update(cloneEgress, ctx.int(1))
+//       .update(cloneSpec, params.head)
+//       .update(flRef, params(1))
+    throw new UnsupportedOperationException("as per BMV2 and p4c, don't support " + action)
   }
 
   def analyze(action: CopyHeader,
@@ -195,7 +221,7 @@ class QueryDrivenSemantics[T<:P4Memory](switch: Switch) extends Semantics[T](swi
               stackTrace : List[P4Action])
              (implicit ctx : P4Memory): P4Memory = {
     val fld = ctx.standardMetadata().field("egress_spec")
-    ctx.update(fld, fld.int(511))
+    ctx.update(fld, fld.int(DROP_VALUE))
   }
 
   def analyze(action: GenerateDigest,
@@ -291,7 +317,7 @@ class QueryDrivenSemantics[T<:P4Memory](switch: Switch) extends Semantics[T](swi
               stackTrace : List[P4Action])
              (implicit ctx : P4Memory): P4Memory = {
     ctx.update(ctx.standardMetadata().field("recirculate_flag"), params.head)
-      .update(ctx.field("field_list_ref"), params(1))
+      .update(ctx.field(FIELD_LIST_REF), params(1))
   }
 
   def analyze(action: RegisterRead,
@@ -307,7 +333,7 @@ class QueryDrivenSemantics[T<:P4Memory](switch: Switch) extends Semantics[T](swi
               stackTrace : List[P4Action])
              (implicit ctx : P4Memory): P4Memory = {
     ctx.update(ctx.standardMetadata().field("resubmit_flag"), params.head)
-      .update(ctx.field("field_list_ref"), params(1))
+      .update(ctx.field(FIELD_LIST_REF), params(1))
   }
 
   def analyze(action: ShiftLeft,

@@ -118,9 +118,8 @@ object VeraTopologyPlugin {
       val firstIngress = SEFLSemantics.getFirst("ingress")
       val exegress = SEFLSemantics.execute("ingress")(Map(firstIngress -> goingOut))
       val postingress = exegress(new EndOfControl("ingress"))
-      val bufferBuilder = new BufferMechanism(sw)(postingress)._4
       val firstEgress = SEFLSemantics.getFirst("egress")
-      val postEgress = SEFLSemantics.execute("egress")(Map(firstEgress -> bufferBuilder.as[P4RootMemory]))
+      val postEgress = SEFLSemantics.execute("egress")(Map(firstEgress -> postingress.as[P4RootMemory]))
       val firstDeparser = SEFLSemantics.getFirst("deparser")
       val deparsed = SEFLSemantics.execute("deparser")(
         Map(firstDeparser -> postEgress(new EndOfControl("egress")))

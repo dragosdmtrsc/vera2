@@ -16,7 +16,7 @@ object MkQuery {
       //TODO: register handling
       ctx.int(registerRef.getPath.hashCode)
     case fr : FieldListRef =>
-      ctx.int(fr.getFieldList.getName.hashCode)
+      ctx.int(ctx.switch.getFieldListIndex(fr.getPath))
     case c : LiteralExpr =>
       if (c.getWidth > 0)
         ctx.int(c.getValue, BVType(c.getWidth))

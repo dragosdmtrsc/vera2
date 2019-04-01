@@ -11,7 +11,7 @@ trait AbsValueWrapper {
   def value : Value
   def maybePath : Option[ChurnedMemPath]
 }
-case class P4RootMemory(switch : Switch,
+case class P4RootMemory(override val switch : Switch,
                         rootMemory: RootMemory) extends P4Memory(switch) {
   case class ValueWrapper(value: Value,
                           maybePath : Option[ChurnedMemPath]) extends PacketQuery
