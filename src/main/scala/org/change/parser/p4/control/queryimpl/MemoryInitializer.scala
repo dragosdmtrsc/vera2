@@ -69,12 +69,11 @@ object MemoryInitializer {
             ai.getLayout.getFields.asScala.foldLeft(m)((acc, fld) => {
               if (ai.getName == "standard_metadata" &&
                     (fld.getName == "ingress_port" ||
-                      fld.getName == "instance_type" ||
                       fld.getName == "packet_length")) {
                 acc
               } else {
-                //TODO: use metadata initializers to correctly initialize all fields
-                acc.update(h.field(fld.getName), h.field(fld.getName).zeros())
+                acc.update(h.field(fld.getName), h.field(fld.getName)
+                  .int(ai.getInitializer.getOrDefault(fld.getName, 0)))
               }
             })
           } else {
@@ -95,8 +94,8 @@ object MemoryInitializer {
         }
         if (hi.isMetadata)
           hi.getLayout.getFields.asScala.foldLeft(m)((acc, fld) => {
-            //TODO: use metadata initializers to correctly initialize all fields
-            acc.update(h.field(fld.getName), h.field(fld.getName).zeros())
+            acc.update(h.field(fld.getName),
+              h.field(fld.getName).int(hi.getInitializer.getOrDefault(fld.getName, 0)))
           })
         else m
     })
@@ -114,7 +113,7 @@ object MemoryInitializer {
     val structObject = tm.fresh(st).asInstanceOf[StructObject]
     val fresh =  P4RootMemory(switch, RootMemory(structObject = structObject,
       tm.literal(BoolType, 1)))
-    val r = populateHelpers(switch, populateHeaders(switch, fresh)(context).asInstanceOf[P4RootMemory])
+    val r = populateHelpers(switch, populateHeaders(switch, fresh)(context).as[P4RootMemory])
     assert(r.err().as[P4RootMemory].rootMemory.isEmpty())
     r
   }
