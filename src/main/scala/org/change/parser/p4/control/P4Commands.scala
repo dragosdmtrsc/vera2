@@ -74,10 +74,6 @@ class P4Commands(switch : Switch) extends P4CommandsBaseListener {
     ctx.matchParam = Exact(v)
   }
 
-  override def exitStatements(ctx: P4CommandsParser.StatementsContext): Unit = {
-    println(holder.tables.mapValues(_.size))
-    println(holder.defaults.keys)
-  }
   override def exitTable_add(ctx: P4CommandsParser.Table_addContext): Unit = {
     tab = null
     val table = ctx.id().getText

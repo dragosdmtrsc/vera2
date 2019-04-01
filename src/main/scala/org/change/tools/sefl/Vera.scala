@@ -53,7 +53,7 @@ object Vera {
     val parsed = sema.parse(input)
     val postingress = sema.runControl("ingress", parsed)
     val BufferResult(cloned, goesOn, recirculated, dropped) =
-      sema.buffer(postingress, input, ingress = true)
+      sema.buffer(postingress, input)
     val egressInput = (cloned || goesOn).as[P4RootMemory]
     val egressOutcome = sema.runControl("egress", egressInput)
     val BufferResult(ecloned, egoesOn, erecirculated, edropped) =
