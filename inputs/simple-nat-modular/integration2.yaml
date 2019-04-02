@@ -1,8 +1,0 @@
-nodes:
-  - name: natt
-    p4: simple_nat-ppc.p4
-    dataplane: commands.txt
-    ifaces:
-      1: veth0
-      2: veth1
-      3: cpu

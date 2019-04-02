@@ -1,2 +1,0 @@
-table_set_default filter _nop
-table_set_default nop _nop
