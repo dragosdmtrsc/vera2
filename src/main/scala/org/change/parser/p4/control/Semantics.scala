@@ -53,19 +53,11 @@ abstract class Semantics[T](switch: Switch) {
   def success(region : T) : T
   def finishNode(src : ControlStatement, region : Option[T]) : Unit = {}
   def beforeNode(src : ControlStatement, region : T) : Unit = {}
-
-  def executeParser(current : Map[ControlStatement, T]) : Map[ControlStatement, T] = {
-    execute("parser")(current)
-  }
-  def executeDeparser(current : Map[ControlStatement, T]) : Map[ControlStatement, T] = {
-    execute("deparser")(current)
-  }
   def runControl(control : String, startFrom : T) : T = {
     val lcfg = getCFG(control)
     val first = getFirst(control)
     runOnCFG(control, Map(first -> startFrom), lcfg)(new EndOfControl(control))
   }
-
   def deparse(startFrom : T) : T = {
     val lcfg = getCFG("deparser")
     val first = getFirst("deparser")

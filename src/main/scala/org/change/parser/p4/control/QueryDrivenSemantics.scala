@@ -1,8 +1,9 @@
 package org.change.parser.p4.control
 
+import org.change.parser.p4.HeaderInstance
 import org.change.parser.p4.control.SMInstantiator._
 import org.change.plugins.vera.BVType
-import org.change.v2.p4.model.Switch
+import org.change.v2.p4.model.{ArrayInstance, Switch}
 import org.change.v2.p4.model.actions.P4ActionCall.ParamExpression
 import org.change.v2.p4.model.actions.primitives._
 import org.change.v2.p4.model.actions.{P4Action, P4ComplexAction}
@@ -27,6 +28,19 @@ class QueryDrivenSemantics[T<:P4Memory](switch: Switch) extends Semantics[T](swi
         acc.update(MkQuery.apply(acc, x), MkQuery.apply(src, x))
       }).where(cd).update(fieldRef, fieldRef.zeros()).as[T]
     })).as[T]
+  }
+
+  override def deparse(startFrom: T): T = {
+    val resetNextIdx = switch.getInstances.asScala.foldLeft(startFrom)((acc, inst) => {
+      inst match {
+        case ai : ArrayInstance =>
+          acc.update(acc.field(ai.getName).next(),
+            acc.field(ai.getName).next().zeros()).as[T]
+        case hi : HeaderInstance =>
+          acc
+      }
+    })
+    super.deparse(startFrom)
   }
 
   override def buffer(p4Memory : T,
