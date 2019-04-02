@@ -19,7 +19,7 @@ trait IFlowInstance {
   def getActionParamType(action : String, parmName : String) : P4Type
 }
 
-case class FlowStruct(context : Z3Context,
+class FlowStruct(context : Z3Context,
                       table : TableDeclaration,
                       switch: Switch) extends P4Type {
   val allowed : Iterable[String] = if (table.hasProfile) {
@@ -128,6 +128,17 @@ case class FlowStruct(context : Z3Context,
   }
   def sort() : Z3Sort = flowSort._1
 }
+
+object FlowStruct {
+  private val flowStructLedger: mutable.Map[(Z3Context, String), FlowStruct] = mutable.Map.empty
+
+  def apply(context: Z3Context,
+            table: TableDeclaration,
+            switch: Switch): FlowStruct = {
+    flowStructLedger.getOrElseUpdate((context, table.getName), new FlowStruct(context, table, switch))
+  }
+}
+
 class TablesToLogics(switch: Switch,
                      context: Z3Context,
                      tabToLogic : mutable.Map[TableDeclaration, FlowStruct]) extends ASTVisitor {

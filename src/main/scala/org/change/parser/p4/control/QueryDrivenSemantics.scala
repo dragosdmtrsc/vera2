@@ -1,8 +1,6 @@
 package org.change.parser.p4.control
 
 import org.change.parser.p4.control.SMInstantiator._
-import org.change.plugins.vera.BVType
-import org.change.v2.p4.model.{ArrayInstance, HeaderInstance, Switch}
 import org.change.v2.p4.model.actions.P4ActionCall.ParamExpression
 import org.change.v2.p4.model.actions.primitives._
 import org.change.v2.p4.model.actions.{P4Action, P4ComplexAction}
@@ -10,6 +8,7 @@ import org.change.v2.p4.model.control._
 import org.change.v2.p4.model.control.exp.P4BExpr
 import org.change.v2.p4.model.parser._
 import org.change.v2.p4.model.table.{MatchKind, TableDeclaration}
+import org.change.v2.p4.model.{ArrayInstance, HeaderInstance, Switch}
 
 import scala.collection.JavaConverters._
 
@@ -56,7 +55,6 @@ class QueryDrivenSemantics[T<:P4Memory](switch: Switch) extends Semantics[T](swi
     val noClone = p4Memory.where(cloneSpec === cloneSpec.int(0))
     val espec = cl.cloneSession(cloneSpec)
     val copied = cl.update(cl.root(), initial.root()).update(cloneSpec, cloneSpec.zeros())
-    //TODO: restore - copy fields in field list to initial packet
     //means: set instance type to clone_ingress and then re-run
     val toBeCloned = copied.update(copied.standardMetadata().field("egress_spec"), espec)
       .update(copied.standardMetadata().field("instance_type"),
@@ -73,41 +71,57 @@ class QueryDrivenSemantics[T<:P4Memory](switch: Switch) extends Semantics[T](swi
     // mimic a merge operation if (clone_spec != 0) { set up the clone } else { noop; }
     val continuedPostClone = (postClone || noClone).as[P4Memory]
     // mgid handling
-    val intrinsics = switch.getInstance("intrinsic_metadata")
-    var mgid = p4Memory.int(0, BVType(16))
-    var resubmitFlag = p4Memory.int(0, BVType(1))
-    if (intrinsics != null) {
-      if (intrinsics.getLayout.getField("mcast_grp") != null)
-        mgid = continuedPostClone.field(intrinsics.getName).field("mcast_grp")
-      if (intrinsics.getLayout.getField(resubField) != null)
-        resubmitFlag = continuedPostClone.field(intrinsics.getName).field(resubField)
+    val intrinsics = switch.intrinsic()
+    val (afterMulticast, postResubmit) = if (intrinsics != null) {
+      val (postResubmit,
+           continueAfterResubmit,
+           resub) = if (intrinsics.getLayout.getField(resubField) != null) {
+        // do the resubmit logic
+        val resubmitFlag = continuedPostClone.field(intrinsics.getName).field(resubField)
+        val resub = continuedPostClone
+          .where(resubmitFlag != resubmitFlag.int(0))
+          .update(resubmitFlag, resubmitFlag.int(0))
+        val toBeResubmited = resub.update(resub.root(), initial.root())
+          .update(resub.standardMetadata().field("instance_type"),
+            resub.standardMetadata().field("instance_type").int(recircType))
+        val postResubmit = restoreFieldList(toBeResubmited.as[T], resub.as[T], omit = f => {
+          f.getHeaderRef.getInstance().getName == STANDARD_METADATA &&
+            (f.getField == CLONE_SPEC ||
+              f.getField == "instance_type" ||
+              f.getField == "egress_spec" ||
+              f.getField == resubField)
+        })
+        (postResubmit,
+          continuedPostClone.where(resubmitFlag === resubmitFlag.int(0)),
+          resub)
+      } else {
+        // no more resubmit logic
+        (continuedPostClone.where(continuedPostClone.boolVal(false)),
+          continuedPostClone,
+          continuedPostClone.where(continuedPostClone.boolVal(false)))
+      }
+      (if (ingress && intrinsics.getLayout.getField("mcast_grp") != null) {
+        // do something with multicast
+        val mgid = continueAfterResubmit.field(intrinsics.getName).field("mcast_grp")
+        val multicasted = continueAfterResubmit.where(mgid != mgid.zeros())
+          .update(resub.standardMetadata().field("instance_type"),
+            resub.standardMetadata().field("instance_type").int(MULTICAST))
+          .update(continueAfterResubmit.standardMetadata().field("egress_spec"),
+            continueAfterResubmit.multicastSession(mgid)
+          )
+        val noMulticast = continueAfterResubmit.where(mgid === mgid.zeros())
+        (noMulticast || multicasted).as[P4Memory]
+      } else {
+        // do nothing with multicast
+        continueAfterResubmit
+      }, postResubmit)
+    } else {
+      (continuedPostClone, continuedPostClone.where(continuedPostClone.boolVal(false)))
     }
-    var resub = continuedPostClone.where(resubmitFlag != resubmitFlag.int(0))
-    if (intrinsics != null && intrinsics.getLayout.getField(resubField) != null)
-      resub = resub.update(resubmitFlag, resubmitFlag.int(0))
-    val toBeResubmited = resub.update(resub.root(), initial.root())
-      .update(resub.standardMetadata().field("instance_type"),
-        resub.standardMetadata().field("instance_type").int(recircType))
-    val postResubmit = restoreFieldList(toBeResubmited.as[T], resub.as[T], omit = f => {
-      f.getHeaderRef.getInstance().getName == STANDARD_METADATA &&
-        (f.getField == CLONE_SPEC ||
-          f.getField == "instance_type" ||
-          f.getField == "egress_spec" ||
-          f.getField == resubField)
-    })
-    val continueAfterResubmit = continuedPostClone.where(resubmitFlag === resubmitFlag.int(0))
 
-    val multicasted = continueAfterResubmit.where(mgid != mgid.zeros())
-      .update(resub.standardMetadata().field("instance_type"),
-        resub.standardMetadata().field("instance_type").int(MULTICAST))
-      .update(continueAfterResubmit.standardMetadata().field("egress_spec"),
-        continueAfterResubmit.multicastSession(mgid)
-      )
-    val noMulticast = continueAfterResubmit.where(mgid === mgid.zeros())
-    val afterMulticast = if (ingress) (noMulticast || multicasted).as[P4Memory] else noMulticast
-
-    val dropquery = afterMulticast.standardMetadata().field("egress_spec") ===
-      afterMulticast.standardMetadata().field("egress_spec").int(DROP_VALUE)
+    val dropquery = (afterMulticast.standardMetadata().field("egress_spec") ===
+      afterMulticast.standardMetadata().field("egress_spec").int(DROP_VALUE)) ||
+      (!afterMulticast.egressAllowed(afterMulticast.standardMetadata().field("egress_spec")))
     val dropped = afterMulticast.where(dropquery)
     val noDrop = afterMulticast.where(!dropquery)
     val continue =
@@ -522,7 +536,7 @@ class QueryDrivenSemantics[T<:P4Memory](switch: Switch) extends Semantics[T](swi
         switch.action(x).getParameterList.asScala.map(parm => {
           lastFlow.getParam(x, parm.getParamName)
         }).toList
-      ))
+      )(newquery))
     }))
     actionSema.as[T]
   }
@@ -569,7 +583,9 @@ class QueryDrivenSemantics[T<:P4Memory](switch: Switch) extends Semantics[T](swi
           val packet = ctx.packet()
           val hdr1 = ctx(es.getHeaderRef)
           val valid  = hdr1.valid()
-          // this reverse looks strange, but it isn't
+          // this reverse looks strange, but it isn't,
+          // in order to be able to use prepend semantics
+          // need to do deparsing the opposite way
           val dostuff = valid.ite(es.getHeaderRef.getInstance()
             .getLayout
             .getFields
@@ -577,7 +593,8 @@ class QueryDrivenSemantics[T<:P4Memory](switch: Switch) extends Semantics[T](swi
             .reverse.map(_.getName).foldLeft(ctx : P4Memory)((crtQuery, fld) => {
             crtQuery.update(crtQuery.packet(), crtQuery.packet().prepend(hdr1.field(fld)))
           }), ctx).as[P4Memory]
-          if (ctx.field(es.getHeaderRef.getPath).isArray) {
+          if (es.getHeaderRef.isArray &&
+              es.getHeaderRef.asInstanceOf[IndexedHeaderRef].isNext) {
             dostuff.update(ctx.field(es.getHeaderRef.getPath).next(),
               ctx.field(es.getHeaderRef.getPath).next() + ctx.field(es.getHeaderRef.getPath).next().int(1))
           } else {

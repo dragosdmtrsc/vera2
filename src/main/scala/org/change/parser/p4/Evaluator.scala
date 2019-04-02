@@ -17,7 +17,7 @@ case class RootEvaluator(mem : P4RootMemory)
     slv.assertCnstr(mem.rootMemory.condition)
     slv
   }
-  override lazy val hasResult: Boolean = {
+  override def hasResult: Boolean = {
     solver.check().get
   }
 
@@ -25,6 +25,7 @@ case class RootEvaluator(mem : P4RootMemory)
     solver.push()
     for (a <- axioms)
       solver.assertCnstr(a)
+    solver.check()
     this
   }
   def ever(expr : P4Query) : Boolean = {

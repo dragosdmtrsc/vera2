@@ -135,7 +135,7 @@ case class P4RootMemory(override val switch : Switch,
           val rmt = thn.as[P4RootMemory]
           val rme = els.as[P4RootMemory]
           rmt.copy(rootMemory = rmt.rootMemory.where(sv)) ||
-            rme.copy(rootMemory = rme.rootMemory.where(rmt.rootMemory.mkNot(sv)))
+            rme.copy(rootMemory = rme.rootMemory.where(rme.rootMemory.mkNot(sv)))
         } else {
           copy(
             value = rootMemory.mkITE(sv, asWrapper(thn).value, asWrapper(els).value),
@@ -274,11 +274,27 @@ case class P4RootMemory(override val switch : Switch,
 
 
   override def cloneSession(cloneSpec: P4Query): P4Query = {
-    ValueWrapper.rv(rootMemory.typeMapper.fresh(BVType(32), "clone_session"))
+    ValueWrapper.rv(
+      rootMemory.typeMapper.applyFunction("clone_session", cloneSpec.as[AbsValueWrapper].value)
+    )
   }
 
   override def multicastSession(mgid: P4Query): P4Query = {
-    ValueWrapper.rv(rootMemory.typeMapper.fresh(BVType(32), "mgid_session"))
+    ValueWrapper.rv(
+      rootMemory.typeMapper.applyFunction("mgid_session", mgid.as[AbsValueWrapper].value)
+    )
+  }
+
+  override def egressAllowed(p4Query: P4Query): P4Query = {
+    ValueWrapper.rv(
+      rootMemory.typeMapper.applyFunction("constrain_egress_port", p4Query.as[AbsValueWrapper].value)
+    )
+  }
+
+  override def ingressAllowed(p4Query: P4Query): P4Query = {
+    ValueWrapper.rv(
+      rootMemory.typeMapper.applyFunction("constrain_ingress_port", p4Query.as[AbsValueWrapper].value)
+    )
   }
 
   override def root() : P4Query = rootWrap

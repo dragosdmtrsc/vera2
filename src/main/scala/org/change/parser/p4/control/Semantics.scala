@@ -30,7 +30,7 @@ abstract class Semantics[T](switch: Switch) {
     controlSCCs.getOrElseUpdate(control, getCFG(control).graphView.scc())
   }
   def getFirst(control : String): ControlStatement = {
-    getSCC(control).last.head
+    getSCC(control).lastOption.map(_.head).getOrElse(new EndOfControl(control))
   }
 
   def buffer(p4Memory : T,

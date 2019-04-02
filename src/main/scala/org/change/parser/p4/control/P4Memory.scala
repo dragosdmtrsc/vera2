@@ -88,9 +88,11 @@ class P4Memory(val switch : Switch) extends P4Query {
   def query(table : String, params : Iterable[P4Query]) : P4TableQuery = ???
   def lastQuery(table : String) : P4TableQuery = ???
 
+  def ingressAllowed(p4Query: P4Query) : P4Query = ???
+  def egressAllowed(p4Query: P4Query) : P4Query = ???
+
   def cloneSession(cloneSpec : P4Query) : P4Query = ???
   def multicastSession(mgid : P4Query) : P4Query = ???
-
 }
 trait PacketQuery extends P4Query {
   def apply(from : P4Query, to : P4Query) : P4Query = ???

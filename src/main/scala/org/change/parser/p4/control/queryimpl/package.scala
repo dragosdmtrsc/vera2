@@ -2,6 +2,7 @@ package org.change.parser.p4.control
 
 import org.change.plugins.vera._
 import org.change.v2.p4.model.Switch
+import org.change.v3.semantics.context
 import z3.scala.Z3Context.{RecursiveType, RegularSort}
 import z3.scala.{Z3AST, Z3Context, Z3FuncDecl, Z3Sort}
 
@@ -43,6 +44,30 @@ package object queryimpl {
 
     def declareAppend(sz : Int) : Unit = {
       appends = appends + sz
+    }
+
+    // assumes that this guy is already resolved and can
+    // be simply evald to concrete values
+    def takeKind(v : Z3AST) : Option[Int] = {
+      appends.find(r => {
+        val idx = indexing(r)
+        val simpd = context.getBoolValue(
+          context.simplifyAst(packetSort._3(idx)(v)))
+        if (simpd.nonEmpty) simpd.get
+        else false
+      })
+    }
+    def isNil(v : Z3AST) : Boolean = {
+      context.getBoolValue(
+        context.simplifyAst(packetSort._3.head(v))).getOrElse(false)
+    }
+
+    def unwrap(v : Z3AST, of : Int) : (Z3AST, Either[Int, Z3AST]) = {
+      val idx = indexing(of)
+      val oldone = context.simplifyAst(packetSort._4(idx).head(v))
+      val appd = context.simplifyAst(packetSort._4(idx)(1)(v))
+      val appended = context.getNumeralInt(appd).value.map(Left(_)).getOrElse(Right(appd))
+      (oldone, appended)
     }
 
     def getPopFun(of : Int) : Z3FuncDecl = {
@@ -121,6 +146,24 @@ package object queryimpl {
   }
 
   class TypeMapper()(implicit context: Z3Context) {
+    val funMap = mutable.Map.empty[String, (P4Type, P4Type,
+      Z3FuncDecl)]
+
+    def applyFunction(name : String, z3AST: Z3AST): Z3AST = {
+      funMap(name)._3(z3AST)
+    }
+    def applyFunction(name : String, value : Value) : Value = {
+      new ScalarValue(
+        funMap(name)._2,
+        applyFunction(name, value.asInstanceOf[ScalarValue].z3AST)
+      )
+    }
+    def mkFunction(name : String, from : P4Type, to : P4Type): Unit = {
+      val sortFrom = apply(from)
+      val sortTo = apply(to)
+      funMap.put(name, (from, to, context.mkFuncDecl(name, sortFrom, sortTo)))
+    }
+
     val packetWrapper: PacketWrapper = PacketWrapper(context)
     def apply(p4Type: P4Type) : Z3Sort = p4Type match {
       case BVType(n) => context.mkBVSort(n)
@@ -169,6 +212,21 @@ package object queryimpl {
     val contextBoundMapper = mutable.Map.empty[Z3Context, TypeMapper]
     def apply()(implicit context : Z3Context): TypeMapper = {
       contextBoundMapper.getOrElseUpdate(context, new TypeMapper()(context))
+    }
+  }
+  object StructureInitializer {
+    implicit def apply(switch : Switch)(implicit context : Z3Context): Switch = {
+      PacketWrapper.initialize(switch, context)
+      val tm = TypeMapper.apply()(context)
+      tm.mkFunction("clone_session", BVType(16), BVType(9))
+      val w = switch.mcastGrpWidth()
+      if (w != 0)
+        tm.mkFunction("mgid_session", BVType(w), BVType(9))
+      val igPort = switch.getInstance(STANDARD_METADATA).getLayout.getField("ingress_port")
+      tm.mkFunction("constrain_ingress_port", BVType(igPort.getLength), BoolType)
+      val egPort = switch.getInstance(STANDARD_METADATA).getLayout.getField("egress_port")
+      tm.mkFunction("constrain_egress_port", BVType(egPort.getLength), BoolType)
+      switch
     }
   }
 

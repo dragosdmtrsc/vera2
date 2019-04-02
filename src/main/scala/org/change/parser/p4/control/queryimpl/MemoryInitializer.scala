@@ -67,14 +67,8 @@ object MemoryInitializer {
           }
           if (ai.isMetadata) {
             ai.getLayout.getFields.asScala.foldLeft(m)((acc, fld) => {
-              if (ai.getName == "standard_metadata" &&
-                    (fld.getName == "ingress_port" ||
-                      fld.getName == "packet_length")) {
-                acc
-              } else {
-                acc.update(h.field(fld.getName), h.field(fld.getName)
-                  .int(ai.getInitializer.getOrDefault(fld.getName, 0)))
-              }
+              acc.update(h.field(fld.getName), h.field(fld.getName)
+                .int(ai.getInitializer.getOrDefault(fld.getName, 0)))
             })
           } else {
             m
@@ -94,8 +88,14 @@ object MemoryInitializer {
         }
         if (hi.isMetadata)
           hi.getLayout.getFields.asScala.foldLeft(m)((acc, fld) => {
-            acc.update(h.field(fld.getName),
-              h.field(fld.getName).int(hi.getInitializer.getOrDefault(fld.getName, 0)))
+            if (hi.getName == "standard_metadata" &&
+              (fld.getName == "ingress_port" ||
+                fld.getName == "packet_length")) {
+              acc
+            } else {
+              acc.update(h.field(fld.getName), h.field(fld.getName)
+                .int(hi.getInitializer.getOrDefault(fld.getName, 0)))
+            }
           })
         else m
     })
@@ -114,7 +114,10 @@ object MemoryInitializer {
     val fresh =  P4RootMemory(switch, RootMemory(structObject = structObject,
       tm.literal(BoolType, 1)))
     val r = populateHelpers(switch, populateHeaders(switch, fresh)(context).as[P4RootMemory])
+    val constrained = r.where(
+      r.ingressAllowed(r.standardMetadata().field("ingress_port"))
+    )
     assert(r.err().as[P4RootMemory].rootMemory.isEmpty())
-    r
+    constrained.as[P4RootMemory]
   }
 }

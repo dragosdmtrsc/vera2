@@ -136,6 +136,26 @@ public class Switch {
             throw new IllegalStateException("action profile " + old + " already declared");
         return this;
     }
+    public HeaderInstance intrinsic() {
+        HeaderInstance inst = getInstance("intrinsic_metadata");
+        if (inst != null) {
+            return inst;
+        }
+        return null;
+    }
+
+    public boolean hasIntrinsic() {
+        return intrinsic() != null;
+    }
+    public int mcastGrpWidth() {
+        HeaderInstance intr = intrinsic();
+        if (intr != null) {
+            Field fMcastGrp = intr.getLayout().getField("mcast_grp");
+            if (fMcastGrp != null)
+                return fMcastGrp.getLength();
+        }
+        return 0;
+    }
 
     public Switch declareParserState(State state, boolean allowOverride) {
         State old = parserStates.put(state.getName(), state);

@@ -1,6 +1,6 @@
 package org.change.parser.p4.control.queryimpl
 
-import org.change.parser.p4.control.{FlowStruct, IFlowInstance}
+import org.change.parser.p4.control.{FlowStruct, IFlowInstance, SwitchTarget}
 import org.change.parser.p4.parser._
 import org.change.plugins.vera.BVType
 import org.change.v2.p4.model.Switch
@@ -119,6 +119,25 @@ object ConstraintBuilder {
         ), forallBody
       )
       context.mkForAllConst(0, Seq.empty, bounds, fullQuery)
+    })
+  }
+
+  def apply(switch: Switch, context : Z3Context, switchTarget: SwitchTarget) : Iterable[Z3AST] = {
+    val tm = TypeMapper()(context)
+    Seq("constrain_ingress_port", "constrain_egress_port").map(f => {
+      val funObj = tm.funMap(f)
+      val const = tm.fresh(funObj._1).asInstanceOf[ScalarValue].z3AST
+      val body = context.mkOr(
+        switchTarget.inputPorts.toList.map(p => {
+          context.mkEq(
+            const,
+            tm.literal(funObj._1, p).z3AST
+          )
+        }):_*
+      )
+      context.mkForAllConst(0, Seq(), Seq(const), context.mkEq(
+        funObj._3(const), body
+      ))
     })
   }
 }
