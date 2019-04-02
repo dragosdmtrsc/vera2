@@ -14,4 +14,9 @@ public class EmitStatement implements ControlStatement {
         this.headerRef = headerRef;
         return this;
     }
+
+    @Override
+    public String toString() {
+        return "emit(" + headerRef + ")";
+    }
 }

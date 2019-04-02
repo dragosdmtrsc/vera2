@@ -41,9 +41,9 @@ public class Header {
         return this;
     }
 
-    private List<Field> fields = new ArrayList<Field>();
+    private List<Field> fields = new ArrayList<>();
 
-    private Map<String, Field> namedFields = new HashMap<String, Field>();
+    private Map<String, Field> namedFields = new HashMap<>();
 
     public String getName() {
         return name;

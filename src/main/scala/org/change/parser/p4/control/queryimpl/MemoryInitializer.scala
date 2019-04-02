@@ -109,7 +109,7 @@ object MemoryInitializer {
       case hi : HeaderInstance =>
         mkStruct(hi.getLayout)
     })).toMap ++ helperStuff ++ tableStructures(switch) ++ actionStructures(switch))
-    val tm = new TypeMapper()(context)
+    val tm = TypeMapper()(context)
     val structObject = tm.fresh(st).asInstanceOf[StructObject]
     val fresh =  P4RootMemory(switch, RootMemory(structObject = structObject,
       tm.literal(BoolType, 1)))

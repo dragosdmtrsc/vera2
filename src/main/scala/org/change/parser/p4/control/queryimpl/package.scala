@@ -1,10 +1,11 @@
 package org.change.parser.p4.control
 
 import org.change.plugins.vera._
-import z3.Z3Wrapper
+import org.change.v2.p4.model.Switch
 import z3.scala.Z3Context.{RecursiveType, RegularSort}
 import z3.scala.{Z3AST, Z3Context, Z3FuncDecl, Z3Sort}
 
+import scala.collection.JavaConverters._
 import scala.collection.mutable
 
 package object queryimpl {
@@ -26,12 +27,29 @@ package object queryimpl {
                     val z3AST: Z3AST,
                     val maybeBoolean : Option[Boolean] = None,
                     val maybeInt : Option[BigInt] = None) extends Value {
+
+
+    override def toString: String = {
+      z3AST.toString()
+    }
   }
   type ChurnedMemPath  = Iterable[(ScalarValue, MemPath)]
 
   class PacketWrapper(implicit context: Z3Context) {
 
-    private val takeFuns = mutable.Map.empty[(Int, Int), Z3FuncDecl]
+    val takeFuns = mutable.Map.empty[(Int, Int), Z3FuncDecl]
+    val popFuns = mutable.Map.empty[Int, Z3FuncDecl]
+    private var appends: mutable.TreeSet[Int] = mutable.TreeSet.empty[Int]
+
+    def declareAppend(sz : Int) : Unit = {
+      appends = appends + sz
+    }
+
+    def getPopFun(of : Int) : Z3FuncDecl = {
+      popFuns.getOrElseUpdate(of, context.mkFuncDecl(
+        s"pop_$of", packetSort._1, packetSort._1
+      ))
+    }
 
     def getTakeFun(start : Int, end : Int): Z3FuncDecl = {
       takeFuns.getOrElseUpdate((start, end),
@@ -39,25 +57,38 @@ package object queryimpl {
             packetSort._1, context.mkBVSort(end - start))
       )
     }
-
-    val packetSort = context.mkADTSorts(Seq(
-      ("Packet",
-        Seq("nil", "pop"),
-        Seq(
-          Seq(),
-          Seq(("pin", RecursiveType(0)),
-            ("nr", RegularSort(context.mkIntSort()))
-          )
+    lazy val (packetSort, indexing) = {
+      val (names, params, mapping) = appends.toList.zipWithIndex.map(xwi => {
+        val x = xwi._1
+        (s"prepend_$x", Seq(("pin", RecursiveType(0)),
+          ("x", RegularSort(context.mkBVSort(x)))
+        ), xwi.copy(_2 = xwi._2 + 1))
+      }).unzip3
+      (context.mkADTSorts(Seq(
+        ("Packet",
+          "nil" :: names,
+          Seq() :: params
         )
-      )
-    )).head
+      )).head, mapping.toMap)
+    }
 
-    def pop(packet: Z3AST, nr : Z3AST): Z3AST = {
+    def prepend(packet: Z3AST, n : Int, v : Z3AST): Z3AST = {
       if (packet.getSort != sort()) {
-        throw new IllegalArgumentException(s"cannot apply take on $packet, " +
+        throw new IllegalArgumentException(s"cannot apply append_$n on $packet, " +
           s"expecting something of sort ${sort()}")
       }
-      packetSort._2(1)(packet, nr)
+      if (v.getSort != context.mkBVSort(n))
+        throw new IllegalArgumentException(s"cannot apply append_$n with argument $v of sort ${v.getSort}")
+      val consIdx = indexing(n)
+      packetSort._2(consIdx)(packet, v)
+    }
+
+    def pop(packet: Z3AST, nr : Int): Z3AST = {
+      if (packet.getSort != sort()) {
+        throw new IllegalArgumentException(s"cannot apply pop on $packet, " +
+          s"expecting something of sort ${sort()}")
+      }
+      getPopFun(nr)(packet)
     }
 
     def zero() : Z3AST = packetSort._2.head()
@@ -71,8 +102,26 @@ package object queryimpl {
     }
   }
 
+  object PacketWrapper {
+    val contextBound = mutable.Map.empty[Z3Context, PacketWrapper]
+    def apply(context : Z3Context) : PacketWrapper = {
+      contextBound(context)
+    }
+
+    def initialize(switch: Switch, context: Z3Context): Unit = {
+      val tm = new PacketWrapper()(context)
+      switch.getInstances.asScala.foreach(i => {
+        i.getLayout.getFields.asScala.foreach(f => {
+          if (f.getLength > 0)
+            tm.declareAppend(f.getLength)
+        })
+      })
+      contextBound.put(context, tm)
+    }
+  }
+
   class TypeMapper()(implicit context: Z3Context) {
-    val packetWrapper = new PacketWrapper()(context)
+    val packetWrapper: PacketWrapper = PacketWrapper(context)
     def apply(p4Type: P4Type) : Z3Sort = p4Type match {
       case BVType(n) => context.mkBVSort(n)
       case PacketType => packetWrapper.sort()
@@ -113,6 +162,13 @@ package object queryimpl {
         new ScalarValue(p4Type,
           tp.context.mkNumeral(v.toString(), tp), maybeInt = Some(v))
       }
+    }
+  }
+
+  object TypeMapper {
+    val contextBoundMapper = mutable.Map.empty[Z3Context, TypeMapper]
+    def apply()(implicit context : Z3Context): TypeMapper = {
+      contextBoundMapper.getOrElseUpdate(context, new TypeMapper()(context))
     }
   }
 

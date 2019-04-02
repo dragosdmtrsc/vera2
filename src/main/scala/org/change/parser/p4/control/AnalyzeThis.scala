@@ -86,9 +86,9 @@ class AnalyzeThis(switch: Switch) {
       if (controlName == "parser") {
         parserHelper.mkUnrolledLabeledGraph
       } else if (controlName == "deparser") {
-        val eds = parserHelper.cfg.scc().flatMap(r => {
+        val eds = parserHelper.unrolledCFG.scc().flatMap(r => {
           r.collect {
-            case es : ExtractStatement =>
+            case (es : ExtractStatement, _) =>
               new EmitStatement(es.getExpression)
           }
         }).foldLeft((Option.empty[ControlStatement], Map.empty[ControlStatement, List[ControlStatement]]))((acc, x) => {

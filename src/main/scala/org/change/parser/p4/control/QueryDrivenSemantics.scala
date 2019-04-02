@@ -1,9 +1,8 @@
 package org.change.parser.p4.control
 
-import org.change.parser.p4.HeaderInstance
 import org.change.parser.p4.control.SMInstantiator._
 import org.change.plugins.vera.BVType
-import org.change.v2.p4.model.{ArrayInstance, Switch}
+import org.change.v2.p4.model.{ArrayInstance, HeaderInstance, Switch}
 import org.change.v2.p4.model.actions.P4ActionCall.ParamExpression
 import org.change.v2.p4.model.actions.primitives._
 import org.change.v2.p4.model.actions.{P4Action, P4ComplexAction}
@@ -543,13 +542,21 @@ class QueryDrivenSemantics[T<:P4Memory](switch: Switch) extends Semantics[T](swi
         case es : ExtractStatement =>
           val hdr1 = ctx(es.getExpression)
           val validRef = hdr1.valid()
-          val dostuff = hdr1.fields()
-            .filter(_ != "IsValid")
+          val dostuff = es
+            .getExpression
+            .getInstance()
+            .getLayout
+            .getFields
+            .asScala
+            .map(_.getName)
             .foldLeft(ctx.update(validRef, validRef.int(1)))((crtQuery, fname) => {
             val hdr1 = crtQuery(es.getExpression)
             val fld = hdr1.field(fname)
             val packet = crtQuery.packet()
-            crtQuery.update(fld, packet(fld.len().int(0), fld.len())).update(packet, packet.pop(fld.len()))
+            val taken = packet(fld.len().int(0), fld.len())
+            val newpack = packet.fresh()
+            val oldPack = newpack.as[PacketQuery].prepend(taken)
+            crtQuery.update(fld, taken).update(packet, newpack).where(packet === oldPack)
           })
           if (es.getExpression.isArray &&
               es.getExpression.asInstanceOf[IndexedHeaderRef].isNext) {
@@ -562,8 +569,13 @@ class QueryDrivenSemantics[T<:P4Memory](switch: Switch) extends Semantics[T](swi
           val packet = ctx.packet()
           val hdr1 = ctx(es.getHeaderRef)
           val valid  = hdr1.valid()
-          val dostuff = valid.ite(hdr1.fields().foldLeft(ctx : P4Memory)((crtQuery, fld) => {
-            crtQuery.update(packet, packet.append(hdr1.field(fld)))
+          // this reverse looks strange, but it isn't
+          val dostuff = valid.ite(es.getHeaderRef.getInstance()
+            .getLayout
+            .getFields
+            .asScala
+            .reverse.map(_.getName).foldLeft(ctx : P4Memory)((crtQuery, fld) => {
+            crtQuery.update(crtQuery.packet(), crtQuery.packet().prepend(hdr1.field(fld)))
           }), ctx).as[P4Memory]
           if (ctx.field(es.getHeaderRef.getPath).isArray) {
             dostuff.update(ctx.field(es.getHeaderRef.getPath).next(),

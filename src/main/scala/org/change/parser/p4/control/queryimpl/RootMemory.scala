@@ -1,8 +1,7 @@
 package org.change.parser.p4.control.queryimpl
 
-import org.change.parser.p4.control.P4Query
 import org.change.plugins.vera.{FixedArrayType, _}
-import z3.scala.{Z3AST, Z3Context}
+import z3.scala.{Z3AST, Z3Context, Z3Model}
 
 case class RootMemory(structObject: StructObject,
                       ocondition: ScalarValue)
@@ -16,22 +15,37 @@ case class RootMemory(structObject: StructObject,
     val scalarValue = value.asInstanceOf[ScalarValue]
     val fromI = from.asInstanceOf[ScalarValue].maybeInt.get
     val toI = to.asInstanceOf[ScalarValue].maybeInt.get
+    //TODO: understand why it is sooo slow in this case
+//    new ScalarValue(
+//      BVType((toI - fromI).toInt),
+//      typeMapper.packetWrapper.take(scalarValue.z3AST, fromI.toInt, toI.toInt)
+//    )
+    typeMapper.fresh(BVType((toI - fromI).toInt), "take")
+  }
+
+  def mkPacketPrepend(packet : Value, append : Value) : ScalarValue = {
+    val vpacket = packet.asInstanceOf[ScalarValue]
+    val vappend = append.asInstanceOf[ScalarValue]
+    if (packet.ofType != PacketType) throw new IllegalArgumentException(s"expecting packet, got $packet")
+    val BVType(n) = append.ofType
     new ScalarValue(
-      BVType((toI - fromI).toInt),
-      typeMapper.packetWrapper.take(scalarValue.z3AST, fromI.toInt, toI.toInt)
+      PacketType,
+      typeMapper.packetWrapper.prepend(vpacket.z3AST, n, vappend.z3AST)
     )
   }
 
   def mkPacketPop(value : Value, n : Value): ScalarValue = {
     val v = value.asInstanceOf[ScalarValue]
-    val nr = n.asInstanceOf[ScalarValue].z3AST
+    val nr = n.asInstanceOf[ScalarValue].maybeInt.get
+    val taken = typeMapper.packetWrapper.take(v.z3AST, 0, nr.toInt)
+    val afterPop = typeMapper.packetWrapper.pop(v.z3AST, nr.toInt)
     new ScalarValue(
       PacketType,
-      typeMapper.packetWrapper.pop(v.z3AST, nr)
+      afterPop
     )
   }
 
-  val typeMapper = new TypeMapper
+  val typeMapper: TypeMapper = TypeMapper()
 
   def leftMerge(l : Value, r : Value) : (ScalarValue, ScalarValue, Value) = l match {
     case ImmutableValue(v) =>
@@ -64,7 +78,6 @@ case class RootMemory(structObject: StructObject,
         (mkEQ(fresh, sv), mkEQ(fresh, sd), fresh)
       }
   }
-
   def merge(other: RootMemory) : RootMemory = {
     if (this.isEmpty()) {
       other
@@ -81,12 +94,10 @@ case class RootMemory(structObject: StructObject,
       )
     }
   }
-
   def unwrapImmutable(v: Value) : Value = v match {
     case ImmutableValue(v) => v
     case _ => v
   }
-
   def newV(old : Value, memPath: MemPath, v : Value) : Value = {
     old match {
       case ImmutableValue(x) =>
@@ -487,5 +498,3 @@ case class RootMemory(structObject: StructObject,
       }
     })
 }
-
-

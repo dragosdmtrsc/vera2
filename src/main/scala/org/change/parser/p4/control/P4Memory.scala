@@ -95,7 +95,7 @@ class P4Memory(val switch : Switch) extends P4Query {
 trait PacketQuery extends P4Query {
   def apply(from : P4Query, to : P4Query) : P4Query = ???
   def pop(n : P4Query) : PacketQuery = ???
-  def append(what : P4Query) : PacketQuery = ???
+  def prepend(what : P4Query) : PacketQuery = ???
 }
 case class HeaderQuery(header : HeaderInstance) extends P4Query {
   // returns an ORDERED sequence of fields as queries

@@ -2,7 +2,7 @@ package org.change.tools.sefl
 
 import org.change.parser.p4.{DisjQuery, IndexOutOfBounds, IsValidQuery}
 import org.change.parser.p4.control.{BufferResult, P4Commands, SemaWithEvents, SolveTables}
-import org.change.parser.p4.control.queryimpl.{ConstraintBuilder, MemoryInitializer, P4RootMemory}
+import org.change.parser.p4.control.queryimpl.{ConstraintBuilder, MemoryInitializer, P4RootMemory, PacketWrapper}
 import org.change.v2.p4.model.Switch
 import org.change.v3.semantics.context
 
@@ -44,6 +44,7 @@ object Vera {
     veraArgs = veraArgs.copy(p4File = remaining.head)
     System.out.println(s"preparing to run vera against ${veraArgs.p4File}")
     val switch = SolveTables(Switch.fromFile(veraArgs.p4File))
+    PacketWrapper.initialize(switch, context)
     val input = MemoryInitializer.initialize(switch)(context)
     val qb = DisjQuery(switch, context)(
       new IsValidQuery(switch, context),

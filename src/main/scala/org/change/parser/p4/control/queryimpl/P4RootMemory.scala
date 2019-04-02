@@ -10,6 +10,8 @@ import z3.scala.dsl.BVSort
 trait AbsValueWrapper extends P4Query {
   def value : Value
   def maybePath : Option[ChurnedMemPath]
+
+  override def toString: String = value.toString
 }
 case class P4RootMemory(override val switch : Switch,
                         rootMemory: RootMemory) extends P4Memory(switch) {
@@ -56,9 +58,10 @@ case class P4RootMemory(override val switch : Switch,
     }
 
     override def pop(n: P4Query): PacketQuery =
-      rv(rootMemory.mkPacketPop(value, n.as[ValueWrapper].value))
+      throw new UnsupportedOperationException("can't support pop primitives just yet")
 
-    override def append(what: P4Query): PacketQuery = this//super.append(what)
+    override def prepend(what: P4Query): PacketQuery =
+      rv(rootMemory.mkPacketPrepend(value, what.as[AbsValueWrapper].value))
 
     // table query handlers
     override def isDefault: P4Query = {

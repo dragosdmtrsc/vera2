@@ -50,6 +50,8 @@ class SolveTables(switch: Switch) extends ASTVisitor {
       }
     }
   }
+  override def postorder(extractStatement: ExtractStatement) : Unit =
+    solve(extractStatement.getExpression)
 
   override def postorder(applyAndSelectTableStatement: ApplyAndSelectTableStatement): Unit = {
     applyAndSelectTableStatement.setTable(
