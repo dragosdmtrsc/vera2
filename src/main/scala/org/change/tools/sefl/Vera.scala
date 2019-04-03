@@ -9,12 +9,8 @@ import org.change.v3.semantics.context
 case class VeraArgs(p4File : String = "",
                     validate : Boolean = false,
                     portFilter : String = ".*",
-                    pipelines : Set[String] = Set.empty,
                     commands : Set[String] = Set.empty,
                     maxBugs : Int = 50) {
-  def addPipeline(pipeline : String): VeraArgs =
-    copy(pipelines = pipelines + pipeline)
-
   def addCommandsFile(commandsFile : String): VeraArgs =
     copy(commands = commands + commandsFile)
 }
@@ -23,14 +19,11 @@ object Vera {
   val usage = """
     Usage: java -jar <JAR> org.change.tools.sefl.Vera
             [--commands <file>]*
-            [--pipeline <pipeline-name=ingress|egress>]*
             p4file
   """
 
   def main(args: Array[String]) {
     def parse(argList : List[String], vera: VeraArgs) : (List[String], VeraArgs) = argList match {
-      case "--pipeline" :: pipe :: tl =>
-        parse(tl, vera.addPipeline(pipe))
       case "--validate" :: tl =>
         parse(tl, vera.copy(validate = true))
       case "--allowed-ports" :: rex :: tl =>
@@ -70,59 +63,72 @@ object Vera {
     val BufferResult(ecloned, egoesOn, erecirculated, edropped) =
       sema.buffer(egressOutcome, egressInput, ingress = false)
     val deparsed = sema.deparse(egoesOn)
+    val evaluator = RootEvaluator(qb.buildSolver())
+    if (veraArgs.portFilter.nonEmpty) {
+      val target = SwitchTarget.fromRegex(veraArgs.portFilter)
+      val targetConstraints = ConstraintBuilder(switch, context, target).toList
+      // watch out for side effect here
+      evaluator.constrain(targetConstraints)
+    }
     if (veraArgs.validate) {
-      if (veraArgs.commands.isEmpty) {
+      if (veraArgs.commands.isEmpty || veraArgs.portFilter.isEmpty) {
         throw new IllegalStateException("to generate a Vera validation harness, one needs to provide" +
           " command files")
       }
-      val rootEvaluator = RootEvaluator(deparsed)(context)
-      for (x <- veraArgs.commands) {
-        val instance = P4Commands.fromFile(switch, x)
-        val constraints = ConstraintBuilder(switch, context, instance).toList
-        rootEvaluator.constrain(constraints)
-        if (veraArgs.portFilter.nonEmpty) {
-          val target = SwitchTarget.fromRegex(veraArgs.portFilter)
-          val targetConstraints = ConstraintBuilder(switch, context, target).toList
-          rootEvaluator.constrain(targetConstraints)
+      val target = SwitchTarget.fromRegex(veraArgs.portFilter)
+      val targetConstraints = ConstraintBuilder(switch, context, target).toList
+      evaluator.constrained(deparsed.rootMemory.condition) {
+        for (x <- veraArgs.commands) {
+          val instance = P4Commands.fromFile(switch, x)
+          val constraints = ConstraintBuilder(switch, context, instance).toList
+          evaluator.constrained(constraints) {
+            val pack = evaluator.eval(input.packet()).get
+            val inputPort = evaluator.eval(input.standardMetadata().field("ingress_port")).get.toInt.get
+            val expectation = evaluator.eval(deparsed.packet()).get
+            val egressPort = evaluator.eval(deparsed.standardMetadata().field("egress_port")).get.toInt.get
+            System.err.println(s"harness for $x")
+            System.err.println("when input on port " + inputPort)
+            System.err.println("a packet:")
+            System.err.println(PacketLinearize.linearize(pack.as[AbsValueWrapper].value))
+            System.err.println("should come out on port " + egressPort)
+            System.err.println("and look like:")
+            System.err.println(PacketLinearize.linearize(expectation.as[AbsValueWrapper].value))
+          }
         }
-        val pack = rootEvaluator.eval(input.packet()).get
-        val inputPort = rootEvaluator.eval(input.standardMetadata().field("ingress_port"))
-        val expectation = rootEvaluator.eval(deparsed.packet()).get
-        val egressPort = rootEvaluator.eval(deparsed.standardMetadata().field("egress_port"))
-        System.err.println(s"harness for $x")
-        System.err.println("when input on port " + inputPort)
-        System.err.println("a packet:")
-        System.err.println(PacketLinearize.linearize(pack.as[AbsValueWrapper].value))
-        System.err.println("should come out on port " + egressPort)
-        System.err.println("and look like:")
-        System.err.println(PacketLinearize.linearize(expectation.as[AbsValueWrapper].value))
       }
     } else {
       val limit = veraArgs.maxBugs
+      val generateTestHarness = veraArgs.commands.nonEmpty && veraArgs.portFilter.nonEmpty
+      val enumFunction = () => {
+        evaluator.enumerate(limit) {
+          evaluator.model().flatMap(model => {
+            qb.nodeToConstraint.find(r => {
+              model.evalAs[Boolean](r._2).getOrElse(false)
+            }).map(r => {
+              val (loc, err) = r
+              val errCode = model.evalAs[Int](qb.errCause(loc))
+                     .map(ErrorLedger.error)
+                     .getOrElse("can't resolve error")
+              System.err.println("at: ")
+              System.err.println(loc)
+              System.err.println("because: ")
+              System.err.println(errCode)
+              context.mkNot(err)
+            })
+          })
+        }
+      }
       if (veraArgs.commands.nonEmpty) {
         for (x <- veraArgs.commands) {
           val instance = P4Commands.fromFile(switch, x)
           val constraints = ConstraintBuilder(switch, context, instance).toList
-          qb.solver.push()
-          for (c <- constraints) {
-            qb.solver.assertCnstr(c)
+          System.out.println(s"now checking dataplane $x")
+          evaluator.constrained(constraints) {
+            enumFunction()
           }
-          System.err.println(s"now checking dataplane $x")
-          for (x <- qb.possibleLocations().take(limit)) {
-            System.err.println("at: ")
-            System.err.println(x._1)
-            System.err.println("because: ")
-            System.err.println(x._2)
-          }
-          qb.solver.pop()
         }
       } else {
-        for (x <- qb.possibleLocations().take(limit)) {
-          System.err.println("at: ")
-          System.err.println(x._1)
-          System.err.println("because: ")
-          System.err.println(x._2)
-        }
+        enumFunction()
       }
     }
   }

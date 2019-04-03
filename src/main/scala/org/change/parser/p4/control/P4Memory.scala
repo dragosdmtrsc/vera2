@@ -27,6 +27,8 @@ trait P4Query {
   def int(value : BigInt, p4Type: P4Type) : P4Query = ???
   def isArray: Boolean = false
 
+  def toInt: Option[BigInt] = None
+
   def fields() : Iterable[String] = ???
 
   def ===(other : P4Query) : P4Query = ???

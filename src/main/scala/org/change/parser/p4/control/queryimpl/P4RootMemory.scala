@@ -12,7 +12,25 @@ trait AbsValueWrapper extends P4Query {
   def maybePath : Option[ChurnedMemPath]
 
   override def toString: String = value.toString
+
+  override def toInt: Option[BigInt] = {
+    value match {
+      case as: ScalarValue =>
+        if (as.maybeInt.nonEmpty) Some(as.maybeInt.get.toInt)
+        else
+          as.z3AST.context.getNumeralInt(as.z3AST).value.map(BigInt(_))
+      case _ => None
+    }
+  }
+
 }
+case class PlainValue(value : Value) extends AbsValueWrapper {
+  override def maybePath: Option[ChurnedMemPath] = None
+}
+object PlainValue {
+  def rv(value : Value) : AbsValueWrapper = PlainValue(value)
+}
+
 case class P4RootMemory(override val switch : Switch,
                         rootMemory: RootMemory) extends P4Memory(switch) {
   case class ValueWrapper(value: Value,

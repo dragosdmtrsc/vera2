@@ -127,10 +127,6 @@ object VeraTopologyPlugin {
 
       val end = System.currentTimeMillis()
       System.err.println(s"propagation took ${end - start}ms")
-      for (a <- qb.possibleLocations().take(50)) {
-        System.err.println("at: " + a._1)
-        System.err.println("because: " + a._2)
-      }
       val qend = System.currentTimeMillis()
       System.err.println(s"validity querying took ${qend - end}ms")
       System.exit(0)

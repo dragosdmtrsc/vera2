@@ -1,67 +1,92 @@
 package org.change.parser.p4
 
-import org.change.parser.p4.control.queryimpl.{AbsValueWrapper, P4RootMemory, ScalarValue}
-import org.change.parser.p4.control.{P4Memory, P4Query}
-import org.change.plugins.vera.{BVType, IntType}
-import z3.scala.{Z3AST, Z3Context, Z3Solver}
+import org.change.parser.p4.control.P4Query
+import org.change.parser.p4.control.queryimpl.{AbsValueWrapper, P4RootMemory, PlainValue, ScalarValue}
+import z3.scala.{Z3AST, Z3Context, Z3Model, Z3Solver}
 
-abstract class Evaluator[T<:P4Memory](p4Memory: P4Memory) {
-  def hasResult: Boolean = ???
-  def eval(expr : P4Query) : Option[P4Query] = ???
-}
-
-case class RootEvaluator(mem : P4RootMemory)
-                        (implicit context : Z3Context) extends Evaluator[P4RootMemory](mem) {
-  lazy val solver: Z3Solver = {
-    val slv = context.mkSolver()
-    slv.assertCnstr(mem.rootMemory.condition)
-    slv
-  }
-  override def hasResult: Boolean = {
-    solver.check().get
-  }
-
-  def constrain(axioms : List[Z3AST]): RootEvaluator = {
+abstract class Evaluator {
+  def solver : Z3Solver
+  def constrain(axioms : List[Z3AST]) : Evaluator = {
     solver.push()
     for (a <- axioms)
       solver.assertCnstr(a)
-    solver.check()
     this
   }
+  def constrain(axioms : Z3AST*) : Evaluator = constrain(axioms.toList)
+  def hasResult: Boolean = {
+    solver.check().get
+  }
+  def ast(expr : P4Query) : Z3AST
+  def eval(expr : P4Query) : Option[P4Query]
   def ever(expr : P4Query) : Boolean = {
     if (!hasResult) false
     else {
-      val sv = expr.as[AbsValueWrapper].value.asInstanceOf[ScalarValue]
       solver.push()
-      solver.assertCnstr(sv.z3AST)
+      solver.assertCnstr(ast(expr))
       val res = solver.check().get
       solver.pop()
       res
     }
   }
+  def model() : Option[Z3Model] = {
+    if (hasResult) Some(solver.getModel()) else None
+  }
+
   def never(expr : P4Query) : Boolean = !ever(expr)
-  def always(expr : P4Query) : Boolean = never(!expr)
+  def always(expr : P4Query) : Boolean = ever(!expr)
+  def constrained(by : Z3AST*)(fun : => Any) : Unit = constrained(by.toList)(fun)
+  def constrained(by : List[Z3AST])(fun : => Any): Unit = {
+    constrain(by)
+    fun
+    solver.pop()
+  }
+  def enumerate(limit : Int)(fun : => Option[Z3AST]): Unit = {
+    val actualLimit = if (limit < 0) {
+      Int.MaxValue
+    } else {
+      limit
+    }
+    var nscopes = 0
+    var break = false
+    for (i <- 0 until actualLimit
+         if !break
+    ) {
+      val append = fun
+      if (append.isEmpty) {
+        break = true
+      } else {
+        nscopes = nscopes + 1
+        solver.push()
+        solver.assertCnstr(append.get)
+      }
+    }
+    solver.pop(nscopes)
+  }
+}
+
+case class RootEvaluator(solver: Z3Solver) extends Evaluator {
+  private val context = solver.context
+  override def ast(expr: P4Query): Z3AST = {
+    expr.asInstanceOf[AbsValueWrapper].value.asInstanceOf[ScalarValue].z3AST
+  }
+
   override def eval(expr: P4Query): Option[P4Query] = {
     if (hasResult) {
       val valwrap = expr.as[AbsValueWrapper]
       valwrap.value match {
         case sv : ScalarValue if sv.maybeBoolean.nonEmpty =>
-          Some(mem.boolVal(sv.maybeBoolean.get))
+          Some(expr.boolVal(sv.maybeBoolean.get))
         case sv : ScalarValue if sv.maybeInt.nonEmpty =>
-          Some(mem.int(sv.maybeInt.get, sv.ofType))
+          Some(expr.int(sv.maybeInt.get, sv.ofType))
         case sv : ScalarValue =>
           val ast = sv.z3AST
           val model = solver.getModel()
           valwrap.value.ofType match {
-            case BVType(_) | IntType =>
-              Some(mem.ValueWrapper.rv(model.evalAs[Int](ast).map(mem.rootMemory.typeMapper.literal(valwrap.value.ofType, _))
-                .getOrElse({
-                  new ScalarValue(z3AST = model.eval(ast).get, ofType = valwrap.value.ofType)
-                })))
             case _ =>
               Some(
-                mem.ValueWrapper.rv(
-                  new ScalarValue(z3AST = model.eval(ast).get, ofType = valwrap.value.ofType)
+                PlainValue.rv(
+                  new ScalarValue(z3AST = model.eval(ast).get,
+                    ofType = valwrap.value.ofType)
                 )
               )
           }
@@ -69,5 +94,13 @@ case class RootEvaluator(mem : P4RootMemory)
     } else {
       None
     }
+  }
+}
+
+object RootEvaluator {
+  def apply(mem : P4RootMemory)(implicit context: Z3Context) : RootEvaluator = {
+    val slv = context.mkSolver()
+    slv.assertCnstr(mem.rootMemory.condition)
+    RootEvaluator(slv)
   }
 }
