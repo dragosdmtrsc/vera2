@@ -112,11 +112,7 @@ table send_frame {
     size: 256;
 }
 control ingress {
-    if(ipv4.ttl > 0) {
-        apply(ipv4_lpm);
-        apply(forward);
-    }
+    apply(ipv4_lpm);
 }
 control egress {
-    apply(send_frame);
 }

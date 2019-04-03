@@ -1,1 +1,0 @@
-FromDevice() -> ToDevice()

@@ -29,7 +29,7 @@ object PacketLinearize {
             var nibValue = if (c >= '0' && c <= '9') {
               c - '0'
             } else {
-              c - 'a'
+              c - 'a' + 10
             }
             for (_ <- 0 until 4) {
               if (nibValue % 2 == 0) {

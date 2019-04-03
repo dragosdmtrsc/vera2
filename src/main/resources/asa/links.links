@@ -1,4 +1,0 @@
-packet:out:0 -> asa:main_input:0
-asa:to_internet:0 -> dest:obj:0
-asa:to_internet2:0 -> dest:obj:0
-test:out:0 -> dump:in:0

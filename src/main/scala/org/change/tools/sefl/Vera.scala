@@ -113,6 +113,14 @@ object Vera {
               System.err.println(loc)
               System.err.println("because: ")
               System.err.println(errCode)
+              if (generateTestHarness) {
+                val inputPort = evaluator.eval(input.standardMetadata().field("ingress_port")).get.toInt.get
+                val pack = evaluator.eval(input.packet()).get
+                System.err.println(s"here's how to trigger it")
+                System.err.println("input on port " + inputPort)
+                System.err.println("a packet:")
+                System.err.println(PacketLinearize.linearize(pack.as[AbsValueWrapper].value))
+              }
               context.mkNot(err)
             })
           })

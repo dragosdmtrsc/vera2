@@ -1,1 +1,0 @@
-host :: FromDevice() -> EtherEncap(2048, 0.0.1, 0002.44bd.613a) -> host_out :: ToDevice()

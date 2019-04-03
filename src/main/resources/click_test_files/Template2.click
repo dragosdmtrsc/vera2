@@ -1,1 +1,0 @@
-FromDevice -> Template(127.0.0.1, 255.168.255.251) -> ToDevice

@@ -527,16 +527,17 @@ class QueryDrivenSemantics[T<:P4Memory](switch: Switch) extends Semantics[T](swi
     val newquery = ctx.update(ctx.lastQuery(tableDeclaration.getName),
                               ctx.query(tableDeclaration.getName, matches))
     val lastFlow = newquery.lastQuery(tableDeclaration.getName)
-    val actionSema = newquery.when((if (tableDeclaration.hasProfile) {
+
+    val actionSema = newquery.or((if (tableDeclaration.hasProfile) {
       tableDeclaration.actionProfile().getActions.asScala
     } else {
       tableDeclaration.getAllowedActions.asScala.map(_.getActionName)
     }).map(x => {
-      (lastFlow.isAction(x), mkActionQuery(switch.action(x),
+      mkActionQuery(switch.action(x),
         switch.action(x).getParameterList.asScala.map(parm => {
           lastFlow.getParam(x, parm.getParamName)
         }).toList
-      )(newquery))
+      )(newquery.where(lastFlow.isAction(x)))
     }))
     actionSema.as[T]
   }

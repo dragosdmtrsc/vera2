@@ -1,2 +1,0 @@
-asa:nat:2 -> mirror:internet:0
-mirror:internet:0 -> asa:nat:0
