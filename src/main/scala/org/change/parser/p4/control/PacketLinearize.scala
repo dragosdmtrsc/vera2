@@ -18,20 +18,7 @@ object PacketLinearize {
       val idx = packet.takeKind(ast)
       if (idx.nonEmpty) {
         val (prev, now) = packet.unwrap(ast, idx.get)
-        crtString = now match {
-          case Left(id) =>
-            val sz = idx.get
-            var nr = id
-            for (i <- 0 until sz) {
-              if (nr % 2 == 0)
-                crtString = crtString + '0'
-              else crtString = crtString + '1'
-              nr = nr >> 1
-            }
-            crtString
-          case Right(x) =>
-            crtString + "[#" + idx.get + ":" + x.toString() + "]"
-        }
+        crtString = crtString + now.context.astToString(now)
         ast = prev
       } else {
         break = true

@@ -62,12 +62,11 @@ package object queryimpl {
         context.simplifyAst(packetSort._3.head(v))).getOrElse(false)
     }
 
-    def unwrap(v : Z3AST, of : Int) : (Z3AST, Either[Int, Z3AST]) = {
+    def unwrap(v : Z3AST, of : Int) : (Z3AST, Z3AST) = {
       val idx = indexing(of)
       val oldone = context.simplifyAst(packetSort._4(idx).head(v))
       val appd = context.simplifyAst(packetSort._4(idx)(1)(v))
-      val appended = context.getNumeralInt(appd).value.map(Left(_)).getOrElse(Right(appd))
-      (oldone, appended)
+      (oldone, appd)
     }
 
     def getPopFun(of : Int) : Z3FuncDecl = {
