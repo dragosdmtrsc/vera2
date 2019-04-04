@@ -217,7 +217,16 @@ package object queryimpl {
     implicit def apply(switch : Switch)(implicit context : Z3Context): Switch = {
       PacketWrapper.initialize(switch, context)
       val tm = TypeMapper.apply()(context)
-      tm.mkFunction("clone_session", BVType(16), BVType(9))
+      val stdMeta = switch.getInstance("standard_metadata")
+      val clSpec = stdMeta.getLayout.getField("clone_spec")
+      val cloneSpecLen = if (clSpec != null) {
+        clSpec.getLength
+      } else {
+        // default to 16, because this means that clone session
+        // will never get called
+        16
+      }
+      tm.mkFunction("clone_session", BVType(cloneSpecLen), BVType(9))
       val w = switch.mcastGrpWidth()
       if (w != 0)
         tm.mkFunction("mgid_session", BVType(w), BVType(9))

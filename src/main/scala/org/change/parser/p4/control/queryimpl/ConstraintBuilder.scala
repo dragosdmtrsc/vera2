@@ -40,7 +40,31 @@ object ConstraintBuilder {
   }
 
   def apply(switch: Switch, context : Z3Context, instance: Instance): Iterable[Z3AST] = {
-    switch.tables().asScala.map(t => {
+    val stdMeta = switch.getInstance("standard_metadata")
+    val clSpec = stdMeta.getLayout.getField("clone_spec")
+    val cloneAxiom = if (clSpec != null) {
+      val parm = context.mkFreshConst("p", context.mkBVSort(clSpec.getLength))
+      val res = context.mkFreshConst("ret", context.mkBVSort(9))
+      val initialPredicate = context.mkEq(
+        res, context.mkInt(511, res.getSort)
+      )
+      val axiomBody = instance.mirrors.foldLeft(initialPredicate)((acc, m) => {
+        val pred = context.mkOr(
+          m._2.map(v => context.mkEq(res, context.mkNumeral(v.toString(), res.getSort))):_*
+        )
+        val nowPredicate = context.mkEq(
+          context.mkNumeral(m._1.toString(), parm.getSort),
+          parm
+        )
+        context.mkITE(nowPredicate, pred, acc)
+      })
+      val tm = TypeMapper()(context)
+      val impl = context.mkEq(tm.applyFunction("clone_session", parm), res)
+      context.mkImplies(impl, axiomBody)
+    } else {
+      context.mkTrue()
+    }
+    val tableAxioms = switch.tables().asScala.map(t => {
       val flowStruct = FlowStruct(context, t, switch)
       var bounds = flowStruct.queryParms.zipWithIndex.map(f => {
         context.mkFreshConst("p", f._1)
@@ -119,7 +143,8 @@ object ConstraintBuilder {
         ), forallBody
       )
       context.mkForAllConst(0, Seq.empty, bounds, fullQuery)
-    })
+    }).toList
+    cloneAxiom :: tableAxioms
   }
 
   def apply(switch: Switch, context : Z3Context, switchTarget: SwitchTarget) : Iterable[Z3AST] = {
