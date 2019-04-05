@@ -1,51 +1,65 @@
-package org.change.parser.p4.control
+package org.change.p4.control
 
 import generated.parser.p4.commands.{P4CommandsBaseListener, P4CommandsLexer, P4CommandsParser}
 import org.antlr.v4.runtime.tree.ParseTreeWalker
 import org.antlr.v4.runtime.{CharStreams, CommonTokenStream}
-import org.change.parser.p4.ValueSpecificationParser
-import org.change.parser.p4.parser._
+import org.change.p4.ValueSpecificationParser
+import org.change.p4.model.Switch
+import org.change.p4.model.table.{MatchKind, TableDeclaration}
 import org.change.utils.RepresentationConversion
-import org.change.v2.p4.model.Switch
-import org.change.v2.p4.model.table.{MatchKind, TableDeclaration}
 
 import scala.collection.JavaConverters._
 
-class P4Commands(switch : Switch) extends P4CommandsBaseListener {
+class P4Commands(switch: Switch) extends P4CommandsBaseListener {
   var holder = Instance()
-  switch.tables().asScala.foreach(t => {
-    holder = holder.setDefault(TableFlow(t, Action(switch.action("no_op")),
-      Nil, Nil, 0))
-  })
-  var tab : TableDeclaration = null
+  switch
+    .tables()
+    .asScala
+    .foreach(t => {
+      holder = holder
+        .setDefault(TableFlow(t, Action(switch.action("no_op")), Nil, Nil, 0))
+    })
+  var tab: TableDeclaration = null
 
-  override def exitAction_parm(ctx: P4CommandsParser.Action_parmContext): Unit = {
+  override def exitAction_parm(
+    ctx: P4CommandsParser.Action_parmContext
+  ): Unit = {
     ctx.actionParam = ParamValue(ctx.unsigned_value().unsignedValue)
   }
   override def enterTable_add(ctx: P4CommandsParser.Table_addContext): Unit = {
     tab = switch.table(ctx.id().getText)
   }
 
-  override def enterTable_default(ctx: P4CommandsParser.Table_defaultContext): Unit = {
+  override def enterTable_default(
+    ctx: P4CommandsParser.Table_defaultContext
+  ): Unit = {
     tab = switch.table(ctx.id().getText)
   }
 
-  override def exitTable_default(ctx: P4CommandsParser.Table_defaultContext): Unit = {
+  override def exitTable_default(
+    ctx: P4CommandsParser.Table_defaultContext
+  ): Unit = {
     tab = null
     val table = ctx.id().getText
     val td = switch.table(table)
     if (td == null)
-      throw new IllegalStateException(s"referencing table $table which is not there")
+      throw new IllegalStateException(
+        s"referencing table $table which is not there"
+      )
     val act = ctx.act_spec().actionSpec
     val parmlist = ctx.action_parm().asScala.map(_.actionParam).toList
     holder = holder.setDefault(TableFlow(td, act, Nil, parmlist, 0))
   }
-  override def exitMemberAction(ctx: P4CommandsParser.MemberActionContext): Unit = {
+  override def exitMemberAction(
+    ctx: P4CommandsParser.MemberActionContext
+  ): Unit = {
     val idx = ctx.unsigned_value().unsignedValue.toInt
     val prof = tab.actionProfile()
     ctx.actionSpec = ProfileMember(prof, idx)
   }
-  override def exitNamedAction(ctx: P4CommandsParser.NamedActionContext): Unit = {
+  override def exitNamedAction(
+    ctx: P4CommandsParser.NamedActionContext
+  ): Unit = {
     val act = switch.action(ctx.id().getText)
     if (act == null)
       throw new IllegalArgumentException(s"got $act, but it was not found")
@@ -76,33 +90,57 @@ class P4Commands(switch : Switch) extends P4CommandsBaseListener {
     val table = ctx.id().getText
     val td = switch.table(table)
     if (td == null)
-      throw new IllegalStateException(s"referencing table $table which is not there")
+      throw new IllegalStateException(
+        s"referencing table $table which is not there"
+      )
     val act = ctx.act_spec().actionSpec
     val matches = ctx.match_key().asScala.map(_.matchParam).toList
     assert(td.getMatches.size() == matches.size)
     val zipped = td.getMatches.asScala.zip(matches)
     val parmlist = ctx.action_parm().asScala.map(_.actionParam).toList
-    val (prio, allParms) = zipped.find(_._1.getMatchKind == MatchKind.Lpm).map(x => {
-      (-x._2.asInstanceOf[Prefix].prefix, parmlist)
-    }).getOrElse({
-      if (zipped.exists(x => {
-        x._1.getMatchKind == MatchKind.Range ||
-        x._1.getMatchKind == MatchKind.Ternary
-      }))
-        (ctx.action_parm().asScala.last.actionParam.asInstanceOf[ParamValue].v.toInt,
-          parmlist.take(parmlist.size - 1))
-      else (0, parmlist)
-    })
+    val (prio, allParms) = zipped
+      .find(_._1.getMatchKind == MatchKind.Lpm)
+      .map(x => {
+        (-x._2.asInstanceOf[Prefix].prefix, parmlist)
+      })
+      .getOrElse({
+        if (zipped.exists(x => {
+              x._1.getMatchKind == MatchKind.Range ||
+              x._1.getMatchKind == MatchKind.Ternary
+            }))
+          (
+            ctx
+              .action_parm()
+              .asScala
+              .last
+              .actionParam
+              .asInstanceOf[ParamValue]
+              .v
+              .toInt,
+            parmlist.take(parmlist.size - 1)
+          )
+        else (0, parmlist)
+      })
     holder = holder.add(TableFlow(td, act, matches, allParms, prio))
   }
-  override def exitBinaryUValue(ctx: P4CommandsParser.BinaryUValueContext): Unit = {
-    ctx.unsignedValue = ValueSpecificationParser.binaryToInt(ctx.Binary_value().getText)
+  override def exitBinaryUValue(
+    ctx: P4CommandsParser.BinaryUValueContext
+  ): Unit = {
+    ctx.unsignedValue =
+      ValueSpecificationParser.binaryToInt(ctx.Binary_value().getText)
   }
-  override def exitDecimalUValue(ctx: P4CommandsParser.DecimalUValueContext): Unit = {
-    ctx.unsignedValue = ValueSpecificationParser.decimalToInt(ctx.Decimal_value().getText)
+  override def exitDecimalUValue(
+    ctx: P4CommandsParser.DecimalUValueContext
+  ): Unit = {
+    ctx.unsignedValue =
+      ValueSpecificationParser.decimalToInt(ctx.Decimal_value().getText)
   }
-  override def exitHexadecimalUValue(ctx: P4CommandsParser.HexadecimalUValueContext): Unit = {
-    ctx.unsignedValue = ValueSpecificationParser.hexToInt(ctx.Hexadecimal_value().getText.substring(2))
+  override def exitHexadecimalUValue(
+    ctx: P4CommandsParser.HexadecimalUValueContext
+  ): Unit = {
+    ctx.unsignedValue = ValueSpecificationParser.hexToInt(
+      ctx.Hexadecimal_value().getText.substring(2)
+    )
   }
   override def exitMacUValue(ctx: P4CommandsParser.MacUValueContext): Unit = {
     ctx.unsignedValue = RepresentationConversion.macToNumber(ctx.getText)
@@ -116,7 +154,7 @@ class P4Commands(switch : Switch) extends P4CommandsBaseListener {
 }
 
 object P4Commands {
-  def fromFile(switch: Switch, commandstxt : String): Instance = {
+  def fromFile(switch: Switch, commandstxt: String): Instance = {
     val p4Input = CharStreams.fromFileName(commandstxt)
     val lexer = new P4CommandsLexer(p4Input)
     val tokens = new CommonTokenStream(lexer)

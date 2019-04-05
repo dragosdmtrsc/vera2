@@ -1,35 +1,33 @@
-package org.change.v2.p4.model.parser;
-
-import com.fasterxml.jackson.annotation.JsonTypeInfo;
+package org.change.p4.model.parser;
 
 /**
  * Created by dragos on 12.09.2017.
  */
 public class CompoundExpression extends Expression {
-    private boolean isPlus = false;
-    private Expression left;
-    private Expression right;
+  private boolean isPlus = false;
+  private Expression left;
+  private Expression right;
 
-    public CompoundExpression(boolean isPlus, Expression left, Expression right) {
-        this.isPlus = isPlus;
-        this.left = left;
-        this.right = right;
-    }
+  public CompoundExpression(boolean isPlus, Expression left, Expression right) {
+    this.isPlus = isPlus;
+    this.left = left;
+    this.right = right;
+  }
 
-    public boolean isPlus() {
-        return isPlus;
-    }
+  public boolean isPlus() {
+    return isPlus;
+  }
 
-    public Expression getLeft() {
-        return left;
-    }
+  public Expression getLeft() {
+    return left;
+  }
 
-    public Expression getRight() {
-        return right;
-    }
+  public Expression getRight() {
+    return right;
+  }
 
-    @Override
-    public String toString() {
-        return left.toString() + (isPlus ? '+' : '-') + right.toString();
-    }
+  @Override
+  public String toString() {
+    return left.toString() + (isPlus ? '+' : '-') + right.toString();
+  }
 }

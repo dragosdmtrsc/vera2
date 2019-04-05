@@ -1,12 +1,12 @@
-package org.change.parser.p4.control
+package org.change.p4.control
 
-import org.change.plugins.vera.BVType
-import org.change.v2.p4.model.Switch
-import org.change.v2.p4.model.control.exp._
-import org.change.v2.p4.model.parser.SetStatement
+import org.change.p4.control.types.BVType
+import org.change.p4.model.Switch
+import org.change.p4.model.control.exp._
+import org.change.p4.model.parser.SetStatement
 import z3.scala.Z3Context
 
-class LiteralTypeInference(switch : Switch) extends ASTVisitor {
+class LiteralTypeInference(switch: Switch) extends ASTVisitor {
   val typeSolver = new TypeSolver(new Z3Context())
 
   override def postorder(validRef: ValidRef): Unit = {
@@ -35,7 +35,7 @@ class LiteralTypeInference(switch : Switch) extends ASTVisitor {
       typeSolver.equal(literalExpr, BVType(literalExpr.getWidth))
   }
 
-  override def postorder(setStatement : SetStatement) : Unit = {
+  override def postorder(setStatement: SetStatement): Unit = {
     val left = setStatement.getLeft.getFieldReference
     val right = setStatement.getRightE
     if (right.isInstanceOf[LiteralExpr]) {
@@ -54,26 +54,33 @@ class LiteralTypeInference(switch : Switch) extends ASTVisitor {
 
   override def postorder(fieldRefExpr: FieldRefExpr): Unit = {
     assert(fieldRefExpr.getFieldRef.getField != null)
-    typeSolver.equal(fieldRefExpr, BVType(fieldRefExpr.getFieldRef.getFieldReference.getLength))
+    typeSolver.equal(
+      fieldRefExpr,
+      BVType(fieldRefExpr.getFieldRef.getFieldReference.getLength)
+    )
   }
 
-  override def postorder(switch: Switch) : Unit = {
-    typeSolver.solve(x => x.isInstanceOf[LiteralExpr]).foreach(lit => {
-      val tp = lit._2
-      val litr = lit._1.asInstanceOf[LiteralExpr]
-      if (tp.nonEmpty) {
-        val BVType(wid) = tp.get
-        if (wid <= 0) {
-          throw new IllegalArgumentException(wid + " not allowed as a valid bv width")
+  override def postorder(switch: Switch): Unit = {
+    typeSolver
+      .solve(x => x.isInstanceOf[LiteralExpr])
+      .foreach(lit => {
+        val tp = lit._2
+        val litr = lit._1.asInstanceOf[LiteralExpr]
+        if (tp.nonEmpty) {
+          val BVType(wid) = tp.get
+          if (wid <= 0) {
+            throw new IllegalArgumentException(
+              wid + " not allowed as a valid bv width"
+            )
+          }
+          litr.setWidth(wid)
         }
-        litr.setWidth(wid)
-      }
-    })
+      })
   }
 }
 
 object LiteralTypeInference {
-  def apply(switch: Switch) : Unit = {
+  def apply(switch: Switch): Unit = {
     Traverse(new LiteralTypeInference(switch))(switch)
   }
 }

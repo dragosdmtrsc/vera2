@@ -1,9 +1,4 @@
-package org.change.v2.p4.model.parser;
-
-import sun.reflect.generics.reflectiveObjects.NotImplementedException;
-
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+package org.change.p4.model.parser;
 
 /**
  * Created by dragos on 13.09.2017.

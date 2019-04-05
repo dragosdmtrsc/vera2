@@ -1,5 +1,3 @@
-package org.change.parser.p4.control
+package org.change.p4.control
 
-class QuerySemantics {
-
-}
+class QuerySemantics {}

@@ -1,20 +1,20 @@
-package org.change.v2.p4.model.control.exp;
+package org.change.p4.model.control.exp;
 
-import org.change.v2.p4.model.parser.HeaderRef;
+import org.change.p4.model.parser.HeaderRef;
 
 public class ValidRef implements P4BExpr {
-    private HeaderRef href;
+  private HeaderRef href;
 
-    public ValidRef(HeaderRef href) {
-        this.href = href;
-    }
+  public ValidRef(HeaderRef href) {
+    this.href = href;
+  }
 
-    public HeaderRef getHref() {
-        return href;
-    }
+  public HeaderRef getHref() {
+    return href;
+  }
 
-    @Override
-    public String toString() {
-        return "valid(" + href.getPath() + ")";
-    }
+  @Override
+  public String toString() {
+    return "valid(" + href.getPath() + ")";
+  }
 }

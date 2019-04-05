@@ -1,30 +1,31 @@
-package org.change.v2.p4.model.actions;
+package org.change.p4.model.actions;
 
 /**
  * Created by dragos on 30.08.2017.
  */
 public enum P4ActionParameterType {
-    HDR(1<<0),
-    ARR(1<<1),
-    FLD(1<<2),
-    FLDLIST(1<<3),
-    VAL(1<<4),
-    C_REF(1<<5),
-    M_REF(1<<6),
-    R_REF(1<<7),
-    FLC_REF(1<<8),
-    UNKNOWN(1<<9);
-    public final int x;
+  HDR(1 << 0),
+  ARR(1 << 1),
+  FLD(1 << 2),
+  FLDLIST(1 << 3),
+  VAL(1 << 4),
+  C_REF(1 << 5),
+  M_REF(1 << 6),
+  R_REF(1 << 7),
+  FLC_REF(1 << 8),
+  UNKNOWN(1 << 9);
+  public final int x;
 
-    P4ActionParameterType(int x) {
-        this.x = x;
-    }
+  P4ActionParameterType(int x) {
+    this.x = x;
+  }
 
-    public static boolean isField(int v) {
-        return (v & FLD.x) != 0;
-    }
-    public static boolean isLV(int x) {
-        return ((x & (1 << 2)) != 0) &&
-                (x & (1 << 4)) == 0;
-    }
+  public static boolean isField(int v) {
+    return (v & FLD.x) != 0;
+  }
+
+  public static boolean isLV(int x) {
+    return ((x & (1 << 2)) != 0) &&
+            (x & (1 << 4)) == 0;
+  }
 }

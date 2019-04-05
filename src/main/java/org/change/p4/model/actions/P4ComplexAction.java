@@ -1,4 +1,4 @@
-package org.change.v2.p4.model.actions;
+package org.change.p4.model.actions;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -8,13 +8,13 @@ import java.util.List;
  */
 public class P4ComplexAction extends P4Action {
 
-    private List<P4ActionCall> actionList = new ArrayList<P4ActionCall>();
+  private List<P4ActionCall> actionList = new ArrayList<P4ActionCall>();
 
-    public P4ComplexAction(String actionName) {
-        super(P4ActionType.Complex, actionName);
-    }
+  public P4ComplexAction(String actionName) {
+    super(P4ActionType.Complex, actionName);
+  }
 
-    public List<P4ActionCall> getActionList() {
-        return actionList;
-    }
+  public List<P4ActionCall> getActionList() {
+    return actionList;
+  }
 }

@@ -1,15 +1,16 @@
-package org.change.parser.p4.control
+package org.change.p4.control
 
-import org.change.parser.p4.control.queryimpl.{PacketWrapper, ScalarValue, Value}
-import org.change.plugins.vera.PacketType
-
+import org.change.p4.control.queryimpl.{PacketWrapper, ScalarValue, Value}
+import org.change.p4.control.types.PacketType
 
 object PacketLinearize {
   //TODO: make the linearize thing look better - looking strange for the moment
-  def linearize(packValue : Value) : String = {
+  def linearize(packValue: Value): String = {
     var crtString = ""
     if (packValue.ofType != PacketType)
-      throw new IllegalArgumentException(s"packet type expected, got $packValue")
+      throw new IllegalArgumentException(
+        s"packet type expected, got $packValue"
+      )
     var ast = packValue.asInstanceOf[ScalarValue].z3AST
     val packet = PacketWrapper(ast.context)
     var break = false
@@ -42,13 +43,17 @@ object PacketLinearize {
         } else if (astString.startsWith("#b")) {
           astString.substring(2)
         } else {
-          throw new IllegalArgumentException(s"expecting z3 bitvector in #x or #b format, got $astString")
+          throw new IllegalArgumentException(
+            s"expecting z3 bitvector in #x or #b format, got $astString"
+          )
         }
         crtString = crtString + str
         ast = prev
       } else {
         break = true
-        System.err.println("still having some symbolic value... how do we handle this")
+        System.err.println(
+          "still having some symbolic value... how do we handle this"
+        )
       }
     }
     crtString

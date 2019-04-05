@@ -1,13 +1,13 @@
-package org.change.parser.p4.control
+package org.change.p4.control
 
-import org.change.parser.p4.control.SMInstantiator._
-import org.change.plugins.vera.BVType
-import org.change.v2.p4.model.control.exp._
+import org.change.p4.control.SMInstantiator._
+import org.change.p4.control.types.BVType
+import org.change.p4.model.control.exp._
 
 import scala.collection.mutable
 
-case class QueryMaker(context : P4Memory,
-                      exprs : mutable.Map[Object, P4Query]) extends ASTVisitor {
+case class QueryMaker(context: P4Memory, exprs: mutable.Map[Object, P4Query])
+    extends ASTVisitor {
   override def postorder(validRef: ValidRef): Unit = {
     val ct = context(validRef.getHref)
     exprs.put(validRef, ct.valid())
@@ -23,7 +23,7 @@ case class QueryMaker(context : P4Memory,
     val r = exprs(binBExpr.getRight)
     exprs.put(binBExpr, binBExpr.getType match {
       case BinBExpr.OpType.AND => l && r
-      case BinBExpr.OpType.OR => l || r
+      case BinBExpr.OpType.OR  => l || r
     })
   }
 
@@ -34,18 +34,21 @@ case class QueryMaker(context : P4Memory,
     val l = exprs(relOp.getLeft)
     val r = exprs(relOp.getRight)
     exprs.put(relOp, relOp.getType match {
-      case RelOp.OpType.EQ => l === r
-      case RelOp.OpType.GT => l > r
-      case RelOp.OpType.LT => l < r
+      case RelOp.OpType.EQ  => l === r
+      case RelOp.OpType.GT  => l > r
+      case RelOp.OpType.LT  => l < r
       case RelOp.OpType.LTE => l <= r
       case RelOp.OpType.GTE => l >= r
-      case RelOp.OpType.NE => l != r
+      case RelOp.OpType.NE  => l != r
     })
   }
 
   override def postorder(literalExpr: LiteralExpr): Unit = {
     if (literalExpr.getWidth > 0) {
-      exprs.put(literalExpr, context.int(literalExpr.getValue, BVType(literalExpr.getWidth)))
+      exprs.put(
+        literalExpr,
+        context.int(literalExpr.getValue, BVType(literalExpr.getWidth))
+      )
     } else {
       exprs.put(literalExpr, context.int(literalExpr.getValue))
     }
@@ -58,12 +61,10 @@ case class QueryMaker(context : P4Memory,
   }
 
   override def postorder(unOpExpr: UnOpExpr): Unit = {
-    exprs.put(unOpExpr,
-      unOpExpr.getType match {
-        case UnOpExpr.OpType.NEG => -exprs(unOpExpr.getExpr)
-        case UnOpExpr.OpType.NOT => ~exprs(unOpExpr.getExpr)
-      }
-    )
+    exprs.put(unOpExpr, unOpExpr.getType match {
+      case UnOpExpr.OpType.NEG => -exprs(unOpExpr.getExpr)
+      case UnOpExpr.OpType.NOT => ~exprs(unOpExpr.getExpr)
+    })
   }
 
   override def postorder(fieldRefExpr: FieldRefExpr): Unit = {
@@ -73,7 +74,12 @@ case class QueryMaker(context : P4Memory,
   }
 
   override def postorder(dre: DataRefExpr): Unit = {
-    exprs.put(dre, context.packet()(context.int(dre.getDataRef.getStart),
-      context.int(dre.getDataRef.getEnd)))
+    exprs.put(
+      dre,
+      context.packet()(
+        context.int(dre.getDataRef.getStart),
+        context.int(dre.getDataRef.getEnd)
+      )
+    )
   }
 }

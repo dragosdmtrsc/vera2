@@ -1,18 +1,19 @@
-package org.change.v2.p4.model.parser;
+package org.change.p4.model.parser;
 
 public class Ref extends Expression {
-    protected String path;
-    public String getPath() {
-        return path;
-    }
+  protected String path;
 
-    public Ref setPath(String path) {
-        this.path = path;
-        return this;
-    }
+  public String getPath() {
+    return path;
+  }
 
-    @Override
-    public String toString() {
-        return getPath();
-    }
+  public Ref setPath(String path) {
+    this.path = path;
+    return this;
+  }
+
+  @Override
+  public String toString() {
+    return getPath();
+  }
 }

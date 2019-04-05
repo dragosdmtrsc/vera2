@@ -1,4 +1,4 @@
-package org.change.v2.p4.model.parser;
+package org.change.p4.model.parser;
 
 import java.util.Objects;
 
@@ -6,72 +6,75 @@ import java.util.Objects;
  * Created by dragos on 12.09.2017.
  */
 public class ReturnStatement extends Statement {
-    private String suffix = "";
-    private String where;
-    private String message;
-    private boolean isError;
+  private String suffix = "";
+  private String where;
+  private String message;
+  private boolean isError;
 
-    public ReturnStatement() {}
-    public ReturnStatement(ReturnStatement rs) {
-        suffix = rs.suffix;
-        where = rs.where;
-        message = rs.message;
-        isError = rs.isError;
-    }
-    public ReturnStatement(ReturnStatement rs, String suffix) {
-        this.suffix = suffix;
-        where = rs.where;
-        message = rs.message;
-        isError = rs.isError;
-    }
+  public ReturnStatement() {
+  }
 
-    public ReturnStatement(String where) {
-        this.where = where;
-    }
+  public ReturnStatement(ReturnStatement rs) {
+    suffix = rs.suffix;
+    where = rs.where;
+    message = rs.message;
+    isError = rs.isError;
+  }
 
-    public String getMessage() {
-        return message;
-    }
+  public ReturnStatement(ReturnStatement rs, String suffix) {
+    this.suffix = suffix;
+    where = rs.where;
+    message = rs.message;
+    isError = rs.isError;
+  }
 
-    public ReturnStatement setMessage(String message) {
-        this.message = message;
-        return this;
-    }
+  public ReturnStatement(String where) {
+    this.where = where;
+  }
 
-    public boolean isError() {
-        return isError;
-    }
+  public String getMessage() {
+    return message;
+  }
 
-    public ReturnStatement setError(boolean error) {
-        isError = error;
-        return this;
-    }
+  public ReturnStatement setMessage(String message) {
+    this.message = message;
+    return this;
+  }
 
-    public String getWhere() {
-        return where;
-    }
+  public boolean isError() {
+    return isError;
+  }
 
-    @Override
-    public String toString() {
-        if (isError) {
-            return "error " + getMessage();
-        }
-        return "return " + getWhere();
-    }
+  public ReturnStatement setError(boolean error) {
+    isError = error;
+    return this;
+  }
 
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        ReturnStatement that = (ReturnStatement) o;
-        return isError == that.isError &&
-                Objects.equals(suffix, that.suffix) &&
-                Objects.equals(where, that.where) &&
-                Objects.equals(message, that.message);
-    }
+  public String getWhere() {
+    return where;
+  }
 
-    @Override
-    public int hashCode() {
-        return Objects.hash(suffix, where, message, isError);
+  @Override
+  public String toString() {
+    if (isError) {
+      return "error " + getMessage();
     }
+    return "return " + getWhere();
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    ReturnStatement that = (ReturnStatement) o;
+    return isError == that.isError &&
+            Objects.equals(suffix, that.suffix) &&
+            Objects.equals(where, that.where) &&
+            Objects.equals(message, that.message);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(suffix, where, message, isError);
+  }
 }
