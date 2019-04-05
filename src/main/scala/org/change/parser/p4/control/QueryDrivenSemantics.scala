@@ -525,7 +525,8 @@ class QueryDrivenSemantics[T<:P4Memory](switch: Switch) extends Semantics[T](swi
     })
 
     val newquery = ctx.update(ctx.lastQuery(tableDeclaration.getName),
-                              ctx.query(tableDeclaration.getName, matches))
+                              /*ctx.query(tableDeclaration.getName, matches)*/
+      ctx.lastQuery(tableDeclaration.getName).fresh())
     val lastFlow = newquery.lastQuery(tableDeclaration.getName)
 
     val actionSema = newquery.or((if (tableDeclaration.hasProfile) {

@@ -64,20 +64,20 @@ class FlowStruct(context : Z3Context,
   private def matchMaskOffset(tableMatch: TableMatch): Int =
     matchValueIndices._2(tableMatch)._2 + 3
 
-  private val matchKinds : List[Z3Sort] = matchToSorts.flatMap(_._2)
+  val matchKinds : List[Z3Sort] = matchToSorts.flatMap(_._2)
   val queryParms : List[Z3Sort] = matchToSorts.map(_._2.head)
 
   def p4typeToSort(p4Type: P4Type) : Z3Sort = p4Type match {
     case IntType => context.mkIntSort()
     case BVType(x) => context.mkBVSort(x)
   }
-  private val parmTypes = allowed.flatMap(act => {
+  val parmTypes = allowed.flatMap(act => {
     switch.action(act).getParameterList.asScala.map(parm => {
       (act, parm.getParamName) -> p4typeToSort(parm.getSort)
     })
   }).toList
 
-  private val parmsZipped = parmTypes.zipWithIndex.map(x => x._1._1 -> x._2).toMap
+  private val parmsZipped: Map[(String, String), Int] = parmTypes.zipWithIndex.map(x => x._1._1 -> x._2).toMap
   private def getOffset(action : String, parm : String): Int = {
     parmsZipped((action, parm)) + matchKinds.size + 3
   }

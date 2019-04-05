@@ -36,6 +36,23 @@ package object queryimpl {
   }
   type ChurnedMemPath  = Iterable[(ScalarValue, MemPath)]
 
+  abstract class PacketValue(ast : Z3AST) extends ScalarValue(PacketType, ast, None, None)
+  case class NilPacket(ast : Z3AST) extends PacketValue(ast) {
+    override def hashCode(): Int = super.hashCode()
+    override def equals(obj: Any): Boolean = obj.isInstanceOf[NilPacket]
+  }
+  case class PrependPacket(ast : Z3AST,
+                           n : Int,
+                           old : PacketValue,
+                           appended : ScalarValue) extends PacketValue(ast = ast)
+
+  case class ItePacket(ast : Z3AST,
+                       ites : Iterable[(ScalarValue, PacketValue)]) extends PacketValue(ast)
+
+  object NilPacket {
+    def apply(context : Z3Context) : PacketValue = new NilPacket(PacketWrapper.nilPacket(context))
+  }
+
   class PacketWrapper(implicit context: Z3Context) {
 
     val takeFuns = mutable.Map.empty[(Int, Int), Z3FuncDecl]
@@ -44,6 +61,9 @@ package object queryimpl {
 
     def declareAppend(sz : Int) : Unit = {
       appends = appends + sz
+    }
+    def nilPacket() : Z3AST = {
+      packetSort._2.head()
     }
 
     // assumes that this guy is already resolved and can
@@ -84,8 +104,8 @@ package object queryimpl {
     lazy val (packetSort, indexing) = {
       val (names, params, mapping) = appends.toList.zipWithIndex.map(xwi => {
         val x = xwi._1
-        (s"prepend_$x", Seq(("pin", RecursiveType(0)),
-          ("x", RegularSort(context.mkBVSort(x)))
+        (s"prepend_$x", Seq((s"pin_$x", RecursiveType(0)),
+          (s"x_$x", RegularSort(context.mkBVSort(x)))
         ), xwi.copy(_2 = xwi._2 + 1))
       }).unzip3
       (context.mkADTSorts(Seq(
@@ -130,6 +150,10 @@ package object queryimpl {
     val contextBound = mutable.Map.empty[Z3Context, PacketWrapper]
     def apply(context : Z3Context) : PacketWrapper = {
       contextBound(context)
+    }
+
+    def nilPacket(context: Z3Context) : Z3AST = {
+      apply(context).nilPacket()
     }
 
     def initialize(switch: Switch, context: Z3Context): Unit = {

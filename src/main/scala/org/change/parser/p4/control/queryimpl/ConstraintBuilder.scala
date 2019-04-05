@@ -8,6 +8,7 @@ import org.change.v2.p4.model.table.MatchKind
 import z3.scala.{Z3AST, Z3Context}
 
 import scala.collection.JavaConverters._
+import scala.collection.mutable.ListBuffer
 
 object ConstraintBuilder {
 
@@ -36,6 +37,41 @@ object ConstraintBuilder {
                 val access = boundFlowInstance.getActionParam(x.getActionName, f._2.getParamName)
                 context.mkEq(access, nr)
             })
+    }
+  }
+
+  def mkInstance(context : Z3Context,
+                 actionSpec: ActionSpec,
+                 actionParams : List[ActionParam],
+                 setDefault : Boolean,
+                 flowStruct: FlowStruct) : Z3AST = {
+    var asts : ListBuffer[Z3AST] = ListBuffer(context.mkTrue(),
+      if (setDefault) context.mkFalse() else context.mkTrue()
+    )
+    actionSpec match {
+      case Action(x) =>
+        val aname = x.getActionName
+        asts.append(flowStruct.actionTypeConst(aname))
+        assert(actionParams.size == x.getParameterList.asScala.size)
+        flowStruct.matchKinds.foreach(s => {
+          asts.append(if (s.isBoolSort) context.mkFalse()
+          else context.mkInt(0, s))
+        })
+        val parmMap = actionParams.zip(x.getParameterList.asScala).map(f => {
+          f._2.getParamName -> f._1
+        }).toMap
+        flowStruct.parmTypes.foreach(pt => {
+          if (pt._1._1 == aname) {
+            parmMap(pt._1._2) match {
+              case ParamValue(pv) =>
+                val nr = context.mkNumeral(pv.toString(), pt._2)
+                asts.append(nr)
+            }
+          } else {
+            asts.append(context.mkInt(0, pt._2))
+          }
+        })
+        flowStruct.flowSort._2(asts:_*)
     }
   }
 
@@ -69,18 +105,13 @@ object ConstraintBuilder {
       var bounds = flowStruct.queryParms.zipWithIndex.map(f => {
         context.mkFreshConst("p", f._1)
       })
-      val structBound = context.mkFreshConst("p", flowStruct.sort())
-      val boundFlowInstance = flowStruct.from(structBound)
-      bounds = bounds :+ structBound
       val contents = instance.tables.getOrElse(t.getName, Nil)
       val default = instance.defaults(t.getName)
-      val defcond = context.mkAnd(constrainParams(context,
+      val defcond = mkInstance(context,
         default.action,
         default.parms,
-        structBound,
         setDefault = true,
-        flowStruct,
-        boundFlowInstance):_*)
+        flowStruct)
       val forallBody = contents.foldLeft(defcond)((acc, x) => {
           // good stuff
         val cond = t.getMatches.asScala.zip(x.matches).zipWithIndex.map(f => {
@@ -127,21 +158,17 @@ object ConstraintBuilder {
         })
         context.mkITE(
           context.mkAnd(cond:_*),
-          context.mkAnd(constrainParams(context,
+          mkInstance(context,
             x.action,
             x.parms,
-            structBound,
             setDefault = false,
-            flowStruct,
-            boundFlowInstance) :_*),
+            flowStruct),
           acc
         )
       })
-      val fullQuery = context.mkImplies(
-        context.mkEq(flowStruct.query(bounds.take(bounds.size - 1)).z3AST,
-          bounds.last
-        ), forallBody
-      )
+      val fullQuery = context.mkEq(
+          flowStruct.query(bounds).z3AST,
+          forallBody)
       context.mkForAllConst(0, Seq.empty, bounds, fullQuery)
     }).toList
     cloneAxiom :: tableAxioms

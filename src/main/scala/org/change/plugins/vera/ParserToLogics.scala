@@ -541,7 +541,7 @@ class ParserToLogics(switch : Switch,
           context.mkNot(context.mkEq(inipack(validref),
             context.mkInt(1, context.mkBVSort(1)))) :: Nil
         }
-        context.mkAnd(outv.filter(kv => !inv.get(kv._1).contains(kv._2)).map(x => {
+        context.mkAnd(outv.filter(kv => !inv.get(kv._1).exists(_ == kv._2)).map(x => {
           val lastval = exit(x._1)
           val tp = type2sort(typeMap(x._1))
           context.mkEq(

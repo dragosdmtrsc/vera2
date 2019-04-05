@@ -82,6 +82,9 @@ object Vera {
           val instance = P4Commands.fromFile(switch, x)
           val constraints = ConstraintBuilder(switch, context, instance).toList
           evaluator.constrained(constraints) {
+//            System.err.println(context.benchmarkToSMTLIBString("solver", "", "", "",
+//              evaluator.solver.getAssertions().toSeq, context.mkTrue()
+//            ))
             val pack = evaluator.eval(input.packet()).get
             val inputPort = evaluator.eval(input.standardMetadata().field("ingress_port")).get.toInt.get
             val expectation = evaluator.eval(deparsed.packet()).get

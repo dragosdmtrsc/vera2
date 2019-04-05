@@ -2,7 +2,7 @@ import java.io.PrintWriter
 
 organization  := "org.change"
 version       := "0.2.1-SNAPSHOT"
-scalaVersion  := "2.11.1"
+scalaVersion  := "2.10.2"
 
 name := "symnet"
 
@@ -25,7 +25,6 @@ libraryDependencies ++= {
     "com.regblanc" %% "scala-smtlib" % "0.2.2-7-g00a9686",
     "junit" % "junit" % "4.12",
     "com.storm-enroute" %% "scalameter" % "0.8.2",
-    "org.scodec" %% "scodec-bits" % "1.1.6",
     "com.beust" % "jcommander" % "1.72"
   )
 }

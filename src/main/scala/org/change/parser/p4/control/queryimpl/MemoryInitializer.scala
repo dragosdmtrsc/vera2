@@ -6,6 +6,7 @@ import org.change.v2.p4.model.actions.P4ActionType
 import org.change.v2.p4.model.{ArrayInstance, Header, HeaderInstance, Switch}
 import z3.scala.Z3Context
 import org.change.parser.p4.control.FIELD_LIST_REF
+import z3.scala.Z3Context.AstPrintMode
 
 import scala.collection.JavaConverters._
 object MemoryInitializer {
