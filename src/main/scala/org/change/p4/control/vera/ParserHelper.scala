@@ -1,7 +1,7 @@
 package org.change.p4.control.vera
 
 import org.change.p4.control.Traverse
-import org.change.p4.model.control.exp.P4BExpr
+import org.change.p4.model.control.exp.{DataRefExpr, P4BExpr}
 import org.change.p4.model.control.{ControlStatement, EndOfControl}
 import org.change.p4.model.parser._
 import org.change.p4.model.{ArrayInstance, Switch}
@@ -79,6 +79,55 @@ class ParserHelper(switch: Switch) {
         }): ControlStatement
       })
       .label((_, _) => Option.empty[P4BExpr])
+  }
+
+  def resolveDataRefs(labeledGraph: LabeledGraph[ControlStatement, Option[P4BExpr]]):
+  Map[(ControlStatement, DataRef), List[List[(ExtractStatement, Int, Int)]]] = {
+    labeledGraph.edges.collect {
+      case (rss : ReturnSelectStatement, _) =>
+        val exprs =
+          rss.getCaseEntryList.asScala.head.getBVExpressions.asScala.filter(_.isInstanceOf[DataRefExpr])
+            .map(_.asInstanceOf[DataRefExpr])
+        if (exprs.nonEmpty) {
+          exprs.map(e => {
+            val start = e.getDataRef.getStart
+            val end = e.getDataRef.getEnd + start - 1
+            var stack = List((rss : ControlStatement, start.toInt, end.toInt) :: Nil)
+            var pathset = List.empty[List[(ControlStatement, Int, Int)]]
+            while (stack.nonEmpty) {
+              val lastList = stack.head
+              val (nowat, start, end) = lastList.head
+              stack = stack.tail
+              val (newStart, newEnd) = nowat match {
+                case es : ExtractStatement =>
+                  val n = es.getExpression.getInstance().getLayout.getLength
+                  if (end < n) {
+                    // means: stop right there, no need to carry on
+                    // the data ref has been exhausted
+                    (0, end - n)
+                  } else if (start > n - 1) {
+                    (start, end)
+                  } else {
+                    val extracted = n - start
+                    (0, end - extracted)
+                  }
+                case _ => (start, end)
+              }
+              if (newEnd > 0) {
+                val neighs = labeledGraph.edges.getOrElse(nowat, Nil)
+                for (n <- neighs) {
+                  stack = ((n._1, newStart, newEnd) :: lastList) :: stack
+                }
+              } else {
+                pathset = lastList :: pathset
+              }
+            }
+            (rss, e.getDataRef) -> pathset.map(_.collect {
+              case (e : ExtractStatement, a, b) => (e, a, b)
+            })
+          })
+        } else Nil
+    }.flatten.toMap
   }
 
   lazy val unrolledCFG: Graph[(Statement, Int)] = {

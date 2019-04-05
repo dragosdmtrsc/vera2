@@ -17,9 +17,7 @@ class QueryBuilder(switch: Switch, context: Z3Context)
     query(event, ctx)
       .filter(!_.rootMemory.isEmpty())
       .foreach(mem => {
-        val p = context.mkFreshBoolConst("asp")
-        solver.assertCnstr(context.mkImplies(p, mem.rootMemory.condition))
-        nodeToConstraint.put(event, p)
+        nodeToConstraint.put(event, mem.rootMemory.condition)
         errCause
           .put(event, mem.errorCause().value.asInstanceOf[ScalarValue].z3AST)
       })
@@ -27,7 +25,7 @@ class QueryBuilder(switch: Switch, context: Z3Context)
 
   def buildSolver(): Z3Solver = {
     if (nodeToConstraint.nonEmpty) {
-      val ascertain = context.mkOr(nodeToConstraint.values.toList: _*)
+      val ascertain = context.simplifyAst(context.mkOr(nodeToConstraint.values.toList: _*))
       solver.assertCnstr(ascertain)
     }
     solver

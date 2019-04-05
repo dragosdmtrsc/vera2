@@ -9,7 +9,7 @@ import z3.scala.Z3Context
 object Vera {
   case class VeraArgs(p4File: String = "",
                       validate: Boolean = false,
-                      portFilter: String = ".*",
+                      portFilter: String = "",
                       commands: Set[String] = Set.empty,
                       printSolver: Boolean = false,
                       maxBugs: Int = 50) {
