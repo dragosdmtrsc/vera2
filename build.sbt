@@ -17,15 +17,7 @@ libraryDependencies ++= {
   Seq(
     "org.antlr" % "antlr4" % "4.7",
     "org.scalatest" %% "scalatest" % "3.0.5" % "test",
-    "io.spray" %% "spray-json" % "1.3.2",
-    "org.apache.commons" % "commons-lang3" % "3.5",
-    "com.fasterxml.jackson.core" % "jackson-databind" % "2.8.11",
-    "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.8.11",
-    "com.fasterxml.jackson.dataformat" % "jackson-dataformat-yaml" % "2.8.11",
-    "com.regblanc" %% "scala-smtlib" % "0.2.2-7-g00a9686",
-    "junit" % "junit" % "4.12",
-    "com.storm-enroute" %% "scalameter" % "0.8.2",
-    "com.beust" % "jcommander" % "1.72"
+    "junit" % "junit" % "4.12"
   )
 }
 
@@ -33,7 +25,6 @@ testFrameworks += new TestFramework("org.scalameter.ScalaMeterFramework")
 parallelExecution in Test := false
 exportJars := true
 unmanagedJars in Compile += file("lib/scalaz3_2.11-2.1.jar")
-unmanagedJars in Compile += file("lib/com.microsoft.z3.jar")
 unmanagedResourceDirectories in Compile += baseDirectory.value / "lib"
 includeFilter in(Compile, unmanagedResourceDirectories) := ".dll,.so"
 
@@ -108,7 +99,7 @@ fullRunTask(printer, Compile, "org.change.v2.verification.Printer")
 // seq(Revolver.settings: _*)
 
 
-val MkUnixlauncher = config("mkunixlauncher") extend(Compile)
+val MkUnixlauncher = config("mkunixlauncher") extend Compile
 val mkunixlauncher = taskKey[Unit]("mkunixlauncher")
 mkunixlauncher <<= (target, fullClasspath in Runtime) map { (target, cp) =>
   def writeFile(file: File, str: String) {
@@ -118,7 +109,7 @@ mkunixlauncher <<= (target, fullClasspath in Runtime) map { (target, cp) =>
   }
   val cpString = cp.map(_.data).mkString(System.getProperty("path.separator"))
   System.out.println(cpString)
-  val runtime_entrypoint = "org.change.v2.Vera"
+  val runtime_entrypoint = "org.change.p4.tools.Vera"
   val launchString = """
 CLASSPATH="%s"
 java -Djava.class.path="${CLASSPATH}" %s "$@"

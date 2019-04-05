@@ -1,4 +1,4 @@
-// Generated from /home/dragos/GitHub/symnet-neutron/src/main/resources/p4_grammar/P4Commands.g4 by ANTLR 4.7
+// Generated from C:/Users/dragos/source/repos/symnet-neutron/src/main/resources/p4_grammar\P4Commands.g4 by ANTLR 4.7.2
 package generated.parser.p4.commands;
 import org.antlr.v4.runtime.Lexer;
 import org.antlr.v4.runtime.CharStream;
@@ -11,7 +11,7 @@ import org.antlr.v4.runtime.misc.*;
 
 @SuppressWarnings({"all", "warnings", "unchecked", "unused", "cast"})
 public class P4CommandsLexer extends Lexer {
-	static { RuntimeMetaData.checkVersion("4.7", RuntimeMetaData.VERSION); }
+	static { RuntimeMetaData.checkVersion("4.7.2", RuntimeMetaData.VERSION); }
 
 	protected static final DFA[] _decisionToDFA;
 	protected static final PredictionContextCache _sharedContextCache =
@@ -28,24 +28,33 @@ public class P4CommandsLexer extends Lexer {
 		"DEFAULT_MODE"
 	};
 
-	public static final String[] ruleNames = {
-		"T__0", "T__1", "T__2", "T__3", "T__4", "T__5", "T__6", "T__7", "T__8", 
-		"T__9", "Binary_value", "Decimal_value", "Hexadecimal_value", "BINARY_BASE", 
-		"HEXADECIMAL_BASE", "Binary_digit", "Decimal_digit", "Hexadecimal_digit", 
-		"SINGLELETTER", "IP", "IP6", "H16", "Ls32", "MAC", "LOWERCASE", "UNDERSCORE", 
-		"DOLLAR", "NUMBER", "NAME", "TABLE_SET", "WS"
-	};
+	private static String[] makeRuleNames() {
+		return new String[] {
+			"T__0", "T__1", "T__2", "T__3", "T__4", "T__5", "T__6", "T__7", "T__8", 
+			"T__9", "Binary_value", "Decimal_value", "Hexadecimal_value", "BINARY_BASE", 
+			"HEXADECIMAL_BASE", "Binary_digit", "Decimal_digit", "Hexadecimal_digit", 
+			"SINGLELETTER", "IP", "IP6", "H16", "Ls32", "MAC", "LOWERCASE", "UNDERSCORE", 
+			"DOLLAR", "NUMBER", "NAME", "TABLE_SET", "WS"
+		};
+	}
+	public static final String[] ruleNames = makeRuleNames();
 
-	private static final String[] _LITERAL_NAMES = {
-		null, "'table_set_default'", "'=>'", "'table_add'", "'mirroring_add'", 
-		"'&&&'", "'/'", "','", "'member'", "'('", "')'", null, null, null, null, 
-		null, null, null, "'table_bla'"
-	};
-	private static final String[] _SYMBOLIC_NAMES = {
-		null, null, null, null, null, null, null, null, null, null, null, "Binary_value", 
-		"Decimal_value", "Hexadecimal_value", "IP", "IP6", "MAC", "NAME", "TABLE_SET", 
-		"WS"
-	};
+	private static String[] makeLiteralNames() {
+		return new String[] {
+			null, "'table_set_default'", "'=>'", "'table_add'", "'mirroring_add'", 
+			"'&&&'", "'/'", "','", "'member'", "'('", "')'", null, null, null, null, 
+			null, null, null, "'table_bla'"
+		};
+	}
+	private static final String[] _LITERAL_NAMES = makeLiteralNames();
+	private static String[] makeSymbolicNames() {
+		return new String[] {
+			null, null, null, null, null, null, null, null, null, null, null, "Binary_value", 
+			"Decimal_value", "Hexadecimal_value", "IP", "IP6", "MAC", "NAME", "TABLE_SET", 
+			"WS"
+		};
+	}
+	private static final String[] _SYMBOLIC_NAMES = makeSymbolicNames();
 	public static final Vocabulary VOCABULARY = new VocabularyImpl(_LITERAL_NAMES, _SYMBOLIC_NAMES);
 
 	/**

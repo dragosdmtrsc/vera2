@@ -1,15 +1,14 @@
 package vera2
 
-import org.change.parser.p4.RootEvaluator
-import org.change.parser.p4.control.{BufferResult, QueryDrivenSemantics}
-import org.change.parser.p4.control.queryimpl.{MemoryInitializer, P4RootMemory}
-import org.change.v2.p4.model.Switch
+import org.change.p4.control.{BufferResult, QueryDrivenSemantics, RootEvaluator, _}
+import org.change.p4.control.queryimpl.{MemoryInitializer, P4RootMemory}
+import org.change.p4.model.Switch
 import org.scalatest.FunSuite
-import org.change.v3.semantics.context
-import org.change.parser.p4.control._
+import z3.scala.Z3Context
 
 class CloneOk extends FunSuite {
   test("clone session is correctly set up") {
+    val context = new Z3Context()
     val against = "inputs/test-cases/simple-nat/simple_nat-ppc.p4"
     val sw = SolveTables(Switch.fromFile(against))
     val sema = new QueryDrivenSemantics[P4RootMemory](sw)
@@ -24,6 +23,7 @@ class CloneOk extends FunSuite {
       cloned.standardMetadata().field(CLONE_SPEC).int(250)))
   }
   test("no clone session when not needed") {
+    val context = new Z3Context()
     val against = "inputs/test-cases/simple-router/simple_router-ppc.p4"
     val sw = SolveTables(Switch.fromFile(against))
     val sema = new QueryDrivenSemantics[P4RootMemory](sw)
@@ -38,6 +38,7 @@ class CloneOk extends FunSuite {
 
   test("egress spec is correctly set up") {
     val against = "inputs/test-cases/simple-nat/simple_nat-ppc.p4"
+    val context = new Z3Context()
     val sw = SolveTables(Switch.fromFile(against))
     val sema = new QueryDrivenSemantics[P4RootMemory](sw)
     val memory = MemoryInitializer.initialize(sw)(context)
@@ -49,5 +50,4 @@ class CloneOk extends FunSuite {
     val espec = normal.standardMetadata().field("egress_spec")
     assert(root.never(espec === espec.int(DROP_VALUE)))
   }
-
 }

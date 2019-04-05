@@ -2,13 +2,11 @@ package vera2
 
 import java.io.PrintStream
 
-import org.change.parser.p4.RootEvaluator
-import org.change.parser.p4.control.queryimpl.{MemoryInitializer, P4RootMemory, PacketWrapper, TypeMapper}
-import org.change.parser.p4.control.{QueryDrivenSemantics, SolveTables}
-import org.change.v2.p4.model.Switch
-import org.change.v3.semantics.context
+import org.change.p4.control.queryimpl.{MemoryInitializer, P4RootMemory, PacketWrapper, TypeMapper}
+import org.change.p4.control.{QueryDrivenSemantics, RootEvaluator, SolveTables}
+import org.change.p4.model.Switch
 import org.scalatest.FunSuite
-import z3.scala.{Z3Context, Z3Tactic}
+import z3.scala.Z3Context
 
 class DeparserTest extends FunSuite {
 

@@ -23,24 +23,15 @@ object RepresentationConversion {
     startStr
   }
 
-
-  def numberToIp(ip: Long) = {
-    var startStr = ""
-    val start = unpack(ip.asInstanceOf[Int])
-    for (b <- start) {
-      startStr += ((b & 0xFF).asInstanceOf[Int]).toString + "."
-    }
-    startStr = startStr.substring(0, startStr.length() - 1)
-    startStr
-  }
-
   def ipToNumber(ip: String): Long = {
-    ip.split("\\.").map(Integer.parseInt(_)).foldLeft(0L)((a: Long, g: Int) => a * 256 + g)
+    ip.split("\\.")
+      .map(Integer.parseInt)
+      .foldLeft(0L)((a: Long, g: Int) => a * 256 + g)
   }
 
-  def ip6ToNumber(ip : String) : BigInt = {
+  def ip6ToNumber(ip: String): BigInt = {
     val ia = InetAddress.getByName(ip)
-    val byteArr : Array[Byte] = ia.getAddress
+    val byteArr: Array[Byte] = ia.getAddress
     var ipNumber = BigInt(0)
     if (ia.isInstanceOf[Inet6Address]) {
       ipNumber = BigInt(1, byteArr)
@@ -49,11 +40,17 @@ object RepresentationConversion {
   }
 
   def macToNumber(mac: String): Long = {
-    mac.toLowerCase.split(":").map(Integer.parseInt(_, 16)).foldLeft(0L)((a: Long, g: Int) => a * 256 + g)
+    mac.toLowerCase
+      .split(":")
+      .map(Integer.parseInt(_, 16))
+      .foldLeft(0L)((a: Long, g: Int) => a * 256 + g)
   }
 
   def macToNumberCiscoFormat(mac: String): Long = {
-    mac.toLowerCase.split("\\.").map(Integer.parseInt(_, 16)).foldLeft(0L)((a: Long, g: Int) => a * 65536 + g)
+    mac.toLowerCase
+      .split("\\.")
+      .map(Integer.parseInt(_, 16))
+      .foldLeft(0L)((a: Long, g: Int) => a * 65536 + g)
   }
 
   def ipAndMaskToInterval(ip: String, mask: String): (Long, Long) = {
@@ -63,15 +60,5 @@ object RepresentationConversion {
     val lowerM = Long.MaxValue << addrS
     val higherM = Long.MaxValue >>> (maskv + 31)
     (ipv & lowerM, ipv | higherM)
-  }
-
-  def numberToIP(a: Long): String = {
-    var s = (a % 256).toString
-    var aRest = a >> 8
-    for (_ <- 0 until 3) {
-      s = (aRest % 256) + "." + s
-      aRest = aRest >> 8
-    }
-    s
   }
 }

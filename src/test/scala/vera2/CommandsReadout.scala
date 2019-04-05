@@ -1,11 +1,11 @@
 package vera2
 
-import org.change.parser.p4.control.{FlowStruct, P4Commands}
-import org.change.parser.p4.control.queryimpl.ConstraintBuilder
-import org.change.v2.p4.model.Switch
+import org.change.p4.control.{FlowStruct, P4Commands}
+import org.change.p4.control.queryimpl.ConstraintBuilder
+import org.change.p4.model.Switch
 import org.scalatest.FunSuite
 import z3.scala.Z3Context
-import org.change.tools.sefl._
+import org.change.p4.tools._
 
 class CommandsReadout extends FunSuite {
   test("commands correctly read") {

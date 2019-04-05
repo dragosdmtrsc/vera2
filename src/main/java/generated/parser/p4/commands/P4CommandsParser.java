@@ -1,4 +1,4 @@
-// Generated from /home/dragos/GitHub/symnet-neutron/src/main/resources/p4_grammar/P4Commands.g4 by ANTLR 4.7
+// Generated from C:/Users/dragos/source/repos/symnet-neutron/src/main/resources/p4_grammar\P4Commands.g4 by ANTLR 4.7.2
 package generated.parser.p4.commands;
 import org.antlr.v4.runtime.atn.*;
 import org.antlr.v4.runtime.dfa.DFA;
@@ -11,7 +11,7 @@ import java.util.ArrayList;
 
 @SuppressWarnings({"all", "warnings", "unchecked", "unused", "cast"})
 public class P4CommandsParser extends Parser {
-	static { RuntimeMetaData.checkVersion("4.7", RuntimeMetaData.VERSION); }
+	static { RuntimeMetaData.checkVersion("4.7.2", RuntimeMetaData.VERSION); }
 
 	protected static final DFA[] _decisionToDFA;
 	protected static final PredictionContextCache _sharedContextCache =
@@ -24,21 +24,30 @@ public class P4CommandsParser extends Parser {
 		RULE_statements = 0, RULE_statement = 1, RULE_table_default = 2, RULE_table_add = 3, 
 		RULE_mirroring_add = 4, RULE_action_parm = 5, RULE_match_key = 6, RULE_act_spec = 7, 
 		RULE_unsigned_value = 8, RULE_id = 9;
-	public static final String[] ruleNames = {
-		"statements", "statement", "table_default", "table_add", "mirroring_add", 
-		"action_parm", "match_key", "act_spec", "unsigned_value", "id"
-	};
+	private static String[] makeRuleNames() {
+		return new String[] {
+			"statements", "statement", "table_default", "table_add", "mirroring_add", 
+			"action_parm", "match_key", "act_spec", "unsigned_value", "id"
+		};
+	}
+	public static final String[] ruleNames = makeRuleNames();
 
-	private static final String[] _LITERAL_NAMES = {
-		null, "'table_set_default'", "'=>'", "'table_add'", "'mirroring_add'", 
-		"'&&&'", "'/'", "','", "'member'", "'('", "')'", null, null, null, null, 
-		null, null, null, "'table_bla'"
-	};
-	private static final String[] _SYMBOLIC_NAMES = {
-		null, null, null, null, null, null, null, null, null, null, null, "Binary_value", 
-		"Decimal_value", "Hexadecimal_value", "IP", "IP6", "MAC", "NAME", "TABLE_SET", 
-		"WS"
-	};
+	private static String[] makeLiteralNames() {
+		return new String[] {
+			null, "'table_set_default'", "'=>'", "'table_add'", "'mirroring_add'", 
+			"'&&&'", "'/'", "','", "'member'", "'('", "')'", null, null, null, null, 
+			null, null, null, "'table_bla'"
+		};
+	}
+	private static final String[] _LITERAL_NAMES = makeLiteralNames();
+	private static String[] makeSymbolicNames() {
+		return new String[] {
+			null, null, null, null, null, null, null, null, null, null, null, "Binary_value", 
+			"Decimal_value", "Hexadecimal_value", "IP", "IP6", "MAC", "NAME", "TABLE_SET", 
+			"WS"
+		};
+	}
+	private static final String[] _SYMBOLIC_NAMES = makeSymbolicNames();
 	public static final Vocabulary VOCABULARY = new VocabularyImpl(_LITERAL_NAMES, _SYMBOLIC_NAMES);
 
 	/**
@@ -88,6 +97,7 @@ public class P4CommandsParser extends Parser {
 		super(input);
 		_interp = new ParserATNSimulator(this,_ATN,_decisionToDFA,_sharedContextCache);
 	}
+
 	public static class StatementsContext extends ParserRuleContext {
 		public List<StatementContext> statement() {
 			return getRuleContexts(StatementContext.class);
@@ -211,7 +221,7 @@ public class P4CommandsParser extends Parser {
 	}
 
 	public static class Table_defaultContext extends ParserRuleContext {
-		public org.change.parser.p4.parser.TableFlow tableFlow;
+		public org.change.p4.control.TableFlow tableFlow;
 		public IdContext id() {
 			return getRuleContext(IdContext.class,0);
 		}
@@ -289,7 +299,7 @@ public class P4CommandsParser extends Parser {
 	}
 
 	public static class Table_addContext extends ParserRuleContext {
-		public org.change.parser.p4.parser.TableFlow tableFlow;
+		public org.change.p4.control.TableFlow tableFlow;
 		public IdContext id() {
 			return getRuleContext(IdContext.class,0);
 		}
@@ -433,7 +443,7 @@ public class P4CommandsParser extends Parser {
 	}
 
 	public static class Action_parmContext extends ParserRuleContext {
-		public org.change.parser.p4.parser.ActionParam actionParam;
+		public org.change.p4.control.ActionParam actionParam;
 		public Unsigned_valueContext unsigned_value() {
 			return getRuleContext(Unsigned_valueContext.class,0);
 		}
@@ -473,7 +483,7 @@ public class P4CommandsParser extends Parser {
 	}
 
 	public static class Match_keyContext extends ParserRuleContext {
-		public org.change.parser.p4.parser.MatchParam matchParam;
+		public org.change.p4.control.MatchParam matchParam;
 		public Match_keyContext(ParserRuleContext parent, int invokingState) {
 			super(parent, invokingState);
 		}
@@ -616,7 +626,7 @@ public class P4CommandsParser extends Parser {
 	}
 
 	public static class Act_specContext extends ParserRuleContext {
-		public org.change.parser.p4.parser.ActionSpec actionSpec;
+		public org.change.p4.control.ActionSpec actionSpec;
 		public Act_specContext(ParserRuleContext parent, int invokingState) {
 			super(parent, invokingState);
 		}

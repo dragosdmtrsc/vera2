@@ -2,20 +2,20 @@ grammar P4Commands;
 
 statements: statement+;
 statement : table_default | table_add | mirroring_add ;
-table_default returns [org.change.parser.p4.parser.TableFlow tableFlow]:
+table_default returns [org.change.p4.control.TableFlow tableFlow]:
     'table_set_default' id act_spec ('=>' action_parm*)?;
-table_add returns [org.change.parser.p4.parser.TableFlow tableFlow]:
+table_add returns [org.change.p4.control.TableFlow tableFlow]:
     'table_add' id act_spec match_key* ('=>' action_parm*)?;
 mirroring_add : 'mirroring_add' unsigned_value unsigned_value;
 
-action_parm returns [org.change.parser.p4.parser.ActionParam actionParam]: unsigned_value;
-match_key returns [org.change.parser.p4.parser.MatchParam matchParam]:
+action_parm returns [org.change.p4.control.ActionParam actionParam]: unsigned_value;
+match_key returns [org.change.p4.control.MatchParam matchParam]:
     unsigned_value '&&&' unsigned_value #Masked
     | unsigned_value '/' unsigned_value #Prefix
     | unsigned_value ',' unsigned_value #Range
     | unsigned_value #Exact;
 
-act_spec returns [org.change.parser.p4.parser.ActionSpec actionSpec]:
+act_spec returns [org.change.p4.control.ActionSpec actionSpec]:
  'member' '(' unsigned_value ')' #memberAction
     | id #namedAction ;
 

@@ -1,34 +1,35 @@
 package org.change.utils.graph
 
-
-import java.io.{BufferedWriter, PrintStream}
+import java.io.PrintStream
 
 import scala.collection.mutable
 
-case class SCCContext[T](lowlinks : mutable.Map[T, Int],
-                      index : mutable.Map[T, Int],
-                      onStack : mutable.Set[T],
-                      stack : mutable.Stack[T],
-                      st : mutable.ListBuffer[List[T]],
-                      var globalIndex : Int) {
-  def next() : Int = {
+private case class SCCContext[T](lowlinks: mutable.Map[T, Int],
+                                 index: mutable.Map[T, Int],
+                                 onStack: mutable.Set[T],
+                                 stack: mutable.Stack[T],
+                                 st: mutable.ListBuffer[List[T]],
+                                 var globalIndex: Int) {
+  def next(): Int = {
     globalIndex = globalIndex + 1
     globalIndex - 1
   }
 }
-class LabeledGraph[T, Label](val edges : Map[T, List[(T, Label)]]) {
+class LabeledGraph[T, Label](val edges: Map[T, List[(T, Label)]]) {
   lazy val graphView: Graph[T] = new Graph[T](edges.mapValues(_.map(h => h._1)))
   private lazy val sccs = graphView.scc()
-  private lazy val nodeorder = sccs.zipWithIndex.flatMap(h => {
-    h._1.map(_ -> h._2)
-  }).toMap
-  def propagate[V](start : Map[T, V],
-                   propagate : (V, T, T, Label) => Option[V],
-                   merge : (T, V, V) => Option[V],
-                   ordering : Option[Ordering[T]] = None) : Map[T, V] = {
+  private lazy val nodeorder = sccs.zipWithIndex
+    .flatMap(h => {
+      h._1.map(_ -> h._2)
+    })
+    .toMap
+  def propagate[V](start: Map[T, V],
+                   propagate: (V, T, T, Label) => Option[V],
+                   merge: (T, V, V) => Option[V],
+                   ordering: Option[Ordering[T]] = None): Map[T, V] = {
     val q = mutable.PriorityQueue.empty[T](
       ordering.getOrElse(
-        Ordering.fromLessThan((n1 : T, n2 :T) => nodeorder(n1) >= nodeorder(n2))
+        Ordering.fromLessThan((n1: T, n2: T) => nodeorder(n1) >= nodeorder(n2))
       )
     )
     var crt = start
@@ -54,29 +55,36 @@ class LabeledGraph[T, Label](val edges : Map[T, List[(T, Label)]]) {
     crt
   }
 }
-class Graph[T](val edges : Map[T, List[T]]) {
+class Graph[T](val edges: Map[T, List[T]]) {
 
-  def mapNodes[U](fun : T => U): Graph[U] = {
+  def mapNodes[U](fun: T => U): Graph[U] = {
     new Graph(edges.map(x => {
       fun(x._1) -> x._2.map(fun)
     }))
   }
 
-  def label[U](fun : (T, T) => U) : LabeledGraph[T, U] =
+  def label[U](fun: (T, T) => U): LabeledGraph[T, U] =
     new LabeledGraph(edges.map(nodes => {
       nodes._1 -> nodes._2.map(dst => {
         (dst, fun(nodes._1, dst))
       })
     }))
 
-  lazy val terminals : Set[T] = {
-    edges.flatMap(sd => {
-      sd._2.filter(dst => !edges.contains(dst))
-    }).toSet
+  lazy val terminals: Set[T] = {
+    edges
+      .flatMap(sd => {
+        sd._2.filter(dst => !edges.contains(dst))
+      })
+      .toSet
   }
-  lazy val backward : Graph[T] = new Graph[T](edges.toIterable.flatMap(x => {
-      x._2.map(h => h -> x._1)
-    }).groupBy(x => x._1).mapValues(r => r.map(_._2).toList))
+  lazy val backward: Graph[T] = new Graph[T](
+    edges
+      .flatMap(x => {
+        x._2.map(h => h -> x._1)
+      })
+      .groupBy(x => x._1)
+      .mapValues(r => r.values.toList)
+  )
 
   override def toString: String = {
     val sb = new mutable.StringBuilder()
@@ -88,12 +96,12 @@ class Graph[T](val edges : Map[T, List[T]]) {
     sb.toString()
   }
 
-  def sp(start : T, end : T, filter : T => Boolean = _ => true): Int = {
+  def sp(start: T, end: T, filter: T => Boolean = _ => true): Int = {
     val b = start.equals(end)
     var bfq = mutable.Queue.empty[T]
     val dist = mutable.Map.empty[T, Int]
     if (b) {
-      bfq.enqueue(getNeighs(start):_*)
+      bfq.enqueue(getNeighs(start): _*)
       getNeighs(start).foreach(dist.put(_, 1))
     } else {
       dist.put(start, 0)
@@ -126,9 +134,9 @@ class Graph[T](val edges : Map[T, List[T]]) {
     }
   }
 
-  private def getNeighs(n : T): List[T] = if (edges contains n) edges(n) else Nil
-  def subGraph(filter : T => Boolean) : Graph[T] = {
-    def span(start : List[T]): List[T] = {
+  private def getNeighs(n: T): List[T] = if (edges contains n) edges(n) else Nil
+  def subGraph(filter: T => Boolean): Graph[T] = {
+    def span(start: List[T]): List[T] = {
       var candidates = start
       var goods = List.empty[T]
       var visited = Set.empty[T]
@@ -146,11 +154,15 @@ class Graph[T](val edges : Map[T, List[T]]) {
       }
       goods
     }
-    new Graph[T](edges.filter(x => filter(x._1)).map(edge => {
-      edge._1 -> span(edge._2)
-    }))
+    new Graph[T](
+      edges
+        .filter(x => filter(x._1))
+        .map(edge => {
+          edge._1 -> span(edge._2)
+        })
+    )
   }
-  def map[V](start : T, fun : T => V): Iterable[V] = {
+  def map[V](start: T, fun: T => V): Iterable[V] = {
     var visited = Set.empty[T]
     var q = List(start)
     var l = List.empty[V]
@@ -167,13 +179,17 @@ class Graph[T](val edges : Map[T, List[T]]) {
     }
     l
   }
-  def induced(filter : T => Boolean): Graph[T] = {
-    new Graph[T](edges.filter(x => filter(x._1)).mapValues(r => {
-      r.filter(filter)
-    }))
+  def induced(filter: T => Boolean): Graph[T] = {
+    new Graph[T](
+      edges
+        .filter(x => filter(x._1))
+        .mapValues(r => {
+          r.filter(filter)
+        })
+    )
   }
 
-  private def strongConnect(ctx : SCCContext[T])(v : T): Unit = {
+  private def strongConnect(ctx: SCCContext[T])(v: T): Unit = {
     val idx = ctx.next()
     ctx.index.put(v, idx)
     ctx.lowlinks.put(v, idx)
@@ -211,10 +227,10 @@ class Graph[T](val edges : Map[T, List[T]]) {
     }
   }
 
-  private def sccInternal(lowlinks : mutable.Map[T, Int],
-                  index : mutable.Map[T, Int],
-                  onStack : mutable.Set[T],
-                  stack : mutable.Stack[T])(): List[List[T]] = {
+  private def sccInternal(lowlinks: mutable.Map[T, Int],
+                          index: mutable.Map[T, Int],
+                          onStack: mutable.Set[T],
+                          stack: mutable.Stack[T])(): List[List[T]] = {
 
     val init = mutable.ListBuffer.empty[List[T]]
     val ctx = SCCContext(lowlinks, index, onStack, stack, init, 0)
@@ -224,14 +240,16 @@ class Graph[T](val edges : Map[T, List[T]]) {
     }
     init.toList
   }
-  def scc() : List[List[T]] = {
-    sccInternal(mutable.Map.empty,
+  def scc(): List[List[T]] = {
+    sccInternal(
+      mutable.Map.empty,
       mutable.Map.empty,
       mutable.Set.empty,
-      new mutable.Stack[T])()
+      new mutable.Stack[T]
+    )()
   }
 
-  def dominators(start : T) : Map[T, Set[T]] = {
+  def dominators(start: T): Map[T, Set[T]] = {
     val in = mutable.Map.empty[T, Set[T]]
     var changes = true
     in(start) = Set.empty
@@ -256,11 +274,12 @@ class Graph[T](val edges : Map[T, List[T]]) {
       }
     }
     in.map(f => {
-      f._1 -> (f._2 + f._1)
-    }).toMap
+        f._1 -> (f._2 + f._1)
+      })
+      .toMap
   }
 
-  private def traverse(graph: Graph[T], from : T, to : T): Set[T] = {
+  private def traverse(graph: Graph[T], from: T, to: T): Set[T] = {
     var q = List(from)
     var s = Set.empty[T]
     while (q.nonEmpty) {
@@ -278,7 +297,7 @@ class Graph[T](val edges : Map[T, List[T]]) {
   // a set of edges (n -> h) and a set of nodes L s.t.
   // let < the dominator relation
   // h < n and forall x\in L h < x and !(n < x)
-  def loops(start : T) : Iterable[(T, T, Graph[T])] = {
+  def loops(start: T): Iterable[(T, T, Graph[T])] = {
     val doms = dominators(start)
     var l = List.empty[(T, T, Graph[T])]
     for (x <- doms) {
@@ -292,7 +311,7 @@ class Graph[T](val edges : Map[T, List[T]]) {
     }
     l
   }
-  def nloops(start : T) : Map[T, (Set[T], List[T])] = {
+  def nloops(start: T): Map[T, (Set[T], List[T])] = {
     val doms = dominators(start)
     var l = Map.empty[T, (Set[T], List[T])]
     for (x <- doms) {
@@ -306,11 +325,14 @@ class Graph[T](val edges : Map[T, List[T]]) {
     }
     l
   }
-  def rmEdges(them : Iterable[(T, T)]): Graph[T] =
+  def rmEdges(them: Iterable[(T, T)]): Graph[T] =
     new Graph(them.foldLeft(edges)((acc, x) => {
-      val newedges = acc.get(x._1).map(v => {
-        v.filter(e => e != x._2)
-      }).getOrElse(Nil)
+      val newedges = acc
+        .get(x._1)
+        .map(v => {
+          v.filter(e => e != x._2)
+        })
+        .getOrElse(Nil)
       if (newedges.isEmpty) {
         acc - x._1
       } else {
@@ -318,7 +340,7 @@ class Graph[T](val edges : Map[T, List[T]]) {
       }
     }))
 
-  def toDot(os : PrintStream) : Unit = {
+  def mkDot(os: PrintStream): Unit = {
     val visited = mutable.Set.empty[T]
     val knownedges = mutable.Set.empty[(T, T)]
     for (x <- edges) {
@@ -342,5 +364,5 @@ class Graph[T](val edges : Map[T, List[T]]) {
       }
     }
   }
-  def rmLoops(start : T) : Graph[T] = rmEdges(loops(start).map(h => (h._1, h._2)))
+  def rmLoops(start: T): Graph[T] = rmEdges(loops(start).map(h => (h._1, h._2)))
 }

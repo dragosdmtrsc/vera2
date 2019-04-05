@@ -46,7 +46,7 @@ width_spec  :   Decimal_value '\'' ;
 field_value returns [scala.math.BigInt fieldValue, int width] : const_value ;
 
 // Section 2.1
-header_type_declaration returns [org.change.parser.p4.HeaderDeclaration headerDeclaration, org.change.v2.p4.model.Header header]:
+header_type_declaration returns [org.change.v2.p4.model.Header header]:
     'header_type' header_type_name '{' header_dec_body '}' ;
 header_type_name : NAME ;
 
@@ -64,33 +64,32 @@ length_exp  :   const_value | field_name | length_exp length_bin_op length_exp |
 bit_width   :   const_value | '*' ;
 
 // Section 2.2
-instance_declaration returns [org.change.parser.p4.P4Instance instance]:
+instance_declaration:
     header_instance     #HeaderInstance
     | metadata_instance #MetadataInstance
     ;
 
-header_instance returns [org.change.parser.p4.HeaderInstance instance]:
+header_instance:
     scalar_instance     #ScalarInstance
     | array_instance    #ArrayInstance
     ;
 
-scalar_instance returns [org.change.parser.p4.ScalarHeader instance, org.change.v2.p4.model.HeaderInstance hdrInstance]:
+scalar_instance returns [org.change.v2.p4.model.HeaderInstance hdrInstance]:
     'header' header_type_name instance_name ';' ;
-array_instance  returns [org.change.parser.p4.ArrayHeader instance, org.change.v2.p4.model.ArrayInstance arrInstance]:
+array_instance  returns [org.change.v2.p4.model.ArrayInstance arrInstance]:
     'header' header_type_name instance_name '[' const_value ']' ';' ;
 instance_name   :   NAME ;
 
-metadata_instance returns [org.change.parser.p4.MetadataInstance instance]:
+metadata_instance:
    'metadata' header_type_name instance_name metadata_initializer? ';' ;
 metadata_initializer returns [scala.collection.Map<String, scala.math.BigInt> inits]:
    '{' ( field_name ':' field_value ';' )+ '}' ;
 
-header_ref returns [org.change.v2.analysis.memory.TagExp tagReference, String headerInstanceId,
+header_ref returns [
 org.change.v2.p4.model.parser.HeaderRef expression] :
     instance_name | instance_name '[' index ']' ;
 index  returns [java.lang.Integer idx] :   const_value | 'last' ;
-field_ref   returns [org.change.v2.analysis.memory.TagExp reference,
-org.change.v2.p4.model.parser.FieldRef expression]:   header_ref '.' field_name ;
+field_ref   returns [org.change.v2.p4.model.parser.FieldRef expression]:   header_ref '.' field_name ;
 
 field_list_declaration returns [java.util.List<String> entryList,
 org.change.v2.p4.model.fieldlists.FieldList fieldList] :
@@ -122,20 +121,19 @@ value_set_declaration : 'parser_value_set' value_set_name ';' ;
 value_set_name  : NAME ;
 
 // Section 4 Parser Specification
-parser_function_declaration returns [org.change.parser.p4.ParserFunctionDeclaration functionDeclaration,
-org.change.v2.p4.model.parser.State state] :
+parser_function_declaration returns [org.change.v2.p4.model.parser.State state] :
     'parser' parser_state_name '{' parser_function_body '}' ;
 
 parser_state_name   :   NAME ;
 parser_function_body returns [java.util.List<org.change.v2.p4.model.parser.Statement> statements]:
     extract_or_set_statement* return_statement ;
-extract_or_set_statement returns [org.change.parser.p4.ParserFunctionStatement functionStatement,
+extract_or_set_statement returns [
 org.change.v2.p4.model.parser.Statement statement] :
     extract_statement | set_statement ;
-extract_statement  returns [org.change.parser.p4.ExtractHeader extractStatement,
+extract_statement  returns [
     org.change.v2.p4.model.parser.ExtractStatement statement] :
     'extract' '(' header_extract_ref ')' ';' ;
-header_extract_ref returns [org.change.parser.p4.HeaderInstance headerInstance, org.change.v2.p4.model.parser.HeaderRef expression] :
+header_extract_ref returns [org.change.v2.p4.model.parser.HeaderRef expression] :
     instance_name | instance_name '[' header_extract_index ']' ;
 header_extract_index returns [java.lang.Integer expression]   : const_value | 'next' ;
 set_statement returns [org.change.v2.p4.model.parser.SetStatement statement]  :
@@ -284,49 +282,38 @@ control_function_declaration returns [String controlFunctionName,
     org.change.v2.p4.model.ControlBlock controlBlock] : 'control' control_fn_name control_block ;
 control_fn_name : NAME;
 control_block returns [String parent,
-org.change.v2.p4.model.control.BlockStatement blockStatement,
-java.util.List<org.change.v2.analysis.processingmodels.Instruction> instructions] : '{' control_statement* '}' ;
+org.change.v2.p4.model.control.BlockStatement blockStatement] : '{' control_statement* '}' ;
 control_statement returns [String parent,
-org.change.v2.p4.model.control.ControlStatement statement,
-org.change.v2.analysis.processingmodels.Instruction instruction]: apply_table_call |
+org.change.v2.p4.model.control.ControlStatement statement]: apply_table_call |
 apply_and_select_block |
 if_else_statement |
 control_fn_name '(' ')' ';' ;
 
 apply_table_call returns [String parent,
-org.change.v2.p4.model.control.ApplyTableStatement statement,
-org.change.v2.analysis.processingmodels.Instruction instruction]: 'apply' '(' table_name ')' ';' ;
+org.change.v2.p4.model.control.ApplyTableStatement statement]: 'apply' '(' table_name ')' ';' ;
 
 apply_and_select_block returns [String parent,
-org.change.v2.p4.model.control.ApplyAndSelectTableStatement statement,
-org.change.v2.analysis.processingmodels.Instruction instruction]:
+org.change.v2.p4.model.control.ApplyAndSelectTableStatement statement]:
     'apply' '(' table_name ')' '{' ( case_list )? '}' ;
 
 case_list returns [String parent,
-    org.change.v2.p4.model.control.ApplyAndSelectTableStatement statement,
-    java.util.List<org.change.v2.analysis.processingmodels.Instruction> instructions]:
+    org.change.v2.p4.model.control.ApplyAndSelectTableStatement statement]:
         action_case+ # case_list_action
           | hit_miss_case+  # case_list_hitmiss;
 
 action_case returns [String parent,
-    org.change.v2.p4.model.control.TableCaseEntry caseEntry,
-    org.change.v2.analysis.processingmodels.Instruction instruction]: action_or_default control_block ;
+    org.change.v2.p4.model.control.TableCaseEntry caseEntry]: action_or_default control_block ;
 action_or_default : action_name | 'default' ;
 hit_miss_case returns [String parent,
-      org.change.v2.p4.model.control.TableCaseEntry caseEntry,
-      org.change.v2.analysis.processingmodels.Instruction instruction]: hit_or_miss control_block ;
+      org.change.v2.p4.model.control.TableCaseEntry caseEntry]: hit_or_miss control_block ;
 hit_or_miss : 'hit' | 'miss' ;
 
 if_else_statement returns [String parent,
-org.change.v2.p4.model.control.IfElseStatement ifelseStatement,
-      org.change.v2.analysis.processingmodels.Instruction instruction]: 'if' '(' bool_expr ')' control_block ( else_block )? ;
+org.change.v2.p4.model.control.IfElseStatement ifelseStatement]: 'if' '(' bool_expr ')' control_block ( else_block )? ;
 else_block returns [String parent,
-org.change.v2.p4.model.control.ControlStatement statement,
-     org.change.v2.analysis.processingmodels.Instruction instruction]: 'else' control_block | 'else' if_else_statement ;
+org.change.v2.p4.model.control.ControlStatement statement]: 'else' control_block | 'else' if_else_statement ;
 
-bool_expr returns [org.change.v2.analysis.processingmodels.Instruction instruction,
-    org.change.v2.p4.model.control.exp.P4BExpr bexpr,
-    org.change.v2.analysis.processingmodels.Instruction alsoAdd] : 'valid' '(' header_ref ')' # valid_bool_expr
+bool_expr returns [org.change.v2.p4.model.control.exp.P4BExpr bexpr] : 'valid' '(' header_ref ')' # valid_bool_expr
           | bool_expr bool_op bool_expr # compound_bool_expr
           | 'not' bool_expr # negated_bool_expr
           | '(' bool_expr ')' # par_bool_expr
@@ -334,8 +321,7 @@ bool_expr returns [org.change.v2.analysis.processingmodels.Instruction instructi
           | 'true' # const_bool
           | 'false' # const_bool;
 
-exp returns [org.change.v2.analysis.expression.abst.FloatingExpression expr,
-org.change.v2.p4.model.control.exp.P4Expr bvexpr]:
+exp returns [org.change.v2.p4.model.control.exp.P4Expr bvexpr]:
     exp bin_op exp # compound_exp
       | un_op exp # unary_exp
       | field_ref # field_red_exp
