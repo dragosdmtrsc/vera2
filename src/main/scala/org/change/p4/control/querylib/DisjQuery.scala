@@ -6,39 +6,23 @@ import z3.scala.Z3Context
 
 class DisjQuery(switch: Switch,
                 context: Z3Context,
-                q1: QueryBuilder,
-                q2: QueryBuilder)
+                qs: Iterable[QueryBuilder])
     extends QueryBuilder(switch, context) {
   override def query(evt: Object, in: P4RootMemory): Option[P4RootMemory] = {
-    val qa = q1.query(evt, in).filter(!_.rootMemory.isEmpty())
-    val qb = q2.query(evt, in).filter(!_.rootMemory.isEmpty())
-    (qa, qb) match {
-      case (Some(lr), Some(rr)) =>
-        Some((lr || rr).as[P4RootMemory])
-      case (Some(lr), None) =>
-        Some(lr)
-      case (None, Some(rr)) =>
-        Some(rr)
-      case (None, None) =>
-        None
+    val qas = qs.map(q1 => q1.query(evt, in).filter(!_.rootMemory.isEmpty()))
+    val collected = qas.collect {
+      case Some(v) => v
     }
+    if (collected.isEmpty) None
+    else if (collected.size == 1) Some(collected.head)
+    else Some(collected.head.or(collected).as[P4RootMemory])
   }
 }
 
 object DisjQuery {
   def or(switch: Switch,
          context: Z3Context)(it: Iterable[QueryBuilder]): QueryBuilder = {
-    if (it.isEmpty)
-      throw new IllegalArgumentException(
-        "disj query must have at least one query"
-      )
-    else if (it.size == 1)
-      it.head
-    else {
-      it.tail.foldLeft(it.head)((acc, x) => {
-        new DisjQuery(switch, context, acc, x)
-      })
-    }
+    new DisjQuery(switch, context, it)
   }
   def apply(switch: Switch,
             context: Z3Context)(qbs: QueryBuilder*): QueryBuilder =

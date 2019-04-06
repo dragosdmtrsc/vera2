@@ -2,6 +2,7 @@ package org.change.p4.tools
 
 import org.change.p4.control.queryimpl._
 import org.change.p4.control.querylib.{DisjQuery, IndexOutOfBounds, IsValidQuery}
+import org.change.p4.control.vera.ParserHelper
 import org.change.p4.control.{RootEvaluator, _}
 import org.change.p4.model.Switch
 import z3.scala.Z3Context
@@ -140,6 +141,18 @@ object Vera {
       val limit = veraArgs.maxBugs
       val generateTestHarness = veraArgs.commands.nonEmpty && veraArgs.portFilter.nonEmpty
       val enumFunction = () => {
+        if (veraArgs.printSolver) {
+          System.out.println(
+            context.benchmarkToSMTLIBString(
+              "solver",
+              "",
+              "",
+              "",
+              evaluator.solver.getAssertions().toSeq,
+              context.mkTrue()
+            )
+          )
+        }
         evaluator.enumerate(limit) {
           evaluator
             .model()
@@ -150,6 +163,7 @@ object Vera {
                 })
                 .map(r => {
                   val (loc, err) = r
+                  val errno = model.eval(qb.errCause(loc)).get
                   val errCode = model
                     .evalAs[Int](qb.errCause(loc))
                     .map(ErrorLedger.error)
@@ -158,18 +172,6 @@ object Vera {
                   System.out.println(loc)
                   System.out.println("because: ")
                   System.out.println(errCode)
-                  if (veraArgs.printSolver) {
-                    System.out.println(
-                      context.benchmarkToSMTLIBString(
-                        "solver",
-                        "",
-                        "",
-                        "",
-                        evaluator.solver.getAssertions().toSeq,
-                        context.mkTrue()
-                      )
-                    )
-                  }
                   if (generateTestHarness) {
                     val inputPort = evaluator
                       .eval(input.standardMetadata().field("ingress_port"))
@@ -184,7 +186,7 @@ object Vera {
                       PacketLinearize.linearize(pack.as[AbsValueWrapper].value)
                     )
                   }
-                  context.mkNot(err)
+                  context.mkNot(qb.getLocationSelector(loc))
                 })
             })
         }

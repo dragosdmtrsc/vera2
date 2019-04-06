@@ -11,13 +11,22 @@ class QueryBuilder(switch: Switch, context: Z3Context)
   val nodeToConstraint = mutable.Map.empty[Object, Z3AST]
   val errCause = mutable.Map.empty[Object, Z3AST]
 
+  val locSelectors = mutable.Map.empty[Object, Z3AST]
+
+  def getLocationSelector(obj : Object) : Z3AST = {
+    locSelectors.getOrElseUpdate(obj, context.mkFreshBoolConst("loc"))
+  }
+
   private lazy val solver: Z3Solver = context.mkSolver()
   override def before(event: Object, ctx: P4RootMemory): Unit = {
     super.before(event, ctx)
     query(event, ctx)
       .filter(!_.rootMemory.isEmpty())
       .foreach(mem => {
-        nodeToConstraint.put(event, mem.rootMemory.condition)
+        nodeToConstraint.put(event,
+          context.mkAnd(mem.rootMemory.condition,
+            getLocationSelector(event)
+          ))
         errCause
           .put(event, mem.errorCause().value.asInstanceOf[ScalarValue].z3AST)
       })

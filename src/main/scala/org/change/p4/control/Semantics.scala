@@ -59,6 +59,14 @@ abstract class Semantics[T](switch: Switch) {
                 rho: Option[P4BExpr],
                 dst: ControlStatement)(from: T): T
 
+  def merge(ts : Iterable[T]) : T = {
+    if (ts.size == 1) {
+      ts.head
+    } else {
+      ts.tail.foldLeft(ts.head)((acc, x) => merge(acc, x))
+    }
+  }
+
   def merge(crt: T, merge: T): T
 
   def stop(region: T): T
@@ -85,16 +93,19 @@ abstract class Semantics[T](switch: Switch) {
     runOnCFG(control, current, lcfg)
   }
 
+  def lazyMerge : Boolean = false
+
   private def runOnCFG(
     control: String,
     current: Map[ControlStatement, T],
     lcfg: LabeledGraph[ControlStatement, Option[P4BExpr]]
   ): Map[ControlStatement, T] = {
+    val pleaseMerge = mutable.Map.empty[ControlStatement, List[T]]
     val cfg = lcfg.graphView
     cfg
       .scc()
       .reverse
-      .foldLeft(current)((now, scc) => {
+      .foldLeft(current)((oldnow, scc) => {
         if (scc.size != 1) {
           throw new AssertionError(
             s"something is wrong in $control, scc <> 1" + scc
@@ -102,6 +113,14 @@ abstract class Semantics[T](switch: Switch) {
         }
         val node = scc.head
         val neighs = lcfg.edges.getOrElse(node, Nil)
+        val now = if (lazyMerge) {
+          System.err.println(s"before merge at $node")
+          val res = pleaseMerge.get(node).map(x => {
+            oldnow + (node -> merge(x))
+          }).getOrElse(oldnow)
+          System.err.println(s"after merge at $node")
+          res
+        } else oldnow
         val my = now.get(node)
         my.map(obj => {
             beforeNode(node, obj)
@@ -110,15 +129,23 @@ abstract class Semantics[T](switch: Switch) {
               (translate(node, nxt._2, nxt._1) _).andThen(t => {
                 val stopped = stop(t)
                 val goon = success(t)
-                (
-                  acc._1
-                    .get(nxt._1)
-                    .map(old => {
-                      acc._1 + (nxt._1 -> merge(old, goon))
-                    })
-                    .getOrElse(acc._1 + (nxt._1 -> goon)),
-                  Some(acc._2.map(merge(_, stopped)).getOrElse(stopped))
-                )
+                if (lazyMerge) {
+                  val crtNxt = pleaseMerge.getOrElse(nxt._1, Nil)
+                  pleaseMerge.put(nxt._1, goon :: crtNxt)
+                  (acc._1, Some(acc._2.map(merge(_, stopped)).getOrElse(stopped)))
+                } else {
+                  (
+                    acc._1
+                      .get(nxt._1)
+                      .map(old => {
+                        acc._1 + (nxt._1 -> {
+                          val res = merge(old, goon)
+                          res
+                        })
+                      }).getOrElse(acc._1 + (nxt._1 -> goon)),
+                    Some(acc._2.map(merge(_, stopped)).getOrElse(stopped))
+                  )
+                }
               })(obj)
             })
             if (partial._2.isEmpty) {

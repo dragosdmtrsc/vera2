@@ -642,7 +642,7 @@ class QueryDrivenSemantics[T <: P4Memory](switch: Switch)
                 val hdr1 = crtQuery(es.getExpression)
                 val fld = hdr1.field(fname)
                 val packet = crtQuery.packet()
-                val taken = /*packet(fld.len().int(0), fld.len())*/ fld.fresh()
+                val taken = fld.fresh()
                 val newpack = packet.fresh()
                 val oldPack = newpack.as[PacketQuery].prepend(taken)
                 crtQuery
@@ -737,5 +737,14 @@ class QueryDrivenSemantics[T <: P4Memory](switch: Switch)
     (crt || merge).as[T]
   }
   override def stop(region: T): T = region.err().as[T]
-  override def success(region: T): T = region.ok().as[T]
+  override def success(region: T): T = region.as[T]
+
+  override def lazyMerge: Boolean = true
+
+  override def merge(ts: Iterable[T]): T = {
+    if (ts.size == 1)
+      ts.head
+    else
+      ts.head.or(ts).as[T]
+  }
 }

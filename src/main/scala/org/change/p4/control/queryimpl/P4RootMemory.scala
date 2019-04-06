@@ -299,25 +299,18 @@ case class P4RootMemory(override val switch: Switch, rootMemory: RootMemory)
     )
   }
 
-  override def when(whenCases: Iterable[(P4Query, P4Query)]): P4Query = {
-    if (whenCases.isEmpty)
-      throw new IllegalArgumentException(
-        "cannot have an empty set of when clauses"
-      )
-    if (!whenCases.forall(_._2.isInstanceOf[P4RootMemory]))
-      throw new AssertionError("when only works on " + classOf[P4RootMemory])
-    if (whenCases.size == 1) {
-      val first = whenCases.head._2.as[P4RootMemory]
-      first.where(whenCases.head._1)
+  override def or(qries : Iterable[P4Query]) : P4Query = {
+    if (qries.isEmpty) {
+      boolVal(false)
     } else {
-      val first = whenCases.head._2.as[P4RootMemory]
-      val merged =
-        whenCases.tail.foldLeft(first.where(whenCases.head._1))((acc, crt) => {
-          (crt._2.as[P4RootMemory].where(crt._1) || acc).as[P4RootMemory]
-        })
-      merged
+      if (qries.forall(_.isInstanceOf[P4RootMemory])) {
+        copy(rootMemory = RootMemory.merge(qries.map(_.as[P4RootMemory].rootMemory)))
+      } else {
+        super.or(qries)
+      }
     }
   }
+
   def asWrapper(p4Query: P4Query): AbsValueWrapper = p4Query match {
     case x: AbsValueWrapper => x
     case m: P4RootMemory =>

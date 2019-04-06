@@ -13,12 +13,10 @@ case class RootMemory(structObject: StructObject, ocondition: ScalarValue)(
     val scalarValue = value.asInstanceOf[ScalarValue]
     val fromI = from.asInstanceOf[ScalarValue].maybeInt.get
     val toI = to.asInstanceOf[ScalarValue].maybeInt.get
-    //TODO: understand why it is sooo slow in this case
     new ScalarValue(
       BVType((toI - fromI).toInt),
       typeMapper.packetWrapper.take(scalarValue.z3AST, fromI.toInt, toI.toInt)
     )
-//    typeMapper.fresh(BVType((toI - fromI).toInt), "take")
   }
 
   def mkPacketPrepend(packet: Value, append: Value): ScalarValue = {
@@ -94,11 +92,12 @@ case class RootMemory(structObject: StructObject, ocondition: ScalarValue)(
     } else if (other.isEmpty()) {
       this
     } else {
-      val (c1, c2, va) = leftMerge(structObject, other.structObject)
-      copy(
-        structObject = va.asInstanceOf[StructObject],
-        ocondition = mkOr2(other.where(c2).ocondition, where(c1).ocondition)
-      )
+      RootMemory.merge(List(this, other))
+//      val (c1, c2, va) = leftMerge(structObject, other.structObject)
+//      copy(
+//        structObject = va.asInstanceOf[StructObject],
+//        ocondition = mkOr2(other.where(c2).ocondition, where(c1).ocondition)
+//      )
     }
   }
   def unwrapImmutable(v: Value): Value = v match {
@@ -584,4 +583,64 @@ case class RootMemory(structObject: StructObject, ocondition: ScalarValue)(
             )
         }
       })
+}
+
+
+object RootMemory {
+  def changeset(values : Iterable[Value],
+                current: MemPath,
+                ofType : P4Type)
+      : Iterable[(MemPath, Iterable[ScalarValue])] = ofType match {
+    case StructType(flds) =>
+      flds.toList.flatMap(fieldDef => {
+        val projection =
+          values.map(_.asInstanceOf[StructObject].fieldRefs(fieldDef._1))
+        val memPath = Left(fieldDef._1) :: current
+        val newtype = fieldDef._2
+        changeset(projection, memPath, newtype)
+      })
+    case FixedArrayType(inner, sz) =>
+      (0 until sz).flatMap(idx => {
+        val projection =
+          values.map(_.asInstanceOf[ArrayObject].elems(idx))
+        val memPath = Right(idx) :: current
+        val newtype = inner
+        changeset(projection, memPath, newtype)
+      })
+    case _ =>
+      if (values.head.isInstanceOf[ImmutableValue]) {
+        Nil
+      } else {
+        val hval = values.head.asInstanceOf[ScalarValue]
+        val allTheSame = values.tail.forall(p => {
+          val svr = p.asInstanceOf[ScalarValue]
+          hval == svr
+        })
+        if (!allTheSame) {
+          (current -> values.map(v => v.asInstanceOf[ScalarValue])) :: Nil
+        } else {
+          Nil
+        }
+      }
+  }
+  def merge(rootMemories : Iterable[RootMemory]) : RootMemory = {
+    val changed = changeset(rootMemories.map(_.structObject),
+      emptyPath(),
+      rootMemories.head.structObject.ofType)
+    val template = rootMemories.head
+    val newstruct = changed.foldLeft(template)((acc, ch) => {
+      val ofType = ch._2.head.ofType
+      acc.set(ch._1, template.typeMapper.fresh(ofType, "merge"))
+    })
+    val conditions = changed.map(ch => {
+      val newstuff = newstruct.get(ch._1).asInstanceOf[ScalarValue]
+      ch._2.map(template.mkEQ(newstuff, _))
+    })
+    val initial = rootMemories.map(_.ocondition)
+    val flat = conditions.foldLeft(initial)((acc, cd) => {
+      acc.zip(cd).map(f => template.mkAnd2(f._1, f._2))
+    })
+    val newcond = template.mkOr(flat)
+    newstruct.copy(ocondition = newcond)(template.context)
+  }
 }
