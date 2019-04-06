@@ -1,6 +1,6 @@
 grammar P4Grammar;
 
-p4_program   returns [org.change.v2.p4.model.Switch switchSpec]   :   p4_declaration+ ;
+p4_program   returns [org.change.p4.model.Switch switchSpec]   :   p4_declaration+ ;
 
 p4_declaration  :   header_type_declaration
                 |   instance_declaration
@@ -46,16 +46,16 @@ width_spec  :   Decimal_value '\'' ;
 field_value returns [scala.math.BigInt fieldValue, int width] : const_value ;
 
 // Section 2.1
-header_type_declaration returns [org.change.v2.p4.model.Header header]:
+header_type_declaration returns [org.change.p4.model.Header header]:
     'header_type' header_type_name '{' header_dec_body '}' ;
 header_type_name : NAME ;
 
 // Info: max_length is used for run-time checks (if the header is larger than this maximum)
-header_dec_body returns [List<org.change.v2.p4.model.Field> fields,
+header_dec_body returns [List<org.change.p4.model.Field> fields,
     Integer length,
     Integer maxLength]:   'fields' '{' field_dec+ '}' ( 'length' ':' length_exp ';' )? ( 'max_length' ':' const_value ';' )? ;
 
-field_dec returns [org.change.v2.p4.model.Field field]  :   field_name ':' bit_width ( '(' field_mod ')' )? ';' ;
+field_dec returns [org.change.p4.model.Field field]  :   field_name ':' bit_width ( '(' field_mod ')' )? ';' ;
 field_name  :   NAME ;
 field_mod   :   'signed' | 'saturating' | field_mod ',' field_mod ;
 length_bin_op   :   '+' | '-' | '*' | '<<' | '>>' ;
@@ -74,9 +74,9 @@ header_instance:
     | array_instance    #ArrayInstance
     ;
 
-scalar_instance returns [org.change.v2.p4.model.HeaderInstance hdrInstance]:
+scalar_instance returns [org.change.p4.model.HeaderInstance hdrInstance]:
     'header' header_type_name instance_name ';' ;
-array_instance  returns [org.change.v2.p4.model.ArrayInstance arrInstance]:
+array_instance  returns [org.change.p4.model.ArrayInstance arrInstance]:
     'header' header_type_name instance_name '[' const_value ']' ';' ;
 instance_name   :   NAME ;
 
@@ -86,18 +86,18 @@ metadata_initializer returns [scala.collection.Map<String, scala.math.BigInt> in
    '{' ( field_name ':' field_value ';' )+ '}' ;
 
 header_ref returns [
-org.change.v2.p4.model.parser.HeaderRef expression] :
+org.change.p4.model.parser.HeaderRef expression] :
     instance_name | instance_name '[' index ']' ;
 index  returns [java.lang.Integer idx] :   const_value | 'last' ;
-field_ref   returns [org.change.v2.p4.model.parser.FieldRef expression]:   header_ref '.' field_name ;
+field_ref   returns [org.change.p4.model.parser.FieldRef expression]:   header_ref '.' field_name ;
 
 field_list_declaration returns [java.util.List<String> entryList,
-org.change.v2.p4.model.fieldlists.FieldList fieldList] :
+org.change.p4.model.fieldlists.FieldList fieldList] :
     'field_list' field_list_name '{' ( field_list_entry ';')+ '}' ;
 field_list_name :   NAME ;
 
 field_list_entry  returns [String entryName,
-org.change.v2.p4.model.fieldlists.FieldList.Entry entry
+org.change.p4.model.fieldlists.FieldList.Entry entry
 ]  :   field_ref | header_ref | field_value | field_list_name | 'payload' ;
 field_list_calculation_declaration :
     'field_list_calculation' field_list_calculation_name '{'
@@ -121,62 +121,62 @@ value_set_declaration : 'parser_value_set' value_set_name ';' ;
 value_set_name  : NAME ;
 
 // Section 4 Parser Specification
-parser_function_declaration returns [org.change.v2.p4.model.parser.State state] :
+parser_function_declaration returns [org.change.p4.model.parser.State state] :
     'parser' parser_state_name '{' parser_function_body '}' ;
 
 parser_state_name   :   NAME ;
-parser_function_body returns [java.util.List<org.change.v2.p4.model.parser.Statement> statements]:
+parser_function_body returns [java.util.List<org.change.p4.model.parser.Statement> statements]:
     extract_or_set_statement* return_statement ;
 extract_or_set_statement returns [
-org.change.v2.p4.model.parser.Statement statement] :
+org.change.p4.model.parser.Statement statement] :
     extract_statement | set_statement ;
 extract_statement  returns [
-    org.change.v2.p4.model.parser.ExtractStatement statement] :
+    org.change.p4.model.parser.ExtractStatement statement] :
     'extract' '(' header_extract_ref ')' ';' ;
-header_extract_ref returns [org.change.v2.p4.model.parser.HeaderRef expression] :
+header_extract_ref returns [org.change.p4.model.parser.HeaderRef expression] :
     instance_name | instance_name '[' header_extract_index ']' ;
 header_extract_index returns [java.lang.Integer expression]   : const_value | 'next' ;
-set_statement returns [org.change.v2.p4.model.parser.SetStatement statement]  :
+set_statement returns [org.change.p4.model.parser.SetStatement statement]  :
     'set_metadata' '(' field_ref',' exp ')' ';' ;
-simple_metadata_expr returns [org.change.v2.p4.model.parser.Expression expression] : field_value | field_or_data_ref;
-plus_metadata_expr returns [org.change.v2.p4.model.parser.Expression expression]: simple_metadata_expr '+' compound;
-minus_metadata_expr returns [org.change.v2.p4.model.parser.Expression expression]: simple_metadata_expr '-' compound;
-compound returns [org.change.v2.p4.model.parser.Expression expression]: minus_metadata_expr | plus_metadata_expr | simple_metadata_expr;
-metadata_expr returns [org.change.v2.p4.model.control.exp.P4Expr p4expr,
-org.change.v2.p4.model.parser.Expression expression]:   compound ;
+simple_metadata_expr returns [org.change.p4.model.parser.Expression expression] : field_value | field_or_data_ref;
+plus_metadata_expr returns [org.change.p4.model.parser.Expression expression]: simple_metadata_expr '+' compound;
+minus_metadata_expr returns [org.change.p4.model.parser.Expression expression]: simple_metadata_expr '-' compound;
+compound returns [org.change.p4.model.parser.Expression expression]: minus_metadata_expr | plus_metadata_expr | simple_metadata_expr;
+metadata_expr returns [org.change.p4.model.control.exp.P4Expr p4expr,
+org.change.p4.model.parser.Expression expression]:   compound ;
 
-return_statement  returns [org.change.v2.p4.model.parser.Statement statement]  :
+return_statement  returns [org.change.p4.model.parser.Statement statement]  :
     return_value_type | 'return' 'select' '(' select_exp ')' '{' case_entry+ '}'  ;
 
-return_value_type  returns [org.change.v2.p4.model.parser.ReturnStatement statement] :
+return_value_type  returns [org.change.p4.model.parser.ReturnStatement statement] :
     'return' parser_state_name ';' | 'return' control_function_name ';'
     | 'parse_error' parser_exception_name ';' ;
 control_function_name   :   NAME ;
 parser_exception_name   :   NAME ;
 
-case_entry returns [org.change.v2.p4.model.parser.CaseEntry caseEntry] :
+case_entry returns [org.change.p4.model.parser.CaseEntry caseEntry] :
     value_list ':' case_return_value_type ';';
-value_list returns [java.util.List<org.change.v2.p4.model.parser.Value> values,
-java.util.List<org.change.v2.p4.model.control.exp.LiteralExpr> bvValues,
-java.util.List<org.change.v2.p4.model.control.exp.LiteralExpr> bvMasks,
+value_list returns [java.util.List<org.change.p4.model.parser.Value> values,
+java.util.List<org.change.p4.model.control.exp.LiteralExpr> bvValues,
+java.util.List<org.change.p4.model.control.exp.LiteralExpr> bvMasks,
 boolean isDefault]:
     value_or_masked ( ',' value_or_masked )* | 'default' ;
 
 case_return_value_type  : parser_state_name | control_function_name | 'parse_error' parser_exception_name ;
 
-value_or_masked returns [org.change.v2.p4.model.parser.Value v,
-org.change.v2.p4.model.control.exp.LiteralExpr bvValue,
-org.change.v2.p4.model.control.exp.LiteralExpr bvMask]:
+value_or_masked returns [org.change.p4.model.parser.Value v,
+org.change.p4.model.control.exp.LiteralExpr bvValue,
+org.change.p4.model.control.exp.LiteralExpr bvMask]:
     field_value | field_value 'mask' field_value | value_set_name ;
 
 
-select_exp  returns [java.util.List<org.change.v2.p4.model.parser.Expression> expressions,
-java.util.List<org.change.v2.p4.model.control.exp.P4Expr> bvexpressions]:
+select_exp  returns [java.util.List<org.change.p4.model.parser.Expression> expressions,
+java.util.List<org.change.p4.model.control.exp.P4Expr> bvexpressions]:
     exp (',' exp)* ;
 
-latest_field_ref returns [org.change.v2.p4.model.parser.FieldRef expression] : 'latest' '.' field_name;
-data_ref  returns [org.change.v2.p4.model.parser.DataRef expression] : 'current' '(' const_value ',' const_value ')';
-field_or_data_ref  returns [org.change.v2.p4.model.parser.Expression expression]  :
+latest_field_ref returns [org.change.p4.model.parser.FieldRef expression] : 'latest' '.' field_name;
+data_ref  returns [org.change.p4.model.parser.DataRef expression] : 'current' '(' const_value ',' const_value ')';
+field_or_data_ref  returns [org.change.p4.model.parser.Expression expression]  :
     field_ref | latest_field_ref | data_ref;
 parser_exception_declaration    :   'parser_exception' parser_exception_name '{'
     set_statement*
@@ -186,7 +186,7 @@ parser_exception_declaration    :   'parser_exception' parser_exception_name '{'
 
 return_or_drop :    return_to_control | 'parser_drop' ;
 return_to_control   :   'return' control_function_name ;
-counter_declaration  returns [org.change.v2.p4.model.RegisterSpecification spec] :   'counter' counter_name '{'
+counter_declaration  returns [org.change.p4.model.RegisterSpecification spec] :   'counter' counter_name '{'
     'type' ':' counter_type ';'
     ( direct_or_static ';' )?
     ( 'instance_count' ':' const_expr ';' )?
@@ -199,7 +199,7 @@ counter_type    : 'bytes' | 'packets' | 'packets_and_bytes' ;
 direct_or_static returns [boolean isDirect, String directTable, boolean isStatic, String staticTable]: direct_attribute | static_attribute ;
 direct_attribute returns [String table] : 'direct' ':' table_name ;
 static_attribute returns [String table]: 'static' ':' table_name ;
-meter_declaration returns [org.change.v2.p4.model.RegisterSpecification spec] :
+meter_declaration returns [org.change.p4.model.RegisterSpecification spec] :
 'meter' meter_name '{'
     'type' ':' meter_type ';'
     meter_attribute*
@@ -216,7 +216,7 @@ register_name   :   NAME ;
 
 meter_type : 'bytes' | 'packets' ;
 
-register_declaration returns [org.change.v2.p4.model.RegisterSpecification spec]: 'register' register_name '{'
+register_declaration returns [org.change.p4.model.RegisterSpecification spec]: 'register' register_name '{'
     width_declaration ';'
     ( direct_or_static ';' )?
     ( 'instance_count' ':' const_value ';' )?
@@ -227,20 +227,20 @@ register_declaration returns [org.change.v2.p4.model.RegisterSpecification spec]
 width_declaration returns [Integer width]: 'width' ':' const_value ;
 attribute_list : 'attributes' ':' attr_entry ;
 attr_entry : 'signed' | 'saturating' | attr_entry ',' attr_entry ;
-action_function_declaration returns [org.change.v2.p4.model.actions.P4Action action] :
+action_function_declaration returns [org.change.p4.model.actions.P4Action action] :
         'action' action_header '{' action_statement* '}' ;
 
 action_header : action_name '(' ( param_list )? ')' ;
 param_list : param_name (',' param_name)* ;
-action_statement returns [org.change.v2.p4.model.actions.P4ActionCall actionCall] :
+action_statement returns [org.change.p4.model.actions.P4ActionCall actionCall] :
     action_name '(' ( arg (',' arg)* )? ')' ';' ;
-arg returns [org.change.v2.p4.model.parser.Expression expr] :
+arg returns [org.change.p4.model.parser.Expression expr] :
     param_name |
     field_value |
     field_ref |
     header_ref ;
 
-action_profile_declaration returns [org.change.v2.p4.model.actions.P4ActionProfile actionProfile]:
+action_profile_declaration returns [org.change.p4.model.actions.P4ActionProfile actionProfile]:
     'action_profile' action_profile_name '{'
         action_specification
         ( 'size' ':' const_value ';' )?
@@ -261,7 +261,7 @@ action_selector_declaration : 'action_selector' selector_name '{'
     '}'
     ;
 
-table_declaration returns [org.change.v2.p4.model.table.TableDeclaration tableDeclaration] : 'table' table_name '{'
+table_declaration returns [org.change.p4.model.table.TableDeclaration tableDeclaration] : 'table' table_name '{'
     ( 'reads' '{' field_match+ '}' )?
     table_actions
     ( 'min_size' ':' const_value ';' )?
@@ -271,49 +271,49 @@ table_declaration returns [org.change.v2.p4.model.table.TableDeclaration tableDe
     '}'
     ;
 
-field_match returns [org.change.v2.p4.model.table.TableMatch tableMatch, String tableName]: field_or_masked_ref ':' field_match_type ';' ;
+field_match returns [org.change.p4.model.table.TableMatch tableMatch, String tableName]: field_or_masked_ref ':' field_match_type ';' ;
 field_or_masked_ref returns [scala.math.BigInt mask,
-org.change.v2.p4.model.parser.Expression expression,
+org.change.p4.model.parser.Expression expression,
 String field]: header_ref | field_ref | field_ref 'mask' const_value ;
-field_match_type returns [org.change.v2.p4.model.table.MatchKind matchKind]: 'exact' | 'ternary' | 'lpm' | 'range' | 'valid' ;
+field_match_type returns [org.change.p4.model.table.MatchKind matchKind]: 'exact' | 'ternary' | 'lpm' | 'range' | 'valid' ;
 table_actions : action_specification | action_profile_specification ;
 action_profile_specification : 'action_profile' ':' action_profile_name ';' ;
 control_function_declaration returns [String controlFunctionName,
-    org.change.v2.p4.model.ControlBlock controlBlock] : 'control' control_fn_name control_block ;
+    org.change.p4.model.ControlBlock controlBlock] : 'control' control_fn_name control_block ;
 control_fn_name : NAME;
 control_block returns [String parent,
-org.change.v2.p4.model.control.BlockStatement blockStatement] : '{' control_statement* '}' ;
+org.change.p4.model.control.BlockStatement blockStatement] : '{' control_statement* '}' ;
 control_statement returns [String parent,
-org.change.v2.p4.model.control.ControlStatement statement]: apply_table_call |
+org.change.p4.model.control.ControlStatement statement]: apply_table_call |
 apply_and_select_block |
 if_else_statement |
 control_fn_name '(' ')' ';' ;
 
 apply_table_call returns [String parent,
-org.change.v2.p4.model.control.ApplyTableStatement statement]: 'apply' '(' table_name ')' ';' ;
+org.change.p4.model.control.ApplyTableStatement statement]: 'apply' '(' table_name ')' ';' ;
 
 apply_and_select_block returns [String parent,
-org.change.v2.p4.model.control.ApplyAndSelectTableStatement statement]:
+org.change.p4.model.control.ApplyAndSelectTableStatement statement]:
     'apply' '(' table_name ')' '{' ( case_list )? '}' ;
 
 case_list returns [String parent,
-    org.change.v2.p4.model.control.ApplyAndSelectTableStatement statement]:
+    org.change.p4.model.control.ApplyAndSelectTableStatement statement]:
         action_case+ # case_list_action
           | hit_miss_case+  # case_list_hitmiss;
 
 action_case returns [String parent,
-    org.change.v2.p4.model.control.TableCaseEntry caseEntry]: action_or_default control_block ;
+    org.change.p4.model.control.TableCaseEntry caseEntry]: action_or_default control_block ;
 action_or_default : action_name | 'default' ;
 hit_miss_case returns [String parent,
-      org.change.v2.p4.model.control.TableCaseEntry caseEntry]: hit_or_miss control_block ;
+      org.change.p4.model.control.TableCaseEntry caseEntry]: hit_or_miss control_block ;
 hit_or_miss : 'hit' | 'miss' ;
 
 if_else_statement returns [String parent,
-org.change.v2.p4.model.control.IfElseStatement ifelseStatement]: 'if' '(' bool_expr ')' control_block ( else_block )? ;
+org.change.p4.model.control.IfElseStatement ifelseStatement]: 'if' '(' bool_expr ')' control_block ( else_block )? ;
 else_block returns [String parent,
-org.change.v2.p4.model.control.ControlStatement statement]: 'else' control_block | 'else' if_else_statement ;
+org.change.p4.model.control.ControlStatement statement]: 'else' control_block | 'else' if_else_statement ;
 
-bool_expr returns [org.change.v2.p4.model.control.exp.P4BExpr bexpr] : 'valid' '(' header_ref ')' # valid_bool_expr
+bool_expr returns [org.change.p4.model.control.exp.P4BExpr bexpr] : 'valid' '(' header_ref ')' # valid_bool_expr
           | bool_expr bool_op bool_expr # compound_bool_expr
           | 'not' bool_expr # negated_bool_expr
           | '(' bool_expr ')' # par_bool_expr
@@ -321,7 +321,7 @@ bool_expr returns [org.change.v2.p4.model.control.exp.P4BExpr bexpr] : 'valid' '
           | 'true' # const_bool
           | 'false' # const_bool;
 
-exp returns [org.change.v2.p4.model.control.exp.P4Expr bvexpr]:
+exp returns [org.change.p4.model.control.exp.P4Expr bvexpr]:
     exp bin_op exp # compound_exp
       | un_op exp # unary_exp
       | field_ref # field_red_exp
