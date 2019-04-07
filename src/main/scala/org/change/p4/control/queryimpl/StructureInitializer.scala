@@ -6,7 +6,6 @@ import com.microsoft.z3.Context
 
 object StructureInitializer {
   implicit def apply(switch: Switch)(implicit context: Context): Switch = {
-    PacketWrapper.initialize(switch, context)
     val tm = TypeMapper.apply()(context)
     val stdMeta = switch.getInstance("standard_metadata")
     val clSpec = stdMeta.getLayout.getField("clone_spec")

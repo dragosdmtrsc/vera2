@@ -260,3 +260,10 @@ class ParserHelper(switch: Switch) {
     new Graph(adjList.toMap)
   }
 }
+
+object ParserHelper {
+  val parsers : mutable.Map[Switch, ParserHelper] = mutable.Map.empty
+  def apply(switch : Switch) : ParserHelper = {
+    parsers.getOrElseUpdate(switch, new ParserHelper(switch))
+  }
+}

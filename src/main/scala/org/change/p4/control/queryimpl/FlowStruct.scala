@@ -23,22 +23,26 @@ object FlowStruct {
   def apply(switch : Switch,
             tableDeclaration: TableDeclaration,
             context: Context) : FlowStruct = {
-    val actionTypes = (if (tableDeclaration.hasProfile) {
+    val actionTypes = if (tableDeclaration.hasProfile) {
       val prof = tableDeclaration.actionProfile()
       prof.getActions.asScala
     } else {
       tableDeclaration.getAllowedActions.asScala.map(_.getActionName)
-    }).flatMap(act => {
+    }
+    val actionParams = actionTypes.flatMap(act => {
       val p4act = switch.action(act)
       p4act.getParameterList.asScala.map(p =>
         act + "_" + p.getParamName -> p.getSort)
     }).toMap
-    val str = Map(
-      "exists" -> BoolType,
-      "hits" -> BoolType,
-      "action" -> BVType(8)
-    ) ++ actionTypes
 
+    val actionEnumDecl = EnumKind
+      .declareEnum(s"action_type_${tableDeclaration.getName}",
+        actionTypes.toList)
+
+    val str = Map(
+      "hits" -> BoolType,
+      "action" -> actionEnumDecl
+    ) ++ actionParams
     val matchParms = tableDeclaration.getMatches.asScala.map(r => {
       r.getReferenceKey match {
         case fr : FieldRef => BVType(fr.getFieldReference.getLength)

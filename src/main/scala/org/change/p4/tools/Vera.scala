@@ -1,6 +1,6 @@
 package org.change.p4.tools
 
-import com.microsoft.z3.{Context, Expr}
+import com.microsoft.z3.{Context, Expr, Global}
 import org.change.p4.control.queryimpl._
 import org.change.p4.control.querylib.{DisjQuery, IndexOutOfBounds, IsValidQuery}
 import org.change.p4.control.types.BoundedInt
@@ -16,6 +16,7 @@ object Vera {
                       portFilter: String = "",
                       commands: Set[String] = Set.empty,
                       printSolver: Boolean = false,
+                      z3Verbose : Boolean = false,
                       maxBugs: Int = 50) {
     def addCommandsFile(commandsFile: String): VeraArgs =
       copy(commands = commands + commandsFile)
@@ -55,7 +56,13 @@ object Vera {
     }
     veraArgs = veraArgs.copy(p4File = remaining.head)
     System.out.println(s"preparing to run vera against ${veraArgs.p4File}")
-    val context = new Context()
+    if (veraArgs.z3Verbose) {
+      Global.setParameter("verbose", "15")
+    }
+    val context = new Context(Map(
+      "trace" -> (if (veraArgs.z3Verbose) "true" else "false"),
+      "model_compress" -> "false"
+    ).asJava)
     // always call init prior to anything
     // it will gather SMT types, make functions,
     // do reference mapping, type inference and essentially
@@ -92,11 +99,11 @@ object Vera {
     }
     // side effect is good here, we should always populate
     // the take_{}_{} primitives with their implementations
-    evaluator.constrain(PacketWrapper(context).axioms)
-//    val boundedAxioms = TypeMapper()(context).boundAxioms(fieldList,
-//      0, switch.nrOfFieldLists()
-//    )
-//    evaluator.constrain(boundedAxioms)
+    val enumAxioms = TypeMapper()(context).boundEnums()
+    evaluator.constrain(enumAxioms)
+    evaluator.constrain(parsed.packet().packetLength() ===
+      parsed.packet().packetLength().zeros()
+    )
     if (veraArgs.validate) {
       if (veraArgs.commands.isEmpty || veraArgs.portFilter.isEmpty) {
         throw new IllegalStateException(
@@ -105,7 +112,6 @@ object Vera {
         )
       }
       val target = SwitchTarget.fromRegex(veraArgs.portFilter)
-      val targetConstraints = ConstraintBuilder(switch, context, target).toList
       evaluator.constrained(deparsed.rootMemory.condition) {
         for (x <- veraArgs.commands) {
           val instance = P4Commands.fromFile(switch, x)
@@ -116,14 +122,20 @@ object Vera {
                 evaluator.solver.toString
               )
             }
-
-            val pack = evaluator.eval(input.packet()).get
+            val pack = evaluator.eval(input.packet().contents()).get
+            val packlen = evaluator.eval(input.packet().packetLength())
+              .get.toInt.get.toInt
             val inputPort = evaluator
               .eval(input.standardMetadata().field("ingress_port"))
               .get
               .toInt
               .get
-            val expectation = evaluator.eval(deparsed.packet()).get
+            val expectation = evaluator.eval(deparsed.packet().contents()).get
+            val expectationlen = evaluator.eval(deparsed.packet().packetLength())
+              .get
+              .toInt
+              .get
+              .toInt
             val egressPort = evaluator
               .eval(deparsed.standardMetadata().field("egress_port"))
               .get
@@ -133,12 +145,13 @@ object Vera {
             System.out.println("when input on port " + inputPort)
             System.out.println("a packet:")
             System.out.println(
-              PacketLinearize.linearize(pack.as[AbsValueWrapper].value, context)
+              PacketLinearize.linearize(pack.as[AbsValueWrapper].value, packlen, context)
             )
             System.out.println("should come out on port " + egressPort)
             System.out.println("and look like:")
             System.out.println(
               PacketLinearize.linearize(expectation.as[AbsValueWrapper].value,
+                expectationlen,
                 context)
             )
           }
@@ -149,21 +162,6 @@ object Vera {
       val generateTestHarness = veraArgs.commands.nonEmpty && veraArgs.portFilter.nonEmpty
       val enumFunction = () => {
         if (veraArgs.printSolver) {
-          val isUnbounded = context.mkProbe("is-unbounded")
-          val isqfbv = context.mkProbe("is-qfbv")
-          val isqfaufbv = context.mkProbe("is-qfaufbv")
-          val goal = context.mkGoal(false, false, false)
-          goal.add(evaluator.solver.getAssertions:_*)
-          val tactic = context.mkTactic("eq2bv")
-          val newgoal = context.mkGoal(false, false, false)
-          val appres = tactic.apply(goal).getSubgoals
-          appres.map(_.AsBoolExpr())
-            .foreach(g => newgoal.add(g))
-          val simplify = context.mkTactic("simplify")
-          val res = isUnbounded.apply(newgoal)
-          System.out.println(s"is unbounded: $res")
-          System.out.println(s"is qfbv ${isqfbv.apply(newgoal)}")
-          System.out.println(s"is qfaufbv ${isqfaufbv.apply(newgoal)}")
           System.out.println(
             evaluator.solver.toString
           )
@@ -174,7 +172,7 @@ object Vera {
             .flatMap(model => {
               qb.nodeToConstraint
                 .find(r => {
-                  model.eval(r._2, false).getBool.getOrElse(false)
+                  model.eval(r._2, true).getBool.getOrElse(false)
                 })
                 .map(r => {
                   val (loc, err) = r
@@ -194,12 +192,16 @@ object Vera {
                       .get
                       .toInt
                       .get
-                    val pack = evaluator.eval(input.packet()).get
+                    val pack = evaluator.eval(input.packet().contents()).get
+                    val packlen = evaluator
+                      .eval(input.packet().packetLength())
+                      .get.toInt.get
                     System.out.println(s"here's how to trigger it")
                     System.out.println("input on port " + inputPort)
-                    System.out.println("a packet:")
+                    System.out.println(s"a packet of length $packlen")
                     System.out.println(
                       PacketLinearize.linearize(pack.as[AbsValueWrapper].value,
+                        packlen.toInt,
                         context)
                     )
                   }

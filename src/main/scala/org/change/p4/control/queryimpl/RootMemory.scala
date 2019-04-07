@@ -11,25 +11,26 @@ case class RootMemory(structObject: StructObject, ocondition: ScalarValue)(
 
   lazy val condition : BoolExpr = ocondition.AST.asBool
 
-  def mkPacketTake(value: Value, from: Value, to: Value): Value = {
-    val scalarValue = value.asInstanceOf[ScalarValue]
-    val fromI = from.asInstanceOf[ScalarValue].maybeInt.get
-    val toI = to.asInstanceOf[ScalarValue].maybeInt.get
-    new ScalarValue(
-      BVType((toI - fromI).toInt),
-      typeMapper.packetWrapper.take(scalarValue.AST, fromI.toInt, toI.toInt)
+  def mkExtend(v : Value, to : Int): ScalarValue = v.ofType match {
+    case BVType(n) if n < to =>
+      val delta = to - n
+      new ScalarValue(
+        AST = context.mkZeroExt(delta, v.asInstanceOf[ScalarValue].AST.asBV),
+        ofType = BVType(to)
+      )
+    case BVType(n) if n == to => v.asInstanceOf[ScalarValue]
+    case _ => throw new IllegalArgumentException(
+      s"trying to call extend to [$to] from $v of type ${v.ofType}"
     )
   }
-
-  def mkPacketPrepend(packet: Value, append: Value): ScalarValue = {
-    val vpacket = packet.asInstanceOf[ScalarValue]
-    val vappend = append.asInstanceOf[ScalarValue]
-    if (packet.ofType != PacketType)
-      throw new IllegalArgumentException(s"expecting packet, got $packet")
-    val BVType(n) = append.ofType
-    new ScalarValue(
-      PacketType,
-      typeMapper.packetWrapper.prepend(vpacket.AST, n, vappend.AST)
+  def mkExtract(v : Value, from : Int, to : Int): ScalarValue = v.ofType match {
+    case BVType(n) if n > to =>
+      new ScalarValue(
+        AST = context.mkExtract(to, from, v.asInstanceOf[ScalarValue].AST.asBV),
+        ofType = BVType(to - from + 1)
+      )
+    case _ => throw new IllegalArgumentException(
+      s"trying to call extract [$from, $to] from $v of type ${v.ofType}"
     )
   }
 
@@ -188,7 +189,7 @@ case class RootMemory(structObject: StructObject, ocondition: ScalarValue)(
         case (Some(x), _) if x == -1 => typeMapper.literal(bvType, -1)
         case (_, Some(x)) if x == -1 => typeMapper.literal(bvType, -1)
         case _                       =>
-          new ScalarValue(bvType, context.mkBVAND(a.AST.asBV, b.AST.asBV))
+          new ScalarValue(bvType, context.mkBVOR(a.AST.asBV, b.AST.asBV))
       }
     case _ => throw new IllegalArgumentException(s"can't and between $a and $b")
   }
@@ -544,6 +545,26 @@ case class RootMemory(structObject: StructObject, ocondition: ScalarValue)(
             )
         }
       })
+
+  def mkSHR(l: Value, r: Value): ScalarValue =
+    intResolve(l, r, _ >> _.toInt)
+      .map(typeMapper.literal(l.ofType, _))
+      .getOrElse({
+        l.ofType match {
+          case b: BVType =>
+            new ScalarValue(
+              b,
+              context.mkBVLSHR(
+                l.asInstanceOf[ScalarValue].AST.asInstanceOf[BitVecExpr],
+                r.asInstanceOf[ScalarValue].AST.asInstanceOf[BitVecExpr]
+              )
+            )
+          case _ =>
+            throw new IllegalArgumentException(
+              s"can't add these two values $l + $r"
+            )
+        }
+      })
 }
 
 
@@ -637,7 +658,7 @@ object RootMemory {
         } else {
           val nowAt = actuals.map(_(crt))
           val h = nowAt.head
-          if (!nowAt.tail.forall(_ == h)) {
+          if (!nowAt.tail.forall(_.equals(h))) {
             break = true
           } else {
             if (base == context.mkTrue())

@@ -40,6 +40,7 @@ trait P4Query {
   def ^(other: P4Query): P4Query = ???
   def +(other: P4Query): P4Query = ???
   def <<(other: P4Query): P4Query = ???
+  def >>(other: P4Query): P4Query = ???
   def -(other: P4Query): P4Query = ???
 
   def unary_~(): P4Query = ???
@@ -93,6 +94,8 @@ trait PacketQuery extends P4Query {
   def apply(from: P4Query, to: P4Query): P4Query = ???
   def pop(n: P4Query): PacketQuery = ???
   def prepend(what: P4Query): PacketQuery = ???
+  def contents() : P4Query = ???
+  def packetLength() : P4Query = ???
 }
 case class HeaderQuery(header: HeaderInstance) extends P4Query {
   // returns an ORDERED sequence of fields as queries

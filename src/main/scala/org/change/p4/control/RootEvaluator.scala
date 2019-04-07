@@ -20,7 +20,7 @@ case class RootEvaluator(solver: Solver, context: Context) extends Evaluator {
           Some(expr.int(sv.maybeInt.get, sv.ofType))
         case sv: ScalarValue =>
           val ast = sv.AST
-          val model = solver.getModel()
+          val model = solver.getModel
           valwrap.value.ofType match {
             case _ =>
               Some(

@@ -23,15 +23,21 @@ class QueryBuilder(switch: Switch, context: Context)
     val simplify = context.mkTactic("simplify")
     val qfbv = context.mkTactic("qfbv")
     val eq2bv = context.mkTactic("eq2bv")
+    val dt2bv = context.mkTactic("dt2bv")
     val macros = context.mkTactic("macro-finder")
     val t1 = context.andThen(
       simplify,
       macros,
+      dt2bv,
       eq2bv,
       ackermanized,
       simplify,
       qfbv)
-    context.mkSolver()
+    val slv = context.mkSolver(t1)
+    val parms = context.mkParams()
+    parms.add("mbqi", false)
+    slv.setParameters(parms)
+    slv
   }
   override def before(event: Object, ctx: P4RootMemory): Unit = {
     super.before(event, ctx)

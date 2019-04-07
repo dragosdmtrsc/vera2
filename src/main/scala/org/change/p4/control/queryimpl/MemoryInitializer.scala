@@ -8,7 +8,6 @@ import com.microsoft.z3.Context
 
 import scala.collection.JavaConverters._
 object MemoryInitializer {
-
   def mkStruct(layout: Header): StructType = {
     StructType(
       layout.getFields.asScala
@@ -19,9 +18,9 @@ object MemoryInitializer {
     )
   }
 
-  def helperStuff(): Map[String, P4Type] = {
+  def helperStuff(switch: Switch): Map[String, P4Type] = {
     Map(
-      "packet" -> PacketType,
+      "packet" -> PacketKind(switch),
       "errorCause" -> UnboundedInt,
       "packetLength" -> BVType(16),
       FIELD_LIST_REF -> BoundedInt()
@@ -149,7 +148,7 @@ object MemoryInitializer {
                 mkStruct(hi.getLayout)
             })
         )
-        .toMap ++ helperStuff ++ tableStructures(switch) ++ actionStructures(
+        .toMap ++ helperStuff(switch) ++ tableStructures(switch) ++ actionStructures(
         switch
       )
     )

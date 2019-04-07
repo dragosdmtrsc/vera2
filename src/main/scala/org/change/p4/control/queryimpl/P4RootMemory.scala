@@ -1,10 +1,10 @@
 package org.change.p4.control.queryimpl
 
+import com.microsoft.z3.enumerations.{Z3_ast_kind, Z3_decl_kind}
+import com.microsoft.z3.{AST, BitVecNum, IntNum}
 import org.change.p4.control._
 import org.change.p4.control.types._
 import org.change.p4.model.Switch
-import com.microsoft.z3.{AST, BitVecNum, IntNum}
-import org.change.utils.Z3Helper._
 
 trait AbsValueWrapper extends P4Query {
   def value: Value
@@ -17,9 +17,12 @@ trait AbsValueWrapper extends P4Query {
       case as: ScalarValue =>
         if (as.maybeInt.nonEmpty) Some(as.maybeInt.get.toInt)
         else {
-          if (as.AST.isIntNum) Some(BigInt(as.AST.asInstanceOf[IntNum].getBigInteger))
-          else if (as.AST.isBVNumeral) Some(BigInt(as.AST.asInstanceOf[BitVecNum].getBigInteger))
-          else None
+          as.AST match {
+            case num: IntNum => Some(BigInt(num.getBigInteger))
+            case bvnum : BitVecNum =>
+              Some(BigInt(bvnum.getBigInteger))
+            case _ => None
+          }
         }
       case _ => None
     }
@@ -75,31 +78,56 @@ case class P4RootMemory(override val switch: Switch, rootMemory: RootMemory)
     }
 
     // packet mapper
-    //TODO: add proper code here
     override def apply(from: P4Query, to: P4Query): P4Query = {
-      rv(
-        rootMemory.mkPacketTake(
-          value,
-          from.as[ValueWrapper].value,
-          to.as[ValueWrapper].value
-        )
-      )
+      field("pack").extract(from, from + to - to.int(1))
     }
 
-    override def pop(n: P4Query): PacketQuery =
-      throw new UnsupportedOperationException(
-        "can't support pop primitives just yet"
-      )
+    override def contents(): P4Query = {
+      field("pack")
+    }
 
-    override def prepend(what: P4Query): PacketQuery =
-      rv(rootMemory.mkPacketPrepend(value, what.as[AbsValueWrapper].value))
+    override def packetLength(): P4Query = {
+      field("len")
+    }
 
+    def extract(from : P4Query, to : P4Query) : P4Query = {
+      val f = from.as[AbsValueWrapper].toInt.get.toInt
+      val t = to.as[AbsValueWrapper].toInt.get.toInt
+      rv(rootMemory.mkExtract(value, f, t))
+    }
+
+    override def pop(what: P4Query): PacketQuery = {
+      val asint = what.as[AbsValueWrapper].toInt.get
+      val pack = value.ofType.asInstanceOf[PacketKind].maxLen
+      val extended = int(asint, BVType(pack))
+      rv(StructObject(
+        PacketKind(switch),
+        Map(
+          "pack" -> (field("pack") >> extended).as[AbsValueWrapper].value,
+          "len" -> (field("len") - field("len").int(asint)).as[AbsValueWrapper].value
+        )
+      ))
+    }
+    override def prepend(what: P4Query): PacketQuery = {
+      val n = what.len().toInt.get
+      val pack = value.ofType.asInstanceOf[PacketKind].maxLen
+      val extended = int(n, BVType(pack))
+      rv(StructObject(
+        PacketKind(switch),
+        Map(
+          "pack" -> ((field("pack") << extended) |
+            rv(rootMemory.mkExtend(what.as[AbsValueWrapper].value, pack))).as[AbsValueWrapper].value,
+          "len" -> (field("len") + field("len").int(n)).as[AbsValueWrapper].value
+        )
+      ))
+    }
     // table query handlers
     override def isDefault: P4Query = {
       !field("hits")
     }
     override def isAction(act: String): P4Query = {
-      field("action") === int(act.hashCode, BVType(8))
+      val fld = field("action")
+      fld === fld.int(fld.value.ofType.asInstanceOf[EnumKind].getId(act))
     }
     override def getParam(act: String, parmName: String): P4Query = {
       field(act + "_" + parmName)
@@ -236,6 +264,12 @@ case class P4RootMemory(override val switch: Switch, rootMemory: RootMemory)
       case sv: ScalarValue =>
         rv(
           rootMemory.mkSHL(sv, asWrapper(other).value.asInstanceOf[ScalarValue])
+        )
+    }
+    override def >>(other : P4Query) : P4Query = value match {
+      case sv: ScalarValue =>
+        rv(
+          rootMemory.mkSHR(sv, asWrapper(other).value.asInstanceOf[ScalarValue])
         )
     }
 

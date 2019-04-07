@@ -1,41 +1,36 @@
 package org.change.p4.control
 
+import java.lang
+
 import com.microsoft.z3.{BitVecNum, Context}
-import org.change.p4.control.queryimpl.{PacketWrapper, ScalarValue, Value}
-import org.change.p4.control.types.PacketType
+import org.change.p4.control.queryimpl.{ScalarValue, StructObject, Value}
+import org.change.p4.control.types.BVType
 
 object PacketLinearize {
   //TODO: make the linearize thing look better - looking strange for the moment
-  def linearize(packValue: Value, context : Context): String = {
+  def linearize(packValue: Value,
+                len : Int,
+                context : Context): String = {
     var crtString = ""
-    if (packValue.ofType != PacketType)
+    if (!packValue.ofType.isInstanceOf[BVType])
       throw new IllegalArgumentException(
-        s"packet type expected, got $packValue"
+        s"packet type expected, got $packValue of type ${packValue.ofType}"
       )
     var ast = packValue.asInstanceOf[ScalarValue].AST
-    val packet = PacketWrapper(context)
-    var break = false
-    while (!packet.isNil(ast) && !break) {
-      val idx = packet.takeKind(ast)
-      if (idx.nonEmpty) {
-        val (prev, now) = packet.unwrap(ast, idx.get)
-        val str = if (now.isBVNumeral) {
-          val bvnum = now.asInstanceOf[BitVecNum]
-          val sz = idx.get
-          bvnum.getBigInteger.toString(2)
+    ast match {
+      case bvn : BitVecNum =>
+        val stringBuilder = new StringBuilder()
+        if (len % 8 == 0) {
+          for (l <- bvn.getBigInteger.toByteArray.take(len / 8))
+            stringBuilder.append(String.format("\\x%02x", new lang.Byte(l)))
+          stringBuilder.mkString
         } else {
-          s"#bv${idx.get}[${now.toString}]"
+          bvn.getBigInteger.toString(2).take(len)
         }
-        crtString = crtString + str
-        ast = prev
-      } else {
-        break = true
-        System.err.println(
-          "still having some symbolic value... how do we handle this"
-        )
-      }
+        // print byte array b1 using for loop
+      case _ => throw new IllegalArgumentException("can't deal with this kind of" +
+        s"packet $ast")
     }
-    crtString
   }
 
 }

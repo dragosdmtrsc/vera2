@@ -12,7 +12,7 @@ import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 
 class AnalyzeThis(switch: Switch) {
-  val parserHelper = new ParserHelper(switch)
+  val parserHelper = ParserHelper(switch)
   private val edges = mutable.Map
     .empty[ControlStatement, List[(ControlStatement, Option[P4BExpr])]]
   private val outstanding =

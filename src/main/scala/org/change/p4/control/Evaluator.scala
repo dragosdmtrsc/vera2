@@ -1,20 +1,24 @@
 package org.change.p4.control
 
 import com.microsoft.z3.{AST, Expr, Model, Solver}
+import org.change.p4.control.queryimpl.{AbsValueWrapper, ScalarValue}
 import org.change.utils.Z3Helper._
 
 abstract class Evaluator {
   def solver: Solver
   def constrain(axioms: List[Expr]): Evaluator = {
-    solver.push()
     for (a <- axioms)
       solver.assertCnstr(a)
     this
   }
   def constrain(axioms: Expr*): Evaluator = constrain(axioms.toList)
   def hasResult: Boolean = {
-    solver.docheck().get
+    solver.docheck().getOrElse({
+      throw new IllegalStateException(solver.getReasonUnknown)
+    })
   }
+  def constrain(expr : P4Query) : Evaluator =
+    constrain(expr.as[AbsValueWrapper].value.asInstanceOf[ScalarValue].AST)
   def ast(expr: P4Query): Expr
   def eval(expr: P4Query): Option[P4Query]
   def ever(expr: P4Query): Boolean = {
@@ -37,7 +41,6 @@ abstract class Evaluator {
   def constrained(by: List[Expr])(fun: => Any): Unit = {
     constrain(by)
     fun
-    solver.pop()
   }
   def enumerate(limit: Int)(fun: => Option[Expr]): Unit = {
     val actualLimit = if (limit < 0) {

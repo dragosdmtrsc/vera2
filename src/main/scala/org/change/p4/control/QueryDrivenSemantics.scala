@@ -642,13 +642,11 @@ class QueryDrivenSemantics[T <: P4Memory](switch: Switch)
                 val hdr1 = crtQuery(es.getExpression)
                 val fld = hdr1.field(fname)
                 val packet = crtQuery.packet()
-                val taken = fld.fresh()
-                val newpack = packet.fresh()
-                val oldPack = newpack.as[PacketQuery].prepend(taken)
+                val taken = packet(fld.len().int(0), fld.len())
+                val newpack = packet.pop(fld.len())
                 crtQuery
                   .update(fld, taken)
                   .update(packet, newpack)
-                  .where(packet === oldPack)
               }
             )
           if (es.getExpression.isArray &&
