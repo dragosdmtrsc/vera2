@@ -2,10 +2,10 @@ package org.change.p4.control.queryimpl
 import org.change.p4.control.STANDARD_METADATA
 import org.change.p4.control.types.{BVType, BoolType}
 import org.change.p4.model.Switch
-import z3.scala.Z3Context
+import com.microsoft.z3.Context
 
 object StructureInitializer {
-  implicit def apply(switch: Switch)(implicit context: Z3Context): Switch = {
+  implicit def apply(switch: Switch)(implicit context: Context): Switch = {
     PacketWrapper.initialize(switch, context)
     val tm = TypeMapper.apply()(context)
     val stdMeta = switch.getInstance("standard_metadata")

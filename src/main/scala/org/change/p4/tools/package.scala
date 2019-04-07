@@ -1,26 +1,25 @@
 package org.change.p4
 
+import com.microsoft.z3.{Context, Expr}
 import org.change.p4.control.SolveTables
 import org.change.p4.control.queryimpl.{PacketWrapper, StructureInitializer}
 import org.change.p4.control.vera.ParserHelper
 import org.change.p4.model.Switch
-import z3.scala.{Z3AST, Z3Context}
-import z3.scala.Z3Context.AstPrintMode
+import org.change.utils.Z3Helper._
 
 package object tools {
   class Initializer(switch: Switch) {
-    def init(context: Z3Context): Switch = {
+    def init(context: Context): Switch = {
       val s = SolveTables(switch)
-      context.setAstPrintMode(AstPrintMode.Z3_PRINT_SMTLIB2_COMPLIANT)
       StructureInitializer(switch)(context)
       val helper = new ParserHelper(switch)
       declarePacketAxioms(context, helper)
       switch
     }
-    private def declarePacketAxioms(context : Z3Context, helper: ParserHelper): Unit = {
+    private def declarePacketAxioms(context : Context, helper: ParserHelper): Unit = {
       val refs = helper.resolveDataRefs(helper.mkUnrolledLabeledGraph)
       val packetWrapper = PacketWrapper(context)
-      val iniPacket = context.mkFreshConst("packet", packetWrapper.packetSort._1)
+      val iniPacket = context.mkFreshConst("packet", packetWrapper.packetSort)
       val axioms = refs.toList.map(ref => {
         val offendingStat = ref._1
         val (initstart, inilen) = (offendingStat._2.getStart.toInt, offendingStat._2.getEnd.toInt)
@@ -28,7 +27,7 @@ package object tools {
           var (intstart, len) = (initstart, inilen)
           var crtPacket = iniPacket
           var pathCondition = context.mkTrue()
-          var currentValue: Z3AST = null
+          var currentValue: Expr = null
           for (loc <- path) {
             val es = loc._1
             val layOfTheLand = es.getExpression.getInstance().getLayout
@@ -42,7 +41,10 @@ package object tools {
                 (intstart - field.getLength, 0)
               }
               if (consumes != 0) {
-                val x = packetWrapper.packetSort._4(widthIdx)(1)(crtPacket)
+                val x = packetWrapper
+                  .constructors(widthIdx)
+                  .getAccessorDecls()(1)
+                  .apply(crtPacket)
                 val actualConsume = if (consumes <= len) {
                   consumes
                 } else {
@@ -52,15 +54,20 @@ package object tools {
                   if (intstart == 0 && actualConsume == field.getLength)
                     x
                   else
-                    context.mkExtract(intstart + actualConsume - 1, intstart, x)
+                    context.mkExtract(intstart + actualConsume - 1, intstart, x.asBV)
                 if (currentValue != null) {
-                  currentValue = context.mkConcat(currentValue, whatComes)
+                  currentValue = context.mkConcat(currentValue.asBV, whatComes.asBV)
                 } else {
                   currentValue = whatComes
                 }
               }
-              pathCondition = context.mkAnd(pathCondition, packetWrapper.packetSort._3(widthIdx)(crtPacket))
-              crtPacket = packetWrapper.packetSort._4(widthIdx).head(crtPacket)
+              pathCondition = context.mkAnd(pathCondition,
+                packetWrapper.constructors(widthIdx).getTesterDecl.apply(crtPacket).asBool)
+              crtPacket = packetWrapper
+                .constructors(widthIdx)
+                .getAccessorDecls
+                .head
+                .apply(crtPacket)
               intstart = nextstart
               len = len - consumes
             }
@@ -73,13 +80,15 @@ package object tools {
       })
       axioms.foreach(r => {
         val bitwidth = r._1._2.toInt
-        val forall = context.mkForAllConst(0, Seq(), Seq(iniPacket),
+        val forall = context.mkForall(
+          Array(iniPacket),
           context.mkEq(
             packetWrapper.take(iniPacket, r._1._1.toInt, r._1._2.toInt),
-            r._2.foldLeft(context.mkInt(0, context.mkBVSort(bitwidth)))((acc, v) => {
+            r._2.foldLeft(context.mkNumeral(0, context.mkBVSort(bitwidth)))((acc, v) => {
               context.mkITE(v._1, v._2, acc)
             })
-          )
+          ), 0,
+          null, null, null, null
         )
         packetWrapper.declareAxiom(forall)
       })

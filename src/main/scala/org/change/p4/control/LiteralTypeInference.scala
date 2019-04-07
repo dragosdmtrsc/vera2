@@ -4,10 +4,10 @@ import org.change.p4.control.types.BVType
 import org.change.p4.model.Switch
 import org.change.p4.model.control.exp._
 import org.change.p4.model.parser.SetStatement
-import z3.scala.Z3Context
+import com.microsoft.z3.Context
 
 class LiteralTypeInference(switch: Switch) extends ASTVisitor {
-  val typeSolver = new TypeSolver(new Z3Context())
+  val typeSolver = new TypeSolver(new Context())
 
   override def postorder(validRef: ValidRef): Unit = {
     typeSolver.equal(validRef, BVType(1))

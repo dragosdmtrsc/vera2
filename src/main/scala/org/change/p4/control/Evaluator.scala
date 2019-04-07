@@ -1,44 +1,45 @@
 package org.change.p4.control
 
-import z3.scala.{Z3AST, Z3Model, Z3Solver}
+import com.microsoft.z3.{AST, Expr, Model, Solver}
+import org.change.utils.Z3Helper._
 
 abstract class Evaluator {
-  def solver: Z3Solver
-  def constrain(axioms: List[Z3AST]): Evaluator = {
+  def solver: Solver
+  def constrain(axioms: List[Expr]): Evaluator = {
     solver.push()
     for (a <- axioms)
       solver.assertCnstr(a)
     this
   }
-  def constrain(axioms: Z3AST*): Evaluator = constrain(axioms.toList)
+  def constrain(axioms: Expr*): Evaluator = constrain(axioms.toList)
   def hasResult: Boolean = {
-    solver.check().get
+    solver.docheck().get
   }
-  def ast(expr: P4Query): Z3AST
+  def ast(expr: P4Query): Expr
   def eval(expr: P4Query): Option[P4Query]
   def ever(expr: P4Query): Boolean = {
     if (!hasResult) false
     else {
       solver.push()
       solver.assertCnstr(ast(expr))
-      val res = solver.check().get
+      val res = solver.docheck().get
       solver.pop()
       res
     }
   }
-  def model(): Option[Z3Model] = {
-    if (hasResult) Some(solver.getModel()) else None
+  def model(): Option[Model] = {
+    if (hasResult) Some(solver.getModel) else None
   }
 
   def never(expr: P4Query): Boolean = !ever(expr)
   def always(expr: P4Query): Boolean = ever(!expr)
-  def constrained(by: Z3AST*)(fun: => Any): Unit = constrained(by.toList)(fun)
-  def constrained(by: List[Z3AST])(fun: => Any): Unit = {
+  def constrained(by: Expr*)(fun: => Any): Unit = constrained(by.toList)(fun)
+  def constrained(by: List[Expr])(fun: => Any): Unit = {
     constrain(by)
     fun
     solver.pop()
   }
-  def enumerate(limit: Int)(fun: => Option[Z3AST]): Unit = {
+  def enumerate(limit: Int)(fun: => Option[Expr]): Unit = {
     val actualLimit = if (limit < 0) {
       Int.MaxValue
     } else {

@@ -1,23 +1,38 @@
 package org.change.p4.control.queryimpl
 
+import com.microsoft.z3.{BoolExpr, Context, Expr, Solver}
 import org.change.p4.control.SafetyQueryListener
 import org.change.p4.model.Switch
-import z3.scala.{Z3AST, Z3Context, Z3Solver}
+import org.change.utils.Z3Helper._
 
 import scala.collection.mutable
 
-class QueryBuilder(switch: Switch, context: Z3Context)
+class QueryBuilder(switch: Switch, context: Context)
     extends SafetyQueryListener[P4RootMemory] {
-  val nodeToConstraint = mutable.Map.empty[Object, Z3AST]
-  val errCause = mutable.Map.empty[Object, Z3AST]
+  val nodeToConstraint = mutable.Map.empty[Object, BoolExpr]
+  val errCause = mutable.Map.empty[Object, Expr]
 
-  val locSelectors = mutable.Map.empty[Object, Z3AST]
+  val locSelectors = mutable.Map.empty[Object, BoolExpr]
 
-  def getLocationSelector(obj : Object) : Z3AST = {
+  def getLocationSelector(obj : Object) : BoolExpr = {
     locSelectors.getOrElseUpdate(obj, context.mkFreshBoolConst("loc"))
   }
 
-  private lazy val solver: Z3Solver = context.mkSolver()
+  private lazy val solver: Solver = {
+    val ackermanized = context.mkTactic("ackermannize_bv")
+    val simplify = context.mkTactic("simplify")
+    val qfbv = context.mkTactic("qfbv")
+    val eq2bv = context.mkTactic("eq2bv")
+    val macros = context.mkTactic("macro-finder")
+    val t1 = context.andThen(
+      simplify,
+      macros,
+      eq2bv,
+      ackermanized,
+      simplify,
+      qfbv)
+    context.mkSolver()
+  }
   override def before(event: Object, ctx: P4RootMemory): Unit = {
     super.before(event, ctx)
     query(event, ctx)
@@ -28,14 +43,15 @@ class QueryBuilder(switch: Switch, context: Z3Context)
             getLocationSelector(event)
           ))
         errCause
-          .put(event, mem.errorCause().value.asInstanceOf[ScalarValue].z3AST)
+          .put(event,
+            mem.errorCause().value.asInstanceOf[ScalarValue].AST)
       })
   }
 
-  def buildSolver(): Z3Solver = {
+  def buildSolver(): Solver = {
     if (nodeToConstraint.nonEmpty) {
-      val ascertain = context.simplifyAst(context.mkOr(nodeToConstraint.values.toList: _*))
-      solver.assertCnstr(ascertain)
+      val ascertain = context.mkOr(nodeToConstraint.values.toSeq:_*).simplify().asInstanceOf[BoolExpr]
+      solver.add(ascertain)
     }
     solver
   }

@@ -1,3 +1,5 @@
 package org.change.p4.control.types
 
-object IntType extends P4Type
+trait IntType extends P4Type
+object UnboundedInt extends IntType
+case class BoundedInt() extends IntType

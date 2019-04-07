@@ -8,11 +8,11 @@ import org.change.p4.model.actions.P4ActionCall
 import org.change.p4.model.actions.P4ActionCall.ParamExpression
 import org.change.p4.model.control.IfElseStatement
 import org.change.p4.model.parser.CaseEntry
-import z3.scala.Z3Context
+import com.microsoft.z3.Context
 
 import scala.collection.JavaConverters._
 
-class IsValidQuery(switch: Switch, context: Z3Context)
+class IsValidQuery(switch: Switch, context: Context)
     extends QueryBuilder(switch, context) {
   override def query(node: Object, memory: P4RootMemory): Option[P4RootMemory] =
     node match {

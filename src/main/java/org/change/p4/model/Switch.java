@@ -196,6 +196,12 @@ public class Switch {
   public int getFieldListIndex(String fieldList) {
     return fl2ids.getOrDefault(fieldList, -1);
   }
+  public Iterable<Integer> allowedFieldListIndices() {
+    return fl2ids.values();
+  }
+  public int nrOfFieldLists() {
+    return fl2ids.size();
+  }
 
   public List<FieldRef> expandFieldList(String pfieldList) {
     if (fieldListExpansion.size() != fieldListMap.size()) {

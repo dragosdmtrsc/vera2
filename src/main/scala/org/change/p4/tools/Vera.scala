@@ -1,11 +1,14 @@
 package org.change.p4.tools
 
+import com.microsoft.z3.{Context, Expr}
 import org.change.p4.control.queryimpl._
 import org.change.p4.control.querylib.{DisjQuery, IndexOutOfBounds, IsValidQuery}
-import org.change.p4.control.vera.ParserHelper
+import org.change.p4.control.types.BoundedInt
 import org.change.p4.control.{RootEvaluator, _}
 import org.change.p4.model.Switch
-import z3.scala.Z3Context
+import org.change.utils.Z3Helper._
+
+import collection.JavaConverters._
 
 object Vera {
   case class VeraArgs(p4File: String = "",
@@ -52,29 +55,35 @@ object Vera {
     }
     veraArgs = veraArgs.copy(p4File = remaining.head)
     System.out.println(s"preparing to run vera against ${veraArgs.p4File}")
-    val context = new Z3Context()
+    val context = new Context()
     // always call init prior to anything
     // it will gather SMT types, make functions,
     // do reference mapping, type inference and essentially
     // initialize all data structures required to run Vera
     val switch = Switch.fromFile(veraArgs.p4File).init(context)
     val input = MemoryInitializer.initialize(switch)(context)
+    val fieldList = input.field(FIELD_LIST_REF)
+      .value
+      .ofType
+      .asInstanceOf[BoundedInt]
     val qb = DisjQuery(switch, context)(
       new IsValidQuery(switch, context),
       new IndexOutOfBounds(switch, context)
     )
     var sema = new SemaWithEvents[P4RootMemory](switch)
-    sema = if (veraArgs.validate) sema else sema.addListener(qb)
     val parsed = sema.parse(input)
+    sema = if (veraArgs.validate) sema else sema.addListener(qb)
     val postingress = sema.runControl("ingress", parsed)
     val BufferResult(cloned, goesOn, recirculated, dropped) =
       sema.buffer(postingress, input)
+//    var goesOn = postingress
     val egressInput = goesOn.as[P4RootMemory]
     val egressOutcome = sema.runControl("egress", egressInput)
     val BufferResult(ecloned, egoesOn, erecirculated, edropped) =
       sema.buffer(egressOutcome, egressInput, ingress = false)
+//    var egoesOn = egressOutcome
     val deparsed = sema.deparse(egoesOn)
-    val evaluator = RootEvaluator(qb.buildSolver())
+    val evaluator = RootEvaluator(qb.buildSolver(), context)
     if (veraArgs.portFilter.nonEmpty) {
       val target = SwitchTarget.fromRegex(veraArgs.portFilter)
       val targetConstraints = ConstraintBuilder(switch, context, target).toList
@@ -84,6 +93,10 @@ object Vera {
     // side effect is good here, we should always populate
     // the take_{}_{} primitives with their implementations
     evaluator.constrain(PacketWrapper(context).axioms)
+//    val boundedAxioms = TypeMapper()(context).boundAxioms(fieldList,
+//      0, switch.nrOfFieldLists()
+//    )
+//    evaluator.constrain(boundedAxioms)
     if (veraArgs.validate) {
       if (veraArgs.commands.isEmpty || veraArgs.portFilter.isEmpty) {
         throw new IllegalStateException(
@@ -100,14 +113,7 @@ object Vera {
           evaluator.constrained(constraints) {
             if (veraArgs.printSolver) {
               System.out.println(
-                context.benchmarkToSMTLIBString(
-                  "solver",
-                  "",
-                  "",
-                  "",
-                  evaluator.solver.getAssertions().toSeq,
-                  context.mkTrue()
-                )
+                evaluator.solver.toString
               )
             }
 
@@ -127,12 +133,13 @@ object Vera {
             System.out.println("when input on port " + inputPort)
             System.out.println("a packet:")
             System.out.println(
-              PacketLinearize.linearize(pack.as[AbsValueWrapper].value)
+              PacketLinearize.linearize(pack.as[AbsValueWrapper].value, context)
             )
             System.out.println("should come out on port " + egressPort)
             System.out.println("and look like:")
             System.out.println(
-              PacketLinearize.linearize(expectation.as[AbsValueWrapper].value)
+              PacketLinearize.linearize(expectation.as[AbsValueWrapper].value,
+                context)
             )
           }
         }
@@ -142,15 +149,23 @@ object Vera {
       val generateTestHarness = veraArgs.commands.nonEmpty && veraArgs.portFilter.nonEmpty
       val enumFunction = () => {
         if (veraArgs.printSolver) {
+          val isUnbounded = context.mkProbe("is-unbounded")
+          val isqfbv = context.mkProbe("is-qfbv")
+          val isqfaufbv = context.mkProbe("is-qfaufbv")
+          val goal = context.mkGoal(false, false, false)
+          goal.add(evaluator.solver.getAssertions:_*)
+          val tactic = context.mkTactic("eq2bv")
+          val newgoal = context.mkGoal(false, false, false)
+          val appres = tactic.apply(goal).getSubgoals
+          appres.map(_.AsBoolExpr())
+            .foreach(g => newgoal.add(g))
+          val simplify = context.mkTactic("simplify")
+          val res = isUnbounded.apply(newgoal)
+          System.out.println(s"is unbounded: $res")
+          System.out.println(s"is qfbv ${isqfbv.apply(newgoal)}")
+          System.out.println(s"is qfaufbv ${isqfaufbv.apply(newgoal)}")
           System.out.println(
-            context.benchmarkToSMTLIBString(
-              "solver",
-              "",
-              "",
-              "",
-              evaluator.solver.getAssertions().toSeq,
-              context.mkTrue()
-            )
+            evaluator.solver.toString
           )
         }
         evaluator.enumerate(limit) {
@@ -159,13 +174,14 @@ object Vera {
             .flatMap(model => {
               qb.nodeToConstraint
                 .find(r => {
-                  model.evalAs[Boolean](r._2).getOrElse(false)
+                  model.eval(r._2, false).getBool.getOrElse(false)
                 })
                 .map(r => {
                   val (loc, err) = r
-                  val errno = model.eval(qb.errCause(loc)).get
+                  val errno = model.eval(qb.errCause(loc), false).getBool
                   val errCode = model
-                    .evalAs[Int](qb.errCause(loc))
+                    .eval(qb.errCause(loc), false).getInt
+                    .map(_.toInt)
                     .map(ErrorLedger.error)
                     .getOrElse("can't resolve error")
                   System.out.println("at: ")
@@ -183,7 +199,8 @@ object Vera {
                     System.out.println("input on port " + inputPort)
                     System.out.println("a packet:")
                     System.out.println(
-                      PacketLinearize.linearize(pack.as[AbsValueWrapper].value)
+                      PacketLinearize.linearize(pack.as[AbsValueWrapper].value,
+                        context)
                     )
                   }
                   context.mkNot(qb.getLocationSelector(loc))

@@ -1,13 +1,15 @@
 package org.change.p4.control.queryimpl
 
+import com.microsoft.z3._
+import com.microsoft.z3.enumerations.Z3_decl_kind
 import org.change.p4.control.types._
-import z3.scala.{Z3AST, Z3Context}
+import org.change.utils.Z3Helper._
 
 case class RootMemory(structObject: StructObject, ocondition: ScalarValue)(
-  implicit val context: Z3Context
+  implicit val context: Context
 ) {
 
-  lazy val condition: Z3AST = ocondition.z3AST
+  lazy val condition : BoolExpr = ocondition.AST.asBool
 
   def mkPacketTake(value: Value, from: Value, to: Value): Value = {
     val scalarValue = value.asInstanceOf[ScalarValue]
@@ -15,7 +17,7 @@ case class RootMemory(structObject: StructObject, ocondition: ScalarValue)(
     val toI = to.asInstanceOf[ScalarValue].maybeInt.get
     new ScalarValue(
       BVType((toI - fromI).toInt),
-      typeMapper.packetWrapper.take(scalarValue.z3AST, fromI.toInt, toI.toInt)
+      typeMapper.packetWrapper.take(scalarValue.AST, fromI.toInt, toI.toInt)
     )
   }
 
@@ -27,65 +29,11 @@ case class RootMemory(structObject: StructObject, ocondition: ScalarValue)(
     val BVType(n) = append.ofType
     new ScalarValue(
       PacketType,
-      typeMapper.packetWrapper.prepend(vpacket.z3AST, n, vappend.z3AST)
+      typeMapper.packetWrapper.prepend(vpacket.AST, n, vappend.AST)
     )
   }
 
-  def mkPacketPop(value: Value, n: Value): ScalarValue = {
-    val v = value.asInstanceOf[ScalarValue]
-    val nr = n.asInstanceOf[ScalarValue].maybeInt.get
-    val taken = typeMapper.packetWrapper.take(v.z3AST, 0, nr.toInt)
-    val afterPop = typeMapper.packetWrapper.pop(v.z3AST, nr.toInt)
-    new ScalarValue(PacketType, afterPop)
-  }
-
   val typeMapper: TypeMapper = TypeMapper()
-
-  def leftMerge(l: Value, r: Value): (ScalarValue, ScalarValue, Value) =
-    l match {
-      case ImmutableValue(v) =>
-        r match {
-          case ImmutableValue(rv) =>
-            assert(rv == v)
-            (mkBool(true), mkBool(true), l)
-          case _ =>
-            throw new IllegalStateException(
-              s"can't merge immutable with mutable $l $r"
-            )
-        }
-      case StructObject(ofType, fieldRefs) =>
-        val lm = fieldRefs.foldLeft(
-          (Map.empty[String, Value], mkBool(true), mkBool(true))
-        )((acc, lv) => {
-          val (c1, c2, v) =
-            leftMerge(lv._2, r.asInstanceOf[StructObject].fieldRefs(lv._1))
-          (acc._1 + (lv._1 -> v), mkAnd2(c1, acc._2), mkAnd2(c2, acc._3))
-        })
-        (lm._2, lm._3, StructObject(ofType, lm._1))
-      case ArrayObject(ofType, n, elems) =>
-        val lm = elems.zipWithIndex.foldLeft(
-          (List.empty[Value], mkBool(true), mkBool(true))
-        )((acc, lv) => {
-          val (c1, c2, v) =
-            leftMerge(lv._1, r.asInstanceOf[ArrayObject].elems(lv._2))
-          (acc._1 :+ v, mkAnd2(c1, acc._2), mkAnd2(c2, acc._3))
-        })
-        val oarr = r.asInstanceOf[ArrayObject]
-        val (c1, c2, vnext) = leftMerge(n, oarr.next)
-        (
-          mkAnd2(lm._2, c1),
-          mkAnd2(lm._3, c2),
-          ArrayObject(ofType, vnext.asInstanceOf[ScalarValue], lm._1)
-        )
-      case sv: ScalarValue =>
-        val sd = r.asInstanceOf[ScalarValue]
-        if (context.isEqAST(sd.z3AST, sv.z3AST)) {
-          (mkBool(true), mkBool(true), sv)
-        } else {
-          val fresh = typeMapper.fresh(sv.ofType, "merge")
-          (mkEQ(fresh, sv), mkEQ(fresh, sd), fresh)
-        }
-    }
   def merge(other: RootMemory): RootMemory = {
     if (this.isEmpty()) {
       other
@@ -93,11 +41,6 @@ case class RootMemory(structObject: StructObject, ocondition: ScalarValue)(
       this
     } else {
       RootMemory.merge(List(this, other))
-//      val (c1, c2, va) = leftMerge(structObject, other.structObject)
-//      copy(
-//        structObject = va.asInstanceOf[StructObject],
-//        ocondition = mkOr2(other.where(c2).ocondition, where(c1).ocondition)
-//      )
     }
   }
   def unwrapImmutable(v: Value): Value = v match {
@@ -147,12 +90,16 @@ case class RootMemory(structObject: StructObject, ocondition: ScalarValue)(
     val t2 = v.ofType
     val setTo = if (t1 != v.ofType) {
       (t1, t2) match {
+        case (BoundedInt(), UnboundedInt) =>
+          val sv = v.asInstanceOf[ScalarValue]
+          new ScalarValue(t1, sv.AST, maybeInt = sv.maybeInt,
+            maybeBoolean = sv.maybeBoolean)
         case (BVType(n), BVType(m)) =>
           val scalarV = v.asInstanceOf[ScalarValue]
           if (n < m) {
             new ScalarValue(
               BVType(n),
-              context.mkExtract(n - 1, 0, scalarV.z3AST),
+              context.mkExtract(n - 1, 0, scalarV.AST.asBV),
               maybeInt = scalarV.maybeInt.map(f => {
                 f & ((BigInt(1) << n) - 1)
               })
@@ -160,7 +107,7 @@ case class RootMemory(structObject: StructObject, ocondition: ScalarValue)(
           } else {
             new ScalarValue(
               BVType(n),
-              context.mkZeroExt(n - m, scalarV.z3AST),
+              context.mkZeroExt(n - m, scalarV.AST.asBV),
               maybeInt = scalarV.maybeInt
             )
           }
@@ -180,10 +127,16 @@ case class RootMemory(structObject: StructObject, ocondition: ScalarValue)(
     memPath.foldRight(structObject.ofType: P4Type)((x, acc) => {
       x match {
         case Left(s) if s != "next__" => acc.asInstanceOf[StructType].members(s)
-        case Left(s) if s == "next__" => IntType
+        case Left(s) if s == "next__" => BVType(8)
         case Right(i)                 => acc.asInstanceOf[FixedArrayType].inner
       }
     })
+
+  def andArgs(ast : Expr) : Seq[Expr] =
+    if (ast.isAnd) ast.getArgs.toSeq else {
+      Seq(ast)
+    }
+
   def mkAnd2(a: ScalarValue, b: ScalarValue): ScalarValue = a.ofType match {
     case BoolType =>
       (a.maybeBoolean, b.maybeBoolean) match {
@@ -195,7 +148,10 @@ case class RootMemory(structObject: StructObject, ocondition: ScalarValue)(
           )
         case (Some(true), _) => b
         case (_, Some(true)) => a
-        case _               => new ScalarValue(BoolType, context.mkAnd(a.z3AST, b.z3AST))
+        case _               =>
+          val args = andArgs(a.AST) ++ andArgs(b.AST)
+          new ScalarValue(BoolType,
+            context.mkAnd(args.map(_.asBool):_*))
       }
     case bvType: BVType =>
       (a.maybeInt, b.maybeInt) match {
@@ -203,7 +159,8 @@ case class RootMemory(structObject: StructObject, ocondition: ScalarValue)(
         case (_, Some(x)) if x == 0  => typeMapper.literal(bvType, 0)
         case (Some(x), _) if x == -1 => b
         case (_, Some(x)) if x == -1 => a
-        case _                       => new ScalarValue(bvType, context.mkBVAnd(a.z3AST, b.z3AST))
+        case _                       =>
+          new ScalarValue(bvType, context.mkBVAND(a.AST.asBV, b.AST.asBV))
       }
     case _ => throw new IllegalArgumentException(s"can't and between $a and $b")
   }
@@ -222,7 +179,7 @@ case class RootMemory(structObject: StructObject, ocondition: ScalarValue)(
         case (Some(false), _) => b
         case (_, Some(false)) => a
         case (_, _) =>
-          new ScalarValue(BoolType, context.mkOr(a.z3AST, b.z3AST))
+          new ScalarValue(BoolType, context.mkOr(a.AST.asBool, b.AST.asBool))
       }
     case bvType: BVType =>
       (a.maybeInt, b.maybeInt) match {
@@ -230,7 +187,8 @@ case class RootMemory(structObject: StructObject, ocondition: ScalarValue)(
         case (_, Some(x)) if x == 0  => a
         case (Some(x), _) if x == -1 => typeMapper.literal(bvType, -1)
         case (_, Some(x)) if x == -1 => typeMapper.literal(bvType, -1)
-        case _                       => new ScalarValue(bvType, context.mkBVAnd(a.z3AST, b.z3AST))
+        case _                       =>
+          new ScalarValue(bvType, context.mkBVAND(a.AST.asBV, b.AST.asBV))
       }
     case _ => throw new IllegalArgumentException(s"can't and between $a and $b")
   }
@@ -239,13 +197,13 @@ case class RootMemory(structObject: StructObject, ocondition: ScalarValue)(
       (a.maybeBoolean, b.maybeBoolean) match {
         case (Some(x), Some(y)) => mkBool(x.^(y))
         case (_, _) =>
-          new ScalarValue(BoolType, context.mkXor(a.z3AST, b.z3AST))
+          new ScalarValue(BoolType, context.mkXor(a.AST.asBool, b.AST.asBool))
       }
     case bvType: BVType =>
       (a.maybeInt, b.maybeInt) match {
         case (Some(x), Some(y)) => typeMapper.literal(bvType, x ^ y)
         case (_, _) =>
-          new ScalarValue(bvType, context.mkBVXor(a.z3AST, b.z3AST))
+          new ScalarValue(bvType, context.mkBVXOR(a.AST.asBV, b.AST.asBV))
       }
     case _ => throw new IllegalArgumentException(s"can't xor between $a and $b")
   }
@@ -299,7 +257,7 @@ case class RootMemory(structObject: StructObject, ocondition: ScalarValue)(
             val s2 = els.asInstanceOf[ScalarValue]
             new ScalarValue(
               scalarValue.ofType,
-              context.mkITE(condition.z3AST, scalarValue.z3AST, s2.z3AST)
+              context.mkITE(condition.AST.asBool, scalarValue.AST, s2.AST)
             )
         }
     }
@@ -308,7 +266,7 @@ case class RootMemory(structObject: StructObject, ocondition: ScalarValue)(
     on match {
       case ArrayObject(t, _, flds) =>
         idx match {
-          case sv: ScalarValue if sv.ofType == IntType =>
+          case sv: ScalarValue =>
             sv.maybeInt
               .map(idx => {
                 if (idx >= 0 && idx < t.sz) {
@@ -319,10 +277,10 @@ case class RootMemory(structObject: StructObject, ocondition: ScalarValue)(
               })
               .getOrElse({
                 val churn = flds.indices.map(u => {
-                  (mkEQ(typeMapper.literal(IntType, u), idx), u)
+                  (mkEQ(typeMapper.literal(idx.ofType, u), idx), u)
                 })
                 (flds.indices.foldLeft(typeMapper.zeros(t.inner))((acc, u) => {
-                  mkITE(mkEQ(typeMapper.literal(IntType, u), idx), flds(u), acc)
+                  mkITE(mkEQ(typeMapper.literal(idx.ofType, u), idx), flds(u), acc)
                 }), churn)
               })
           case _ =>
@@ -392,7 +350,7 @@ case class RootMemory(structObject: StructObject, ocondition: ScalarValue)(
               case _ =>
                 new ScalarValue(
                   BoolType,
-                  context.mkEq(sv.z3AST, r.asInstanceOf[ScalarValue].z3AST)
+                  context.mkEq(sv.AST, r.asInstanceOf[ScalarValue].AST)
                 )
             }
         }
@@ -404,13 +362,13 @@ case class RootMemory(structObject: StructObject, ocondition: ScalarValue)(
       ls.maybeInt match {
         case Some(x) =>
           typeMapper.literal(b, ((BigInt(1) << b.sz) - 1) ^ x)
-        case _ => new ScalarValue(b, context.mkBVNot(ls.z3AST))
+        case _ => new ScalarValue(b, context.mkBVNot(ls.AST.asBV))
       }
     case BoolType =>
       val ls = l.asInstanceOf[ScalarValue]
       ls.maybeBoolean match {
         case Some(x) => mkBool(!x)
-        case _       => new ScalarValue(BoolType, context.mkNot(ls.z3AST))
+        case _       => new ScalarValue(BoolType, context.mkNot(ls.AST.asBool))
       }
   }
   def mkNeg(l: Value): ScalarValue = l.ofType match {
@@ -420,13 +378,14 @@ case class RootMemory(structObject: StructObject, ocondition: ScalarValue)(
         case Some(x) =>
           val ones = ((BigInt(1) << b.sz) - 1) ^ x
           typeMapper.literal(b, ones - 1)
-        case _ => new ScalarValue(b, context.mkBVNeg(ls.z3AST))
+        case _ => new ScalarValue(b, context.mkBVNeg(ls.AST.asBV))
       }
-    case IntType =>
+    case _ : IntType =>
       val ls = l.asInstanceOf[ScalarValue]
       ls.maybeInt match {
-        case Some(x) => typeMapper.literal(IntType, -x)
-        case _       => new ScalarValue(IntType, context.mkUnaryMinus(ls.z3AST))
+        case Some(x) => typeMapper.literal(UnboundedInt, -x)
+        case _       =>
+          new ScalarValue(UnboundedInt, context.mkUnaryMinus(ls.AST.asInt))
       }
   }
   def intResolve[T](l: Value, r: Value, c: (BigInt, BigInt) => T): Option[T] = {
@@ -443,19 +402,19 @@ case class RootMemory(structObject: StructObject, ocondition: ScalarValue)(
       .map(mkBool)
       .getOrElse({
         l match {
-          case sv: ScalarValue if sv.ofType == IntType =>
+          case sv: ScalarValue if sv.ofType.isInstanceOf[IntType] =>
             intResolve(l, r, _ < _)
               .map(mkBool)
               .getOrElse(
                 new ScalarValue(
                   BoolType,
-                  context.mkLT(sv.z3AST, r.asInstanceOf[ScalarValue].z3AST)
+                  context.mkLt(sv.AST.asInt, r.asInstanceOf[ScalarValue].AST.asInt)
                 )
               )
           case sv: ScalarValue =>
             new ScalarValue(
               BoolType,
-              context.mkBVSlt(sv.z3AST, r.asInstanceOf[ScalarValue].z3AST)
+              context.mkBVSLT(sv.AST.asBV, r.asInstanceOf[ScalarValue].AST.asBV)
             )
         }
       })
@@ -464,15 +423,15 @@ case class RootMemory(structObject: StructObject, ocondition: ScalarValue)(
       .map(mkBool)
       .getOrElse({
         l match {
-          case sv: ScalarValue if sv.ofType == IntType =>
+          case sv: ScalarValue if sv.ofType.isInstanceOf[IntType] =>
             new ScalarValue(
               BoolType,
-              context.mkLE(sv.z3AST, r.asInstanceOf[ScalarValue].z3AST)
+              context.mkLe(sv.AST.asInt, r.asInstanceOf[ScalarValue].AST.asInt)
             )
           case sv: ScalarValue =>
             new ScalarValue(
               BoolType,
-              context.mkBVSle(sv.z3AST, r.asInstanceOf[ScalarValue].z3AST)
+              context.mkBVSLE(sv.AST.asBV, r.asInstanceOf[ScalarValue].AST.asBV)
             )
         }
       })
@@ -481,15 +440,15 @@ case class RootMemory(structObject: StructObject, ocondition: ScalarValue)(
       .map(mkBool)
       .getOrElse({
         l match {
-          case sv: ScalarValue if sv.ofType == IntType =>
+          case sv: ScalarValue if sv.ofType.isInstanceOf[IntType] =>
             new ScalarValue(
               BoolType,
-              context.mkGE(sv.z3AST, r.asInstanceOf[ScalarValue].z3AST)
+              context.mkGe(sv.AST.asInt, r.asInstanceOf[ScalarValue].AST.asInt)
             )
           case sv: ScalarValue =>
             new ScalarValue(
               BoolType,
-              context.mkBVSge(sv.z3AST, r.asInstanceOf[ScalarValue].z3AST)
+              context.mkBVSGE(sv.AST.asBV, r.asInstanceOf[ScalarValue].AST.asBV)
             )
         }
       })
@@ -498,15 +457,17 @@ case class RootMemory(structObject: StructObject, ocondition: ScalarValue)(
       .map(mkBool)
       .getOrElse({
         l match {
-          case sv: ScalarValue if sv.ofType == IntType =>
+          case sv: ScalarValue if sv.ofType.isInstanceOf[IntType] =>
             new ScalarValue(
               BoolType,
-              context.mkGT(sv.z3AST, r.asInstanceOf[ScalarValue].z3AST)
+              context.mkGt(sv.AST.asInt,
+                r.asInstanceOf[ScalarValue].AST.asInt)
             )
           case sv: ScalarValue =>
             new ScalarValue(
               BoolType,
-              context.mkBVSgt(sv.z3AST, r.asInstanceOf[ScalarValue].z3AST)
+              context.mkBVSGT(sv.AST.asBV,
+                r.asInstanceOf[ScalarValue].AST.asBV)
             )
         }
       })
@@ -515,20 +476,20 @@ case class RootMemory(structObject: StructObject, ocondition: ScalarValue)(
       .map(typeMapper.literal(l.ofType, _))
       .getOrElse({
         l.ofType match {
-          case IntType =>
+          case _ : IntType =>
             new ScalarValue(
-              IntType,
+              UnboundedInt,
               context.mkAdd(
-                l.asInstanceOf[ScalarValue].z3AST,
-                r.asInstanceOf[ScalarValue].z3AST
+                l.asInstanceOf[ScalarValue].AST.asInstanceOf[ArithExpr],
+                r.asInstanceOf[ScalarValue].AST.asInstanceOf[ArithExpr]
               )
             )
           case b: BVType =>
             new ScalarValue(
               b,
               context.mkBVAdd(
-                l.asInstanceOf[ScalarValue].z3AST,
-                r.asInstanceOf[ScalarValue].z3AST
+                l.asInstanceOf[ScalarValue].AST.asInstanceOf[BitVecExpr],
+                r.asInstanceOf[ScalarValue].AST.asInstanceOf[BitVecExpr]
               )
             )
           case _ =>
@@ -542,20 +503,20 @@ case class RootMemory(structObject: StructObject, ocondition: ScalarValue)(
       .map(typeMapper.literal(l.ofType, _))
       .getOrElse({
         l.ofType match {
-          case IntType =>
+          case _ : IntType =>
             new ScalarValue(
-              IntType,
+              UnboundedInt,
               context.mkSub(
-                l.asInstanceOf[ScalarValue].z3AST,
-                r.asInstanceOf[ScalarValue].z3AST
+                l.asInstanceOf[ScalarValue].AST.asInstanceOf[ArithExpr],
+                r.asInstanceOf[ScalarValue].AST.asInstanceOf[ArithExpr]
               )
             )
           case b: BVType =>
             new ScalarValue(
               b,
               context.mkBVSub(
-                l.asInstanceOf[ScalarValue].z3AST,
-                r.asInstanceOf[ScalarValue].z3AST
+                l.asInstanceOf[ScalarValue].AST.asInstanceOf[BitVecExpr],
+                r.asInstanceOf[ScalarValue].AST.asInstanceOf[BitVecExpr]
               )
             )
           case _ =>
@@ -572,9 +533,9 @@ case class RootMemory(structObject: StructObject, ocondition: ScalarValue)(
           case b: BVType =>
             new ScalarValue(
               b,
-              context.mkBVShl(
-                l.asInstanceOf[ScalarValue].z3AST,
-                r.asInstanceOf[ScalarValue].z3AST
+              context.mkBVSHL(
+                l.asInstanceOf[ScalarValue].AST.asInstanceOf[BitVecExpr],
+                r.asInstanceOf[ScalarValue].AST.asInstanceOf[BitVecExpr]
               )
             )
           case _ =>
@@ -606,7 +567,10 @@ object RootMemory {
         val memPath = Right(idx) :: current
         val newtype = inner
         changeset(projection, memPath, newtype)
-      })
+      }) ++ changeset(
+        values.map(_.asInstanceOf[ArrayObject].next),
+        Left("next__") :: current,
+        values.head.asInstanceOf[ArrayObject].next.ofType)
     case _ =>
       if (values.head.isInstanceOf[ImmutableValue]) {
         Nil
@@ -623,6 +587,7 @@ object RootMemory {
         }
       }
   }
+  val debug = true
   def merge(rootMemories : Iterable[RootMemory]) : RootMemory = {
     val changed = changeset(rootMemories.map(_.structObject),
       emptyPath(),
@@ -630,7 +595,15 @@ object RootMemory {
     val template = rootMemories.head
     val newstruct = changed.foldLeft(template)((acc, ch) => {
       val ofType = ch._2.head.ofType
-      acc.set(ch._1, template.typeMapper.fresh(ofType, "merge"))
+      val pref = if (debug) {
+        ch._1.map({
+          case Left(a) => a
+          case Right(b) => s"[$b]"
+        }).reverse.mkString(".")
+      } else {
+        "merge"
+      }
+      acc.set(ch._1, template.typeMapper.fresh(ofType, pref))
     })
     val conditions = changed.map(ch => {
       val newstuff = newstruct.get(ch._1).asInstanceOf[ScalarValue]
@@ -640,7 +613,53 @@ object RootMemory {
     val flat = conditions.foldLeft(initial)((acc, cd) => {
       acc.zip(cd).map(f => template.mkAnd2(f._1, f._2))
     })
-    val newcond = template.mkOr(flat)
+
+    val context = template.context
+    val iterators = flat.map(f => {
+      if (f.AST.isApp) {
+        val exp = f.AST.asInstanceOf[Expr]
+        val decl = f.AST.asInstanceOf[Expr].getFuncDecl
+        if (decl.getDeclKind == Z3_decl_kind.Z3_OP_AND) {
+          Some(exp.getArgs.toSeq.map(_.asInstanceOf[BoolExpr]))
+        } else {
+          None
+        }
+      } else None
+    })
+    val newcond = if (iterators.forall(_.nonEmpty)) {
+      var actuals = iterators.map(_.get)
+      var break = false
+      var crt = 0
+      var base = context.mkTrue()
+      while (!break) {
+        if (actuals.exists(x => x.size >= crt)) {
+          break = true
+        } else {
+          val nowAt = actuals.map(_(crt))
+          val h = nowAt.head
+          if (!nowAt.tail.forall(_ == h)) {
+            break = true
+          } else {
+            if (base == context.mkTrue())
+              base = h
+            else
+              base = context.mkAnd(base, h)
+            crt = crt + 1
+          }
+        }
+      }
+      val filtered = actuals.filter(f => f.size > crt)
+      new ScalarValue(BoolType,
+        if (filtered.nonEmpty) {
+          context.mkAnd(base, context.mkOr(filtered.map(f => {
+            context.mkAnd(f.drop(crt):_*)
+          }).toList:_*))
+        } else {
+          base
+        })
+    } else {
+      template.mkOr(flat)
+    }
     newstruct.copy(ocondition = newcond)(template.context)
   }
 }

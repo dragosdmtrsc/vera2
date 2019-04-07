@@ -7,6 +7,7 @@ object ErrorLedger {
   private val errorMap = mutable.Map("" -> 0)
   private val errors = ListBuffer("")
 
+  def errCount() : Int = errors.size
   def errorIndex(err: String): Int = {
     val idx = errorMap.getOrElseUpdate(err, errors.size)
     if (idx == errors.size)

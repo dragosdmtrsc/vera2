@@ -589,8 +589,8 @@ class QueryDrivenSemantics[T <: P4Memory](switch: Switch)
 
     val newquery = ctx.update(
       ctx.lastQuery(tableDeclaration.getName),
-      /*ctx.query(tableDeclaration.getName, matches)*/
-      ctx.lastQuery(tableDeclaration.getName).fresh()
+      ctx.query(tableDeclaration.getName, matches)
+//      ctx.lastQuery(tableDeclaration.getName).fresh()
     )
     val lastFlow = newquery.lastQuery(tableDeclaration.getName)
 

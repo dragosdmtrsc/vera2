@@ -4,7 +4,7 @@ import org.change.p4.control._
 import org.change.p4.control.types._
 import org.change.p4.model.actions.P4ActionType
 import org.change.p4.model.{ArrayInstance, Header, HeaderInstance, Switch}
-import z3.scala.Z3Context
+import com.microsoft.z3.Context
 
 import scala.collection.JavaConverters._
 object MemoryInitializer {
@@ -22,18 +22,16 @@ object MemoryInitializer {
   def helperStuff(): Map[String, P4Type] = {
     Map(
       "packet" -> PacketType,
-      "errorCause" -> IntType,
-      "packetLength" -> IntType,
-      "clone" -> IntType,
-      FIELD_LIST_REF -> IntType
+      "errorCause" -> UnboundedInt,
+      "packetLength" -> BVType(16),
+      FIELD_LIST_REF -> BoundedInt()
     )
   }
 
   def populateHelpers(switch: Switch, ctx: P4RootMemory)(
-    implicit context: Z3Context
+    implicit context: Context
   ): P4RootMemory = {
     ctx
-      .update(ctx.field("clone"), ctx.int(0))
       .update(ctx.field(FIELD_LIST_REF), ctx.int(0))
       .update(ctx.field("errorCause"), ctx.int(0))
       .as[P4RootMemory]
@@ -41,20 +39,20 @@ object MemoryInitializer {
 
   def tableStructures(
     switch: Switch
-  )(implicit context: Z3Context): Map[String, P4Type] = {
+  )(implicit context: Context): Map[String, P4Type] = {
     switch
       .tables()
       .asScala
       .map(tableDeclaration => {
         val lastQName = tableDeclaration.getName + "_lastQuery"
-        lastQName -> FlowStruct(context, tableDeclaration, switch)
+        lastQName -> FlowStruct(switch, tableDeclaration, context)
       })
       .toMap
   }
 
   def actionStructures(
     switch: Switch
-  )(implicit context: Z3Context): Map[String, P4Type] = {
+  )(implicit context: Context): Map[String, P4Type] = {
     switch
       .actions()
       .asScala
@@ -69,7 +67,7 @@ object MemoryInitializer {
   }
 
   def populateHeaders(switch: Switch,
-                      crt: P4Memory)(implicit context: Z3Context): P4Memory = {
+                      crt: P4Memory)(implicit context: Context): P4Memory = {
     switch.getInstances.asScala.foldLeft(crt)(
       (crt, h) =>
         h match {
@@ -136,7 +134,7 @@ object MemoryInitializer {
     )
   }
 
-  def initialize(switch: Switch)(implicit context: Z3Context): P4RootMemory = {
+  def initialize(switch: Switch)(implicit context: Context): P4RootMemory = {
     val st = StructType(
       switch.getInstances.asScala
         .map(
@@ -156,7 +154,7 @@ object MemoryInitializer {
       )
     )
     val tm = TypeMapper()(context)
-    val structObject = tm.fresh(st).asInstanceOf[StructObject]
+    val structObject = tm.fresh(st, "input").asInstanceOf[StructObject]
     val fresh = P4RootMemory(
       switch,
       RootMemory(structObject = structObject, tm.literal(BoolType, 1))

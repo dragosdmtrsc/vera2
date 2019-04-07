@@ -2,10 +2,10 @@ package org.change.p4.control.querylib
 
 import org.change.p4.control.queryimpl.{P4RootMemory, QueryBuilder}
 import org.change.p4.model.Switch
-import z3.scala.Z3Context
+import com.microsoft.z3.Context
 
 class DisjQuery(switch: Switch,
-                context: Z3Context,
+                context: Context,
                 qs: Iterable[QueryBuilder])
     extends QueryBuilder(switch, context) {
   override def query(evt: Object, in: P4RootMemory): Option[P4RootMemory] = {
@@ -21,10 +21,10 @@ class DisjQuery(switch: Switch,
 
 object DisjQuery {
   def or(switch: Switch,
-         context: Z3Context)(it: Iterable[QueryBuilder]): QueryBuilder = {
+         context: Context)(it: Iterable[QueryBuilder]): QueryBuilder = {
     new DisjQuery(switch, context, it)
   }
   def apply(switch: Switch,
-            context: Z3Context)(qbs: QueryBuilder*): QueryBuilder =
+            context: Context)(qbs: QueryBuilder*): QueryBuilder =
     or(switch, context)(qbs.toIterable)
 }

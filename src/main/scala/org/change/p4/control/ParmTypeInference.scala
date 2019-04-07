@@ -1,17 +1,17 @@
 package org.change.p4.control
 
-import org.change.p4.control.types.{BVType, IntType}
+import org.change.p4.control.types.{BVType, IntType, UnboundedInt}
 import org.change.p4.model.Switch
 import org.change.p4.model.actions.P4ActionCall.ParamExpression
 import org.change.p4.model.actions.{P4ActionCall, P4ActionParameter, P4ComplexAction}
 import org.change.p4.model.control.exp.LiteralExpr
 import org.change.p4.model.parser.{FieldRef, ParmRef}
-import z3.scala.Z3Context
+import com.microsoft.z3.Context
 
 import scala.collection.JavaConverters._
 
 class ParmTypeInference(switch: Switch) extends ASTVisitor {
-  val typeSolver = new TypeSolver(new Z3Context())
+  val typeSolver = new TypeSolver(new Context())
 
   def handleTriple(actCall: P4ActionCall): Unit = {
     assert(actCall.params().size() == 3)
@@ -108,16 +108,16 @@ class ParmTypeInference(switch: Switch) extends ASTVisitor {
         lookAt(sz)
       case ax: org.change.p4.model.actions.primitives.Pop =>
         if (actCall.params().size() > 1)
-          typeSolver.equal(all(1), IntType)
+          typeSolver.equal(all(1), BVType(8))
       case ax: org.change.p4.model.actions.primitives.Push =>
         if (actCall.params().size() > 1)
-          typeSolver.equal(all(1), IntType)
+          typeSolver.equal(all(1), BVType(8))
       case ax: org.change.p4.model.actions.primitives.RegisterRead =>
         if (actCall.params().size() > 2)
-          typeSolver.equal(all(2), IntType)
+          typeSolver.equal(all(2), UnboundedInt)
       case ax: org.change.p4.model.actions.primitives.RegisterWrite =>
         if (actCall.params().size() > 2)
-          typeSolver.equal(all(2), IntType)
+          typeSolver.equal(all(2), UnboundedInt)
       case ax: org.change.p4.model.actions.primitives.ShiftLeft =>
         handleTriple(actCall)
       case ax: org.change.p4.model.actions.primitives.ShiftRight =>

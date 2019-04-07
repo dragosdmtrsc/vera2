@@ -2,42 +2,47 @@ package org.change.p4.control
 
 import java.util.logging.Logger
 
-import org.change.p4.control.types.{BVType, IntType, P4Type}
+import org.change.p4.control.types.{BVType, IntType, P4Type, UnboundedInt}
 import org.change.utils.FreshnessManager
-import z3.scala.Z3Context.{RecursiveType, RegularSort}
-import z3.scala.{Z3AST, Z3Context, Z3Model, Z3Sort}
+import com.microsoft.z3._
+import org.change.utils.Z3Helper._
 
 import scala.collection.mutable
 
-class TypeSolver(context: Z3Context) {
+class TypeSolver(context: Context) {
   private val slv = context.mkSolver()
 
-  private val constraints = mutable.Map.empty[Z3AST, Boolean]
-  private val constraintsToInit = mutable.Map.empty[Z3AST, (Object, Object)]
+  private val constraints = mutable.Map.empty[Expr, Boolean]
+  private val constraintsToInit = mutable.Map.empty[Expr, (Object, Object)]
 
-  private val kindSorts = context.mkADTSorts(
-    Seq(
-      (
-        "Kind",
-        Seq("integer", "bv", "arr"),
-        Seq(
-          Seq(),
-          Seq(("nr", RegularSort(context.mkIntSort()))),
-          Seq(("k", RecursiveType(0)), ("nr", RegularSort(context.mkIntSort())))
-        )
-      )
+  val constructors = Array(
+    context.mkConstructor("integer", "isinteger", null, null, null),
+    context.mkConstructor("bv",
+      "isbv",
+      Array("nr"),
+      Array(context.mkIntSort().asInstanceOf[Sort]),
+      Array(0)
+    ),
+    context.mkConstructor("arr", "isarr",
+      Array("k", "nr"),
+      Array(null, context.mkIntSort().asInstanceOf[Sort]),
+      Array(0, 0)
     )
   )
-  val kindSort: Z3Sort = kindSorts.head._1
-  def bv(w: Int): Z3AST = {
-    kindSorts.head._2(1)(context.mkInt(w, context.mkIntSort()))
+
+  val kindSort: Sort = context.mkDatatypeSort("Kind", constructors)
+  def bv(w: Int): Expr = {
+    constructors(1).ConstructorDecl().apply(
+      context.mkNumeral(w, context.mkIntSort()))
   }
-  def intsort(): Z3AST = {
-    kindSorts.head._2.head()
+  def intsort(): Expr = {
+    constructors.head.ConstructorDecl().apply()
   }
-  def constSort(name: String): Z3AST = context.mkConst(name, kindSort)
-  private val exprToType = mutable.Map.empty[Object, (String, Z3AST)]
-  def getIdx(p: Object): Z3AST = {
+  def constSort(name: String): Expr = {
+    context.mkConst(name, kindSort)
+  }
+  private val exprToType = mutable.Map.empty[Object, (String, Expr)]
+  def getIdx(p: Object): Expr = {
     exprToType
       .getOrElseUpdate(p, {
         val fm = FreshnessManager.next("type")
@@ -46,30 +51,29 @@ class TypeSolver(context: Z3Context) {
       ._2
   }
 
-  def isABV(z3AST: Z3AST, model: Z3Model): Option[BVType] = {
-    val test = kindSorts.head._3(1)(z3AST)
-    val extract = kindSorts.head._4(1).head
-    model
-      .evalAs[Boolean](test)
+  def isABV(AST: Expr, model: Model): Option[BVType] = {
+    val test = constructors(1).getTesterDecl.apply(AST)
+    val extract = constructors(1).getAccessorDecls.head.apply(AST)
+    model.eval(test, false).getBool
       .filter(x => x)
       .flatMap(_ => {
-        model.evalAs[Int](extract(z3AST))
+        model.eval(extract, false).getInt
       })
-      .map(sz => BVType(sz))
+      .map(sz => BVType(sz.toInt))
   }
-  def isAnInt(z3AST: Z3AST, model: Z3Model): Boolean = {
-    val test = kindSorts.head._3.head(z3AST)
-    model.evalAs[Boolean](test).exists(x => x)
+  def isAnInt(AST: Expr, model: Model): Boolean = {
+    val test = constructors.head.getTesterDecl.apply(AST)
+    model.eval(test, false).getBool.exists(x => x)
   }
-  def type2sort(p4Type: P4Type): Z3AST = p4Type match {
+  def type2sort(p4Type: P4Type): Expr = p4Type match {
     case BVType(x) => bv(x)
-    case IntType   => intsort()
+    case _ : IntType   => intsort()
   }
-  private def equalInternal(ast1: Z3AST,
-                            ast2: Z3AST,
-                            mandatory: Boolean): Z3AST = {
+  private def equalInternal(ast1: Expr,
+                            ast2: Expr,
+                            mandatory: Boolean): Expr = {
     val nxtIdx = constraints.size
-    val nxtAst = context.mkConst(s"p$nxtIdx", context.mkBoolSort())
+    val nxtAst = context.mkConst(s"p$nxtIdx", context.mkBoolSort()).asBool
     constraints.put(nxtAst, mandatory)
     slv.assertCnstr(context.mkImplies(nxtAst, context.mkEq(ast1, ast2)))
     nxtAst
@@ -87,8 +91,8 @@ class TypeSolver(context: Z3Context) {
       (e1, e2)
     )
   }
-  def getType(model: Z3Model, ast: Z3AST): Option[P4Type] = {
-    if (isAnInt(ast, model)) Some(IntType)
+  def getType(model: Model, ast: Expr): Option[P4Type] = {
+    if (isAnInt(ast, model)) Some(UnboundedInt)
     else {
       isABV(ast, model)
     }
@@ -96,12 +100,12 @@ class TypeSolver(context: Z3Context) {
 
   def solve(filter: Object => Boolean): Iterable[(Object, Option[P4Type])] = {
     var assumptionsToCheck = constraints.keys.toList
-    var removed = Set.empty[Z3AST]
+    var removed = Set.empty[AST]
     var res = false
     while (!res) {
-      res = slv.checkAssumptions(assumptionsToCheck: _*).get
+      res = slv.docheck(assumptionsToCheck).get
       if (!res) {
-        val unsatCore = slv.getUnsatCore()
+        val unsatCore = slv.getUnsatCore
         val weak = unsatCore.filter(!constraints(_))
         if (weak.nonEmpty) {
           assumptionsToCheck = assumptionsToCheck.filter(!weak.contains(_))
@@ -125,9 +129,8 @@ class TypeSolver(context: Z3Context) {
       yield
         (
           x._1,
-          model
-            .eval(x._2._2)
-            .map(getType(model, _).getOrElse({
+          Some(getType(model, model.eval(x._2._2, false))
+            .getOrElse({
               Logger
                 .getLogger("typeinference")
                 .warning(
@@ -135,41 +138,35 @@ class TypeSolver(context: Z3Context) {
                     x._1 + ", resolve to bv8 same as p4c"
                 )
               BVType(8)
-            }))
+            })
+          )
         )
   }
   def casts(): Map[Object, P4Type] = {
-    if (slv.isModelAvailable) {
-      val model = slv.getModel()
-      this.constraintsToInit
-        .filter(r => {
-          !model.evalAs[Boolean](r._1).get
-        })
-        .map(r => {
-          val castObj = r._2._2
-          val to = r._2._1 match {
-            case p4Type: P4Type => p4Type
-            case other: Object =>
-              val idx = getIdx(other)
-              getType(model, idx).getOrElse({
-                Logger
-                  .getLogger("typeinference")
-                  .warning(
-                    "can't infer type for " +
-                      other + ", resolve to bv8 same as p4c"
-                  )
-                BVType(8)
-              })
-          }
-          castObj -> to
-        })
-        .toMap
-    } else {
-      throw new IllegalStateException(
-        "can't call for model when there is none, first" +
-          "solve then go for the casts"
-      )
-    }
+    val model = slv.getModel
+    this.constraintsToInit
+      .filter(r => {
+        !model.eval(r._1, false).getBool.get
+      })
+      .map(r => {
+        val castObj = r._2._2
+        val to = r._2._1 match {
+          case p4Type: P4Type => p4Type
+          case other: Object =>
+            val idx = getIdx(other)
+            getType(model, idx).getOrElse({
+              Logger
+                .getLogger("typeinference")
+                .warning(
+                  "can't infer type for " +
+                    other + ", resolve to bv8 same as p4c"
+                )
+              BVType(8)
+            })
+        }
+        castObj -> to
+      })
+      .toMap
   }
 
 }

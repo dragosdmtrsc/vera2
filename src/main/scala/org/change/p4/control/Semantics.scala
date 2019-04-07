@@ -114,11 +114,9 @@ abstract class Semantics[T](switch: Switch) {
         val node = scc.head
         val neighs = lcfg.edges.getOrElse(node, Nil)
         val now = if (lazyMerge) {
-          System.err.println(s"before merge at $node")
           val res = pleaseMerge.get(node).map(x => {
             oldnow + (node -> merge(x))
           }).getOrElse(oldnow)
-          System.err.println(s"after merge at $node")
           res
         } else oldnow
         val my = now.get(node)

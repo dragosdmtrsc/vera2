@@ -6,13 +6,13 @@ import org.change.p4.control.queryimpl.{MemoryInitializer, P4RootMemory, PacketW
 import org.change.p4.control.{QueryDrivenSemantics, RootEvaluator, SolveTables}
 import org.change.p4.model.Switch
 import org.scalatest.FunSuite
-import z3.scala.Z3Context
+import com.microsoft.z3.Context
 
 class DeparserTest extends FunSuite {
 
   for (against <- battery) {
     test(s"parse/deparse consistency $against")(() => {
-      val context = new Z3Context()
+      val context = new Context()
       val sw = SolveTables(Switch.fromFile(against))
       PacketWrapper.initialize(sw, context)
       val memory = MemoryInitializer.initialize(sw)(context)
@@ -28,7 +28,7 @@ class DeparserTest extends FunSuite {
       assert(rootEvaluator.always(memory.packet() === deparserOut.packet()))
     })
     test(s"packet generation capabilities $against") {
-      val context = new Z3Context()
+      val context = new Context()
       val sw = SolveTables(Switch.fromFile(against))
       PacketWrapper.initialize(sw, context)
       val memory = MemoryInitializer.initialize(sw)(context)

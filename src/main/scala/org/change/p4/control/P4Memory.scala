@@ -13,7 +13,7 @@ trait P4Query {
   def len(): LiteralExprValue = ???
   def valid(): P4Query = ???
   def next(): P4Query = ???
-  def fresh(): P4Query = ???
+  def fresh(prefix : String = "fresh"): P4Query = ???
   def zeros(): P4Query = ???
   def set(src: P4Query, value: P4Query): P4Query = ???
   def ite(thn: P4Query, els: P4Query): P4Query = ???
@@ -49,7 +49,6 @@ trait P4Query {
 }
 trait P4TableQuery extends P4Query {
   def isDefault: P4Query = ???
-  def exists(): P4Query = ???
   def isAction(act: String): P4Query = ???
   def getParam(act: String, parmName: String): P4Query = ???
 }

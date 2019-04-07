@@ -1,20 +1,34 @@
 package org.change.p4.control.queryimpl
-import org.change.p4.control.FlowStruct
 import org.change.p4.control.types._
-import z3.scala.{Z3AST, Z3Context, Z3FuncDecl, Z3Sort}
-
+import com.microsoft.z3._
+import org.change.utils.Z3Helper._
 import scala.collection.mutable
 
-class TypeMapper()(implicit context: Z3Context) {
-  val funMap = mutable.Map.empty[String, (P4Type, P4Type, Z3FuncDecl)]
+class TypeMapper()(implicit context: Context) {
+  val funMap = mutable.Map.empty[String, (P4Type, P4Type, FuncDecl)]
+  val boundMap = mutable.Map.empty[BoundedInt, Set[Expr]]
 
-  def applyFunction(name: String, z3AST: Z3AST): Z3AST = {
-    funMap(name)._3(z3AST)
+  def boundAxioms(boundedInt: BoundedInt, vals : Set[Expr]) :
+      List[BoolExpr] = {
+    boundMap.getOrElse(boundedInt, Set.empty).map(e => {
+      context.mkOr(vals.map(v => context.mkEq(e, v)).toSeq:_*)
+    }).toList
+  }
+  def boundAxioms(boundedInt: BoundedInt, min : Int, max : Int) :
+      List[BoolExpr] = {
+    boundMap.getOrElse(boundedInt, Set.empty).flatMap(e => {
+      context.mkLt(e.asInt, context.mkInt(max)) ::
+        context.mkGe(e.asInt, context.mkInt(min)) :: Nil
+    }).toList
+  }
+
+  def applyFunction(name: String, AST: Expr): Expr = {
+    funMap(name)._3(AST)
   }
   def applyFunction(name: String, value: Value): Value = {
     new ScalarValue(
       funMap(name)._2,
-      applyFunction(name, value.asInstanceOf[ScalarValue].z3AST)
+      applyFunction(name, value.asInstanceOf[ScalarValue].AST)
     )
   }
   def mkFunction(name: String, from: P4Type, to: P4Type): Unit = {
@@ -24,35 +38,44 @@ class TypeMapper()(implicit context: Z3Context) {
   }
 
   val packetWrapper: PacketWrapper = PacketWrapper(context)
-  def apply(p4Type: P4Type): Z3Sort = p4Type match {
-    case BVType(n)      => context.mkBVSort(n)
+  def apply(p4Type: P4Type): Sort = p4Type match {
+    case BVType(n)      => context.mkBitVecSort(n)
     case PacketType     => packetWrapper.sort()
-    case fs: FlowStruct => fs.sort()
-    case IntType        => context.mkIntSort()
+    case _ : IntType        => context.mkBVSort(16)
     case BoolType       => context.mkBoolSort()
   }
+
   def zeros(p4Type: P4Type): Value = p4Type match {
     case h: StructType =>
       val f = h.members.mapValues(zeros)
       StructObject(h, f)
     case a: FixedArrayType =>
+      val max = 8
       val flds = (0 until a.sz).map(_ => zeros(a.inner))
-      ArrayObject(a, literal(IntType, 0), flds.toList)
+      ArrayObject(a, literal(BVType(max), 0), flds.toList)
     case PacketType => new ScalarValue(PacketType, packetWrapper.zero())
     case _          => literal(p4Type, 0)
   }
   def fresh(p4Type: P4Type, prefix: String = ""): Value = p4Type match {
     case st: StructType =>
-      StructObject(st, st.members.mapValues(fresh(_, prefix)))
+      StructObject(st, st.members.map(x => x._1 -> fresh(x._2, prefix + "." + x._1)))
     case arr: FixedArrayType =>
+      val max = 8
       ArrayObject(
         arr,
-        literal(IntType, 0),
-        (0 until arr.sz).map(_ => fresh(arr.inner, prefix)).toList
+        literal(BVType(max), 0),
+        (0 until arr.sz).map(idx => fresh(arr.inner, prefix + s"[$idx]")).toList
       )
     case sv: P4Type =>
       val srt = this(sv)
-      new ScalarValue(sv, context.mkFreshConst(prefix, srt))
+      val res = new ScalarValue(sv, context.mkFreshConst(prefix, srt))
+      sv match {
+        case x: BoundedInt =>
+          val crt = boundMap.getOrElse(x, Set.empty)
+          boundMap.put(x, crt + res.AST)
+        case _ =>
+      }
+      res
   }
   def literal(p4Type: P4Type, v: BigInt): ScalarValue = {
     val tp = apply(p4Type)
@@ -60,19 +83,19 @@ class TypeMapper()(implicit context: Z3Context) {
       if (v == 0)
         new ScalarValue(
           BoolType,
-          tp.context.mkFalse(),
+          context.mkFalse(),
           maybeBoolean = Some(false)
         )
       else
         new ScalarValue(
           BoolType,
-          tp.context.mkTrue(),
+          context.mkTrue(),
           maybeBoolean = Some(true)
         )
     } else {
       new ScalarValue(
         p4Type,
-        tp.context.mkNumeral(v.toString(), tp),
+        context.mkNumeral(v.toString(), tp),
         maybeInt = Some(v)
       )
     }
@@ -80,8 +103,8 @@ class TypeMapper()(implicit context: Z3Context) {
 }
 
 object TypeMapper {
-  val contextBoundMapper = mutable.Map.empty[Z3Context, TypeMapper]
-  def apply()(implicit context: Z3Context): TypeMapper = {
+  val contextBoundMapper = mutable.Map.empty[Context, TypeMapper]
+  def apply()(implicit context: Context): TypeMapper = {
     contextBoundMapper.getOrElseUpdate(context, new TypeMapper()(context))
   }
 }

@@ -1,118 +1,101 @@
 package org.change.p4.control.queryimpl
 import org.change.p4.model.Switch
-import z3.scala.Z3Context.{RecursiveType, RegularSort}
-import z3.scala.{Z3AST, Z3Context, Z3FuncDecl, Z3Sort}
-
+import com.microsoft.z3._
+import org.change.utils.Z3Helper._
 import scala.collection.mutable
 import scala.collection.JavaConverters._
 
-class PacketWrapper(implicit context: Z3Context) {
-  var axioms: List[Z3AST] = List.empty[Z3AST]
-  def declareAxiom(z3AST: Z3AST): Unit = {
-    axioms = z3AST :: axioms
+class PacketWrapper(implicit context: Context) {
+  var axioms: List[Expr] = List.empty[Expr]
+  def declareAxiom(AST: Expr): Unit = {
+    axioms = AST :: axioms
   }
-  val takeFuns = mutable.Map.empty[(Int, Int), Z3FuncDecl]
-  val popFuns = mutable.Map.empty[Int, Z3FuncDecl]
+  val takeFuns = mutable.Map.empty[(Int, Int), FuncDecl]
+  val popFuns = mutable.Map.empty[Int, FuncDecl]
   private var appends: mutable.TreeSet[Int] = mutable.TreeSet.empty[Int]
 
   def declareAppend(sz: Int): Unit = {
     appends = appends + sz
   }
-  def nilPacket(): Z3AST = {
-    packetSort._2.head()
+  def nilPacket(): AST = {
+    constructors.head.ConstructorDecl().apply()
   }
 
   // assumes that this guy is already resolved and can
   // be simply evald to concrete values
-  def takeKind(v: Z3AST): Option[Int] = {
+  def takeKind(v: Expr): Option[Int] = {
     appends.find(r => {
       val idx = indexing(r)
-      val simpd =
-        context.getBoolValue(context.simplifyAst(packetSort._3(idx)(v)))
-      if (simpd.nonEmpty) simpd.get
-      else false
+      constructors(idx).getTesterDecl.apply(v).getBool.getOrElse(false)
     })
   }
-  def isNil(v: Z3AST): Boolean = {
-    context
-      .getBoolValue(context.simplifyAst(packetSort._3.head(v)))
+  def isNil(v: Expr): Boolean = {
+    constructors
+      .head
+      .getTesterDecl
+      .apply(v)
+      .simplify()
+      .getBool
       .getOrElse(false)
   }
 
-  def unwrap(v: Z3AST, of: Int): (Z3AST, Z3AST) = {
+  def unwrap(v: Expr, of: Int): (Expr, Expr) = {
     val idx = indexing(of)
-    val oldone = context.simplifyAst(packetSort._4(idx).head(v))
-    val appd = context.simplifyAst(packetSort._4(idx)(1)(v))
+    val oldone = constructors(idx).getAccessorDecls.head.apply(v).simplify()
+    val appd = constructors(idx).getAccessorDecls()(1).apply(v).simplify()
     (oldone, appd)
   }
 
-  def getPopFun(of: Int): Z3FuncDecl = {
-    popFuns.getOrElseUpdate(
-      of,
-      context.mkFuncDecl(s"pop_$of", packetSort._1, packetSort._1)
-    )
-  }
-
-  def getTakeFun(start: Int, end: Int): Z3FuncDecl = {
+  def getTakeFun(start: Int, end: Int): FuncDecl = {
     takeFuns.getOrElseUpdate(
       (start, end),
       context.mkFuncDecl(
         s"take_${start}_$end",
-        packetSort._1,
+        packetSort,
         context.mkBVSort(end - start)
       )
     )
   }
-  lazy val (packetSort, indexing) = {
-    val (names, params, mapping) = appends.toList.zipWithIndex
-      .map(xwi => {
-        val x = xwi._1
-        (
-          s"prepend_$x",
-          Seq(
-            (s"pin_$x", RecursiveType(0)),
-            (s"x_$x", RegularSort(context.mkBVSort(x)))
-          ),
-          xwi.copy(_2 = xwi._2 + 1)
-        )
-      })
-      .unzip3
-    (
-      context
-        .mkADTSorts(Seq(("Packet", "nil" :: names, Seq() :: params)))
-        .head,
-      mapping.toMap
+
+  private def mkConstructor(x : Int) : Constructor = {
+    context.mkConstructor(s"prepend_$x", s"isprepend_$x",
+      Array(s"pin_$x", s"x_$x"),
+      Array(null, context.mkBitVecSort(x).asInstanceOf[Sort]),
+      Array(0, 0)
     )
   }
 
-  def prepend(packet: Z3AST, n: Int, v: Z3AST): Z3AST = {
+  lazy val constructors: List[Constructor] =
+    context.mkConstructor("nil",
+      "isnil",
+      null,
+      null,
+      null) :: appends.toList.zipWithIndex.map(xwi => {
+    val x = xwi._1
+    mkConstructor(x)
+  })
+  lazy val indexing: Map[Int, Int] = appends.toList.zipWithIndex.toMap.mapValues(_ + 1)
+  lazy val packetSort: DatatypeSort =
+    context.mkDatatypeSort("Packet", constructors.toArray)
+
+  def prepend(packet: Expr, n: Int, v: Expr): Expr = {
     if (packet.getSort != sort()) {
       throw new IllegalArgumentException(
         s"cannot apply append_$n on $packet, " +
           s"expecting something of sort ${sort()}"
       )
     }
-    if (v.getSort != context.mkBVSort(n))
+    if (v.getSort != context.mkBitVecSort(n))
       throw new IllegalArgumentException(
         s"cannot apply append_$n with argument $v of sort ${v.getSort}"
       )
     val consIdx = indexing(n)
-    packetSort._2(consIdx)(packet, v)
+    constructors(consIdx).ConstructorDecl().apply(packet, v)
   }
 
-  def pop(packet: Z3AST, nr: Int): Z3AST = {
-    if (packet.getSort != sort()) {
-      throw new IllegalArgumentException(
-        s"cannot apply pop on $packet, " +
-          s"expecting something of sort ${sort()}"
-      )
-    }
-    getPopFun(nr)(packet)
-  }
-
-  def zero(): Z3AST = packetSort._2.head()
-  def sort(): Z3Sort = packetSort._1
-  def take(p: Z3AST, start: Int, end: Int): Z3AST = {
+  def zero(): Expr = constructors.head.ConstructorDecl().apply()
+  def sort(): Sort = packetSort
+  def take(p: Expr, start: Int, end: Int): Expr = {
     if (p.getSort != sort()) {
       throw new IllegalArgumentException(
         s"cannot apply take on $p, " +
@@ -124,16 +107,16 @@ class PacketWrapper(implicit context: Z3Context) {
 }
 
 object PacketWrapper {
-  val contextBound = mutable.Map.empty[Z3Context, PacketWrapper]
-  def apply(context: Z3Context): PacketWrapper = {
+  val contextBound = mutable.Map.empty[Context, PacketWrapper]
+  def apply(context: Context): PacketWrapper = {
     contextBound(context)
   }
 
-  def nilPacket(context: Z3Context): Z3AST = {
+  def nilPacket(context: Context): AST = {
     apply(context).nilPacket()
   }
 
-  def initialize(switch: Switch, context: Z3Context): Unit = {
+  def initialize(switch: Switch, context: Context): Unit = {
     val tm = new PacketWrapper()(context)
     switch.getInstances.asScala.foreach(i => {
       i.getLayout.getFields.asScala.foreach(f => {

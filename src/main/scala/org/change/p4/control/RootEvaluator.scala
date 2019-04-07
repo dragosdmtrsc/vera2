@@ -1,13 +1,13 @@
 package org.change.p4.control
 
 import org.change.p4.control.queryimpl.{AbsValueWrapper, P4RootMemory, PlainValue, ScalarValue}
-import z3.scala.{Z3AST, Z3Context, Z3Solver}
+import com.microsoft.z3.{AST, Context, Expr, Solver}
+import org.change.utils.Z3Helper
+import org.change.utils.Z3Helper._
 
-case class RootEvaluator(solver: Z3Solver) extends Evaluator {
-  private val context: Z3Context = solver.context
-
-  override def ast(expr: P4Query): Z3AST = {
-    expr.asInstanceOf[AbsValueWrapper].value.asInstanceOf[ScalarValue].z3AST
+case class RootEvaluator(solver: Solver, context: Context) extends Evaluator {
+  override def ast(expr: P4Query): Expr = {
+    expr.asInstanceOf[AbsValueWrapper].value.asInstanceOf[ScalarValue].AST
   }
 
   override def eval(expr: P4Query): Option[P4Query] = {
@@ -19,14 +19,14 @@ case class RootEvaluator(solver: Z3Solver) extends Evaluator {
         case sv: ScalarValue if sv.maybeInt.nonEmpty =>
           Some(expr.int(sv.maybeInt.get, sv.ofType))
         case sv: ScalarValue =>
-          val ast = sv.z3AST
+          val ast = sv.AST
           val model = solver.getModel()
           valwrap.value.ofType match {
             case _ =>
               Some(
                 PlainValue.rv(
                   new ScalarValue(
-                    z3AST = model.eval(ast).get,
+                    AST = model.eval(ast, false),
                     ofType = valwrap.value.ofType
                   )
                 )
@@ -40,9 +40,9 @@ case class RootEvaluator(solver: Z3Solver) extends Evaluator {
 }
 
 object RootEvaluator {
-  def apply(mem: P4RootMemory)(implicit context: Z3Context): RootEvaluator = {
+  def apply(mem: P4RootMemory)(implicit context: Context): RootEvaluator = {
     val slv = context.mkSolver()
     slv.assertCnstr(mem.rootMemory.condition)
-    RootEvaluator(slv)
+    RootEvaluator(slv, context)
   }
 }
