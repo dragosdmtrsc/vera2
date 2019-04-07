@@ -23,6 +23,7 @@ object ExternFunction {
   def declareFunction(externFunction: ExternFunction) : ExternFunction = {
     functionMap.getOrElseUpdate(externFunction.name, externFunction)
   }
+  def clear() : Unit = functionMap.clear()
   def getFunction(name : String) : ExternFunction = functionMap(name)
   def hasFunction(name : String) : Boolean = functionMap.contains(name)
 }
@@ -34,6 +35,7 @@ class EnumKind(val name : String, val members : List[String]) extends P4Type {
 
 object EnumKind {
   val enumKinds = mutable.Map.empty[String, EnumKind]
+  def clear() : Unit = enumKinds.clear()
   def declareEnum(name : String, members : List[String]): EnumKind = {
     enumKinds.getOrElseUpdate(name, new EnumKind(name, members))
   }

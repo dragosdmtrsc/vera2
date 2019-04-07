@@ -7,7 +7,6 @@ import org.change.p4.control.queryimpl.{ScalarValue, StructObject, Value}
 import org.change.p4.control.types.BVType
 
 object PacketLinearize {
-  //TODO: make the linearize thing look better - looking strange for the moment
   def linearize(packValue: Value,
                 len : Int,
                 context : Context): String = {

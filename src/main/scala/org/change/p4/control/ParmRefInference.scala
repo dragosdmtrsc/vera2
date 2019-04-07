@@ -42,7 +42,6 @@ class ParmRefInference(switch: Switch) extends ASTVisitor {
               } else {
                 val calc = switch.calculation(stringRef.getRef)
                 if (calc != null) {
-                  //TODO: mk calculation ref + populate calculcations thoroughly
                   parmInstance.setExpression(new CalculationRef(calc))
                 } else {
                   throw new NoSuchFieldError(

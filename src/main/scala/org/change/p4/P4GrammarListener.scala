@@ -63,7 +63,6 @@ class P4GrammarListener extends P4GrammarBaseListener {
     ctx: P4GrammarParser.Header_type_declarationContext
   ): Unit = {
     val declaredHeaderName = ctx.header_type_name().getText
-    //TODO: Support for other header lengths.
     var headerSize =
       if (ctx.header_dec_body().length_exp() != null &&
           ctx.header_dec_body().length_exp().const_value() != null)
@@ -283,17 +282,14 @@ class P4GrammarListener extends P4GrammarBaseListener {
     if (ctx.field_ref() != null) {
       ctx.expr = ctx.field_ref().expression
     } else if (ctx.field_value() != null) {
-      //TODO: change constant expression to BIGInt
       ctx.expr =
         new LiteralExpr(ctx.field_value().fieldValue, ctx.field_value().width)
     } else if (ctx.header_ref() != null) {
       if (ctx.header_ref().expression.isArray)
         ctx.expr = ctx.header_ref().expression
       else
-        //TODO: need disambiguation later on
         ctx.expr = new StringRef(ctx.header_ref().expression.getPath)
     } else if (ctx.param_name() != null) {
-      //TODO:  need disambiguation later on
       ctx.expr = new StringRef(ctx.param_name().getText)
     }
   }
@@ -513,7 +509,6 @@ class P4GrammarListener extends P4GrammarBaseListener {
   override def enterTable_declaration(ctx: Table_declarationContext): Unit = {
     val tableName = ctx.table_name().NAME().getText
     ctx.tableDeclaration = new TableDeclaration(tableName)
-    //TODO: Do something with these allowed actions - i.e. populate them
     if (ctx.field_match() != null) {
       for (fm <- ctx.field_match()) {
         fm.tableName = tableName

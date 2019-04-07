@@ -36,7 +36,7 @@ abstract class Evaluator {
   }
 
   def never(expr: P4Query): Boolean = !ever(expr)
-  def always(expr: P4Query): Boolean = ever(!expr)
+  def always(expr: P4Query): Boolean = never(!expr)
   def constrained(by: Expr*)(fun: => Any): Unit = constrained(by.toList)(fun)
   def constrained(by: List[Expr])(fun: => Any): Unit = {
     constrain(by)

@@ -41,7 +41,6 @@ object ConstraintBuilder {
   def apply(switch: Switch,
             context: Context,
             instance: Instance): Iterable[Expr] = {
-    //TODO: redo in the new flow structure
     val stdMeta = switch.getInstance("standard_metadata")
     val clSpec = stdMeta.getLayout.getField("clone_spec")
     val cloneAxiom = if (clSpec != null) {

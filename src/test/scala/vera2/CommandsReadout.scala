@@ -1,10 +1,11 @@
 package vera2
 
 import org.change.p4.control.P4Commands
-import org.change.p4.control.queryimpl.{ConstraintBuilder, FlowStruct}
+import org.change.p4.control.queryimpl._
 import org.change.p4.model.Switch
 import org.scalatest.FunSuite
 import com.microsoft.z3.Context
+import org.change.p4.control.types.BVType
 import org.change.p4.tools._
 import org.change.utils.Z3Helper._
 
@@ -33,16 +34,22 @@ class CommandsReadout extends FunSuite {
     val ctx = new Context()
     val sw = Switch.fromFile(against).init(ctx)
     val inst = P4Commands.fromFile(sw, cmds)
-    val axioms = ConstraintBuilder(sw, ctx, inst).toList
     val solver = ctx.mkSolver()
-    axioms.foreach(solver.assertCnstr)
     val flowStruct = FlowStruct(sw, sw.table("ipv4_lpm"), ctx)
-    //TODO: remake this broken unit test in the new structure
-//    val ast = flowStruct.query(List(ctx.mkNumeral(326683, ctx.mkBVSort(32))))
-//    solver.assertCnstr(ast.hits())
-//    solver.assertCnstr(
-//      flowStruct.isAction("_drop", ast.actionRun()))
-//    assert(!solver.docheck().get)
+    val tm = TypeMapper()(ctx)
+    val fs = flowStruct.query(List(
+      tm.literal(BVType(32), 326683)
+    )).asInstanceOf[StructObject]
+    val axioms = ConstraintBuilder(sw, ctx, inst).toList
+    axioms.foreach(solver.assertCnstr)
+    val hits = fs.fieldRefs("hits").asInstanceOf[ScalarValue].AST
+    val act = fs.fieldRefs("action").asInstanceOf[ScalarValue]
+    val ek = act.ofType.asInstanceOf[EnumKind]
+    solver.assertCnstr(hits)
+    solver.assertCnstr(
+      ctx.mkEq(ctx.mkBV(ek.getId("_drop"), 8), act.AST)
+    )
+    assert(!solver.docheck().get)
   }
 
 }
