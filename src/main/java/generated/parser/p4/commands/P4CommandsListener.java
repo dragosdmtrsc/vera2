@@ -58,6 +58,16 @@ public interface P4CommandsListener extends ParseTreeListener {
 	 */
 	void exitMirroring_add(P4CommandsParser.Mirroring_addContext ctx);
 	/**
+	 * Enter a parse tree produced by {@link P4CommandsParser#act_prof_create_member}.
+	 * @param ctx the parse tree
+	 */
+	void enterAct_prof_create_member(P4CommandsParser.Act_prof_create_memberContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link P4CommandsParser#act_prof_create_member}.
+	 * @param ctx the parse tree
+	 */
+	void exitAct_prof_create_member(P4CommandsParser.Act_prof_create_memberContext ctx);
+	/**
 	 * Enter a parse tree produced by {@link P4CommandsParser#action_parm}.
 	 * @param ctx the parse tree
 	 */
@@ -139,6 +149,18 @@ public interface P4CommandsListener extends ParseTreeListener {
 	 * @param ctx the parse tree
 	 */
 	void exitNamedAction(P4CommandsParser.NamedActionContext ctx);
+	/**
+	 * Enter a parse tree produced by the {@code emptyAction}
+	 * labeled alternative in {@link P4CommandsParser#act_spec}.
+	 * @param ctx the parse tree
+	 */
+	void enterEmptyAction(P4CommandsParser.EmptyActionContext ctx);
+	/**
+	 * Exit a parse tree produced by the {@code emptyAction}
+	 * labeled alternative in {@link P4CommandsParser#act_spec}.
+	 * @param ctx the parse tree
+	 */
+	void exitEmptyAction(P4CommandsParser.EmptyActionContext ctx);
 	/**
 	 * Enter a parse tree produced by the {@code BinaryUValue}
 	 * labeled alternative in {@link P4CommandsParser#unsigned_value}.

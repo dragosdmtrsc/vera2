@@ -76,6 +76,18 @@ public class P4CommandsBaseListener implements P4CommandsListener {
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
+	@Override public void enterAct_prof_create_member(P4CommandsParser.Act_prof_create_memberContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitAct_prof_create_member(P4CommandsParser.Act_prof_create_memberContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
 	@Override public void enterAction_parm(P4CommandsParser.Action_parmContext ctx) { }
 	/**
 	 * {@inheritDoc}
@@ -155,6 +167,18 @@ public class P4CommandsBaseListener implements P4CommandsListener {
 	 * <p>The default implementation does nothing.</p>
 	 */
 	@Override public void exitNamedAction(P4CommandsParser.NamedActionContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void enterEmptyAction(P4CommandsParser.EmptyActionContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitEmptyAction(P4CommandsParser.EmptyActionContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *

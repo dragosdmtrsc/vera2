@@ -1,5 +1,7 @@
 package org.change.p4.control
 
+import java.util.logging.Logger
+
 import generated.parser.p4.commands.{P4CommandsBaseListener, P4CommandsLexer, P4CommandsParser}
 import org.antlr.v4.runtime.tree.ParseTreeWalker
 import org.antlr.v4.runtime.{CharStreams, CommonTokenStream}
@@ -36,6 +38,27 @@ class P4Commands(switch: Switch) extends P4CommandsBaseListener {
     tab = switch.table(ctx.id().getText)
   }
 
+  override def exitAct_prof_create_member(
+               ctx: P4CommandsParser.Act_prof_create_memberContext): Unit = {
+    val profileName = ctx.NAME(0).getText
+    val member = ctx.unsigned_value().unsignedValue.toInt
+    val actionName = ctx.NAME(1).getText
+    val parms = ctx.action_parm().asScala.map(_.actionParam)
+    val actProfile = ProfileEntry(
+      profileName,
+      member,
+      Action(switch.action(actionName)),
+      parms.toList
+    )
+    holder = holder.add(actProfile)
+  }
+
+  override def exitEmptyAction(ctx: P4CommandsParser.EmptyActionContext): Unit = {
+    Logger.getLogger("commandsParser")
+      .warning("empty action detected, resolve to noop")
+    ctx.actionSpec = null
+  }
+
   override def exitTable_default(
     ctx: P4CommandsParser.Table_defaultContext
   ): Unit = {
@@ -47,8 +70,10 @@ class P4Commands(switch: Switch) extends P4CommandsBaseListener {
         s"referencing table $table which is not there"
       )
     val act = ctx.act_spec().actionSpec
-    val parmlist = ctx.action_parm().asScala.map(_.actionParam).toList
-    holder = holder.setDefault(TableFlow(td, act, Nil, parmlist, 0))
+    if (act != null) {
+      val parmlist = ctx.action_parm().asScala.map(_.actionParam).toList
+      holder = holder.setDefault(TableFlow(td, act, Nil, parmlist, 0))
+    }
   }
   override def exitMemberAction(
     ctx: P4CommandsParser.MemberActionContext
@@ -62,7 +87,7 @@ class P4Commands(switch: Switch) extends P4CommandsBaseListener {
   ): Unit = {
     val act = switch.action(ctx.id().getText)
     if (act == null)
-      throw new IllegalArgumentException(s"got $act, but it was not found")
+      throw new IllegalArgumentException(s"got action ${ctx.id().getText}, but it was not found")
     ctx.actionSpec = Action(act)
   }
   override def exitMasked(ctx: P4CommandsParser.MaskedContext): Unit = {

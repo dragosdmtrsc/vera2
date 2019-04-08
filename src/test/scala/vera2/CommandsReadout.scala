@@ -10,6 +10,15 @@ import org.change.p4.tools._
 import org.change.utils.Z3Helper._
 
 class CommandsReadout extends FunSuite {
+  test("commands with profiles") {
+    val against = "inputs/test-cases/big-switch/switch-ppc.p4"
+    val cmds = "inputs/test-cases/big-switch/pd-L2FloodTest.txt"
+    val ctx = new Context()
+    val sw = Switch.fromFile(against).init(ctx)
+    val inst = P4Commands.fromFile(sw, cmds)
+    assert(inst.profiles.map(_._2.size).sum == 9)
+  }
+
   test("commands correctly read") {
     val against = "inputs/test-cases/simple-router/simple_router-ppc.p4"
     val cmds = "inputs/test-cases/simple-router/commands.txt"

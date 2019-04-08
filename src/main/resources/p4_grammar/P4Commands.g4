@@ -1,12 +1,15 @@
 grammar P4Commands;
 
 statements: statement+;
-statement : table_default | table_add | mirroring_add ;
+statement : table_default | table_add | mirroring_add | act_prof_create_member;
 table_default returns [org.change.p4.control.TableFlow tableFlow]:
     'table_set_default' id act_spec ('=>' action_parm*)?;
 table_add returns [org.change.p4.control.TableFlow tableFlow]:
     'table_add' id act_spec match_key* ('=>' action_parm*)?;
 mirroring_add : 'mirroring_add' unsigned_value unsigned_value;
+
+act_prof_create_member: 'act_prof_create_member' NAME unsigned_value
+    NAME ('=>' action_parm*)?;
 
 action_parm returns [org.change.p4.control.ActionParam actionParam]: unsigned_value;
 match_key returns [org.change.p4.control.MatchParam matchParam]:
@@ -17,7 +20,8 @@ match_key returns [org.change.p4.control.MatchParam matchParam]:
 
 act_spec returns [org.change.p4.control.ActionSpec actionSpec]:
  'member' '(' unsigned_value ')' #memberAction
-    | id #namedAction ;
+    | id #namedAction
+    | EMPTY_ACTION_SPEC #emptyAction;
 
 unsigned_value  returns [scala.math.BigInt unsignedValue]:
     Binary_value            #BinaryUValue
@@ -69,7 +73,7 @@ fragment LOWERCASE  :   'a'..'z';
 fragment UNDERSCORE :   '_';
 fragment DOLLAR :   '$';
 fragment NUMBER :   '0'..'9';
-
+EMPTY_ACTION_SPEC : 'EMPTY' | 'empty' | 'emptyEMPTY';
 NAME:   (SINGLELETTER|UNDERSCORE) (SINGLELETTER|UNDERSCORE|NUMBER)*;
 
 TABLE_SET: 'table_bla';

@@ -32,6 +32,10 @@ case class Instance(tables: Map[String, List[TableFlow]] = Map.empty,
       tables = tables + (tableFlow.tableDeclaration.getName -> (existing :+ tableFlow))
     )
   }
+  def add(profileEntry: ProfileEntry) : Instance = {
+    val old = profiles.getOrElse(profileEntry.profName, Nil)
+    copy(profiles = profiles.updated(profileEntry.profName, old :+ profileEntry))
+  }
   def setDefault(tableFlow: TableFlow): Instance = {
     copy(
       defaults = defaults + (tableFlow.tableDeclaration.getName -> tableFlow)
@@ -40,7 +44,12 @@ case class Instance(tables: Map[String, List[TableFlow]] = Map.empty,
   def normalize(): Instance = {
     copy(tables = tables.mapValues(t => {
       t.sortBy(f => f.prio)
+    }), profiles = profiles.mapValues(t => {
+      t.sortBy(_.member)
     }))
   }
 }
-case class ProfileEntry(action: Action, parms: List[ActionParam])
+case class ProfileEntry(profName : String,
+                        member : Int,
+                        action: Action,
+                        parms: List[ActionParam])
