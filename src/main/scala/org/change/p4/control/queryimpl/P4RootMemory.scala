@@ -1,6 +1,6 @@
 package org.change.p4.control.queryimpl
 
-import com.microsoft.z3.enumerations.{Z3_ast_kind, Z3_decl_kind}
+import com.microsoft.z3.enumerations.{Z3_ast_kind, Z3_decl_kind, Z3_lbool}
 import com.microsoft.z3.{AST, BitVecNum, IntNum}
 import org.change.p4.control._
 import org.change.p4.control.types._
@@ -11,6 +11,23 @@ trait AbsValueWrapper extends P4Query {
   def maybePath: Option[ChurnedMemPath]
 
   override def toString: String = value.toString
+
+  override def toBool: Option[Boolean] = {
+    value.ofType match {
+      case BoolType =>
+        val sv = value.asInstanceOf[ScalarValue]
+        if (sv.maybeBoolean.nonEmpty)
+          sv.maybeBoolean
+        else {
+          sv.AST.simplify().getBoolValue match {
+            case Z3_lbool.Z3_L_FALSE => Some(false)
+            case Z3_lbool.Z3_L_TRUE => Some(true)
+            case _ => None
+          }
+        }
+      case _ => None
+    }
+  }
 
   override def toInt: Option[BigInt] = {
     value match {

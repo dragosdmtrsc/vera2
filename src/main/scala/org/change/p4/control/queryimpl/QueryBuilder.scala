@@ -19,25 +19,7 @@ class QueryBuilder(switch: Switch, context: Context)
   }
 
   private lazy val solver: Solver = {
-    val ackermanized = context.mkTactic("ackermannize_bv")
-    val simplify = context.mkTactic("simplify")
-    val qfbv = context.mkTactic("qfbv")
-    val eq2bv = context.mkTactic("eq2bv")
-    val dt2bv = context.mkTactic("dt2bv")
-    val macros = context.mkTactic("macro-finder")
-    val t1 = context.andThen(
-      simplify,
-      macros,
-      dt2bv,
-      eq2bv,
-      ackermanized,
-      simplify,
-      qfbv)
-    val slv = context.mkSolver(t1)
-    val parms = context.mkParams()
-    parms.add("mbqi", false)
-    slv.setParameters(parms)
-    slv
+    SolverBuilder.build(context)
   }
   override def before(event: Object, ctx: P4RootMemory): Unit = {
     super.before(event, ctx)

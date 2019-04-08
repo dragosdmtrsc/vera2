@@ -27,21 +27,21 @@ public class Field {
   }
 
   public Field setSaturating() {
-    this.modifier |= 1 << 1;
+    this.modifier |= (1 << 1);
     return this;
   }
 
   public Field setSigned() {
-    this.modifier |= 1 << 0;
+    this.modifier |= 1;
     return this;
   }
 
   public boolean isSigned() {
-    return (this.modifier & 1 << 0) != 0;
+    return (this.modifier & 1) != 0;
   }
 
   public boolean isSaturating() {
-    return (this.modifier & 1 << 1) != 0;
+    return (this.modifier & (1 << 1)) != 0;
   }
 
 }

@@ -340,9 +340,11 @@ class Graph[T](val edges: Map[T, List[T]]) {
       }
     }))
 
-  def mkDot(os: PrintStream): Unit = {
+  def mkDot(os: PrintStream, withHeader : Boolean = false): Unit = {
     val visited = mutable.Set.empty[T]
     val knownedges = mutable.Set.empty[(T, T)]
+    if (withHeader)
+      os.println("digraph G {")
     for (x <- edges) {
       if (!visited.contains(x._1)) {
         visited.add(x._1)
@@ -363,6 +365,8 @@ class Graph[T](val edges: Map[T, List[T]]) {
         }
       }
     }
+    if (withHeader)
+      os.println("}")
   }
   def rmLoops(start: T): Graph[T] = rmEdges(loops(start).map(h => (h._1, h._2)))
 }

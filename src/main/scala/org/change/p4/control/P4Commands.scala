@@ -54,8 +54,8 @@ class P4Commands(switch: Switch) extends P4CommandsBaseListener {
   }
 
   override def exitEmptyAction(ctx: P4CommandsParser.EmptyActionContext): Unit = {
-    Logger.getLogger("commandsParser")
-      .warning("empty action detected, resolve to noop")
+    Logger.getLogger("vera")
+      .info("empty action detected, resolve to noop")
     ctx.actionSpec = null
   }
 

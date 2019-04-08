@@ -2,6 +2,7 @@ package org.change.p4.control.queryimpl
 
 import com.microsoft.z3._
 import com.microsoft.z3.enumerations.Z3_decl_kind
+import org.change.p4.control.GlobalParms
 import org.change.p4.control.types._
 import org.change.utils.Z3Helper._
 
@@ -134,9 +135,7 @@ case class RootMemory(structObject: StructObject, ocondition: ScalarValue)(
     })
 
   def andArgs(ast : Expr) : Seq[Expr] =
-    if (ast.isAnd) ast.getArgs.toSeq else {
-      Seq(ast)
-    }
+    if (ast.isAnd) ast.getArgs.toSeq else Seq(ast)
 
   def mkAnd2(a: ScalarValue, b: ScalarValue): ScalarValue = a.ofType match {
     case BoolType =>
@@ -415,7 +414,7 @@ case class RootMemory(structObject: StructObject, ocondition: ScalarValue)(
           case sv: ScalarValue =>
             new ScalarValue(
               BoolType,
-              context.mkBVSLT(sv.AST.asBV, r.asInstanceOf[ScalarValue].AST.asBV)
+              context.mkBVULT(sv.AST.asBV, r.asInstanceOf[ScalarValue].AST.asBV)
             )
         }
       })
@@ -432,7 +431,7 @@ case class RootMemory(structObject: StructObject, ocondition: ScalarValue)(
           case sv: ScalarValue =>
             new ScalarValue(
               BoolType,
-              context.mkBVSLE(sv.AST.asBV, r.asInstanceOf[ScalarValue].AST.asBV)
+              context.mkBVULE(sv.AST.asBV, r.asInstanceOf[ScalarValue].AST.asBV)
             )
         }
       })
@@ -449,7 +448,7 @@ case class RootMemory(structObject: StructObject, ocondition: ScalarValue)(
           case sv: ScalarValue =>
             new ScalarValue(
               BoolType,
-              context.mkBVSGE(sv.AST.asBV, r.asInstanceOf[ScalarValue].AST.asBV)
+              context.mkBVUGE(sv.AST.asBV, r.asInstanceOf[ScalarValue].AST.asBV)
             )
         }
       })
@@ -467,7 +466,7 @@ case class RootMemory(structObject: StructObject, ocondition: ScalarValue)(
           case sv: ScalarValue =>
             new ScalarValue(
               BoolType,
-              context.mkBVSGT(sv.AST.asBV,
+              context.mkBVUGT(sv.AST.asBV,
                 r.asInstanceOf[ScalarValue].AST.asBV)
             )
         }
@@ -620,7 +619,7 @@ object RootMemory {
         ch._1.map({
           case Left(a) => a
           case Right(b) => s"[$b]"
-        }).reverse.mkString(".")
+        }).reverse.mkString(".") + ".merge"
       } else {
         "merge"
       }
@@ -638,8 +637,8 @@ object RootMemory {
     val context = template.context
     val iterators = flat.map(f => {
       if (f.AST.isApp) {
-        val exp = f.AST.asInstanceOf[Expr]
-        val decl = f.AST.asInstanceOf[Expr].getFuncDecl
+        val exp = f.AST
+        val decl = exp.getFuncDecl
         if (decl.getDeclKind == Z3_decl_kind.Z3_OP_AND) {
           Some(exp.getArgs.toSeq.map(_.asInstanceOf[BoolExpr]))
         } else {
@@ -680,6 +679,23 @@ object RootMemory {
         })
     } else {
       template.mkOr(flat)
+    }
+
+    // just enable this stupid check
+    if (GlobalParms.checkMerging) {
+      val oldone = template.mkOr(flat).AST
+      val newast = newcond.AST
+      val slv = context.mkSolver()
+      slv.add(context.mkNot(context.mkEq(oldone, newast)))
+      if (slv.check() != Status.UNSATISFIABLE) {
+        System.err.println("should be")
+        System.err.println(oldone.simplify())
+        System.err.println("actually")
+        System.err.println(newast.simplify())
+        throw new AssertionError("wrong merging strategy")
+      } else {
+        System.err.println("merge OK")
+      }
     }
     newstruct.copy(ocondition = newcond)(template.context)
   }

@@ -24,7 +24,6 @@ libraryDependencies ++= {
 testFrameworks += new TestFramework("org.scalameter.ScalaMeterFramework")
 parallelExecution in Test := false
 exportJars := true
-//unmanagedJars in Compile += file("lib/scalaz3_2.11-2.1.jar")
 unmanagedJars in Compile += file("lib/z3/com.microsoft.z3.jar")
 unmanagedResourceDirectories in Compile += baseDirectory.value / "lib" / "z3"
 includeFilter in(Compile, unmanagedResourceDirectories) := ".dll,.so"
@@ -33,7 +32,6 @@ fork in Test := true
 javaOptions in Test += "-Xss128M"
 javaOptions in Test += "-Xmx32G"
 javaOptions in run += "-Xss128M"
-//test in assembly := {}
 
 val MkUnixlauncher = config("mkunixlauncher") extend Compile
 val mkunixlauncher = taskKey[Unit]("mkunixlauncher")

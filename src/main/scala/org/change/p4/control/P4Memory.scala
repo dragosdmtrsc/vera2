@@ -22,6 +22,7 @@ trait P4Query {
   def isArray: Boolean = false
 
   def toInt: Option[BigInt] = None
+  def toBool: Option[Boolean] = None
 
   def fields(): Iterable[String] = ???
 

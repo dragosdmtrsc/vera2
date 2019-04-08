@@ -1,8 +1,7 @@
 package org.change.p4.control
 
-import org.change.p4.control.queryimpl.{AbsValueWrapper, P4RootMemory, PlainValue, ScalarValue}
-import com.microsoft.z3.{AST, Context, Expr, Solver}
-import org.change.utils.Z3Helper
+import com.microsoft.z3.{Context, Expr, Solver}
+import org.change.p4.control.queryimpl._
 import org.change.utils.Z3Helper._
 
 case class RootEvaluator(solver: Solver, context: Context) extends Evaluator {
@@ -41,7 +40,7 @@ case class RootEvaluator(solver: Solver, context: Context) extends Evaluator {
 
 object RootEvaluator {
   def apply(mem: P4RootMemory)(implicit context: Context): RootEvaluator = {
-    val slv = context.mkSolver()
+    val slv = SolverBuilder.build(context)
     slv.assertCnstr(mem.rootMemory.condition)
     RootEvaluator(slv, context)
   }

@@ -37,7 +37,7 @@ object PacketKind {
           })
         })
       val maxlen = propagated(new EndOfControl("parser"))
-      Logger.getLogger(getClass.getSimpleName).info(s"max packet size $maxlen")
+      Logger.getLogger("passes").info(s"max packet size $maxlen")
       new PacketKind(maxlen)
     })
   }

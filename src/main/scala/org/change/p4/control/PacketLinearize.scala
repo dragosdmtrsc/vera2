@@ -20,13 +20,16 @@ object PacketLinearize {
       case bvn : BitVecNum =>
         val stringBuilder = new StringBuilder()
         if (len % 8 == 0) {
-          for (l <- bvn.getBigInteger.toByteArray.take(len / 8))
-            stringBuilder.append(String.format("\\x%02x", new lang.Byte(l)))
+          System.err.println(bvn.getBigInteger.toString(2).reverse)
+          for (l <- bvn.getBigInteger.toByteArray.reverse) {
+            stringBuilder.append("%02x".format(l))
+          }
+          System.err.println(bvn)
+          System.err.println(stringBuilder.mkString)
           stringBuilder.mkString
         } else {
           bvn.getBigInteger.toString(2).take(len)
         }
-        // print byte array b1 using for loop
       case _ => throw new IllegalArgumentException("can't deal with this kind of" +
         s"packet $ast")
     }

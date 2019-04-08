@@ -24,6 +24,7 @@ class QueryDrivenSemantics[T <: P4Memory](switch: Switch)
         switch.getFieldListMap
           .keySet()
           .asScala
+          .toList
           .map(fr => {
             val idx = switch.getFieldListIndex(fr)
             val expanded = switch.expandFieldList(fr)
@@ -316,9 +317,9 @@ class QueryDrivenSemantics[T <: P4Memory](switch: Switch)
               stackTrace: List[P4Action])(implicit ctx: P4Memory): P4Memory = {
     val base = params(1)
     val dst = params.head
-    val sz = params(3)
+    val sz = params(3) - params(3).int(1)
     val fresh = dst.fresh()
-    ctx.where(fresh < sz && fresh >= dst.int(0)).update(dst, fresh)
+    ctx.where(fresh <= sz && fresh >= dst.int(0)).update(dst, fresh)
   }
 
   def analyze(action: NoOp, params: List[P4Query], stackTrace: List[P4Action])(

@@ -4,16 +4,17 @@ import com.microsoft.z3.Context
 import org.change.p4.control.types.P4Type
 
 import scala.collection.mutable
+import scala.collection.mutable.ListBuffer
 
 case class ExternFunction(name : String,
                      args : List[P4Type],
                      retType : P4Type,
                      context : Context) {
-  val callsToRets = mutable.Map.empty[List[Value], Value]
-  private val typeMapper = TypeMapper.apply()(context)
+  val callsToRets: ListBuffer[(List[Value], Value)] = mutable.ListBuffer.empty[(List[Value], Value)]
+  private val typeMapper: TypeMapper = TypeMapper.apply()(context)
   def apply(args : List[Value]) : Value = {
     val ret = typeMapper.fresh(retType, s"call_$name")
-    callsToRets.put(args, ret)
+    callsToRets.append((args, ret))
     ret
   }
 }

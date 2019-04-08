@@ -1,22 +1,34 @@
 package org.change.p4.control
 
-import com.microsoft.z3.{AST, Expr, Model, Solver}
+import com.microsoft.z3._
 import org.change.p4.control.queryimpl.{AbsValueWrapper, ScalarValue}
 import org.change.utils.Z3Helper._
 
 abstract class Evaluator {
+
+  private var isDirty : Boolean = true
+
+  def context : Context
   def solver: Solver
   def constrain(axioms: List[Expr]): Evaluator = {
-    for (a <- axioms)
-      solver.assertCnstr(a)
+    for (a <- axioms) {
+      isDirty = true
+      solver.assertCnstr(a.asBool)
+    }
     this
   }
   def constrain(axioms: Expr*): Evaluator = constrain(axioms.toList)
+  private var cachedResult = true
   def hasResult: Boolean = {
-    solver.docheck().getOrElse({
-      throw new IllegalStateException(solver.getReasonUnknown)
-    })
+    if (isDirty) {
+      cachedResult = solver.docheck().getOrElse({
+        throw new IllegalStateException(solver.getReasonUnknown)
+      })
+      isDirty = false
+    }
+    cachedResult
   }
+  def reasonUnknown() : String = solver.getReasonUnknown
   def constrain(expr : P4Query) : Evaluator =
     constrain(expr.as[AbsValueWrapper].value.asInstanceOf[ScalarValue].AST)
   def ast(expr: P4Query): Expr
