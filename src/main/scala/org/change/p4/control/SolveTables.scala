@@ -80,7 +80,7 @@ class SolveTables(switch: Switch) extends ASTVisitor {
     if (act.getActionType == P4ActionType.UNKNOWN) {
       val theAct = switch.action(act.getActionName)
       if (theAct == null)
-        throw new NoSuchFieldError(act.getActionName + " action undeclared")
+        throw new IllegalArgumentException(act.getActionName + " action undeclared")
       actCall.setAction(theAct)
     }
   }

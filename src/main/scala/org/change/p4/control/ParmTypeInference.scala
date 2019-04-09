@@ -1,12 +1,12 @@
 package org.change.p4.control
 
-import org.change.p4.control.types.{BVType, IntType, UnboundedInt}
+import com.microsoft.z3.Context
+import org.change.p4.control.types.BVType
 import org.change.p4.model.Switch
 import org.change.p4.model.actions.P4ActionCall.ParamExpression
 import org.change.p4.model.actions.{P4ActionCall, P4ActionParameter, P4ComplexAction}
 import org.change.p4.model.control.exp.LiteralExpr
 import org.change.p4.model.parser.{FieldRef, ParmRef}
-import com.microsoft.z3.Context
 
 import scala.collection.JavaConverters._
 
@@ -83,10 +83,10 @@ class ParmTypeInference(switch: Switch) extends ASTVisitor {
         typeSolver.equal(all(1), BVType(16), mandatory = false)
       case ax: org.change.p4.model.actions.primitives.ExecuteMeter =>
         assert(all.size == 3)
-        typeSolver.equal(all(1), BVType(16))
+        typeSolver.equal(all(1), BVType(16), mandatory = false)
       case ax: org.change.p4.model.actions.primitives.GenerateDigest =>
         assert(all.size == 2)
-        typeSolver.equal(all.head, BVType(16))
+        typeSolver.equal(all.head, BVType(16), mandatory = false)
       case ax: org.change.p4.model.actions.primitives.ModifyField =>
         if (actCall.params().size() == 3) {
           handleTriple(actCall)
@@ -108,16 +108,16 @@ class ParmTypeInference(switch: Switch) extends ASTVisitor {
         lookAt(sz)
       case ax: org.change.p4.model.actions.primitives.Pop =>
         if (actCall.params().size() > 1)
-          typeSolver.equal(all(1), BVType(8))
+          typeSolver.equal(all(1), BVType(8), mandatory = false)
       case ax: org.change.p4.model.actions.primitives.Push =>
         if (actCall.params().size() > 1)
-          typeSolver.equal(all(1), BVType(8))
+          typeSolver.equal(all(1), BVType(8), mandatory = false)
       case ax: org.change.p4.model.actions.primitives.RegisterRead =>
         if (actCall.params().size() > 2)
-          typeSolver.equal(all(2), UnboundedInt)
+          typeSolver.equal(all(2), BVType(16), mandatory = false)
       case ax: org.change.p4.model.actions.primitives.RegisterWrite =>
         if (actCall.params().size() > 2)
-          typeSolver.equal(all(2), UnboundedInt)
+          typeSolver.equal(all(2), BVType(16), mandatory = false)
       case ax: org.change.p4.model.actions.primitives.ShiftLeft =>
         handleTriple(actCall)
       case ax: org.change.p4.model.actions.primitives.ShiftRight =>

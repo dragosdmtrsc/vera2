@@ -10,9 +10,9 @@ import scala.collection.JavaConverters._
 
 class SwitchCommands extends FunSuite {
   val commands: List[String] = List(
-    /*"inputs/test-cases/big-switch/commands-switch.txt",
+    "inputs/test-cases/big-switch/commands-switch.txt",
     "inputs/test-cases/big-switch/no_entries.txt",
-    */"inputs/test-cases/big-switch/pd-L2FloodTest.txt"/*,
+    "inputs/test-cases/big-switch/pd-L2FloodTest.txt",
     "inputs/test-cases/big-switch/pd-L2LearningTest.txt",
     "inputs/test-cases/big-switch/pd-L2QinQTest.txt",
     "inputs/test-cases/big-switch/pd-L2Test.txt",
@@ -21,7 +21,7 @@ class SwitchCommands extends FunSuite {
     "inputs/test-cases/big-switch/pd-L3Ipv6Test.txt",
     "inputs/test-cases/big-switch/pd-L3VxlanTunnelTest.txt",
     "inputs/test-cases/big-switch/table_dump_full.txt",
-    "inputs/test-cases/big-switch/table_dump_simple.txt"*/
+    "inputs/test-cases/big-switch/table_dump_simple.txt"
   )
 
   val against = "inputs/test-cases/big-switch/switch-ppc.p4"

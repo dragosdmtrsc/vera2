@@ -11,6 +11,7 @@ object MemoryInitializer {
   def mkStruct(layout: Header): StructType = {
     StructType(
       layout.getFields.asScala
+        .filter(_.getLength != 0)
         .map(f => {
           f.getName -> BVType(f.getLength)
         })

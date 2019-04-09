@@ -183,10 +183,10 @@ table egress_check {
 meter per_dest_by_source {
     type : bytes;
     result : local_metadata.color;
-    instance_count : 64 * 64;
+    instance_count : 4096;
 }
 action meter_pkt(meter_idx) {
-    meter(per_dest_by_source, meter_idx, local_metadata.color);
+    execute_meter(per_dest_by_source, meter_idx, local_metadata.color);
 }
 table egress_meter {
     reads {
@@ -197,7 +197,7 @@ table egress_meter {
         meter_pkt;
         no_op;
     }
-    size : 64 * 64;
+    size : 4096;
 }
 counter per_color_drops {
     type : packets;

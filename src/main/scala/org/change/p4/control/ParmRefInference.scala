@@ -44,7 +44,7 @@ class ParmRefInference(switch: Switch) extends ASTVisitor {
                 if (calc != null) {
                   parmInstance.setExpression(new CalculationRef(calc))
                 } else {
-                  throw new NoSuchFieldError(
+                  throw new IllegalArgumentException(
                     s"${stringRef.getRef} cannot be resolved to a reference"
                   )
                 }
@@ -63,6 +63,10 @@ class ParmRefInference(switch: Switch) extends ASTVisitor {
   private def solveFieldRef(f: FieldRef): FieldRef = {
     val hdrref = f.getHeaderRef
     solveHeader(hdrref)
+    if (f.getHeaderRef.getInstance().getLayout.getField(f.getField) == null) {
+      throw new IllegalArgumentException(s"field ${f.getField} is not part of header " +
+        s"${hdrref.getInstance().getName} of type ${hdrref.getInstance().getLayout.getName}")
+    }
     f.setFieldReference(
       f.getHeaderRef.getInstance().getLayout.getField(f.getField)
     )
@@ -74,7 +78,9 @@ class ParmRefInference(switch: Switch) extends ASTVisitor {
 
   private def solveHeader(hdrref: HeaderRef): HeaderRef = {
     val hdr = switch.getInstance(hdrref.getPath)
-    assert(hdr != null)
+    if (hdr == null) {
+      throw new IllegalArgumentException(s"header instance ${hdrref.getPath} not found")
+    }
     hdrref.setInstance(hdr)
   }
 

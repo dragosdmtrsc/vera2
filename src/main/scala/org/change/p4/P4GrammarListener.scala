@@ -4,6 +4,7 @@ import java.util
 
 import generated.parser.p4.P4GrammarParser._
 import generated.parser.p4.{P4GrammarBaseListener, P4GrammarParser}
+import org.antlr.v4.runtime.tree.ErrorNode
 import org.change.p4.model._
 import org.change.p4.model.actions._
 import org.change.p4.model.control._
@@ -16,6 +17,11 @@ import org.change.p4.model.table.{MatchKind, TableDeclaration, TableMatch}
   * A small gift from radu to symnetic.
   */
 class P4GrammarListener extends P4GrammarBaseListener {
+  override def visitErrorNode(
+    node: ErrorNode
+  ): Unit = {
+    throw new Exception(node.getText)
+  }
 
   // Section 1.5 Begin
   override def exitField_value(
@@ -447,7 +453,7 @@ class P4GrammarListener extends P4GrammarBaseListener {
         if (ctx.bit_width().const_value() != null)
           ctx.bit_width().const_value().constValue.intValue()
         else
-          -1
+          0
       )
       .setName(ctx.field_name().NAME().getText)
     if (ctx.field_mod() != null && ctx

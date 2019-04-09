@@ -19,27 +19,32 @@ class QueryDrivenSemantics[T <: P4Memory](switch: Switch)
     // src has the field_list_ref number set to the field list reference
     // under which it was cloned
     val fieldRef = src.field(FIELD_LIST_REF)
-    dst
-      .or(
-        switch.getFieldListMap
-          .keySet()
-          .asScala
-          .toList
-          .map(fr => {
-            val idx = switch.getFieldListIndex(fr)
-            val expanded = switch.expandFieldList(fr)
-            val cd = fieldRef === fieldRef.int(idx)
-            expanded.asScala
-              .filter(!omit(_))
-              .foldLeft(dst: P4Memory)((acc, x) => {
-                acc.update(MkQuery.apply(acc, x), MkQuery.apply(src, x))
-              })
-              .where(cd)
-              .update(fieldRef, fieldRef.zeros())
-              .as[T]
-          })
-      )
-      .as[T]
+    if (switch.getFieldListMap.isEmpty) {
+      dst
+    } else {
+      dst
+        .or(
+          switch.getFieldListMap
+            .keySet()
+            .asScala
+            .toList
+            .map(fr => {
+              val idx = switch.getFieldListIndex(fr)
+              val expanded = switch.expandFieldList(fr)
+              val cd = fieldRef === fieldRef.int(idx)
+              expanded.asScala
+                .filter(!omit(_))
+                .foldLeft(dst: P4Memory)((acc, x) => {
+                  acc.update(MkQuery.apply(acc, x), MkQuery.apply(src, x))
+                })
+                .where(cd)
+                .update(fieldRef, fieldRef.zeros())
+                .as[T]
+            })
+        )
+        .as[T]
+    }
+
   }
 
   override def deparse(startFrom: T): T = {
@@ -407,7 +412,7 @@ class QueryDrivenSemantics[T <: P4Memory](switch: Switch)
             ctx.field(INTRINSIC_METADATA).field(RESUBMIT_FLAG),
             ctx.field(INTRINSIC_METADATA).field(RESUBMIT_FLAG).int(1)
           )
-          .update(ctx.field(FIELD_LIST_REF), params(1))
+          .update(ctx.field(FIELD_LIST_REF), params.head)
       } else ctx
     } else ctx
   }
@@ -452,7 +457,7 @@ class QueryDrivenSemantics[T <: P4Memory](switch: Switch)
               params: List[P4Query],
               stackTrace: List[P4Action])(implicit ctx: P4Memory): P4Memory =
     ctx.update(
-      ctx.standardMetadata().field("target_packet_length"),
+      ctx.field("packetLength"),
       params.head
     )
   def analyze(p4Action: P4Action,
@@ -637,17 +642,21 @@ class QueryDrivenSemantics[T <: P4Memory](switch: Switch)
             .getLayout
             .getFields
             .asScala
-            .map(_.getName)
             .foldLeft(ctx.update(validRef, validRef.int(1)))(
-              (crtQuery, fname) => {
-                val hdr1 = crtQuery(es.getExpression)
-                val fld = hdr1.field(fname)
-                val packet = crtQuery.packet()
-                val taken = packet(fld.len().int(0), fld.len())
-                val newpack = packet.pop(fld.len())
-                crtQuery
-                  .update(fld, taken)
-                  .update(packet, newpack)
+              (crtQuery, ff) => {
+                val fname = ff.getName
+                if (ff.getLength != 0) {
+                  val hdr1 = crtQuery(es.getExpression)
+                  val fld = hdr1.field(fname)
+                  val packet = crtQuery.packet()
+                  val taken = packet(fld.len().int(0), fld.len())
+                  val newpack = packet.pop(fld.len())
+                  crtQuery
+                    .update(fld, taken)
+                    .update(packet, newpack)
+                } else {
+                  crtQuery
+                }
               }
             )
           if (es.getExpression.isArray &&
@@ -671,6 +680,7 @@ class QueryDrivenSemantics[T <: P4Memory](switch: Switch)
                 .getLayout
                 .getFields
                 .asScala
+                .filter(_.getLength != 0)
                 .reverse
                 .map(_.getName)
                 .foldLeft(ctx: P4Memory)((crtQuery, fld) => {

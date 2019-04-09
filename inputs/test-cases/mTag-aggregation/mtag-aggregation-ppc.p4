@@ -154,3 +154,5 @@ control ingress {
     apply(identify_port);
     apply(select_output_port);
 }
+control egress {
+}

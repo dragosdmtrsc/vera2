@@ -11,6 +11,9 @@ import scala.collection.mutable
 
 class TypeSolver(context: Context) {
   private val slv = context.mkSolver()
+  private val parms = context.mkParams()
+  parms.add("core.minimize", true)
+  slv.setParameters(parms)
 
   private val constraints = mutable.Map.empty[Expr, Boolean]
   private val constraintsToInit = mutable.Map.empty[Expr, (Object, Object)]
@@ -106,10 +109,10 @@ class TypeSolver(context: Context) {
       res = slv.docheck(assumptionsToCheck).get
       if (!res) {
         val unsatCore = slv.getUnsatCore
-        val weak = unsatCore.filter(!constraints(_))
+        val weak = unsatCore.headOption
         if (weak.nonEmpty) {
-          assumptionsToCheck = assumptionsToCheck.filter(!weak.contains(_))
-          removed = removed ++ weak
+          assumptionsToCheck = assumptionsToCheck.filter(_ != weak.get)
+          removed = removed + weak.get
         } else {
           val ucString = unsatCore
             .map(constraintsToInit)

@@ -56,18 +56,6 @@ header_type mplb_ipopt_t {
         ts : 32;
     }
 }
-header_type hash_metadata_t {
-    fields {
-        mplb_hash : 32;
-        mplb_hash_modulo : 32;
-        recirculate_flag : 8;
-    }
-}
-header_type routing_metadata_t {
-    fields {
-        nhop_ipv4 : 32;
-    }
-}
 parser start {
     return parse_ethernet;
 }
@@ -181,6 +169,18 @@ parser parse_ipv4 {
 action _drop() {
     drop();
 }
+header_type hash_metadata_t {
+    fields {
+        mplb_hash : 32;
+        mplb_hash_modulo : 32;
+        recirculate_flag : 8;
+    }
+}
+header_type routing_metadata_t {
+    fields {
+        nhop_ipv4 : 32;
+    }
+}
 metadata routing_metadata_t routing_metadata;
 metadata hash_metadata_t hash_metadata;
 action set_nhop(nhop_ipv4, port) {
@@ -234,20 +234,6 @@ action set_dst(dst, pdip, ts) {
     modify_field(ipv4.srcAddr, ipv4.dstAddr);
     modify_field(ipv4.dstAddr, dst);
 }
-action calc_modulo() {
-    modify_field(hash_metadata.mplb_hash_modulo, hash_metadata.mplb_hash %
-    1000);
-}
-action set_dmac(dmac) {
-    modify_field(ethernet.dstAddr, dmac);
-}
-action _recirculate() {
-    modify_field(standard_metadata.egress_port, standard_metadata.ingress_port);
-    recirculate(recirc_FL);
-}
-action rewrite_mac(smac) {
-    modify_field(ethernet.srcAddr, smac);
-}
 table mplb_port {
     reads {
         tcp.dstPort : exact;
@@ -287,6 +273,15 @@ table ipv4_lpm {
     }
     size: 1024;
 }
+action calc_modulo() {
+    modify_field_with_hash_based_offset(hash_metadata.mplb_hash_modulo,
+    0,
+    mplb_hash_calculation,
+    1000);
+}
+action set_dmac(dmac) {
+    modify_field(ethernet.dstAddr, dmac);
+}
 table recirc {
     reads {
         ipv4.srcAddr : exact;
@@ -305,6 +300,13 @@ table forward {
         _drop;
     }
     size: 512;
+}
+action _recirculate() {
+    modify_field(standard_metadata.egress_port, standard_metadata.ingress_port);
+    recirculate(recirc_FL);
+}
+action rewrite_mac(smac) {
+    modify_field(ethernet.srcAddr, smac);
 }
 table send_frame {
     reads {
