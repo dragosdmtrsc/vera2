@@ -93,7 +93,7 @@ class TableConstraintBuilder(switch: Switch,
                 case Masked(a, b) =>
                   (x2 & x2.int(b)) === (x2.int(a) & x2.int(b))
                 case Prefix(a, b) =>
-                  val msk = x2.int(1) << x2.int(b) - x2.int(1)
+                  val msk = (x2.int(1) << x2.int(b)) - x2.int(1)
                   (x2 & msk) === (x2.int(a) & msk)
                 case Exact(a) =>
                   x2 === x2.int(a)

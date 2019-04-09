@@ -524,10 +524,15 @@ header ethernet_t ethernet;
 parser parse_ethernet {
     extract(ethernet);
     return select(latest.etherType) {
-        0 mask 0xfe00: parse_llc_header;
-        0 mask 0xfa00: parse_llc_header;
         0x9000 : parse_fabric_header;
-        0x8100 : parse_vlan; 0x9100 : parse_qinq; 0x8847 : parse_mpls; 0x0800 : parse_ipv4; 0x86dd : parse_ipv6; 0x0806 : parse_arp_rarp; 0x88cc : parse_set_prio_high; 0x8809 : parse_set_prio_high; default: ingress;
+        0x8100 : parse_vlan;
+        0x9100 : parse_qinq;
+        0x8847 : parse_mpls;
+        0x0800 : parse_ipv4;
+        0x86dd : parse_ipv6;
+        0x0806 : parse_arp_rarp;
+        0x88cc : parse_set_prio_high;
+        0x8809 : parse_set_prio_high; default: ingress;
     }
 }
 header llc_header_t llc_header;

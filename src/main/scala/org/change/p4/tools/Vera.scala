@@ -180,7 +180,11 @@ object Vera {
             } else {
               val pack = evaluator.eval(input.packet().contents()).get
               val packlen =
-                evaluator.eval(input.packet().packetLength()).get.toInt.get.toInt
+                evaluator.eval(input.packet().packetLength())
+                  .get
+                  .toInt
+                  .get
+                  .toInt
               val inputPort = evaluator
                 .eval(input.standardMetadata().field("ingress_port"))
                 .get
@@ -209,7 +213,8 @@ object Vera {
               System.out.println("should come out on port " + egressPort)
               System.out.println("and look like:")
               System.out.println(
-                PacketLinearize.linearize(expectation.as[AbsValueWrapper].value,
+                PacketLinearize.linearize(
+                  expectation.as[AbsValueWrapper].value,
                   expectationlen,
                   context)
               )

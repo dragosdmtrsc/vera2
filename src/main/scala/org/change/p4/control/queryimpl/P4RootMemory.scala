@@ -94,9 +94,17 @@ case class P4RootMemory(override val switch: Switch, rootMemory: RootMemory)
       case StructObject(_, fieldRefs) => fieldRefs.keys
     }
 
+    def mapPacketIndex(index : Int, len : Int): Int = {
+      len - 1 - index
+    }
     // packet mapper
     override def apply(from: P4Query, to: P4Query): P4Query = {
-      field("pack").extract(from, from + to - to.int(1))
+      val thePack = field("pack")
+      val packlen = thePack.len().nr.toInt
+      val startint = mapPacketIndex(from.toInt.get.toInt, packlen)
+      val endint = mapPacketIndex(from.toInt.get.toInt +
+        to.toInt.get.toInt - 1, packlen)
+      thePack.extract(endint, startint)
     }
 
     override def contents(): P4Query = {
@@ -110,7 +118,10 @@ case class P4RootMemory(override val switch: Switch, rootMemory: RootMemory)
     def extract(from : P4Query, to : P4Query) : P4Query = {
       val f = from.as[AbsValueWrapper].toInt.get.toInt
       val t = to.as[AbsValueWrapper].toInt.get.toInt
-      rv(rootMemory.mkExtract(value, f, t))
+      extract(f, t)
+    }
+    def extract(from : Int, to : Int) : P4Query = {
+      rv(rootMemory.mkExtract(value, from, to))
     }
 
     override def pop(what: P4Query): PacketQuery = {
@@ -120,7 +131,7 @@ case class P4RootMemory(override val switch: Switch, rootMemory: RootMemory)
       rv(StructObject(
         PacketKind(switch),
         Map(
-          "pack" -> (field("pack") >> extended).as[AbsValueWrapper].value,
+          "pack" -> (field("pack") << extended).as[AbsValueWrapper].value,
           "len" -> (field("len") - field("len").int(asint)).as[AbsValueWrapper].value
         )
       ))
@@ -129,14 +140,22 @@ case class P4RootMemory(override val switch: Switch, rootMemory: RootMemory)
       val n = what.len().toInt.get
       val pack = value.ofType.asInstanceOf[PacketKind].maxLen
       val extended = int(n, BVType(pack))
+      val thepack = field("pack")
+      val shifted = thepack >> extended
+      val packlen = thepack.len().nr.toInt
+      val whatExtend = extend(what, packlen)
+      val wentLeft = whatExtend << whatExtend.int(packlen - n)
       rv(StructObject(
         PacketKind(switch),
         Map(
-          "pack" -> ((field("pack") << extended) |
-            rv(rootMemory.mkExtend(what.as[AbsValueWrapper].value, pack))).as[AbsValueWrapper].value,
+          "pack" -> (shifted | wentLeft).as[AbsValueWrapper].value,
           "len" -> (field("len") + field("len").int(n)).as[AbsValueWrapper].value
         )
       ))
+    }
+    def extend(r : P4Query, to : Int) : P4Query = {
+      val vtoextend = r.as[AbsValueWrapper].value
+      rv(rootMemory.mkExtend(vtoextend, to))
     }
     // table query handlers
     override def isDefault: P4Query = {
