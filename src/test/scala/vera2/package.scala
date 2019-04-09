@@ -12,6 +12,11 @@ package object vera2 {
     "inputs/test-cases/resubmit/resubmit-ppc.p4",
     "inputs/test-cases/big-switch/switch-ppc.p4",
     "inputs/test-cases/mTag-aggregation/mtag-aggregation-ppc.p4",
-    "inputs/test-cases/mTag-edge/mtag-edge-ppc.p4"
+    "inputs/test-cases/mTag-edge/mtag-edge-ppc.p4",
+    "inputs/test-cases/dapper/rinc-ppc.p4"
+  )
+  val bigboys = List(
+    "inputs/test-cases/dapper/rinc-ppc.p4",
+    "inputs/test-cases/big-switch/switch-ppc.p4"
   )
 }

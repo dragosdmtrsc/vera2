@@ -425,7 +425,7 @@ class QueryDrivenSemantics[T <: P4Memory](switch: Switch)
   def analyze(action: ShiftRight,
               params: List[P4Query],
               stackTrace: List[P4Action])(implicit ctx: P4Memory): P4Memory =
-    ???
+    ctx.update(params.head, params(1) >> params(2))
 
   def analyze(action: Subtract,
               params: List[P4Query],

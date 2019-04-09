@@ -1,7 +1,7 @@
 package org.change.p4.control
 
 import org.change.p4.model.Switch
-import org.change.p4.model.control.exp.{FieldRefExpr, LiteralExpr, P4Expr}
+import org.change.p4.model.control.exp.{DataRefExpr, FieldRefExpr, LiteralExpr, P4Expr}
 import org.change.p4.model.parser.CaseEntry
 
 import scala.collection.JavaConverters._
@@ -14,6 +14,13 @@ class SplitCaseEntries(switch: Switch) extends ASTVisitor {
     caseEntry.getBVExpressions.asScala.reverse.foreach {
       case fieldRefExpr: FieldRefExpr =>
         val len = fieldRefExpr.getFieldRef.getFieldReference.getLength
+        val bigLen = BigInt(len)
+        val nr = ((BigInt(1) << len) - 1) & currentNumber
+        val newlit = new LiteralExpr(nr, len)
+        currentNumber = currentNumber >> len
+        listOfNumbers = newlit :: listOfNumbers
+      case dataRefExpr: DataRefExpr =>
+        val len = dataRefExpr.getDataRef.getEnd.toInt
         val bigLen = BigInt(len)
         val nr = ((BigInt(1) << len) - 1) & currentNumber
         val newlit = new LiteralExpr(nr, len)
