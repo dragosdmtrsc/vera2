@@ -113,6 +113,10 @@ table send_frame {
 }
 control ingress {
     apply(ipv4_lpm);
+    if(valid(ipv4) and ipv4.ttl > 0) {
+        apply(forward);
+    }
 }
 control egress {
+    apply(send_frame);
 }

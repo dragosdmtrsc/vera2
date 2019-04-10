@@ -36,6 +36,8 @@ object Vera {
             [--allowed-ports <regex>]? - a regular expression which filters out the allowed
             port numbers for egress_port and ingress_port
             [--commands <file>]* - commands.txt files used to bug check or validate Vera with
+            [--z3-verbose] - sets z3 verbose output (default:false)
+            [--limit] - sets max bugs to iterate (default:50)
             p4file
   """
 
@@ -74,6 +76,10 @@ object Vera {
   def main(args: Array[String]) {
     def parse(argList: List[String], vera: VeraArgs): (List[String], VeraArgs) =
       argList match {
+        case "--limit" :: h :: tl =>
+          parse(tl, vera.copy(maxBugs = h.toInt))
+        case "--z3-verbose" :: tl =>
+          parse(tl, vera.copy(z3Verbose = true))
         case "--print-solver" :: tl =>
           parse(tl, vera.copy(printSolver = true))
         case "--validate" :: tl =>

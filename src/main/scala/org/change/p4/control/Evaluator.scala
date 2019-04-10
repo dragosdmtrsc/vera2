@@ -69,6 +69,7 @@ abstract class Evaluator {
         break = true
       } else {
         nscopes = nscopes + 1
+        isDirty = true
         solver.push()
         solver.assertCnstr(append.get)
       }
